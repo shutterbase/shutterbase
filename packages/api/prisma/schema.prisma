@@ -1,0 +1,29 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Image {
+  id          String @id @default(cuid())
+  name        String
+  width       Int
+  height      Int
+
+  createdAt   DateTime @default(now())
+  modifiedAt  DateTime @default(now())
+  createdBy   String
+  modifiedBy  String
+}
+
+model User {
+  id          String @id @default(cuid())
+  
+  name        String
+  email       String
+  password    String
+
+  createdAt   DateTime @default(now())
+  modifiedAt  DateTime @default(now())
+  createdBy   String
+  modifiedBy  String
+}
