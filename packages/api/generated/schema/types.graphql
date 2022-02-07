@@ -1,0 +1,111 @@
+scalar DateTime
+
+enum SortDirection {
+"""Ascending"""
+ASC
+"""Descending"""
+DESC
+}
+
+
+type Picture {
+    id: String!
+    key: String!
+    name: String!
+    width: Int!
+    height: Int!
+    fileFormat: String!
+    size: Int!
+    rating: Int!
+    fileName: String!
+    originalFileName: String!
+    viwes: Int!
+    exif: Json!
+    userId: String!
+    user: User!
+    tags(limit: Int! = 100, offset: Int! = 0, search: String, filter: PictureTagsFilterInput): [PictureTag!]!
+    preview: PicturePreview!
+    previewId: String!
+    profilePictureUser: User
+    collections(limit: Int! = 100, offset: Int! = 0, search: String): [Collection!]!
+    createdBy: String!
+    createdDate: DateTime!
+    modifiedBy: String!
+    modifiedDate: DateTime!
+}
+
+
+type PicturePreview {
+    id: String!
+    picture: Picture
+    key: String!
+}
+
+
+type PictureTag {
+    id: String!
+    name: String!
+    description: String!
+    pictures(limit: Int! = 100, offset: Int! = 0, search: String, filter: PicturesFilterInput, sort: PicturesSortInput): [Picture!]!
+    createdBy: String!
+    createdDate: DateTime!
+    modifiedBy: String!
+    modifiedDate: DateTime!
+}
+
+
+type Collection {
+    id: String!
+    name: String!
+    description: String!
+    pictures(limit: Int! = 100, offset: Int! = 0, search: String, filter: PicturesFilterInput, sort: PicturesSortInput): [Picture!]!
+    createdBy: String!
+    createdDate: DateTime!
+    modifiedBy: String!
+    modifiedDate: DateTime!
+}
+
+
+type User {
+    id: String!
+    firstName: String!
+    lastName: String!
+    email: String!
+    bio: String!
+    profilePictureId: String
+    profilePicture: Picture
+    pictures(limit: Int! = 100, offset: Int! = 0, search: String, filter: PicturesFilterInput, sort: PicturesSortInput): [Picture!]!
+    createdAt: DateTime!
+    modifiedAt: DateTime!
+    createdBy: String!
+    modifiedBy: String!
+}
+
+
+
+
+type PicturesPayload {
+    total: Int!
+    pictures: [Picture!]!
+}
+
+type PicturePreviewsPayload {
+    total: Int!
+    picturePreviews: [PicturePreview!]!
+}
+
+type PictureTagsPayload {
+    total: Int!
+    pictureTags: [PictureTag!]!
+}
+
+type CollectionsPayload {
+    total: Int!
+    collections: [Collection!]!
+}
+
+type UsersPayload {
+    total: Int!
+    users: [User!]!
+}
+

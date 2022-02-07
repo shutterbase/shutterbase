@@ -1,17 +1,21 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "pwa-node",
-            "request": "launch",
-            "name": "Launch Program",
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "program": "${workspaceFolder}\\sandbox.js",
-            "outFiles": [
-                "${workspaceFolder}/**/*.js"
-            ]
-        }
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Prisma2GQL",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
+
+      "args": ["${workspaceFolder}\\packages\\api\\codegen\\prisma2graphql.ts", "${workspaceFolder}\\packages\\api\\prisma\\schema.prisma", "${workspaceFolder}\\packages\\api\\generated"],
+      
+      "cwd": "${workspaceRoot}",
+      "internalConsoleOptions": "openOnSessionStart",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"]
+    }
+  ]
 }

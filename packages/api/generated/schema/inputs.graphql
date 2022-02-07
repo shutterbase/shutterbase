@@ -1,0 +1,156 @@
+input DateRange {
+    lte: DateTime
+    gte: DateTime
+}
+
+input IntRange {
+    lte: Int
+    gte: Int
+}
+
+input FloatRange {
+    lte: Float
+    gte: Float
+}
+
+
+input PicturesFilterInput {
+    name: String
+    width: Int
+    widthRange: IntRange
+    height: Int
+    heightRange: IntRange
+    fileFormat: String
+    size: Int
+    sizeRange: IntRange
+    rating: Int
+    ratingRange: IntRange
+    fileName: String
+    originalFileName: String
+    tags: PictureTag
+    createdBy: String
+    createdDate: DateTime
+    createdDateRange: DateRange
+    modifiedBy: String
+    modifiedDate: DateTime
+    modifiedDateRange: DateRange
+
+}
+input PicturesSortInput {
+    width: SortDirection
+    height: SortDirection
+    size: SortDirection
+    rating: SortDirection
+    fileName: SortDirection
+    originalFileName: SortDirection
+    viwes: SortDirection
+}
+
+input PictureEditInput {
+    key: String
+    name: String
+    width: Int
+    height: Int
+    fileFormat: String
+    size: Int
+    rating: Int
+    fileName: String
+    originalFileName: String
+    viwes: Int
+    exif: Json
+    userId: String
+    user: Int
+    tags: [Int!]
+    preview: Int
+    previewId: String
+    profilePictureUser: Int
+    collections: [Int!]
+}
+
+input PictureCreateInput {
+    key: String!
+    name: String!
+    width: Int!
+    height: Int!
+    fileFormat: String!
+    size: Int!
+    rating: Int!
+    fileName: String!
+    originalFileName: String!
+    viwes: Int!
+    exif: Json!
+    userId: String!
+    user: Int
+    tags: [Int!]
+    preview: Int
+    previewId: String!
+    profilePictureUser: Int
+    collections: [Int!]
+}
+
+
+input PicturePreviewEditInput {
+    picture: Int
+    key: String
+}
+
+input PicturePreviewCreateInput {
+    picture: Int
+    key: String!
+}
+
+input PictureTagsFilterInput {
+    name: String
+
+}
+
+input PictureTagEditInput {
+    name: String
+    description: String
+    pictures: [Int!]
+}
+
+input PictureTagCreateInput {
+    name: String!
+    description: String!
+    pictures: [Int!]
+}
+
+
+input CollectionEditInput {
+    name: String
+    description: String
+    pictures: [Int!]
+}
+
+input CollectionCreateInput {
+    name: String!
+    description: String!
+    pictures: [Int!]
+}
+
+
+input UserEditInput {
+    firstName: String
+    lastName: String
+    email: String
+    bio: String
+    profilePictureId: String
+    profilePicture: Int
+    pictures: [Int!]
+    createdAt: DateTime
+    modifiedAt: DateTime
+}
+
+input UserCreateInput {
+    firstName: String!
+    lastName: String!
+    email: String!
+    bio: String!
+    profilePictureId: String
+    profilePicture: Int
+    pictures: [Int!]
+    createdAt: DateTime!
+    modifiedAt: DateTime!
+}
+

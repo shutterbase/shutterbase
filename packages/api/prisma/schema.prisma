@@ -3,27 +3,109 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Image {
-  id          String @id @default(cuid())
-  name        String
-  width       Int
-  height      Int
-
-  createdAt   DateTime @default(now())
-  modifiedAt  DateTime @default(now())
-  createdBy   String
-  modifiedBy  String
+generator client {
+  provider = "prisma-client-js"
 }
 
-model User {
-  id          String @id @default(cuid())
-  
-  name        String
-  email       String
-  password    String
+// @create({"auth": true, "groups": ["picture_creator"]}) @read({"auth": false}) @update({"auth": true, "groups": ["self", "picture_manager"]}) @delete({"auth": true, "groups": ["self", "picture_manager"]})
+model Picture {
+  id               String @id @default(uuid())
+  key              String @unique
+  // @search @filter
+  name             String
+  // @search @filter @sort
+  width            Int
+  // @search @filter @sort
+  height           Int
+  // @search @filter
+  fileFormat       String
+  // @search @filter @sort
+  size             Int
+  // @search @filter @sort
+  rating           Int
+  // @search @filter @sort
+  fileName         String
+  // @search @filter @sort
+  originalFileName String
+  // @sort
+  viwes            Int    @default(0)
 
-  createdAt   DateTime @default(now())
-  modifiedAt  DateTime @default(now())
-  createdBy   String
-  modifiedBy  String
+  exif Json
+
+  userId String
+  user   User   @relation(name: "UserPictures", fields: [userId], references: [id])
+
+  // @filter
+  tags               PictureTag[]
+  preview            PicturePreview @relation(fields: [previewId], references: [id])
+  previewId          String         @unique
+  profilePictureUser User?          @relation(name: "ProfilePicture")
+  collections        Collection[]   @relation(name: "PictureCollection")
+
+  // @filter
+  createdBy    String
+  // @filter
+  createdDate  DateTime @default(now())
+  // @filter
+  modifiedBy   String
+  // @filter
+  modifiedDate DateTime @default(now())
+}
+
+// @read({"auth": false})
+model PicturePreview {
+  id      String   @id @default(uuid())
+  picture Picture?
+  key     String   @unique
+}
+
+// @create({"auth": true, "groups": ["picture_tag_manager"]}) @read({"auth": false}) @update({"auth": true, "groups": ["picture_tag_manager"]}) @delete({"auth": true, "groups": ["picture_tag_manager"]})
+model PictureTag {
+  id          String    @id @default(uuid())
+  // @search @filter
+  name        String    @unique
+  // @search
+  description String
+  pictures    Picture[]
+
+  createdBy    String
+  createdDate  DateTime @default(now())
+  modifiedBy   String
+  modifiedDate DateTime @default(now())
+}
+
+// @create({"auth": true}) @read({"auth": false}) @update({"auth": true, "groups": ["self", "collection_manager"]}) @delete({"auth": true, "groups": ["collection_manager"]})
+model Collection {
+  id          String    @id @default(uuid())
+  // @search
+  name        String    @unique
+  // @search
+  description String
+  pictures    Picture[] @relation(name: "PictureCollection")
+
+  createdBy    String
+  createdDate  DateTime @default(now())
+  modifiedBy   String
+  modifiedDate DateTime @default(now())
+}
+
+// @read({"auth": false}) @update({"auth": true, "groups": ["self", "user_manager"]}) @delete({"auth": true, "groups": ["self", "user_manager"]})
+model User {
+  id String @id
+
+  firstName String
+  lastName  String
+  email     String @unique
+
+  bio String
+
+  profilePictureId String?  @unique
+  profilePicture   Picture? @relation(name: "ProfilePicture", fields: [profilePictureId], references: [id])
+
+  pictures Picture[] @relation(name: "UserPictures")
+
+  createdAt  DateTime @default(now())
+  modifiedAt DateTime @default(now())
+  createdBy  String
+  modifiedBy String
 }
