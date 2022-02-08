@@ -10,8 +10,21 @@
       "request": "launch",
       "runtimeExecutable": "node",
       "runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
-
+      "outputCapture": "std",
       "args": ["${workspaceFolder}\\packages\\api\\codegen\\prisma2graphql.ts", "${workspaceFolder}\\packages\\api\\prisma\\schema.prisma", "${workspaceFolder}\\packages\\api\\generated"],
+      
+      "cwd": "${workspaceRoot}",
+      "internalConsoleOptions": "openOnSessionStart",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"]
+    },
+    {
+      "name": "API DEV",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--nolazy", "-r", "ts-node/register/transpile-only"],
+      "outputCapture": "std",
+      "args": ["${workspaceFolder}\\packages\\api\\src\\index.ts"],
       
       "cwd": "${workspaceRoot}",
       "internalConsoleOptions": "openOnSessionStart",

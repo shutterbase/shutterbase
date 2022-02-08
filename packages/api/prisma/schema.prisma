@@ -29,7 +29,8 @@ model Picture {
   originalFileName String
   // @sort
   viwes            Int    @default(0)
-
+  
+  // @private
   exif Json
 
   userId String

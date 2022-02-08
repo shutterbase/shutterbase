@@ -1,4 +1,4 @@
-import { IResolvers } from 'graphql-tools';
+import { IResolvers } from '@graphql-tools/utils';
 import {getPicture, getPictures, createPicture, editPicture, deletePicture, getUserForPicture, getTagsForPicture, getPreviewForPicture, getProfilePictureUserForPicture, getCollectionsForPicture, } from "./PictureController";
 import {getPicturePreview, getPicturePreviews, getPictureForPicturePreview, } from "./PicturePreviewController";
 import {getPictureTag, getPictureTags, createPictureTag, editPictureTag, deletePictureTag, getPicturesForPictureTag, } from "./PictureTagController";
