@@ -1,8 +1,0 @@
-{
-  "name": "@shutterbase/api",
-  "version": "0.0.1",
-  "type": "commonjs",
-  "dependencies": {
-    "@prisma/client": "^3.9.1"
-  }
-}

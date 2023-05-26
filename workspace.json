@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "projects": {
-    "api": "packages/api",
-    "web": "packages/web",
-    "web-e2e": "packages/web-e2e"
-  }
-}
