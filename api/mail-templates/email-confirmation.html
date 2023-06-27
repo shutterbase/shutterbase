@@ -1,0 +1,15 @@
+<html>
+  <head>
+    <title>{{ .Subject }}</title>
+  </head>
+  <body>
+    <h1>{{ .Subject }}</h1>
+    <p>
+      Hallo <b>{{ .User.FirstName }} {{ .User.LastName }}</b>,
+      <br />
+      bitte bestätigen Sie Ihre E-Mail-Adresse, indem Sie auf den folgenden Link
+      klicken:
+      <a href="{{ .ConfirmationLink }}"> Email bestätigen</a>
+    </p>
+  </body>
+</html>
