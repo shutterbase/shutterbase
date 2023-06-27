@@ -19,7 +19,7 @@ func registerHealthController(router *gin.Engine) {
 }
 
 func getHealthController(c *gin.Context) {
-	allowed, err := authorization.IsAllowed(c, HEALTH_RESOURCE, authorization.READ, "")
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(HEALTH_RESOURCE).Action(authorization.READ))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to health denied")
 		api_error.FORBIDDEN.Send(c)

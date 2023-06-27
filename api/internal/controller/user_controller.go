@@ -53,8 +53,7 @@ func getOwnUserController(c *gin.Context) {
 	log.Trace().Msg("own user info is being requested")
 	ctx := c.Request.Context()
 	userContext := authorization.GetUserContextFromGinContext(c)
-
-	allowed, err := authorization.IsAllowed(c, USERS_RESOURCE+"/me", authorization.READ, userContext.User.ID.String())
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/me").Action(authorization.READ).OwnerId(userContext.User.ID))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to own user denied")
 		api_error.FORBIDDEN.Send(c)
@@ -76,7 +75,7 @@ func getOwnUserController(c *gin.Context) {
 func getUsersController(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	allowed, err := authorization.IsAllowed(c, USERS_RESOURCE, authorization.READ, "")
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE).Action(authorization.READ))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
@@ -103,7 +102,7 @@ func getUserController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, USERS_RESOURCE+"/:id", authorization.READ, id.String())
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id").Action(authorization.READ).OwnerId(id))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
@@ -133,7 +132,7 @@ func updateUserController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, USERS_RESOURCE+"/:id", authorization.UPDATE, id.String())
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id").Action(authorization.UPDATE).OwnerId(id))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
@@ -165,13 +164,11 @@ func updateUserController(c *gin.Context) {
 		query.SetLastName(*body.LastName)
 	}
 
-	// TODO: implement authorization
-	if body.Active != nil { // && authorizationContext.IsAdmin {
+	if body.Active != nil && authorization.IsAdmin(c) {
 		query.SetActive(*body.Active)
 	}
 
-	// TODO: implement authorization
-	if body.EmailValidated != nil { // && authorizationContext.IsAdmin {
+	if body.EmailValidated != nil && authorization.IsAdmin(c) {
 		query.SetEmailValidated(*body.EmailValidated)
 	}
 
@@ -207,7 +204,7 @@ func updateUserRoleController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, USERS_RESOURCE+"/:id/role", authorization.UPDATE, id.String())
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id/role").Action(authorization.UPDATE).OwnerId(id))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
@@ -268,7 +265,7 @@ func deleteUserController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, USERS_RESOURCE+"/:id", authorization.DELETE, id.String())
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id").Action(authorization.DELETE).OwnerId(id))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)

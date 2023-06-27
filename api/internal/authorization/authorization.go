@@ -2,6 +2,7 @@ package authorization
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/ory/ladon"
 	manager "github.com/ory/ladon/manager/memory"
 	"github.com/rs/zerolog/log"
@@ -61,7 +62,7 @@ var policies = []*ladon.DefaultPolicy{
 		Resources:   []string{"/users/me", "/users/:id"},
 		Actions:     RUD.GetItems(),
 		Conditions: ladon.Conditions{
-			"resourceId": &OwnUserIdCondition{},
+			"ownerId": &OwnerIdCondition{},
 		},
 		Effect: ladon.AllowAccess,
 	},
@@ -77,9 +78,6 @@ type UserContext struct {
 var warden *ladon.Ladon
 
 func Init() error {
-	// ladon.ConditionFactories[new(OwnUserIdCondition).GetName()] = func() OwnUserIdCondition {
-	// 	return new(OwnUserIdCondition)
-	// }
 	warden = &ladon.Ladon{
 		Manager: manager.NewMemoryManager(),
 	}
@@ -92,22 +90,65 @@ func Init() error {
 	return nil
 }
 
-func IsAllowed(ginContext *gin.Context, resource string, action Action, resourceId string) (bool, error) {
-	userContext := GetUserContextFromGinContext(ginContext)
+type AuthCheckOptions struct {
+	resource  string
+	action    Action
+	ownerId   *string
+	projectId *string
+}
+
+func AuthCheckOption() *AuthCheckOptions {
+	return &AuthCheckOptions{}
+}
+
+func (options *AuthCheckOptions) Resource(resource string) *AuthCheckOptions {
+	options.resource = resource
+	return options
+}
+
+func (options *AuthCheckOptions) Action(action Action) *AuthCheckOptions {
+	options.action = action
+	return options
+}
+
+func (options *AuthCheckOptions) OwnerId(ownerId uuid.UUID) *AuthCheckOptions {
+	s := ownerId.String()
+	options.ownerId = &s
+	return options
+}
+
+func (options *AuthCheckOptions) ProjectId(projectId uuid.UUID) *AuthCheckOptions {
+	s := projectId.String()
+	options.projectId = &s
+	return options
+}
+
+func IsAllowed(c *gin.Context, options *AuthCheckOptions) (bool, error) {
+	userContext := GetUserContextFromGinContext(c)
 	ladonContext := ladon.Context{
 		"userContext": userContext,
-		"resourceId":  resourceId,
+	}
+	if options.ownerId != nil {
+		ladonContext["ownerId"] = *options.ownerId
+	}
+	if options.projectId != nil {
+		ladonContext["projectId"] = *options.projectId
 	}
 	err := warden.IsAllowed(&ladon.Request{
 		Subject:  userContext.Subject,
-		Resource: resource,
-		Action:   action.String(),
+		Resource: options.resource,
+		Action:   options.action.String(),
 		Context:  ladonContext,
 	})
 	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func IsAdmin(ginContext *gin.Context) bool {
+	userContext := GetUserContextFromGinContext(ginContext)
+	return userContext.Role.Key == "admin"
 }
 
 type ActionCombination string
@@ -189,17 +230,30 @@ func GetUserContextFromGinContext(c *gin.Context) *UserContext {
 	return contextValue.(*UserContext)
 }
 
-type OwnUserIdCondition struct {
-	Id string `json:"id"`
-}
+type OwnerIdCondition struct{}
 
-func (c *OwnUserIdCondition) Fulfills(value interface{}, req *ladon.Request) bool {
+func (c *OwnerIdCondition) Fulfills(value interface{}, req *ladon.Request) bool {
 	s, ok := value.(string)
 	userId := req.Context["userContext"].(*UserContext).User.ID.String()
 
 	return ok && s == userId
 }
 
-func (c *OwnUserIdCondition) GetName() string {
-	return "OwnUserIdCondition"
+func (c *OwnerIdCondition) GetName() string {
+	return "OwnerIdCondition"
+}
+
+type ProjectRoleCondition struct {
+	Role string `json:"role"`
+}
+
+func (c *ProjectRoleCondition) Fulfills(value interface{}, req *ladon.Request) bool {
+	userContext := req.Context["userContext"].(*UserContext)
+	projectId := req.Context["projectId"].(string)
+	role, ok := userContext.ProjectRoles[projectId]
+	return ok && role == c.Role
+}
+
+func (c *ProjectRoleCondition) GetName() string {
+	return "ProjectRoleCondition"
 }
