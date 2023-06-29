@@ -29,7 +29,9 @@ type UserQuery struct {
 	withRole               *RoleQuery
 	withProjectAssignments *ProjectAssignmentQuery
 	withImages             *ImageQuery
+	withCreatedUsers       *UserQuery
 	withCreatedBy          *UserQuery
+	withModifiedUsers      *UserQuery
 	withModifiedBy         *UserQuery
 	withFKs                bool
 	// intermediate query (i.e. traversal path).
@@ -134,6 +136,28 @@ func (uq *UserQuery) QueryImages() *ImageQuery {
 	return query
 }
 
+// QueryCreatedUsers chains the current query on the "created_users" edge.
+func (uq *UserQuery) QueryCreatedUsers() *UserQuery {
+	query := (&UserClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.CreatedUsersTable, user.CreatedUsersColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryCreatedBy chains the current query on the "created_by" edge.
 func (uq *UserQuery) QueryCreatedBy() *UserQuery {
 	query := (&UserClient{config: uq.config}).Query()
@@ -148,7 +172,29 @@ func (uq *UserQuery) QueryCreatedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, false, user.CreatedByTable, user.CreatedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.CreatedByTable, user.CreatedByColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryModifiedUsers chains the current query on the "modified_users" edge.
+func (uq *UserQuery) QueryModifiedUsers() *UserQuery {
+	query := (&UserClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.ModifiedUsersTable, user.ModifiedUsersColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
@@ -170,7 +216,7 @@ func (uq *UserQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, false, user.ModifiedByTable, user.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.ModifiedByTable, user.ModifiedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
@@ -373,7 +419,9 @@ func (uq *UserQuery) Clone() *UserQuery {
 		withRole:               uq.withRole.Clone(),
 		withProjectAssignments: uq.withProjectAssignments.Clone(),
 		withImages:             uq.withImages.Clone(),
+		withCreatedUsers:       uq.withCreatedUsers.Clone(),
 		withCreatedBy:          uq.withCreatedBy.Clone(),
+		withModifiedUsers:      uq.withModifiedUsers.Clone(),
 		withModifiedBy:         uq.withModifiedBy.Clone(),
 		// clone intermediate query.
 		sql:  uq.sql.Clone(),
@@ -414,6 +462,17 @@ func (uq *UserQuery) WithImages(opts ...func(*ImageQuery)) *UserQuery {
 	return uq
 }
 
+// WithCreatedUsers tells the query-builder to eager-load the nodes that are connected to
+// the "created_users" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithCreatedUsers(opts ...func(*UserQuery)) *UserQuery {
+	query := (&UserClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withCreatedUsers = query
+	return uq
+}
+
 // WithCreatedBy tells the query-builder to eager-load the nodes that are connected to
 // the "created_by" edge. The optional arguments are used to configure the query builder of the edge.
 func (uq *UserQuery) WithCreatedBy(opts ...func(*UserQuery)) *UserQuery {
@@ -422,6 +481,17 @@ func (uq *UserQuery) WithCreatedBy(opts ...func(*UserQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withCreatedBy = query
+	return uq
+}
+
+// WithModifiedUsers tells the query-builder to eager-load the nodes that are connected to
+// the "modified_users" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithModifiedUsers(opts ...func(*UserQuery)) *UserQuery {
+	query := (&UserClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withModifiedUsers = query
 	return uq
 }
 
@@ -515,11 +585,13 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		nodes       = []*User{}
 		withFKs     = uq.withFKs
 		_spec       = uq.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [7]bool{
 			uq.withRole != nil,
 			uq.withProjectAssignments != nil,
 			uq.withImages != nil,
+			uq.withCreatedUsers != nil,
 			uq.withCreatedBy != nil,
+			uq.withModifiedUsers != nil,
 			uq.withModifiedBy != nil,
 		}
 	)
@@ -569,9 +641,23 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			return nil, err
 		}
 	}
+	if query := uq.withCreatedUsers; query != nil {
+		if err := uq.loadCreatedUsers(ctx, query, nodes,
+			func(n *User) { n.Edges.CreatedUsers = []*User{} },
+			func(n *User, e *User) { n.Edges.CreatedUsers = append(n.Edges.CreatedUsers, e) }); err != nil {
+			return nil, err
+		}
+	}
 	if query := uq.withCreatedBy; query != nil {
 		if err := uq.loadCreatedBy(ctx, query, nodes, nil,
 			func(n *User, e *User) { n.Edges.CreatedBy = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withModifiedUsers; query != nil {
+		if err := uq.loadModifiedUsers(ctx, query, nodes,
+			func(n *User) { n.Edges.ModifiedUsers = []*User{} },
+			func(n *User, e *User) { n.Edges.ModifiedUsers = append(n.Edges.ModifiedUsers, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -678,6 +764,37 @@ func (uq *UserQuery) loadImages(ctx context.Context, query *ImageQuery, nodes []
 	}
 	return nil
 }
+func (uq *UserQuery) loadCreatedUsers(ctx context.Context, query *UserQuery, nodes []*User, init func(*User), assign func(*User, *User)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.User(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.CreatedUsersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.user_created_by
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "user_created_by" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_created_by" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 func (uq *UserQuery) loadCreatedBy(ctx context.Context, query *UserQuery, nodes []*User, init func(*User), assign func(*User, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*User)
@@ -707,6 +824,37 @@ func (uq *UserQuery) loadCreatedBy(ctx context.Context, query *UserQuery, nodes 
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (uq *UserQuery) loadModifiedUsers(ctx context.Context, query *UserQuery, nodes []*User, init func(*User), assign func(*User, *User)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.User(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.ModifiedUsersColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.user_modified_by
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "user_modified_by" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_modified_by" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

@@ -45,8 +45,12 @@ const (
 	EdgeProjectAssignments = "projectAssignments"
 	// EdgeImages holds the string denoting the images edge name in mutations.
 	EdgeImages = "images"
+	// EdgeCreatedUsers holds the string denoting the created_users edge name in mutations.
+	EdgeCreatedUsers = "created_users"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
 	EdgeCreatedBy = "created_by"
+	// EdgeModifiedUsers holds the string denoting the modified_users edge name in mutations.
+	EdgeModifiedUsers = "modified_users"
 	// EdgeModifiedBy holds the string denoting the modified_by edge name in mutations.
 	EdgeModifiedBy = "modified_by"
 	// Table holds the table name of the user in the database.
@@ -72,10 +76,18 @@ const (
 	ImagesInverseTable = "images"
 	// ImagesColumn is the table column denoting the images relation/edge.
 	ImagesColumn = "image_user"
+	// CreatedUsersTable is the table that holds the created_users relation/edge.
+	CreatedUsersTable = "users"
+	// CreatedUsersColumn is the table column denoting the created_users relation/edge.
+	CreatedUsersColumn = "user_created_by"
 	// CreatedByTable is the table that holds the created_by relation/edge.
 	CreatedByTable = "users"
 	// CreatedByColumn is the table column denoting the created_by relation/edge.
 	CreatedByColumn = "user_created_by"
+	// ModifiedUsersTable is the table that holds the modified_users relation/edge.
+	ModifiedUsersTable = "users"
+	// ModifiedUsersColumn is the table column denoting the modified_users relation/edge.
+	ModifiedUsersColumn = "user_modified_by"
 	// ModifiedByTable is the table that holds the modified_by relation/edge.
 	ModifiedByTable = "users"
 	// ModifiedByColumn is the table column denoting the modified_by relation/edge.
@@ -251,10 +263,38 @@ func ByImages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByCreatedUsersCount orders the results by created_users count.
+func ByCreatedUsersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCreatedUsersStep(), opts...)
+	}
+}
+
+// ByCreatedUsers orders the results by created_users terms.
+func ByCreatedUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCreatedUsersStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByCreatedByField orders the results by created_by field.
 func ByCreatedByField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newCreatedByStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByModifiedUsersCount orders the results by modified_users count.
+func ByModifiedUsersCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newModifiedUsersStep(), opts...)
+	}
+}
+
+// ByModifiedUsers orders the results by modified_users terms.
+func ByModifiedUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newModifiedUsersStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -285,17 +325,31 @@ func newImagesStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.O2M, true, ImagesTable, ImagesColumn),
 	)
 }
+func newCreatedUsersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, true, CreatedUsersTable, CreatedUsersColumn),
+	)
+}
 func newCreatedByStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(Table, FieldID),
-		sqlgraph.Edge(sqlgraph.O2O, false, CreatedByTable, CreatedByColumn),
+		sqlgraph.Edge(sqlgraph.M2O, false, CreatedByTable, CreatedByColumn),
+	)
+}
+func newModifiedUsersStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, true, ModifiedUsersTable, ModifiedUsersColumn),
 	)
 }
 func newModifiedByStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(Table, FieldID),
-		sqlgraph.Edge(sqlgraph.O2O, false, ModifiedByTable, ModifiedByColumn),
+		sqlgraph.Edge(sqlgraph.M2O, false, ModifiedByTable, ModifiedByColumn),
 	)
 }

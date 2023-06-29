@@ -5520,8 +5520,14 @@ type UserMutation struct {
 	images                    map[uuid.UUID]struct{}
 	removedimages             map[uuid.UUID]struct{}
 	clearedimages             bool
+	created_users             map[uuid.UUID]struct{}
+	removedcreated_users      map[uuid.UUID]struct{}
+	clearedcreated_users      bool
 	created_by                *uuid.UUID
 	clearedcreated_by         bool
+	modified_users            map[uuid.UUID]struct{}
+	removedmodified_users     map[uuid.UUID]struct{}
+	clearedmodified_users     bool
 	modified_by               *uuid.UUID
 	clearedmodified_by        bool
 	done                      bool
@@ -6212,6 +6218,60 @@ func (m *UserMutation) ResetImages() {
 	m.removedimages = nil
 }
 
+// AddCreatedUserIDs adds the "created_users" edge to the User entity by ids.
+func (m *UserMutation) AddCreatedUserIDs(ids ...uuid.UUID) {
+	if m.created_users == nil {
+		m.created_users = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.created_users[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCreatedUsers clears the "created_users" edge to the User entity.
+func (m *UserMutation) ClearCreatedUsers() {
+	m.clearedcreated_users = true
+}
+
+// CreatedUsersCleared reports if the "created_users" edge to the User entity was cleared.
+func (m *UserMutation) CreatedUsersCleared() bool {
+	return m.clearedcreated_users
+}
+
+// RemoveCreatedUserIDs removes the "created_users" edge to the User entity by IDs.
+func (m *UserMutation) RemoveCreatedUserIDs(ids ...uuid.UUID) {
+	if m.removedcreated_users == nil {
+		m.removedcreated_users = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.created_users, ids[i])
+		m.removedcreated_users[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCreatedUsers returns the removed IDs of the "created_users" edge to the User entity.
+func (m *UserMutation) RemovedCreatedUsersIDs() (ids []uuid.UUID) {
+	for id := range m.removedcreated_users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CreatedUsersIDs returns the "created_users" edge IDs in the mutation.
+func (m *UserMutation) CreatedUsersIDs() (ids []uuid.UUID) {
+	for id := range m.created_users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCreatedUsers resets all changes to the "created_users" edge.
+func (m *UserMutation) ResetCreatedUsers() {
+	m.created_users = nil
+	m.clearedcreated_users = false
+	m.removedcreated_users = nil
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by id.
 func (m *UserMutation) SetCreatedByID(id uuid.UUID) {
 	m.created_by = &id
@@ -6249,6 +6309,60 @@ func (m *UserMutation) CreatedByIDs() (ids []uuid.UUID) {
 func (m *UserMutation) ResetCreatedBy() {
 	m.created_by = nil
 	m.clearedcreated_by = false
+}
+
+// AddModifiedUserIDs adds the "modified_users" edge to the User entity by ids.
+func (m *UserMutation) AddModifiedUserIDs(ids ...uuid.UUID) {
+	if m.modified_users == nil {
+		m.modified_users = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.modified_users[ids[i]] = struct{}{}
+	}
+}
+
+// ClearModifiedUsers clears the "modified_users" edge to the User entity.
+func (m *UserMutation) ClearModifiedUsers() {
+	m.clearedmodified_users = true
+}
+
+// ModifiedUsersCleared reports if the "modified_users" edge to the User entity was cleared.
+func (m *UserMutation) ModifiedUsersCleared() bool {
+	return m.clearedmodified_users
+}
+
+// RemoveModifiedUserIDs removes the "modified_users" edge to the User entity by IDs.
+func (m *UserMutation) RemoveModifiedUserIDs(ids ...uuid.UUID) {
+	if m.removedmodified_users == nil {
+		m.removedmodified_users = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.modified_users, ids[i])
+		m.removedmodified_users[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedModifiedUsers returns the removed IDs of the "modified_users" edge to the User entity.
+func (m *UserMutation) RemovedModifiedUsersIDs() (ids []uuid.UUID) {
+	for id := range m.removedmodified_users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ModifiedUsersIDs returns the "modified_users" edge IDs in the mutation.
+func (m *UserMutation) ModifiedUsersIDs() (ids []uuid.UUID) {
+	for id := range m.modified_users {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetModifiedUsers resets all changes to the "modified_users" edge.
+func (m *UserMutation) ResetModifiedUsers() {
+	m.modified_users = nil
+	m.clearedmodified_users = false
+	m.removedmodified_users = nil
 }
 
 // SetModifiedByID sets the "modified_by" edge to the User entity by id.
@@ -6610,7 +6724,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 7)
 	if m.role != nil {
 		edges = append(edges, user.EdgeRole)
 	}
@@ -6620,8 +6734,14 @@ func (m *UserMutation) AddedEdges() []string {
 	if m.images != nil {
 		edges = append(edges, user.EdgeImages)
 	}
+	if m.created_users != nil {
+		edges = append(edges, user.EdgeCreatedUsers)
+	}
 	if m.created_by != nil {
 		edges = append(edges, user.EdgeCreatedBy)
+	}
+	if m.modified_users != nil {
+		edges = append(edges, user.EdgeModifiedUsers)
 	}
 	if m.modified_by != nil {
 		edges = append(edges, user.EdgeModifiedBy)
@@ -6649,10 +6769,22 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeCreatedUsers:
+		ids := make([]ent.Value, 0, len(m.created_users))
+		for id := range m.created_users {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeCreatedBy:
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
 		}
+	case user.EdgeModifiedUsers:
+		ids := make([]ent.Value, 0, len(m.modified_users))
+		for id := range m.modified_users {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeModifiedBy:
 		if id := m.modified_by; id != nil {
 			return []ent.Value{*id}
@@ -6663,12 +6795,18 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 7)
 	if m.removedprojectAssignments != nil {
 		edges = append(edges, user.EdgeProjectAssignments)
 	}
 	if m.removedimages != nil {
 		edges = append(edges, user.EdgeImages)
+	}
+	if m.removedcreated_users != nil {
+		edges = append(edges, user.EdgeCreatedUsers)
+	}
+	if m.removedmodified_users != nil {
+		edges = append(edges, user.EdgeModifiedUsers)
 	}
 	return edges
 }
@@ -6689,13 +6827,25 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeCreatedUsers:
+		ids := make([]ent.Value, 0, len(m.removedcreated_users))
+		for id := range m.removedcreated_users {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeModifiedUsers:
+		ids := make([]ent.Value, 0, len(m.removedmodified_users))
+		for id := range m.removedmodified_users {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 7)
 	if m.clearedrole {
 		edges = append(edges, user.EdgeRole)
 	}
@@ -6705,8 +6855,14 @@ func (m *UserMutation) ClearedEdges() []string {
 	if m.clearedimages {
 		edges = append(edges, user.EdgeImages)
 	}
+	if m.clearedcreated_users {
+		edges = append(edges, user.EdgeCreatedUsers)
+	}
 	if m.clearedcreated_by {
 		edges = append(edges, user.EdgeCreatedBy)
+	}
+	if m.clearedmodified_users {
+		edges = append(edges, user.EdgeModifiedUsers)
 	}
 	if m.clearedmodified_by {
 		edges = append(edges, user.EdgeModifiedBy)
@@ -6724,8 +6880,12 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedprojectAssignments
 	case user.EdgeImages:
 		return m.clearedimages
+	case user.EdgeCreatedUsers:
+		return m.clearedcreated_users
 	case user.EdgeCreatedBy:
 		return m.clearedcreated_by
+	case user.EdgeModifiedUsers:
+		return m.clearedmodified_users
 	case user.EdgeModifiedBy:
 		return m.clearedmodified_by
 	}
@@ -6762,8 +6922,14 @@ func (m *UserMutation) ResetEdge(name string) error {
 	case user.EdgeImages:
 		m.ResetImages()
 		return nil
+	case user.EdgeCreatedUsers:
+		m.ResetCreatedUsers()
+		return nil
 	case user.EdgeCreatedBy:
 		m.ResetCreatedBy()
+		return nil
+	case user.EdgeModifiedUsers:
+		m.ResetModifiedUsers()
 		return nil
 	case user.EdgeModifiedBy:
 		m.ResetModifiedBy()

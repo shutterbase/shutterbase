@@ -145,7 +145,7 @@ func registerNewUser(c *gin.Context) {
 		return
 	}
 
-	ctx, sendConfirmationEmailTrace := tracing.GetTracer().Start(ctx, "send_confirmation_email")
+	_, sendConfirmationEmailTrace := tracing.GetTracer().Start(ctx, "send_confirmation_email")
 	log.Trace().Str("email", email).Msg("Sending confirmation email to user")
 	err = mail.SendEmailConfirmation(user)
 	sendConfirmationEmailTrace.End()
@@ -211,7 +211,7 @@ func requestConfirmationEmail(c *gin.Context) {
 	}
 
 	log.Trace().Str("email", email).Msg("Sending confirmation email to user")
-	ctx, sendConfirmationEmailTrace := tracing.GetTracer().Start(ctx, "send_confirmation_email")
+	_, sendConfirmationEmailTrace := tracing.GetTracer().Start(ctx, "send_confirmation_email")
 	err = mail.SendEmailConfirmation(user)
 	sendConfirmationEmailTrace.End()
 	if err != nil {
@@ -266,7 +266,7 @@ func confirmUserEmail(c *gin.Context) {
 	}
 
 	log.Trace().Str("email", email).Msg("Updating user for email validation")
-	user, err = user.Update().
+	_, err = user.Update().
 		SetEmailValidated(true).
 		SetValidationKey(uuid.New()).
 		Save(ctx)
@@ -438,7 +438,7 @@ func requestPasswordReset(c *gin.Context) {
 		return
 	}
 
-	ctx, sendPasswordResetEmailTrace := tracing.GetTracer().Start(ctx, "send_password_reset_email")
+	_, sendPasswordResetEmailTrace := tracing.GetTracer().Start(ctx, "send_password_reset_email")
 	err = mail.SendPasswordResetEmail(user)
 	sendPasswordResetEmailTrace.End()
 	if err != nil {
@@ -514,7 +514,7 @@ func passwordReset(c *gin.Context) {
 
 	// generate a new password reset token to invalidate the old one
 	// set new user password
-	user, err = user.Update().
+	_, err = user.Update().
 		SetPasswordResetKey(uuid.New()).
 		SetPassword(hashedPassword).
 		Save(ctx)
@@ -564,7 +564,7 @@ func activateTestUser(c *gin.Context) {
 		return
 	}
 
-	user, err = user.Update().
+	_, err = user.Update().
 		SetActive(true).
 		SetEmailValidated(true).
 		Save(ctx)

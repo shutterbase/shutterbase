@@ -3,7 +3,6 @@ package controller
 import (
 	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,11 +17,12 @@ import (
 
 const USERS_RESOURCE = "/users"
 
-func registerUserController(router *gin.Engine) {
+func registerUsersController(router *gin.Engine) {
 	CONTEXT_PATH := config.Get().String("API_CONTEXT_PATH")
 
 	router.GET(fmt.Sprintf("%s%s/me", CONTEXT_PATH, USERS_RESOURCE), getOwnUserController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, USERS_RESOURCE), getUsersController)
+	router.GET(fmt.Sprintf("%s%s/minimal", CONTEXT_PATH, USERS_RESOURCE), getMinimalUsersController)
 	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, USERS_RESOURCE), getUserController)
 	router.PUT(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, USERS_RESOURCE), updateUserController)
 	router.PUT(fmt.Sprintf("%s%s/:id/role", CONTEXT_PATH, USERS_RESOURCE), updateUserRoleController)
@@ -53,7 +53,7 @@ func getOwnUserController(c *gin.Context) {
 	log.Trace().Msg("own user info is being requested")
 	ctx := c.Request.Context()
 	userContext := authorization.GetUserContextFromGinContext(c)
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/me").Action(authorization.READ).OwnerId(userContext.User.ID))
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ).OwnerId(userContext.User.ID))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to own user denied")
 		api_error.FORBIDDEN.Send(c)
@@ -62,20 +62,20 @@ func getOwnUserController(c *gin.Context) {
 
 	userEmail := userContext.User.Email
 	log.Trace().Str("email", userEmail).Msg("loading own user")
-	user, err := repository.GetUserByEmail(ctx, userEmail)
+	item, err := repository.GetUser(ctx, userContext.User.ID)
 	if err != nil {
 		log.Error().Str("email", userEmail).Err(err).Msg("loading own user failed")
-		c.JSON(500, gin.H{"error": "error_loading_user"})
+		api_error.INTERNAL.Send(c)
 		return
 	}
 	log.Trace().Str("email", userEmail).Msg("loading own user succeeded")
-	c.JSON(200, user)
+	c.JSON(200, item)
 }
 
 func getUsersController(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE).Action(authorization.READ))
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
@@ -84,45 +84,37 @@ func getUsersController(c *gin.Context) {
 
 	paginationParameters := getPaginationParameters(c)
 
-	users, total, err := repository.GetUsers(ctx, &paginationParameters)
+	items, total, err := repository.GetUsers(ctx, &paginationParameters)
 	if err != nil {
-		c.JSON(500, err)
+		log.Error().Err(err).Msg("failed to get list of users")
+		api_error.INTERNAL.Send(c)
 		return
 	}
-	c.JSON(200, gin.H{"items": users, "total": total})
+	c.JSON(200, gin.H{"items": items, "total": total})
 }
 
-func getUserController(c *gin.Context) {
+func getMinimalUsersController(c *gin.Context) {
 	ctx := c.Request.Context()
-	// userContext := authorization.GetUserContextFromGinContext(c)
 
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(400, err)
-		return
-	}
-
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id").Action(authorization.READ).OwnerId(id))
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
 		return
 	}
 
-	user, err := repository.GetUser(ctx, id)
+	paginationParameters := getPaginationParameters(c)
+
+	items, total, err := repository.GetMinimalUsers(ctx, &paginationParameters)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.Status(404)
-		} else {
-			c.JSON(500, err)
-		}
+		log.Error().Err(err).Msg("failed to get minimal list of users")
+		api_error.INTERNAL.Send(c)
 		return
 	}
-
-	c.JSON(200, user)
+	c.JSON(200, gin.H{"items": items, "total": total})
 }
 
-func updateUserController(c *gin.Context) {
+func getUserController(c *gin.Context) {
 	ctx := c.Request.Context()
 	// userContext := authorization.GetUserContextFromGinContext(c)
 
@@ -132,7 +124,38 @@ func updateUserController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id").Action(authorization.UPDATE).OwnerId(id))
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ).OwnerId(id))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to single user denied")
+		api_error.FORBIDDEN.Send(c)
+		return
+	}
+
+	item, err := repository.GetUser(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			api_error.NOT_FOUND.Send(c)
+		} else {
+			log.Error().Err(err).Msg("failed to get single user")
+			api_error.INTERNAL.Send(c)
+		}
+		return
+	}
+
+	c.JSON(200, item)
+}
+
+func updateUserController(c *gin.Context) {
+	ctx := c.Request.Context()
+	userContext := authorization.GetUserContextFromGinContext(c)
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.UPDATE).OwnerId(id))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
@@ -145,17 +168,18 @@ func updateUserController(c *gin.Context) {
 		return
 	}
 
-	user, err := repository.GetUser(ctx, id)
+	item, err := repository.GetUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
+			log.Error().Err(err).Msg("failed to get user for user update")
 			api_error.INTERNAL.Send(c)
 		}
 		return
 	}
 
-	query := user.Update()
+	query := item.Update()
 
 	if body.FirstName != nil {
 		query.SetFirstName(*body.FirstName)
@@ -164,34 +188,45 @@ func updateUserController(c *gin.Context) {
 		query.SetLastName(*body.LastName)
 	}
 
-	if body.Active != nil && authorization.IsAdmin(c) {
+	if body.Active != nil {
+		if !authorization.IsAdmin(c) {
+			log.Warn().Err(err).Msg("unauthorized access to update user.Active denied")
+			api_error.FORBIDDEN.Send(c)
+			return
+		}
 		query.SetActive(*body.Active)
 	}
 
-	if body.EmailValidated != nil && authorization.IsAdmin(c) {
+	if body.EmailValidated != nil {
+		if !authorization.IsAdmin(c) {
+			log.Warn().Err(err).Msg("unauthorized access to update user.EmailValidated denied")
+			api_error.FORBIDDEN.Send(c)
+			return
+		}
 		query.SetEmailValidated(*body.EmailValidated)
 	}
 
 	if body.Password != nil {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*body.Password), 8)
 		if err != nil {
-			log.Error().Err(err).Str("email", user.Email).Msg("Error hashing password")
-			log.Trace().Str("email", user.Email).Msg("Returning 'error_hash_password' code")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "error_hash_password"})
+			log.Error().Err(err).Str("email", item.Email).Msg("Error hashing password")
+			log.Trace().Str("email", item.Email).Msg("Returning 'error_hash_password' code")
+			api_error.INTERNAL.Send(c)
 			return
 		}
 		query.SetPassword(hashedPassword)
 	}
 
-	query.SetModifiedByID(id)
+	query.SetModifiedBy(userContext.User)
 
-	_, err = query.Save(ctx)
+	item, err = query.Save(ctx)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to save user for user update")
 		api_error.INTERNAL.Send(c)
 		return
 	}
 
-	api_error.OK.Send(c)
+	c.JSON(200, item)
 }
 
 func updateUserRoleController(c *gin.Context) {
@@ -204,7 +239,7 @@ func updateUserRoleController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id/role").Action(authorization.UPDATE).OwnerId(id))
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.UPDATE).OwnerId(id))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to users denied")
 		api_error.FORBIDDEN.Send(c)
@@ -217,17 +252,18 @@ func updateUserRoleController(c *gin.Context) {
 		return
 	}
 
-	user, err := repository.GetUser(ctx, id)
+	item, err := repository.GetUser(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
+			log.Error().Err(err).Msg("failed to get user for user's role update")
 			api_error.INTERNAL.Send(c)
 		}
 		return
 	}
 
-	query := user.Update()
+	query := item.Update()
 
 	roleId, err := uuid.Parse(body.Role)
 	if err != nil {
@@ -239,6 +275,7 @@ func updateUserRoleController(c *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
+			log.Error().Err(err).Msg("failed to get role for user's role update")
 			api_error.INTERNAL.Send(c)
 		}
 		return
@@ -247,13 +284,14 @@ func updateUserRoleController(c *gin.Context) {
 	query.SetRole(role)
 	query.SetModifiedByID(userContext.User.ID)
 
-	_, err = query.Save(ctx)
+	item, err = query.Save(ctx)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to save user for user's role update")
 		api_error.INTERNAL.Send(c)
 		return
 	}
 
-	api_error.OK.Send(c)
+	c.JSON(200, item)
 }
 
 func deleteUserController(c *gin.Context) {
@@ -265,9 +303,9 @@ func deleteUserController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(USERS_RESOURCE+"/:id").Action(authorization.DELETE).OwnerId(id))
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.DELETE).OwnerId(id))
 	if err != nil || !allowed {
-		log.Warn().Err(err).Msg("unauthorized access to users denied")
+		log.Warn().Err(err).Msg("unauthorized access to delete users denied")
 		api_error.FORBIDDEN.Send(c)
 		return
 	}
@@ -277,6 +315,7 @@ func deleteUserController(c *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
+			log.Error().Err(err).Msg("failed to delete user")
 			api_error.INTERNAL.Send(c)
 		}
 		return

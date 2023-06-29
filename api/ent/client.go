@@ -1686,6 +1686,22 @@ func (c *UserClient) QueryImages(u *User) *ImageQuery {
 	return query
 }
 
+// QueryCreatedUsers queries the created_users edge of a User.
+func (c *UserClient) QueryCreatedUsers(u *User) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.CreatedUsersTable, user.CreatedUsersColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryCreatedBy queries the created_by edge of a User.
 func (c *UserClient) QueryCreatedBy(u *User) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
@@ -1694,7 +1710,23 @@ func (c *UserClient) QueryCreatedBy(u *User) *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, false, user.CreatedByTable, user.CreatedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.CreatedByTable, user.CreatedByColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryModifiedUsers queries the modified_users edge of a User.
+func (c *UserClient) QueryModifiedUsers(u *User) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.ModifiedUsersTable, user.ModifiedUsersColumn),
 		)
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil
@@ -1710,7 +1742,7 @@ func (c *UserClient) QueryModifiedBy(u *User) *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, false, user.ModifiedByTable, user.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.ModifiedByTable, user.ModifiedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil

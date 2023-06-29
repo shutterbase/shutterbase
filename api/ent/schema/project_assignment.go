@@ -2,6 +2,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 )
 
@@ -21,10 +22,10 @@ func (ProjectAssignment) Mixin() []ent.Mixin {
 
 func (ProjectAssignment) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("user", User.Type).Unique().Required(),
-		edge.To("project", Project.Type).Unique().Required(),
+		edge.To("user", User.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("project", Project.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("role", Role.Type).Unique(),
-		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`),
-		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`),
+		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),
+		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),
 	}
 }

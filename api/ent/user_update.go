@@ -189,6 +189,21 @@ func (uu *UserUpdate) AddImages(i ...*Image) *UserUpdate {
 	return uu.AddImageIDs(ids...)
 }
 
+// AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
+func (uu *UserUpdate) AddCreatedUserIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.AddCreatedUserIDs(ids...)
+	return uu
+}
+
+// AddCreatedUsers adds the "created_users" edges to the User entity.
+func (uu *UserUpdate) AddCreatedUsers(u ...*User) *UserUpdate {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uu.AddCreatedUserIDs(ids...)
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
 func (uu *UserUpdate) SetCreatedByID(id uuid.UUID) *UserUpdate {
 	uu.mutation.SetCreatedByID(id)
@@ -206,6 +221,21 @@ func (uu *UserUpdate) SetNillableCreatedByID(id *uuid.UUID) *UserUpdate {
 // SetCreatedBy sets the "created_by" edge to the User entity.
 func (uu *UserUpdate) SetCreatedBy(u *User) *UserUpdate {
 	return uu.SetCreatedByID(u.ID)
+}
+
+// AddModifiedUserIDs adds the "modified_users" edge to the User entity by IDs.
+func (uu *UserUpdate) AddModifiedUserIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.AddModifiedUserIDs(ids...)
+	return uu
+}
+
+// AddModifiedUsers adds the "modified_users" edges to the User entity.
+func (uu *UserUpdate) AddModifiedUsers(u ...*User) *UserUpdate {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uu.AddModifiedUserIDs(ids...)
 }
 
 // SetModifiedByID sets the "modified_by" edge to the User entity by ID.
@@ -280,10 +310,52 @@ func (uu *UserUpdate) RemoveImages(i ...*Image) *UserUpdate {
 	return uu.RemoveImageIDs(ids...)
 }
 
+// ClearCreatedUsers clears all "created_users" edges to the User entity.
+func (uu *UserUpdate) ClearCreatedUsers() *UserUpdate {
+	uu.mutation.ClearCreatedUsers()
+	return uu
+}
+
+// RemoveCreatedUserIDs removes the "created_users" edge to User entities by IDs.
+func (uu *UserUpdate) RemoveCreatedUserIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.RemoveCreatedUserIDs(ids...)
+	return uu
+}
+
+// RemoveCreatedUsers removes "created_users" edges to User entities.
+func (uu *UserUpdate) RemoveCreatedUsers(u ...*User) *UserUpdate {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uu.RemoveCreatedUserIDs(ids...)
+}
+
 // ClearCreatedBy clears the "created_by" edge to the User entity.
 func (uu *UserUpdate) ClearCreatedBy() *UserUpdate {
 	uu.mutation.ClearCreatedBy()
 	return uu
+}
+
+// ClearModifiedUsers clears all "modified_users" edges to the User entity.
+func (uu *UserUpdate) ClearModifiedUsers() *UserUpdate {
+	uu.mutation.ClearModifiedUsers()
+	return uu
+}
+
+// RemoveModifiedUserIDs removes the "modified_users" edge to User entities by IDs.
+func (uu *UserUpdate) RemoveModifiedUserIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.RemoveModifiedUserIDs(ids...)
+	return uu
+}
+
+// RemoveModifiedUsers removes "modified_users" edges to User entities.
+func (uu *UserUpdate) RemoveModifiedUsers(u ...*User) *UserUpdate {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uu.RemoveModifiedUserIDs(ids...)
 }
 
 // ClearModifiedBy clears the "modified_by" edge to the User entity.
@@ -509,13 +581,58 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if uu.mutation.CreatedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CreatedUsersTable,
+			Columns: []string{user.CreatedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedCreatedUsersIDs(); len(nodes) > 0 && !uu.mutation.CreatedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CreatedUsersTable,
+			Columns: []string{user.CreatedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.CreatedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CreatedUsersTable,
+			Columns: []string{user.CreatedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if uu.mutation.CreatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.CreatedByTable,
 			Columns: []string{user.CreatedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -524,11 +641,56 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if nodes := uu.mutation.CreatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.CreatedByTable,
 			Columns: []string{user.CreatedByColumn},
-			Bidi:    true,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.ModifiedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ModifiedUsersTable,
+			Columns: []string{user.ModifiedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedModifiedUsersIDs(); len(nodes) > 0 && !uu.mutation.ModifiedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ModifiedUsersTable,
+			Columns: []string{user.ModifiedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.ModifiedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ModifiedUsersTable,
+			Columns: []string{user.ModifiedUsersColumn},
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -540,11 +702,11 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if uu.mutation.ModifiedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.ModifiedByTable,
 			Columns: []string{user.ModifiedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -553,11 +715,11 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if nodes := uu.mutation.ModifiedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.ModifiedByTable,
 			Columns: []string{user.ModifiedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -744,6 +906,21 @@ func (uuo *UserUpdateOne) AddImages(i ...*Image) *UserUpdateOne {
 	return uuo.AddImageIDs(ids...)
 }
 
+// AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
+func (uuo *UserUpdateOne) AddCreatedUserIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.AddCreatedUserIDs(ids...)
+	return uuo
+}
+
+// AddCreatedUsers adds the "created_users" edges to the User entity.
+func (uuo *UserUpdateOne) AddCreatedUsers(u ...*User) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uuo.AddCreatedUserIDs(ids...)
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
 func (uuo *UserUpdateOne) SetCreatedByID(id uuid.UUID) *UserUpdateOne {
 	uuo.mutation.SetCreatedByID(id)
@@ -761,6 +938,21 @@ func (uuo *UserUpdateOne) SetNillableCreatedByID(id *uuid.UUID) *UserUpdateOne {
 // SetCreatedBy sets the "created_by" edge to the User entity.
 func (uuo *UserUpdateOne) SetCreatedBy(u *User) *UserUpdateOne {
 	return uuo.SetCreatedByID(u.ID)
+}
+
+// AddModifiedUserIDs adds the "modified_users" edge to the User entity by IDs.
+func (uuo *UserUpdateOne) AddModifiedUserIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.AddModifiedUserIDs(ids...)
+	return uuo
+}
+
+// AddModifiedUsers adds the "modified_users" edges to the User entity.
+func (uuo *UserUpdateOne) AddModifiedUsers(u ...*User) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uuo.AddModifiedUserIDs(ids...)
 }
 
 // SetModifiedByID sets the "modified_by" edge to the User entity by ID.
@@ -835,10 +1027,52 @@ func (uuo *UserUpdateOne) RemoveImages(i ...*Image) *UserUpdateOne {
 	return uuo.RemoveImageIDs(ids...)
 }
 
+// ClearCreatedUsers clears all "created_users" edges to the User entity.
+func (uuo *UserUpdateOne) ClearCreatedUsers() *UserUpdateOne {
+	uuo.mutation.ClearCreatedUsers()
+	return uuo
+}
+
+// RemoveCreatedUserIDs removes the "created_users" edge to User entities by IDs.
+func (uuo *UserUpdateOne) RemoveCreatedUserIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.RemoveCreatedUserIDs(ids...)
+	return uuo
+}
+
+// RemoveCreatedUsers removes "created_users" edges to User entities.
+func (uuo *UserUpdateOne) RemoveCreatedUsers(u ...*User) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uuo.RemoveCreatedUserIDs(ids...)
+}
+
 // ClearCreatedBy clears the "created_by" edge to the User entity.
 func (uuo *UserUpdateOne) ClearCreatedBy() *UserUpdateOne {
 	uuo.mutation.ClearCreatedBy()
 	return uuo
+}
+
+// ClearModifiedUsers clears all "modified_users" edges to the User entity.
+func (uuo *UserUpdateOne) ClearModifiedUsers() *UserUpdateOne {
+	uuo.mutation.ClearModifiedUsers()
+	return uuo
+}
+
+// RemoveModifiedUserIDs removes the "modified_users" edge to User entities by IDs.
+func (uuo *UserUpdateOne) RemoveModifiedUserIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.RemoveModifiedUserIDs(ids...)
+	return uuo
+}
+
+// RemoveModifiedUsers removes "modified_users" edges to User entities.
+func (uuo *UserUpdateOne) RemoveModifiedUsers(u ...*User) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uuo.RemoveModifiedUserIDs(ids...)
 }
 
 // ClearModifiedBy clears the "modified_by" edge to the User entity.
@@ -1094,13 +1328,58 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if uuo.mutation.CreatedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CreatedUsersTable,
+			Columns: []string{user.CreatedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedCreatedUsersIDs(); len(nodes) > 0 && !uuo.mutation.CreatedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CreatedUsersTable,
+			Columns: []string{user.CreatedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.CreatedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CreatedUsersTable,
+			Columns: []string{user.CreatedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if uuo.mutation.CreatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.CreatedByTable,
 			Columns: []string{user.CreatedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -1109,11 +1388,56 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if nodes := uuo.mutation.CreatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.CreatedByTable,
 			Columns: []string{user.CreatedByColumn},
-			Bidi:    true,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.ModifiedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ModifiedUsersTable,
+			Columns: []string{user.ModifiedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedModifiedUsersIDs(); len(nodes) > 0 && !uuo.mutation.ModifiedUsersCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ModifiedUsersTable,
+			Columns: []string{user.ModifiedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.ModifiedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ModifiedUsersTable,
+			Columns: []string{user.ModifiedUsersColumn},
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -1125,11 +1449,11 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if uuo.mutation.ModifiedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.ModifiedByTable,
 			Columns: []string{user.ModifiedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -1138,11 +1462,11 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if nodes := uuo.mutation.ModifiedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.ModifiedByTable,
 			Columns: []string{user.ModifiedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},

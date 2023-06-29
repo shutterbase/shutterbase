@@ -223,6 +223,21 @@ func (uc *UserCreate) AddImages(i ...*Image) *UserCreate {
 	return uc.AddImageIDs(ids...)
 }
 
+// AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
+func (uc *UserCreate) AddCreatedUserIDs(ids ...uuid.UUID) *UserCreate {
+	uc.mutation.AddCreatedUserIDs(ids...)
+	return uc
+}
+
+// AddCreatedUsers adds the "created_users" edges to the User entity.
+func (uc *UserCreate) AddCreatedUsers(u ...*User) *UserCreate {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uc.AddCreatedUserIDs(ids...)
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
 func (uc *UserCreate) SetCreatedByID(id uuid.UUID) *UserCreate {
 	uc.mutation.SetCreatedByID(id)
@@ -240,6 +255,21 @@ func (uc *UserCreate) SetNillableCreatedByID(id *uuid.UUID) *UserCreate {
 // SetCreatedBy sets the "created_by" edge to the User entity.
 func (uc *UserCreate) SetCreatedBy(u *User) *UserCreate {
 	return uc.SetCreatedByID(u.ID)
+}
+
+// AddModifiedUserIDs adds the "modified_users" edge to the User entity by IDs.
+func (uc *UserCreate) AddModifiedUserIDs(ids ...uuid.UUID) *UserCreate {
+	uc.mutation.AddModifiedUserIDs(ids...)
+	return uc
+}
+
+// AddModifiedUsers adds the "modified_users" edges to the User entity.
+func (uc *UserCreate) AddModifiedUsers(u ...*User) *UserCreate {
+	ids := make([]uuid.UUID, len(u))
+	for i := range u {
+		ids[i] = u[i].ID
+	}
+	return uc.AddModifiedUserIDs(ids...)
 }
 
 // SetModifiedByID sets the "modified_by" edge to the User entity by ID.
@@ -524,13 +554,29 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := uc.mutation.CreatedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CreatedUsersTable,
+			Columns: []string{user.CreatedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := uc.mutation.CreatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.CreatedByTable,
 			Columns: []string{user.CreatedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
@@ -541,13 +587,29 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_node.user_created_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := uc.mutation.ModifiedUsersIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ModifiedUsersTable,
+			Columns: []string{user.ModifiedUsersColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := uc.mutation.ModifiedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2O,
+			Rel:     sqlgraph.M2O,
 			Inverse: false,
 			Table:   user.ModifiedByTable,
 			Columns: []string{user.ModifiedByColumn},
-			Bidi:    true,
+			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},

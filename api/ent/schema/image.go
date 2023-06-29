@@ -2,6 +2,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -26,10 +27,10 @@ func (Image) Mixin() []ent.Mixin {
 func (Image) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("tags", ImageTag.Type).Ref("images"),
-		edge.To("user", User.Type).Unique().Required(),
-		edge.To("project", Project.Type).Unique().Required(),
-		edge.To("camera", Camera.Type).Unique().Required(),
-		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`),
-		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`),
+		edge.To("user", User.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("project", Project.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("camera", Camera.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),
+		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),
 	}
 }

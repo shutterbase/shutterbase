@@ -61,19 +61,19 @@ var (
 				Symbol:     "images_users_user",
 				Columns:    []*schema.Column{ImagesColumns[5]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_projects_project",
 				Columns:    []*schema.Column{ImagesColumns[6]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_cameras_camera",
 				Columns:    []*schema.Column{ImagesColumns[7]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_users_created_by",
@@ -111,7 +111,7 @@ var (
 				Symbol:     "image_tags_projects_project",
 				Columns:    []*schema.Column{ImageTagsColumns[6]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
-				OnDelete:   schema.SetNull,
+				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "image_tags_users_created_by",
@@ -178,13 +178,13 @@ var (
 				Symbol:     "project_assignments_users_user",
 				Columns:    []*schema.Column{ProjectAssignmentsColumns[3]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "project_assignments_projects_project",
 				Columns:    []*schema.Column{ProjectAssignmentsColumns[4]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "project_assignments_roles_role",
@@ -274,8 +274,8 @@ var (
 		{Name: "password_reset_at", Type: field.TypeTime},
 		{Name: "active", Type: field.TypeBool, Default: false},
 		{Name: "user_role", Type: field.TypeUUID, Nullable: true},
-		{Name: "user_created_by", Type: field.TypeUUID, Unique: true, Nullable: true},
-		{Name: "user_modified_by", Type: field.TypeUUID, Unique: true, Nullable: true},
+		{Name: "user_created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "user_modified_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{

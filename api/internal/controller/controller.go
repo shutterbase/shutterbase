@@ -47,18 +47,25 @@ func StartServer() {
 
 func registerControllers(router *gin.Engine) {
 	log.Debug().Msg("Registering controllers")
+
 	log.Debug().Msg("-> Registering health controller")
 	registerHealthController(router)
+
 	log.Debug().Msg("-> Registering authentication controller")
 	registerAuthenticationController(router)
-	log.Debug().Msg("-> Registering user controller")
-	registerUserController(router)
-	// log.Debug().Msg("-> Registering group controller")
-	// registerGroupController(router)
-	// log.Debug().Msg("-> Registering codebook controller")
-	// registerCodebookController(router)
-	// log.Debug().Msg("-> Registering document controller")
-	// registerDocumentController(router)
+
+	log.Debug().Msg("-> Registering users controller")
+	registerUsersController(router)
+
+	log.Debug().Msg("-> Registering roles controller")
+	registerRolesController(router)
+
+	log.Debug().Msg("-> Registering project controller")
+	registerProjectsController(router)
+
+	log.Debug().Msg("-> Registering project assignments controller")
+	registerProjectAssignmentsController(router)
+
 	log.Debug().Msg("-> Done registering controllers")
 }
 
@@ -66,7 +73,8 @@ func authContextMiddleware(c *gin.Context) {
 	log.Trace().Msg("creating auth context")
 	claims := validateAuthentication(c)
 	userContext := &authorization.UserContext{
-		Subject: "anonymous",
+		Subject:      "anonymous",
+		ProjectRoles: map[string]string{},
 	}
 	if claims != nil {
 		userId := claims.UserId

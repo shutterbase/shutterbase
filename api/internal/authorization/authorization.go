@@ -1,72 +1,17 @@
 package authorization
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/mxcd/go-config/config"
 	"github.com/ory/ladon"
 	manager "github.com/ory/ladon/manager/memory"
 	"github.com/rs/zerolog/log"
 	"github.com/shutterbase/shutterbase/ent"
 )
-
-var policies = []*ladon.DefaultPolicy{
-	{
-		ID:          "7d708b20-8858-4e31-8cc3-752ebe11c139",
-		Description: "Allow anonymous access to health endpoint",
-		Subjects:    []string{"anonymous"},
-		Resources:   []string{"/health"},
-		Actions:     R.GetItems(),
-		Conditions:  ladon.Conditions{},
-		Effect:      ladon.AllowAccess,
-	},
-	{
-		ID:          "b7c92c8a-38dc-4f0d-9f19-cf9e0bd93f73",
-		Description: "Allow unauthenticated request access",
-		Subjects:    []string{"anonymous"},
-		Resources:   []string{"/health", "/register", "/confirm", "/login", "/logout", "/refresh", "request-password-reset", "/password-reset"},
-		Actions:     []string{REQUEST.String()},
-		Conditions:  ladon.Conditions{},
-		Effect:      ladon.AllowAccess,
-	},
-	{
-		ID:          "3513b134-b3d3-42b5-bfde-7299ea3c1c8a",
-		Description: "Allow authenticated request access",
-		Subjects:    []string{"role:user", "role:admin"},
-		Resources:   []string{"/<.+>"},
-		Actions:     []string{REQUEST.String()},
-		Conditions:  ladon.Conditions{},
-		Effect:      ladon.AllowAccess,
-	},
-	{
-		ID:          "ffcf103a-99eb-4cda-ba85-4de52b772b2a",
-		Description: "Allow request handling for all authenticated users",
-		Subjects:    []string{"role:user"},
-		Resources:   []string{"/users", "/users/<.+>"},
-		Actions:     []string{REQUEST.String()},
-		Conditions:  ladon.Conditions{},
-		Effect:      ladon.AllowAccess,
-	},
-	{
-		ID:          "adfdb95b-ccac-4690-8321-bb064d6c8160",
-		Description: "Allow all Action on admin user",
-		Subjects:    []string{"role:admin"},
-		Resources:   []string{"/<.+>"},
-		Actions:     []string{"<.+>"},
-		Conditions:  ladon.Conditions{},
-		Effect:      ladon.AllowAccess,
-	},
-	{
-		ID:          "cba4a5fc-cb90-4109-9d4c-7518abaea57e",
-		Description: "Allow own user read access",
-		Subjects:    []string{"role:user"},
-		Resources:   []string{"/users/me", "/users/:id"},
-		Actions:     RUD.GetItems(),
-		Conditions: ladon.Conditions{
-			"ownerId": &OwnerIdCondition{},
-		},
-		Effect: ladon.AllowAccess,
-	},
-}
 
 type UserContext struct {
 	Subject      string
@@ -102,7 +47,8 @@ func AuthCheckOption() *AuthCheckOptions {
 }
 
 func (options *AuthCheckOptions) Resource(resource string) *AuthCheckOptions {
-	options.resource = resource
+	CONTEXT_PATH := config.Get().String("API_CONTEXT_PATH")
+	options.resource = strings.TrimPrefix(resource, CONTEXT_PATH)
 	return options
 }
 
@@ -244,14 +190,36 @@ func (c *OwnerIdCondition) GetName() string {
 }
 
 type ProjectRoleCondition struct {
-	Role string `json:"role"`
+	Roles []string `json:"roles"`
 }
 
 func (c *ProjectRoleCondition) Fulfills(value interface{}, req *ladon.Request) bool {
+	roles := c.Roles
+
+	projectsRegex := regexp.MustCompile(`^\/projects\/(?P<ProjectId>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(\/.*)?`)
+	resource := req.Resource
+
+	res := projectsRegex.FindStringSubmatch(resource)
+	if len(res) < 2 {
+		return false
+	}
+
+	projectId := res[1]
+
 	userContext := req.Context["userContext"].(*UserContext)
-	projectId := req.Context["projectId"].(string)
 	role, ok := userContext.ProjectRoles[projectId]
-	return ok && role == c.Role
+
+	if !ok {
+		return false
+	}
+
+	for _, r := range roles {
+		if r == role {
+			return true
+		}
+	}
+	
+	return false
 }
 
 func (c *ProjectRoleCondition) GetName() string {

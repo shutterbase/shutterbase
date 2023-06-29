@@ -680,12 +680,35 @@ func HasImagesWith(preds ...predicate.Image) predicate.User {
 	})
 }
 
+// HasCreatedUsers applies the HasEdge predicate on the "created_users" edge.
+func HasCreatedUsers() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, CreatedUsersTable, CreatedUsersColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCreatedUsersWith applies the HasEdge predicate on the "created_users" edge with a given conditions (other predicates).
+func HasCreatedUsersWith(preds ...predicate.User) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newCreatedUsersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasCreatedBy applies the HasEdge predicate on the "created_by" edge.
 func HasCreatedBy() predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, false, CreatedByTable, CreatedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, CreatedByTable, CreatedByColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
@@ -703,12 +726,35 @@ func HasCreatedByWith(preds ...predicate.User) predicate.User {
 	})
 }
 
+// HasModifiedUsers applies the HasEdge predicate on the "modified_users" edge.
+func HasModifiedUsers() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, ModifiedUsersTable, ModifiedUsersColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasModifiedUsersWith applies the HasEdge predicate on the "modified_users" edge with a given conditions (other predicates).
+func HasModifiedUsersWith(preds ...predicate.User) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newModifiedUsersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasModifiedBy applies the HasEdge predicate on the "modified_by" edge.
 func HasModifiedBy() predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, false, ModifiedByTable, ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, ModifiedByTable, ModifiedByColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})

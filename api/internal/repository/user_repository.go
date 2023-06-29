@@ -84,7 +84,9 @@ func GetUsers(ctx context.Context, paginationParameters *PaginationParameters) (
 		case "updatedAt":
 			return orderFunction(user.FieldUpdatedAt)
 		default:
-			log.Warn().Msgf("Unknown sort field: %s", paginationParameters.Sort)
+			if paginationParameters.Sort != "" {
+				log.Warn().Msgf("Unknown sort field: %s", paginationParameters.Sort)
+			}
 			return orderFunction(user.FieldFirstName)
 		}
 	}
@@ -112,8 +114,63 @@ func GetUsers(ctx context.Context, paginationParameters *PaginationParameters) (
 	return items, count, err
 }
 
+type MinimalDBUser struct {
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	Email     string    `json:"email"`
+}
+
+type MinimalUser struct {
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"firstName"`
+	LastName  string    `json:"lastName"`
+	Email     string    `json:"email"`
+}
+
+func GetMinimalUsers(ctx context.Context, paginationParameters *PaginationParameters) ([]*MinimalUser, int, error) {
+	conditions := user.And(
+		user.Or(
+			user.EmailContainsFold(paginationParameters.Search),
+			user.FirstNameContainsFold(paginationParameters.Search),
+			user.LastNameContainsFold(paginationParameters.Search),
+		),
+		user.ActiveEQ(true),
+		user.EmailValidatedEQ(true),
+	)
+
+	items := make([]*MinimalDBUser, 0)
+
+	err := databaseClient.User.Query().
+		Limit(paginationParameters.Limit).
+		Offset(paginationParameters.Offset).
+		Where(conditions).
+		Select(user.FieldID, user.FieldFirstName, user.FieldLastName, user.FieldEmail).
+		Scan(ctx, &items)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	count, err := databaseClient.User.Query().Where(conditions).Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	result := make([]*MinimalUser, len(items))
+	for i, item := range items {
+		result[i] = &MinimalUser{
+			ID:        item.ID,
+			FirstName: item.FirstName,
+			LastName:  item.LastName,
+			Email:     item.Email,
+		}
+	}
+
+	return result, count, err
+}
+
 func GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error) {
-	item, err := databaseClient.User.Query().Where(user.ID(id)).Only(ctx)
+	item, err := databaseClient.User.Query().Where(user.ID(id)).WithRole().WithCreatedBy().WithModifiedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error finding User")
 	}
@@ -144,7 +201,7 @@ func UserExists(ctx context.Context, email string) (bool, error) {
 }
 
 func GetUserByEmail(ctx context.Context, email string) (*ent.User, error) {
-	item, err := databaseClient.User.Query().Where(user.Email(email)).Only(ctx)
+	item, err := databaseClient.User.Query().Where(user.Email(email)).WithRole().WithCreatedBy().WithModifiedBy().Only(ctx)
 	if err != nil {
 		log.Error().Err(err).Msgf("DB error getting user by email: %s", email)
 	}
