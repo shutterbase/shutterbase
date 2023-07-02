@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
@@ -189,6 +190,21 @@ func (uu *UserUpdate) AddImages(i ...*Image) *UserUpdate {
 	return uu.AddImageIDs(ids...)
 }
 
+// AddCameraIDs adds the "cameras" edge to the Camera entity by IDs.
+func (uu *UserUpdate) AddCameraIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.AddCameraIDs(ids...)
+	return uu
+}
+
+// AddCameras adds the "cameras" edges to the Camera entity.
+func (uu *UserUpdate) AddCameras(c ...*Camera) *UserUpdate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uu.AddCameraIDs(ids...)
+}
+
 // AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
 func (uu *UserUpdate) AddCreatedUserIDs(ids ...uuid.UUID) *UserUpdate {
 	uu.mutation.AddCreatedUserIDs(ids...)
@@ -308,6 +324,27 @@ func (uu *UserUpdate) RemoveImages(i ...*Image) *UserUpdate {
 		ids[j] = i[j].ID
 	}
 	return uu.RemoveImageIDs(ids...)
+}
+
+// ClearCameras clears all "cameras" edges to the Camera entity.
+func (uu *UserUpdate) ClearCameras() *UserUpdate {
+	uu.mutation.ClearCameras()
+	return uu
+}
+
+// RemoveCameraIDs removes the "cameras" edge to Camera entities by IDs.
+func (uu *UserUpdate) RemoveCameraIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.RemoveCameraIDs(ids...)
+	return uu
+}
+
+// RemoveCameras removes "cameras" edges to Camera entities.
+func (uu *UserUpdate) RemoveCameras(c ...*Camera) *UserUpdate {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uu.RemoveCameraIDs(ids...)
 }
 
 // ClearCreatedUsers clears all "created_users" edges to the User entity.
@@ -574,6 +611,51 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.CamerasCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CamerasTable,
+			Columns: []string{user.CamerasColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedCamerasIDs(); len(nodes) > 0 && !uu.mutation.CamerasCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CamerasTable,
+			Columns: []string{user.CamerasColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.CamerasIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CamerasTable,
+			Columns: []string{user.CamerasColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -906,6 +988,21 @@ func (uuo *UserUpdateOne) AddImages(i ...*Image) *UserUpdateOne {
 	return uuo.AddImageIDs(ids...)
 }
 
+// AddCameraIDs adds the "cameras" edge to the Camera entity by IDs.
+func (uuo *UserUpdateOne) AddCameraIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.AddCameraIDs(ids...)
+	return uuo
+}
+
+// AddCameras adds the "cameras" edges to the Camera entity.
+func (uuo *UserUpdateOne) AddCameras(c ...*Camera) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uuo.AddCameraIDs(ids...)
+}
+
 // AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
 func (uuo *UserUpdateOne) AddCreatedUserIDs(ids ...uuid.UUID) *UserUpdateOne {
 	uuo.mutation.AddCreatedUserIDs(ids...)
@@ -1025,6 +1122,27 @@ func (uuo *UserUpdateOne) RemoveImages(i ...*Image) *UserUpdateOne {
 		ids[j] = i[j].ID
 	}
 	return uuo.RemoveImageIDs(ids...)
+}
+
+// ClearCameras clears all "cameras" edges to the Camera entity.
+func (uuo *UserUpdateOne) ClearCameras() *UserUpdateOne {
+	uuo.mutation.ClearCameras()
+	return uuo
+}
+
+// RemoveCameraIDs removes the "cameras" edge to Camera entities by IDs.
+func (uuo *UserUpdateOne) RemoveCameraIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.RemoveCameraIDs(ids...)
+	return uuo
+}
+
+// RemoveCameras removes "cameras" edges to Camera entities.
+func (uuo *UserUpdateOne) RemoveCameras(c ...*Camera) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(c))
+	for i := range c {
+		ids[i] = c[i].ID
+	}
+	return uuo.RemoveCameraIDs(ids...)
 }
 
 // ClearCreatedUsers clears all "created_users" edges to the User entity.
@@ -1321,6 +1439,51 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.CamerasCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CamerasTable,
+			Columns: []string{user.CamerasColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedCamerasIDs(); len(nodes) > 0 && !uuo.mutation.CamerasCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CamerasTable,
+			Columns: []string{user.CamerasColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.CamerasIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.CamerasTable,
+			Columns: []string{user.CamerasColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

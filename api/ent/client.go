@@ -380,6 +380,22 @@ func (c *CameraClient) QueryImages(ca *Camera) *ImageQuery {
 	return query
 }
 
+// QueryOwner queries the owner edge of a Camera.
+func (c *CameraClient) QueryOwner(ca *Camera) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ca.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(camera.Table, camera.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, camera.OwnerTable, camera.OwnerColumn),
+		)
+		fromV = sqlgraph.Neighbors(ca.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryCreatedBy queries the created_by edge of a Camera.
 func (c *CameraClient) QueryCreatedBy(ca *Camera) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
@@ -1679,6 +1695,22 @@ func (c *UserClient) QueryImages(u *User) *ImageQuery {
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(image.Table, image.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, user.ImagesTable, user.ImagesColumn),
+		)
+		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCameras queries the cameras edge of a User.
+func (c *UserClient) QueryCameras(u *User) *CameraQuery {
+	query := (&CameraClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := u.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(camera.Table, camera.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.CamerasTable, user.CamerasColumn),
 		)
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil

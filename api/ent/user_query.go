@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
@@ -29,6 +30,7 @@ type UserQuery struct {
 	withRole               *RoleQuery
 	withProjectAssignments *ProjectAssignmentQuery
 	withImages             *ImageQuery
+	withCameras            *CameraQuery
 	withCreatedUsers       *UserQuery
 	withCreatedBy          *UserQuery
 	withModifiedUsers      *UserQuery
@@ -129,6 +131,28 @@ func (uq *UserQuery) QueryImages() *ImageQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(image.Table, image.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, user.ImagesTable, user.ImagesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCameras chains the current query on the "cameras" edge.
+func (uq *UserQuery) QueryCameras() *CameraQuery {
+	query := (&CameraClient{config: uq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := uq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := uq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(camera.Table, camera.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, user.CamerasTable, user.CamerasColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
@@ -419,6 +443,7 @@ func (uq *UserQuery) Clone() *UserQuery {
 		withRole:               uq.withRole.Clone(),
 		withProjectAssignments: uq.withProjectAssignments.Clone(),
 		withImages:             uq.withImages.Clone(),
+		withCameras:            uq.withCameras.Clone(),
 		withCreatedUsers:       uq.withCreatedUsers.Clone(),
 		withCreatedBy:          uq.withCreatedBy.Clone(),
 		withModifiedUsers:      uq.withModifiedUsers.Clone(),
@@ -459,6 +484,17 @@ func (uq *UserQuery) WithImages(opts ...func(*ImageQuery)) *UserQuery {
 		opt(query)
 	}
 	uq.withImages = query
+	return uq
+}
+
+// WithCameras tells the query-builder to eager-load the nodes that are connected to
+// the "cameras" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithCameras(opts ...func(*CameraQuery)) *UserQuery {
+	query := (&CameraClient{config: uq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	uq.withCameras = query
 	return uq
 }
 
@@ -585,10 +621,11 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		nodes       = []*User{}
 		withFKs     = uq.withFKs
 		_spec       = uq.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			uq.withRole != nil,
 			uq.withProjectAssignments != nil,
 			uq.withImages != nil,
+			uq.withCameras != nil,
 			uq.withCreatedUsers != nil,
 			uq.withCreatedBy != nil,
 			uq.withModifiedUsers != nil,
@@ -638,6 +675,13 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := uq.loadImages(ctx, query, nodes,
 			func(n *User) { n.Edges.Images = []*Image{} },
 			func(n *User, e *Image) { n.Edges.Images = append(n.Edges.Images, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := uq.withCameras; query != nil {
+		if err := uq.loadCameras(ctx, query, nodes,
+			func(n *User) { n.Edges.Cameras = []*Camera{} },
+			func(n *User, e *Camera) { n.Edges.Cameras = append(n.Edges.Cameras, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -759,6 +803,37 @@ func (uq *UserQuery) loadImages(ctx context.Context, query *ImageQuery, nodes []
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "image_user" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (uq *UserQuery) loadCameras(ctx context.Context, query *CameraQuery, nodes []*User, init func(*User), assign func(*User, *Camera)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Camera(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.CamerasColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.camera_owner
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "camera_owner" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "camera_owner" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

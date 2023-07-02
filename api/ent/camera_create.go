@@ -108,6 +108,25 @@ func (cc *CameraCreate) AddImages(i ...*Image) *CameraCreate {
 	return cc.AddImageIDs(ids...)
 }
 
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (cc *CameraCreate) SetOwnerID(id uuid.UUID) *CameraCreate {
+	cc.mutation.SetOwnerID(id)
+	return cc
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (cc *CameraCreate) SetNillableOwnerID(id *uuid.UUID) *CameraCreate {
+	if id != nil {
+		cc = cc.SetOwnerID(*id)
+	}
+	return cc
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (cc *CameraCreate) SetOwner(u *User) *CameraCreate {
+	return cc.SetOwnerID(u.ID)
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
 func (cc *CameraCreate) SetCreatedByID(id uuid.UUID) *CameraCreate {
 	cc.mutation.SetCreatedByID(id)
@@ -300,6 +319,23 @@ func (cc *CameraCreate) createSpec() (*Camera, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := cc.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   camera.OwnerTable,
+			Columns: []string{camera.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.camera_owner = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := cc.mutation.CreatedByIDs(); len(nodes) > 0 {

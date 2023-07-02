@@ -23,10 +23,10 @@ func registerUsersController(router *gin.Engine) {
 	router.GET(fmt.Sprintf("%s%s/me", CONTEXT_PATH, USERS_RESOURCE), getOwnUserController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, USERS_RESOURCE), getUsersController)
 	router.GET(fmt.Sprintf("%s%s/minimal", CONTEXT_PATH, USERS_RESOURCE), getMinimalUsersController)
-	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, USERS_RESOURCE), getUserController)
-	router.PUT(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, USERS_RESOURCE), updateUserController)
-	router.PUT(fmt.Sprintf("%s%s/:id/role", CONTEXT_PATH, USERS_RESOURCE), updateUserRoleController)
-	router.DELETE(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, USERS_RESOURCE), deleteUserController)
+	router.GET(fmt.Sprintf("%s%s/:uid", CONTEXT_PATH, USERS_RESOURCE), getUserController)
+	router.PUT(fmt.Sprintf("%s%s/:uid", CONTEXT_PATH, USERS_RESOURCE), updateUserController)
+	router.PUT(fmt.Sprintf("%s%s/:uid/role", CONTEXT_PATH, USERS_RESOURCE), updateUserRoleController)
+	router.DELETE(fmt.Sprintf("%s%s/:uid", CONTEXT_PATH, USERS_RESOURCE), deleteUserController)
 }
 
 type EditUserBody struct {

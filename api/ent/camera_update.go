@@ -80,6 +80,25 @@ func (cu *CameraUpdate) AddImages(i ...*Image) *CameraUpdate {
 	return cu.AddImageIDs(ids...)
 }
 
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (cu *CameraUpdate) SetOwnerID(id uuid.UUID) *CameraUpdate {
+	cu.mutation.SetOwnerID(id)
+	return cu
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (cu *CameraUpdate) SetNillableOwnerID(id *uuid.UUID) *CameraUpdate {
+	if id != nil {
+		cu = cu.SetOwnerID(*id)
+	}
+	return cu
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (cu *CameraUpdate) SetOwner(u *User) *CameraUpdate {
+	return cu.SetOwnerID(u.ID)
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
 func (cu *CameraUpdate) SetCreatedByID(id uuid.UUID) *CameraUpdate {
 	cu.mutation.SetCreatedByID(id)
@@ -163,6 +182,12 @@ func (cu *CameraUpdate) RemoveImages(i ...*Image) *CameraUpdate {
 		ids[j] = i[j].ID
 	}
 	return cu.RemoveImageIDs(ids...)
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (cu *CameraUpdate) ClearOwner() *CameraUpdate {
+	cu.mutation.ClearOwner()
+	return cu
 }
 
 // ClearCreatedBy clears the "created_by" edge to the User entity.
@@ -339,6 +364,35 @@ func (cu *CameraUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if cu.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   camera.OwnerTable,
+			Columns: []string{camera.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := cu.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   camera.OwnerTable,
+			Columns: []string{camera.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if cu.mutation.CreatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -465,6 +519,25 @@ func (cuo *CameraUpdateOne) AddImages(i ...*Image) *CameraUpdateOne {
 	return cuo.AddImageIDs(ids...)
 }
 
+// SetOwnerID sets the "owner" edge to the User entity by ID.
+func (cuo *CameraUpdateOne) SetOwnerID(id uuid.UUID) *CameraUpdateOne {
+	cuo.mutation.SetOwnerID(id)
+	return cuo
+}
+
+// SetNillableOwnerID sets the "owner" edge to the User entity by ID if the given value is not nil.
+func (cuo *CameraUpdateOne) SetNillableOwnerID(id *uuid.UUID) *CameraUpdateOne {
+	if id != nil {
+		cuo = cuo.SetOwnerID(*id)
+	}
+	return cuo
+}
+
+// SetOwner sets the "owner" edge to the User entity.
+func (cuo *CameraUpdateOne) SetOwner(u *User) *CameraUpdateOne {
+	return cuo.SetOwnerID(u.ID)
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
 func (cuo *CameraUpdateOne) SetCreatedByID(id uuid.UUID) *CameraUpdateOne {
 	cuo.mutation.SetCreatedByID(id)
@@ -548,6 +621,12 @@ func (cuo *CameraUpdateOne) RemoveImages(i ...*Image) *CameraUpdateOne {
 		ids[j] = i[j].ID
 	}
 	return cuo.RemoveImageIDs(ids...)
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (cuo *CameraUpdateOne) ClearOwner() *CameraUpdateOne {
+	cuo.mutation.ClearOwner()
+	return cuo
 }
 
 // ClearCreatedBy clears the "created_by" edge to the User entity.
@@ -747,6 +826,35 @@ func (cuo *CameraUpdateOne) sqlSave(ctx context.Context) (_node *Camera, err err
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if cuo.mutation.OwnerCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   camera.OwnerTable,
+			Columns: []string{camera.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := cuo.mutation.OwnerIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   camera.OwnerTable,
+			Columns: []string{camera.OwnerColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

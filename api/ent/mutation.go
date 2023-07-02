@@ -59,6 +59,8 @@ type CameraMutation struct {
 	images             map[uuid.UUID]struct{}
 	removedimages      map[uuid.UUID]struct{}
 	clearedimages      bool
+	owner              *uuid.UUID
+	clearedowner       bool
 	created_by         *uuid.UUID
 	clearedcreated_by  bool
 	modified_by        *uuid.UUID
@@ -424,6 +426,45 @@ func (m *CameraMutation) ResetImages() {
 	m.removedimages = nil
 }
 
+// SetOwnerID sets the "owner" edge to the User entity by id.
+func (m *CameraMutation) SetOwnerID(id uuid.UUID) {
+	m.owner = &id
+}
+
+// ClearOwner clears the "owner" edge to the User entity.
+func (m *CameraMutation) ClearOwner() {
+	m.clearedowner = true
+}
+
+// OwnerCleared reports if the "owner" edge to the User entity was cleared.
+func (m *CameraMutation) OwnerCleared() bool {
+	return m.clearedowner
+}
+
+// OwnerID returns the "owner" edge ID in the mutation.
+func (m *CameraMutation) OwnerID() (id uuid.UUID, exists bool) {
+	if m.owner != nil {
+		return *m.owner, true
+	}
+	return
+}
+
+// OwnerIDs returns the "owner" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OwnerID instead. It exists only for internal usage by the builders.
+func (m *CameraMutation) OwnerIDs() (ids []uuid.UUID) {
+	if id := m.owner; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOwner resets all changes to the "owner" edge.
+func (m *CameraMutation) ResetOwner() {
+	m.owner = nil
+	m.clearedowner = false
+}
+
 // SetCreatedByID sets the "created_by" edge to the User entity by id.
 func (m *CameraMutation) SetCreatedByID(id uuid.UUID) {
 	m.created_by = &id
@@ -686,12 +727,15 @@ func (m *CameraMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *CameraMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.timeOffsets != nil {
 		edges = append(edges, camera.EdgeTimeOffsets)
 	}
 	if m.images != nil {
 		edges = append(edges, camera.EdgeImages)
+	}
+	if m.owner != nil {
+		edges = append(edges, camera.EdgeOwner)
 	}
 	if m.created_by != nil {
 		edges = append(edges, camera.EdgeCreatedBy)
@@ -718,6 +762,10 @@ func (m *CameraMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case camera.EdgeOwner:
+		if id := m.owner; id != nil {
+			return []ent.Value{*id}
+		}
 	case camera.EdgeCreatedBy:
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
@@ -732,7 +780,7 @@ func (m *CameraMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *CameraMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedtimeOffsets != nil {
 		edges = append(edges, camera.EdgeTimeOffsets)
 	}
@@ -764,12 +812,15 @@ func (m *CameraMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *CameraMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.clearedtimeOffsets {
 		edges = append(edges, camera.EdgeTimeOffsets)
 	}
 	if m.clearedimages {
 		edges = append(edges, camera.EdgeImages)
+	}
+	if m.clearedowner {
+		edges = append(edges, camera.EdgeOwner)
 	}
 	if m.clearedcreated_by {
 		edges = append(edges, camera.EdgeCreatedBy)
@@ -788,6 +839,8 @@ func (m *CameraMutation) EdgeCleared(name string) bool {
 		return m.clearedtimeOffsets
 	case camera.EdgeImages:
 		return m.clearedimages
+	case camera.EdgeOwner:
+		return m.clearedowner
 	case camera.EdgeCreatedBy:
 		return m.clearedcreated_by
 	case camera.EdgeModifiedBy:
@@ -800,6 +853,9 @@ func (m *CameraMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *CameraMutation) ClearEdge(name string) error {
 	switch name {
+	case camera.EdgeOwner:
+		m.ClearOwner()
+		return nil
 	case camera.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
@@ -819,6 +875,9 @@ func (m *CameraMutation) ResetEdge(name string) error {
 		return nil
 	case camera.EdgeImages:
 		m.ResetImages()
+		return nil
+	case camera.EdgeOwner:
+		m.ResetOwner()
 		return nil
 	case camera.EdgeCreatedBy:
 		m.ResetCreatedBy()
@@ -5520,6 +5579,9 @@ type UserMutation struct {
 	images                    map[uuid.UUID]struct{}
 	removedimages             map[uuid.UUID]struct{}
 	clearedimages             bool
+	cameras                   map[uuid.UUID]struct{}
+	removedcameras            map[uuid.UUID]struct{}
+	clearedcameras            bool
 	created_users             map[uuid.UUID]struct{}
 	removedcreated_users      map[uuid.UUID]struct{}
 	clearedcreated_users      bool
@@ -6218,6 +6280,60 @@ func (m *UserMutation) ResetImages() {
 	m.removedimages = nil
 }
 
+// AddCameraIDs adds the "cameras" edge to the Camera entity by ids.
+func (m *UserMutation) AddCameraIDs(ids ...uuid.UUID) {
+	if m.cameras == nil {
+		m.cameras = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.cameras[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCameras clears the "cameras" edge to the Camera entity.
+func (m *UserMutation) ClearCameras() {
+	m.clearedcameras = true
+}
+
+// CamerasCleared reports if the "cameras" edge to the Camera entity was cleared.
+func (m *UserMutation) CamerasCleared() bool {
+	return m.clearedcameras
+}
+
+// RemoveCameraIDs removes the "cameras" edge to the Camera entity by IDs.
+func (m *UserMutation) RemoveCameraIDs(ids ...uuid.UUID) {
+	if m.removedcameras == nil {
+		m.removedcameras = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.cameras, ids[i])
+		m.removedcameras[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCameras returns the removed IDs of the "cameras" edge to the Camera entity.
+func (m *UserMutation) RemovedCamerasIDs() (ids []uuid.UUID) {
+	for id := range m.removedcameras {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CamerasIDs returns the "cameras" edge IDs in the mutation.
+func (m *UserMutation) CamerasIDs() (ids []uuid.UUID) {
+	for id := range m.cameras {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCameras resets all changes to the "cameras" edge.
+func (m *UserMutation) ResetCameras() {
+	m.cameras = nil
+	m.clearedcameras = false
+	m.removedcameras = nil
+}
+
 // AddCreatedUserIDs adds the "created_users" edge to the User entity by ids.
 func (m *UserMutation) AddCreatedUserIDs(ids ...uuid.UUID) {
 	if m.created_users == nil {
@@ -6724,7 +6840,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.role != nil {
 		edges = append(edges, user.EdgeRole)
 	}
@@ -6733,6 +6849,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.images != nil {
 		edges = append(edges, user.EdgeImages)
+	}
+	if m.cameras != nil {
+		edges = append(edges, user.EdgeCameras)
 	}
 	if m.created_users != nil {
 		edges = append(edges, user.EdgeCreatedUsers)
@@ -6769,6 +6888,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeCameras:
+		ids := make([]ent.Value, 0, len(m.cameras))
+		for id := range m.cameras {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeCreatedUsers:
 		ids := make([]ent.Value, 0, len(m.created_users))
 		for id := range m.created_users {
@@ -6795,12 +6920,15 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removedprojectAssignments != nil {
 		edges = append(edges, user.EdgeProjectAssignments)
 	}
 	if m.removedimages != nil {
 		edges = append(edges, user.EdgeImages)
+	}
+	if m.removedcameras != nil {
+		edges = append(edges, user.EdgeCameras)
 	}
 	if m.removedcreated_users != nil {
 		edges = append(edges, user.EdgeCreatedUsers)
@@ -6827,6 +6955,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeCameras:
+		ids := make([]ent.Value, 0, len(m.removedcameras))
+		for id := range m.removedcameras {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeCreatedUsers:
 		ids := make([]ent.Value, 0, len(m.removedcreated_users))
 		for id := range m.removedcreated_users {
@@ -6845,7 +6979,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedrole {
 		edges = append(edges, user.EdgeRole)
 	}
@@ -6854,6 +6988,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedimages {
 		edges = append(edges, user.EdgeImages)
+	}
+	if m.clearedcameras {
+		edges = append(edges, user.EdgeCameras)
 	}
 	if m.clearedcreated_users {
 		edges = append(edges, user.EdgeCreatedUsers)
@@ -6880,6 +7017,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedprojectAssignments
 	case user.EdgeImages:
 		return m.clearedimages
+	case user.EdgeCameras:
+		return m.clearedcameras
 	case user.EdgeCreatedUsers:
 		return m.clearedcreated_users
 	case user.EdgeCreatedBy:
@@ -6921,6 +7060,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeImages:
 		m.ResetImages()
+		return nil
+	case user.EdgeCameras:
+		m.ResetCameras()
 		return nil
 	case user.EdgeCreatedUsers:
 		m.ResetCreatedUsers()

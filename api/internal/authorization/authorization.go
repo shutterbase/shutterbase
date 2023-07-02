@@ -218,10 +218,37 @@ func (c *ProjectRoleCondition) Fulfills(value interface{}, req *ladon.Request) b
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 func (c *ProjectRoleCondition) GetName() string {
 	return "ProjectRoleCondition"
+}
+
+type OwnUserPathCondition struct{}
+
+func (c *OwnUserPathCondition) Fulfills(value interface{}, req *ladon.Request) bool {
+	usersRegex := regexp.MustCompile(`^\/users\/(?P<UserId>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(\/.*)?`)
+	resource := req.Resource
+
+	res := usersRegex.FindStringSubmatch(resource)
+	if len(res) < 2 {
+		return false
+	}
+
+	pathUserId := res[1]
+
+	userContext := req.Context["userContext"].(*UserContext)
+
+	if userContext.User == nil {
+		return false
+	}
+	ownUserId := userContext.User.ID.String()
+
+	return pathUserId == ownUserId
+}
+
+func (c *OwnUserPathCondition) GetName() string {
+	return "OwnUserPathCondition"
 }

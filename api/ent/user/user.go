@@ -45,6 +45,8 @@ const (
 	EdgeProjectAssignments = "projectAssignments"
 	// EdgeImages holds the string denoting the images edge name in mutations.
 	EdgeImages = "images"
+	// EdgeCameras holds the string denoting the cameras edge name in mutations.
+	EdgeCameras = "cameras"
 	// EdgeCreatedUsers holds the string denoting the created_users edge name in mutations.
 	EdgeCreatedUsers = "created_users"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
@@ -76,6 +78,13 @@ const (
 	ImagesInverseTable = "images"
 	// ImagesColumn is the table column denoting the images relation/edge.
 	ImagesColumn = "image_user"
+	// CamerasTable is the table that holds the cameras relation/edge.
+	CamerasTable = "cameras"
+	// CamerasInverseTable is the table name for the Camera entity.
+	// It exists in this package in order to avoid circular dependency with the "camera" package.
+	CamerasInverseTable = "cameras"
+	// CamerasColumn is the table column denoting the cameras relation/edge.
+	CamerasColumn = "camera_owner"
 	// CreatedUsersTable is the table that holds the created_users relation/edge.
 	CreatedUsersTable = "users"
 	// CreatedUsersColumn is the table column denoting the created_users relation/edge.
@@ -263,6 +272,20 @@ func ByImages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByCamerasCount orders the results by cameras count.
+func ByCamerasCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCamerasStep(), opts...)
+	}
+}
+
+// ByCameras orders the results by cameras terms.
+func ByCameras(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCamerasStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByCreatedUsersCount orders the results by created_users count.
 func ByCreatedUsersCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -323,6 +346,13 @@ func newImagesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ImagesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, true, ImagesTable, ImagesColumn),
+	)
+}
+func newCamerasStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CamerasInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, true, CamerasTable, CamerasColumn),
 	)
 }
 func newCreatedUsersStep() *sqlgraph.Step {

@@ -680,6 +680,29 @@ func HasImagesWith(preds ...predicate.Image) predicate.User {
 	})
 }
 
+// HasCameras applies the HasEdge predicate on the "cameras" edge.
+func HasCameras() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, CamerasTable, CamerasColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCamerasWith applies the HasEdge predicate on the "cameras" edge with a given conditions (other predicates).
+func HasCamerasWith(preds ...predicate.Camera) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newCamerasStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasCreatedUsers applies the HasEdge predicate on the "created_users" edge.
 func HasCreatedUsers() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

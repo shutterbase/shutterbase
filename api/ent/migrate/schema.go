@@ -15,6 +15,7 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString},
+		{Name: "camera_owner", Type: field.TypeUUID, Nullable: true},
 		{Name: "camera_created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "camera_modified_by", Type: field.TypeUUID, Nullable: true},
 	}
@@ -25,14 +26,20 @@ var (
 		PrimaryKey: []*schema.Column{CamerasColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "cameras_users_created_by",
+				Symbol:     "cameras_users_owner",
 				Columns:    []*schema.Column{CamerasColumns[5]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "cameras_users_modified_by",
+				Symbol:     "cameras_users_created_by",
 				Columns:    []*schema.Column{CamerasColumns[6]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "cameras_users_modified_by",
+				Columns:    []*schema.Column{CamerasColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -345,6 +352,7 @@ var (
 func init() {
 	CamerasTable.ForeignKeys[0].RefTable = UsersTable
 	CamerasTable.ForeignKeys[1].RefTable = UsersTable
+	CamerasTable.ForeignKeys[2].RefTable = UsersTable
 	ImagesTable.ForeignKeys[0].RefTable = UsersTable
 	ImagesTable.ForeignKeys[1].RefTable = ProjectsTable
 	ImagesTable.ForeignKeys[2].RefTable = CamerasTable

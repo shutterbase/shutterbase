@@ -101,4 +101,15 @@ var policies = []*ladon.DefaultPolicy{
 		},
 		Effect: ladon.AllowAccess,
 	},
+	{
+		ID:          "45a20b6b-f30e-47d6-95ad-8b17ef272f9a",
+		Description: "Allow user access to its own cameras",
+		Subjects:    []string{"role:user"},
+		Resources:   []string{"/users/" + UUID_REGEX + "/cameras", "/users/" + UUID_REGEX + "/cameras/" + UUID_REGEX},
+		Actions:     CRUD.GetItems(),
+		Conditions: ladon.Conditions{
+			"userId": &OwnUserPathCondition{},
+		},
+		Effect: ladon.AllowAccess,
+	},
 }

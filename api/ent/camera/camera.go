@@ -27,6 +27,8 @@ const (
 	EdgeTimeOffsets = "timeOffsets"
 	// EdgeImages holds the string denoting the images edge name in mutations.
 	EdgeImages = "images"
+	// EdgeOwner holds the string denoting the owner edge name in mutations.
+	EdgeOwner = "owner"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
 	EdgeCreatedBy = "created_by"
 	// EdgeModifiedBy holds the string denoting the modified_by edge name in mutations.
@@ -47,6 +49,13 @@ const (
 	ImagesInverseTable = "images"
 	// ImagesColumn is the table column denoting the images relation/edge.
 	ImagesColumn = "image_camera"
+	// OwnerTable is the table that holds the owner relation/edge.
+	OwnerTable = "cameras"
+	// OwnerInverseTable is the table name for the User entity.
+	// It exists in this package in order to avoid circular dependency with the "user" package.
+	OwnerInverseTable = "users"
+	// OwnerColumn is the table column denoting the owner relation/edge.
+	OwnerColumn = "camera_owner"
 	// CreatedByTable is the table that holds the created_by relation/edge.
 	CreatedByTable = "cameras"
 	// CreatedByInverseTable is the table name for the User entity.
@@ -75,6 +84,7 @@ var Columns = []string{
 // ForeignKeys holds the SQL foreign-keys that are owned by the "cameras"
 // table and are not defined as standalone fields in the schema.
 var ForeignKeys = []string{
+	"camera_owner",
 	"camera_created_by",
 	"camera_modified_by",
 }
@@ -165,6 +175,13 @@ func ByImages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByOwnerField orders the results by owner field.
+func ByOwnerField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOwnerStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByCreatedByField orders the results by created_by field.
 func ByCreatedByField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -190,6 +207,13 @@ func newImagesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ImagesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, true, ImagesTable, ImagesColumn),
+	)
+}
+func newOwnerStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OwnerInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, OwnerTable, OwnerColumn),
 	)
 }
 func newCreatedByStep() *sqlgraph.Step {

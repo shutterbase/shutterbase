@@ -28,6 +28,7 @@ type CameraQuery struct {
 	predicates      []predicate.Camera
 	withTimeOffsets *TimeOffsetQuery
 	withImages      *ImageQuery
+	withOwner       *UserQuery
 	withCreatedBy   *UserQuery
 	withModifiedBy  *UserQuery
 	withFKs         bool
@@ -104,6 +105,28 @@ func (cq *CameraQuery) QueryImages() *ImageQuery {
 			sqlgraph.From(camera.Table, camera.FieldID, selector),
 			sqlgraph.To(image.Table, image.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, camera.ImagesTable, camera.ImagesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(cq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryOwner chains the current query on the "owner" edge.
+func (cq *CameraQuery) QueryOwner() *UserQuery {
+	query := (&UserClient{config: cq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := cq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := cq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(camera.Table, camera.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, camera.OwnerTable, camera.OwnerColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(cq.driver.Dialect(), step)
 		return fromU, nil
@@ -349,6 +372,7 @@ func (cq *CameraQuery) Clone() *CameraQuery {
 		predicates:      append([]predicate.Camera{}, cq.predicates...),
 		withTimeOffsets: cq.withTimeOffsets.Clone(),
 		withImages:      cq.withImages.Clone(),
+		withOwner:       cq.withOwner.Clone(),
 		withCreatedBy:   cq.withCreatedBy.Clone(),
 		withModifiedBy:  cq.withModifiedBy.Clone(),
 		// clone intermediate query.
@@ -376,6 +400,17 @@ func (cq *CameraQuery) WithImages(opts ...func(*ImageQuery)) *CameraQuery {
 		opt(query)
 	}
 	cq.withImages = query
+	return cq
+}
+
+// WithOwner tells the query-builder to eager-load the nodes that are connected to
+// the "owner" edge. The optional arguments are used to configure the query builder of the edge.
+func (cq *CameraQuery) WithOwner(opts ...func(*UserQuery)) *CameraQuery {
+	query := (&UserClient{config: cq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	cq.withOwner = query
 	return cq
 }
 
@@ -480,14 +515,15 @@ func (cq *CameraQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Camer
 		nodes       = []*Camera{}
 		withFKs     = cq.withFKs
 		_spec       = cq.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			cq.withTimeOffsets != nil,
 			cq.withImages != nil,
+			cq.withOwner != nil,
 			cq.withCreatedBy != nil,
 			cq.withModifiedBy != nil,
 		}
 	)
-	if cq.withCreatedBy != nil || cq.withModifiedBy != nil {
+	if cq.withOwner != nil || cq.withCreatedBy != nil || cq.withModifiedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -522,6 +558,12 @@ func (cq *CameraQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Camer
 		if err := cq.loadImages(ctx, query, nodes,
 			func(n *Camera) { n.Edges.Images = []*Image{} },
 			func(n *Camera, e *Image) { n.Edges.Images = append(n.Edges.Images, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := cq.withOwner; query != nil {
+		if err := cq.loadOwner(ctx, query, nodes, nil,
+			func(n *Camera, e *User) { n.Edges.Owner = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -599,6 +641,38 @@ func (cq *CameraQuery) loadImages(ctx context.Context, query *ImageQuery, nodes 
 			return fmt.Errorf(`unexpected referenced foreign-key "image_camera" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
+	}
+	return nil
+}
+func (cq *CameraQuery) loadOwner(ctx context.Context, query *UserQuery, nodes []*Camera, init func(*Camera), assign func(*Camera, *User)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Camera)
+	for i := range nodes {
+		if nodes[i].camera_owner == nil {
+			continue
+		}
+		fk := *nodes[i].camera_owner
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(user.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "camera_owner" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
 	}
 	return nil
 }

@@ -66,6 +66,9 @@ func registerControllers(router *gin.Engine) {
 	log.Debug().Msg("-> Registering project assignments controller")
 	registerProjectAssignmentsController(router)
 
+	log.Debug().Msg("-> Registering cameras controller")
+	registerCamerasController(router)
+
 	log.Debug().Msg("-> Done registering controllers")
 }
 

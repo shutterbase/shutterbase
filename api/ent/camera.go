@@ -30,6 +30,7 @@ type Camera struct {
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CameraQuery when eager-loading is set.
 	Edges              CameraEdges `json:"edges"`
+	camera_owner       *uuid.UUID
 	camera_created_by  *uuid.UUID
 	camera_modified_by *uuid.UUID
 	selectValues       sql.SelectValues
@@ -41,13 +42,15 @@ type CameraEdges struct {
 	TimeOffsets []*TimeOffset `json:"timeOffsets,omitempty"`
 	// Images holds the value of the images edge.
 	Images []*Image `json:"images,omitempty"`
+	// Owner holds the value of the owner edge.
+	Owner *User `json:"owner"`
 	// CreatedBy holds the value of the created_by edge.
 	CreatedBy *User `json:"createdBy"`
 	// ModifiedBy holds the value of the modified_by edge.
 	ModifiedBy *User `json:"modifiedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // TimeOffsetsOrErr returns the TimeOffsets value or an error if the edge
@@ -68,10 +71,23 @@ func (e CameraEdges) ImagesOrErr() ([]*Image, error) {
 	return nil, &NotLoadedError{edge: "images"}
 }
 
+// OwnerOrErr returns the Owner value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e CameraEdges) OwnerOrErr() (*User, error) {
+	if e.loadedTypes[2] {
+		if e.Owner == nil {
+			// Edge was loaded but was not found.
+			return nil, &NotFoundError{label: user.Label}
+		}
+		return e.Owner, nil
+	}
+	return nil, &NotLoadedError{edge: "owner"}
+}
+
 // CreatedByOrErr returns the CreatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e CameraEdges) CreatedByOrErr() (*User, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		if e.CreatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -84,7 +100,7 @@ func (e CameraEdges) CreatedByOrErr() (*User, error) {
 // ModifiedByOrErr returns the ModifiedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e CameraEdges) ModifiedByOrErr() (*User, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		if e.ModifiedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -105,9 +121,11 @@ func (*Camera) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullTime)
 		case camera.FieldID:
 			values[i] = new(uuid.UUID)
-		case camera.ForeignKeys[0]: // camera_created_by
+		case camera.ForeignKeys[0]: // camera_owner
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case camera.ForeignKeys[1]: // camera_modified_by
+		case camera.ForeignKeys[1]: // camera_created_by
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case camera.ForeignKeys[2]: // camera_modified_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -156,12 +174,19 @@ func (c *Camera) assignValues(columns []string, values []any) error {
 			}
 		case camera.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field camera_owner", values[i])
+			} else if value.Valid {
+				c.camera_owner = new(uuid.UUID)
+				*c.camera_owner = *value.S.(*uuid.UUID)
+			}
+		case camera.ForeignKeys[1]:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field camera_created_by", values[i])
 			} else if value.Valid {
 				c.camera_created_by = new(uuid.UUID)
 				*c.camera_created_by = *value.S.(*uuid.UUID)
 			}
-		case camera.ForeignKeys[1]:
+		case camera.ForeignKeys[2]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field camera_modified_by", values[i])
 			} else if value.Valid {
@@ -189,6 +214,11 @@ func (c *Camera) QueryTimeOffsets() *TimeOffsetQuery {
 // QueryImages queries the "images" edge of the Camera entity.
 func (c *Camera) QueryImages() *ImageQuery {
 	return NewCameraClient(c.config).QueryImages(c)
+}
+
+// QueryOwner queries the "owner" edge of the Camera entity.
+func (c *Camera) QueryOwner() *UserQuery {
+	return NewCameraClient(c.config).QueryOwner(c)
 }
 
 // QueryCreatedBy queries the "created_by" edge of the Camera entity.
