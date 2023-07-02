@@ -2,9 +2,9 @@
 
 ### Project Assignments
 
-- [ ] `GET /projects/:id/assignments`
-- [ ] `PUT /projects/:id/assignments`
-- [ ] `DELETE /projects/:id/assignments/:id`
+- [x] `GET /projects/:id/assignments`
+- [x] `PUT /projects/:id/assignments`
+- [x] `DELETE /projects/:id/assignments/:id`
 
 ### Images
 
@@ -16,13 +16,14 @@
 
 ### Cameras
 
-- [ ] `GET /users/:uid/cameras`
-- [ ] `GET /users/:uid/cameras/:id`
-- [ ] `POST /users/:uid/cameras`
+- [x] `GET /users/:uid/cameras`
+- [x] `GET /users/:uid/cameras/:id`
+- [x] `POST /users/:uid/cameras`
 
 ### Time Offset
 
 - [ ] `POST /users/:uid/cameras/:id/time_offset`
+- [ ] `GET /users/:uid/cameras/:id/time_offset`
 
 ### Tags
 
