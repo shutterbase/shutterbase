@@ -1,18 +1,17 @@
 package controller
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
+	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/internal/api_error"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 const USERS_RESOURCE = "/users"
@@ -133,7 +132,7 @@ func getUserController(c *gin.Context) {
 
 	item, err := repository.GetUser(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get single user")
@@ -170,7 +169,7 @@ func updateUserController(c *gin.Context) {
 
 	item, err := repository.GetUser(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get user for user update")
@@ -254,7 +253,7 @@ func updateUserRoleController(c *gin.Context) {
 
 	item, err := repository.GetUser(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get user for user's role update")
@@ -272,7 +271,7 @@ func updateUserRoleController(c *gin.Context) {
 	}
 	role, err := repository.GetRole(ctx, roleId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get role for user's role update")
@@ -312,7 +311,7 @@ func deleteUserController(c *gin.Context) {
 
 	err = repository.DeleteUser(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to delete user")

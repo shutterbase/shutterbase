@@ -1,17 +1,16 @@
 package controller
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
+	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/internal/api_error"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
-	"gorm.io/gorm"
 )
 
 const PROJECT_ASSIGNMENTS_RESOURCE = "/projects/:pid/assignments"
@@ -74,7 +73,7 @@ func createProjectAssignmentController(c *gin.Context) {
 
 	user, err := repository.GetUser(ctx, userId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			log.Error().Err(err).Msg("failed to get user for project assignment creation")
 			api_error.NOT_FOUND.Send(c)
 			return
@@ -86,7 +85,7 @@ func createProjectAssignmentController(c *gin.Context) {
 
 	project, err := repository.GetProject(ctx, projectId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			log.Error().Err(err).Msg("failed to get project for project assignment creation")
 			api_error.NOT_FOUND.Send(c)
 			return
@@ -158,7 +157,7 @@ func getProjectAssignmentController(c *gin.Context) {
 
 	item, err := repository.GetProjectAssignment(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get single project assignment")
@@ -195,7 +194,7 @@ func updateProjectAssignmentController(c *gin.Context) {
 
 	item, err := repository.GetProjectAssignment(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get project assignment for project assignment update")

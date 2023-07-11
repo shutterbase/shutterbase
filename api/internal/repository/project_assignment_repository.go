@@ -25,6 +25,9 @@ func GetProjectAssignments(ctx context.Context, projectId uuid.UUID, paginationP
 		)
 
 	items, err := databaseClient.ProjectAssignment.Query().
+		WithProject().
+		WithRole().
+		WithUser().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
 		Where(conditions).
@@ -42,7 +45,11 @@ func GetProjectAssignments(ctx context.Context, projectId uuid.UUID, paginationP
 }
 
 func GetProjectAssignment(ctx context.Context, id uuid.UUID) (*ent.ProjectAssignment, error) {
-	item, err := databaseClient.ProjectAssignment.Query().Where(projectassignment.ID(id)).WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.ProjectAssignment.Query().
+		WithProject().
+		WithRole().
+		WithUser().
+		Where(projectassignment.ID(id)).WithCreatedBy().WithModifiedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting project assignment")
 	}

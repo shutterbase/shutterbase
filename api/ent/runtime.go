@@ -63,10 +63,18 @@ func init() {
 	image.DefaultUpdatedAt = imageDescUpdatedAt.Default.(func() time.Time)
 	// image.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	image.UpdateDefaultUpdatedAt = imageDescUpdatedAt.UpdateDefault.(func() time.Time)
-	// imageDescName is the schema descriptor for name field.
-	imageDescName := imageFields[0].Descriptor()
-	// image.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	image.NameValidator = imageDescName.Validators[0].(func(string) error)
+	// imageDescFileName is the schema descriptor for file_name field.
+	imageDescFileName := imageFields[0].Descriptor()
+	// image.FileNameValidator is a validator for the "file_name" field. It is called by the builders before save.
+	image.FileNameValidator = imageDescFileName.Validators[0].(func(string) error)
+	// imageDescDescription is the schema descriptor for description field.
+	imageDescDescription := imageFields[1].Descriptor()
+	// image.DefaultDescription holds the default value on creation for the description field.
+	image.DefaultDescription = imageDescDescription.Default.(string)
+	// imageDescExifData is the schema descriptor for exif_data field.
+	imageDescExifData := imageFields[2].Descriptor()
+	// image.DefaultExifData holds the default value on creation for the exif_data field.
+	image.DefaultExifData = imageDescExifData.Default.(map[string]interface{})
 	// imageDescID is the schema descriptor for id field.
 	imageDescID := imageMixinFields0[0].Descriptor()
 	// image.DefaultID holds the default value on creation for the id field.
@@ -94,9 +102,9 @@ func init() {
 	imagetagDescDescription := imagetagFields[1].Descriptor()
 	// imagetag.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
 	imagetag.DescriptionValidator = imagetagDescDescription.Validators[0].(func(string) error)
-	// imagetagDescIsAlbum is the schema descriptor for isAlbum field.
+	// imagetagDescIsAlbum is the schema descriptor for is_album field.
 	imagetagDescIsAlbum := imagetagFields[2].Descriptor()
-	// imagetag.DefaultIsAlbum holds the default value on creation for the isAlbum field.
+	// imagetag.DefaultIsAlbum holds the default value on creation for the is_album field.
 	imagetag.DefaultIsAlbum = imagetagDescIsAlbum.Default.(bool)
 	// imagetagDescID is the schema descriptor for id field.
 	imagetagDescID := imagetagMixinFields0[0].Descriptor()

@@ -90,14 +90,61 @@ var policies = []*ladon.DefaultPolicy{
 	},
 	{
 		ID:          "6411e2c9-e58f-4420-9536-b6bd4497bc62",
-		Description: "Allow actions for project admin",
+		Description: "Allow all project actions for project admin",
 		Subjects:    []string{"role:user"},
-		Resources:   []string{"/projects", "/projects/" + UUID_REGEX},
-		Actions:     CRUD.GetItems(),
+		Resources: []string{
+			"/projects",
+			"/projects/<.+>",
+		},
+		Actions: CRUD.GetItems(),
 		Conditions: ladon.Conditions{
 			"project": &ProjectRoleCondition{
 				Roles: []string{"role:project_admin"},
 			},
+		},
+		Effect: ladon.AllowAccess,
+	},
+	{
+		ID:          "bd0e9ed3-6e73-458a-a524-25bb99945f26",
+		Description: "Allow read actions for project editors and viewers",
+		Subjects:    []string{"role:user"},
+		Resources: []string{
+			"/projects",
+			"/projects/<.+>",
+		},
+		Actions: R.GetItems(),
+		Conditions: ladon.Conditions{
+			"project": &ProjectRoleCondition{
+				Roles: []string{"role:project_editor", "role:project_viewer"},
+			},
+		},
+		Effect: ladon.AllowAccess,
+	},
+	{
+		ID:          "6f9ea9e4-f0dd-4c5d-8ab0-77334218a35d",
+		Description: "Allow image create action for project editors",
+		Subjects:    []string{"role:user"},
+		Resources: []string{
+			"/projects/" + UUID_REGEX + "/images",
+		},
+		Actions: C.GetItems(),
+		Conditions: ladon.Conditions{
+			"project": &ProjectRoleCondition{
+				Roles: []string{"role:project_editor"},
+			},
+		},
+		Effect: ladon.AllowAccess,
+	},
+	{
+		ID:          "d4c2210a-9151-4b04-a8e7-3de06dd4f2a9",
+		Description: "Allow update/delete image actions for image owner",
+		Subjects:    []string{"role:user"},
+		Resources: []string{
+			"/projects/" + UUID_REGEX + "/images/" + UUID_REGEX,
+		},
+		Actions: UD.GetItems(),
+		Conditions: ladon.Conditions{
+			"ownerId": &OwnerIdCondition{},
 		},
 		Effect: ladon.AllowAccess,
 	},

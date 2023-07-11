@@ -27,8 +27,8 @@
 
 ### Tags
 
-- [ ] `GET /projects/:pid/tags`
-- [ ] `GET /projects/:pid/tags/:id`
-- [ ] `POST /projects/:pid/tags`
-- [ ] `PUT /projects/:pid/tags/:id`
-- [ ] `DELETE /projects/:pid/tags/:id`
+- [x] `GET /projects/:pid/tags`
+- [x] `GET /projects/:pid/tags/:id`
+- [x] `POST /projects/:pid/tags`
+- [x] `PUT /projects/:pid/tags/:id`
+- [x] `DELETE /projects/:pid/tags/:id`

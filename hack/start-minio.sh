@@ -6,8 +6,8 @@ BASE="$(git rev-parse --show-toplevel)"
   exit 1
 }
 
-S3_ACCESS_KEY=my-access-key
-S3_SECRET_KEY=my-secret-key
+S3_ACCESS_KEY="my-access-key"
+S3_SECRET_KEY="my-secret-key"
 CONTAINER_NAME='shutterbase-s3'
 DEFAULT_BUCKETS='shutterbase'
 

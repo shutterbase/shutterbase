@@ -66,9 +66,14 @@ func UpdatedAt(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
-// Name applies equality check predicate on the "name" field. It's identical to NameEQ.
-func Name(v string) predicate.Image {
-	return predicate.Image(sql.FieldEQ(FieldName, v))
+// FileName applies equality check predicate on the "file_name" field. It's identical to FileNameEQ.
+func FileName(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldFileName, v))
+}
+
+// Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
+func Description(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldDescription, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -151,69 +156,134 @@ func UpdatedAtLTE(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
-// NameEQ applies the EQ predicate on the "name" field.
-func NameEQ(v string) predicate.Image {
-	return predicate.Image(sql.FieldEQ(FieldName, v))
+// FileNameEQ applies the EQ predicate on the "file_name" field.
+func FileNameEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldFileName, v))
 }
 
-// NameNEQ applies the NEQ predicate on the "name" field.
-func NameNEQ(v string) predicate.Image {
-	return predicate.Image(sql.FieldNEQ(FieldName, v))
+// FileNameNEQ applies the NEQ predicate on the "file_name" field.
+func FileNameNEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldFileName, v))
 }
 
-// NameIn applies the In predicate on the "name" field.
-func NameIn(vs ...string) predicate.Image {
-	return predicate.Image(sql.FieldIn(FieldName, vs...))
+// FileNameIn applies the In predicate on the "file_name" field.
+func FileNameIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldFileName, vs...))
 }
 
-// NameNotIn applies the NotIn predicate on the "name" field.
-func NameNotIn(vs ...string) predicate.Image {
-	return predicate.Image(sql.FieldNotIn(FieldName, vs...))
+// FileNameNotIn applies the NotIn predicate on the "file_name" field.
+func FileNameNotIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldFileName, vs...))
 }
 
-// NameGT applies the GT predicate on the "name" field.
-func NameGT(v string) predicate.Image {
-	return predicate.Image(sql.FieldGT(FieldName, v))
+// FileNameGT applies the GT predicate on the "file_name" field.
+func FileNameGT(v string) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldFileName, v))
 }
 
-// NameGTE applies the GTE predicate on the "name" field.
-func NameGTE(v string) predicate.Image {
-	return predicate.Image(sql.FieldGTE(FieldName, v))
+// FileNameGTE applies the GTE predicate on the "file_name" field.
+func FileNameGTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldFileName, v))
 }
 
-// NameLT applies the LT predicate on the "name" field.
-func NameLT(v string) predicate.Image {
-	return predicate.Image(sql.FieldLT(FieldName, v))
+// FileNameLT applies the LT predicate on the "file_name" field.
+func FileNameLT(v string) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldFileName, v))
 }
 
-// NameLTE applies the LTE predicate on the "name" field.
-func NameLTE(v string) predicate.Image {
-	return predicate.Image(sql.FieldLTE(FieldName, v))
+// FileNameLTE applies the LTE predicate on the "file_name" field.
+func FileNameLTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldFileName, v))
 }
 
-// NameContains applies the Contains predicate on the "name" field.
-func NameContains(v string) predicate.Image {
-	return predicate.Image(sql.FieldContains(FieldName, v))
+// FileNameContains applies the Contains predicate on the "file_name" field.
+func FileNameContains(v string) predicate.Image {
+	return predicate.Image(sql.FieldContains(FieldFileName, v))
 }
 
-// NameHasPrefix applies the HasPrefix predicate on the "name" field.
-func NameHasPrefix(v string) predicate.Image {
-	return predicate.Image(sql.FieldHasPrefix(FieldName, v))
+// FileNameHasPrefix applies the HasPrefix predicate on the "file_name" field.
+func FileNameHasPrefix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasPrefix(FieldFileName, v))
 }
 
-// NameHasSuffix applies the HasSuffix predicate on the "name" field.
-func NameHasSuffix(v string) predicate.Image {
-	return predicate.Image(sql.FieldHasSuffix(FieldName, v))
+// FileNameHasSuffix applies the HasSuffix predicate on the "file_name" field.
+func FileNameHasSuffix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasSuffix(FieldFileName, v))
 }
 
-// NameEqualFold applies the EqualFold predicate on the "name" field.
-func NameEqualFold(v string) predicate.Image {
-	return predicate.Image(sql.FieldEqualFold(FieldName, v))
+// FileNameEqualFold applies the EqualFold predicate on the "file_name" field.
+func FileNameEqualFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldEqualFold(FieldFileName, v))
 }
 
-// NameContainsFold applies the ContainsFold predicate on the "name" field.
-func NameContainsFold(v string) predicate.Image {
-	return predicate.Image(sql.FieldContainsFold(FieldName, v))
+// FileNameContainsFold applies the ContainsFold predicate on the "file_name" field.
+func FileNameContainsFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldContainsFold(FieldFileName, v))
+}
+
+// DescriptionEQ applies the EQ predicate on the "description" field.
+func DescriptionEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldDescription, v))
+}
+
+// DescriptionNEQ applies the NEQ predicate on the "description" field.
+func DescriptionNEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldDescription, v))
+}
+
+// DescriptionIn applies the In predicate on the "description" field.
+func DescriptionIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldDescription, vs...))
+}
+
+// DescriptionNotIn applies the NotIn predicate on the "description" field.
+func DescriptionNotIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldDescription, vs...))
+}
+
+// DescriptionGT applies the GT predicate on the "description" field.
+func DescriptionGT(v string) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldDescription, v))
+}
+
+// DescriptionGTE applies the GTE predicate on the "description" field.
+func DescriptionGTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldDescription, v))
+}
+
+// DescriptionLT applies the LT predicate on the "description" field.
+func DescriptionLT(v string) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldDescription, v))
+}
+
+// DescriptionLTE applies the LTE predicate on the "description" field.
+func DescriptionLTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldDescription, v))
+}
+
+// DescriptionContains applies the Contains predicate on the "description" field.
+func DescriptionContains(v string) predicate.Image {
+	return predicate.Image(sql.FieldContains(FieldDescription, v))
+}
+
+// DescriptionHasPrefix applies the HasPrefix predicate on the "description" field.
+func DescriptionHasPrefix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasPrefix(FieldDescription, v))
+}
+
+// DescriptionHasSuffix applies the HasSuffix predicate on the "description" field.
+func DescriptionHasSuffix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasSuffix(FieldDescription, v))
+}
+
+// DescriptionEqualFold applies the EqualFold predicate on the "description" field.
+func DescriptionEqualFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldEqualFold(FieldDescription, v))
+}
+
+// DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
+func DescriptionContainsFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldContainsFold(FieldDescription, v))
 }
 
 // HasTags applies the HasEdge predicate on the "tags" edge.

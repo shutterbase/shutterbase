@@ -13,8 +13,9 @@ type Image struct {
 
 func (Image) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("name").NotEmpty(),
-		field.JSON("exif_data", map[string]interface{}{}).StructTag(`json:"exifData"`),
+		field.String("file_name").NotEmpty().StorageKey("fileName"),
+		field.String("description").Default(""),
+		field.JSON("exif_data", map[string]interface{}{}).StructTag(`json:"exifData"`).Default(map[string]interface{}{}),
 	}
 }
 

@@ -23,7 +23,7 @@ const (
 	FieldName = "name"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
-	// FieldIsAlbum holds the string denoting the isalbum field in the database.
+	// FieldIsAlbum holds the string denoting the is_album field in the database.
 	FieldIsAlbum = "is_album"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
@@ -113,7 +113,7 @@ var (
 	NameValidator func(string) error
 	// DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
 	DescriptionValidator func(string) error
-	// DefaultIsAlbum holds the default value on creation for the "isAlbum" field.
+	// DefaultIsAlbum holds the default value on creation for the "is_album" field.
 	DefaultIsAlbum bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
@@ -147,7 +147,7 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDescription, opts...).ToFunc()
 }
 
-// ByIsAlbum orders the results by the isAlbum field.
+// ByIsAlbum orders the results by the is_album field.
 func ByIsAlbum(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsAlbum, opts...).ToFunc()
 }

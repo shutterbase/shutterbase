@@ -28,8 +28,8 @@ type ImageTag struct {
 	Name string `json:"name,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
-	// IsAlbum holds the value of the "isAlbum" field.
-	IsAlbum bool `json:"isAlbum,omitempty"`
+	// IsAlbum holds the value of the "is_album" field.
+	IsAlbum bool `json:"isAlbum"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ImageTagQuery when eager-loading is set.
 	Edges                 ImageTagEdges `json:"edges"`
@@ -168,7 +168,7 @@ func (it *ImageTag) assignValues(columns []string, values []any) error {
 			}
 		case imagetag.FieldIsAlbum:
 			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field isAlbum", values[i])
+				return fmt.Errorf("unexpected type %T for field is_album", values[i])
 			} else if value.Valid {
 				it.IsAlbum = value.Bool
 			}
@@ -261,7 +261,7 @@ func (it *ImageTag) String() string {
 	builder.WriteString("description=")
 	builder.WriteString(it.Description)
 	builder.WriteString(", ")
-	builder.WriteString("isAlbum=")
+	builder.WriteString("is_album=")
 	builder.WriteString(fmt.Sprintf("%v", it.IsAlbum))
 	builder.WriteByte(')')
 	return builder.String()

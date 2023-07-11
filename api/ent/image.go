@@ -26,8 +26,10 @@ type Image struct {
 	CreatedAt time.Time `json:"createdAt"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updatedAt"`
-	// Name holds the value of the "name" field.
-	Name string `json:"name,omitempty"`
+	// FileName holds the value of the "file_name" field.
+	FileName string `json:"file_name,omitempty"`
+	// Description holds the value of the "description" field.
+	Description string `json:"description,omitempty"`
 	// ExifData holds the value of the "exif_data" field.
 	ExifData map[string]interface{} `json:"exifData"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -141,7 +143,7 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case image.FieldExifData:
 			values[i] = new([]byte)
-		case image.FieldName:
+		case image.FieldFileName, image.FieldDescription:
 			values[i] = new(sql.NullString)
 		case image.FieldCreatedAt, image.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -190,11 +192,17 @@ func (i *Image) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				i.UpdatedAt = value.Time
 			}
-		case image.FieldName:
+		case image.FieldFileName:
 			if value, ok := values[j].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field name", values[j])
+				return fmt.Errorf("unexpected type %T for field file_name", values[j])
 			} else if value.Valid {
-				i.Name = value.String
+				i.FileName = value.String
+			}
+		case image.FieldDescription:
+			if value, ok := values[j].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field description", values[j])
+			} else if value.Valid {
+				i.Description = value.String
 			}
 		case image.FieldExifData:
 			if value, ok := values[j].(*[]byte); !ok {
@@ -311,8 +319,11 @@ func (i *Image) String() string {
 	builder.WriteString("updated_at=")
 	builder.WriteString(i.UpdatedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
-	builder.WriteString("name=")
-	builder.WriteString(i.Name)
+	builder.WriteString("file_name=")
+	builder.WriteString(i.FileName)
+	builder.WriteString(", ")
+	builder.WriteString("description=")
+	builder.WriteString(i.Description)
 	builder.WriteString(", ")
 	builder.WriteString("exif_data=")
 	builder.WriteString(fmt.Sprintf("%v", i.ExifData))

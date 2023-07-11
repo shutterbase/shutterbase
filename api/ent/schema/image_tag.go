@@ -15,7 +15,7 @@ func (ImageTag) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty(),
 		field.String("description").NotEmpty(),
-		field.Bool("isAlbum").Default(false),
+		field.Bool("is_album").Default(false).StructTag(`json:"isAlbum"`),
 	}
 }
 

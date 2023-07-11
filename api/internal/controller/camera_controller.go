@@ -1,17 +1,16 @@
 package controller
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
+	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/internal/api_error"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
-	"gorm.io/gorm"
 )
 
 const CAMERAS_RESOURCE = "/users/:uid/cameras"
@@ -61,7 +60,7 @@ func createCameraController(c *gin.Context) {
 
 	user, err := repository.GetUser(ctx, userId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 			return
 		}
@@ -132,7 +131,7 @@ func getCameraController(c *gin.Context) {
 
 	item, err := repository.GetCamera(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get single camera")
@@ -169,7 +168,7 @@ func updateCameraController(c *gin.Context) {
 
 	item, err := repository.GetCamera(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if ent.IsNotFound(err) {
 			api_error.NOT_FOUND.Send(c)
 		} else {
 			log.Error().Err(err).Msg("failed to get camera for camera update")

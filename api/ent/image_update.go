@@ -39,9 +39,23 @@ func (iu *ImageUpdate) SetUpdatedAt(t time.Time) *ImageUpdate {
 	return iu
 }
 
-// SetName sets the "name" field.
-func (iu *ImageUpdate) SetName(s string) *ImageUpdate {
-	iu.mutation.SetName(s)
+// SetFileName sets the "file_name" field.
+func (iu *ImageUpdate) SetFileName(s string) *ImageUpdate {
+	iu.mutation.SetFileName(s)
+	return iu
+}
+
+// SetDescription sets the "description" field.
+func (iu *ImageUpdate) SetDescription(s string) *ImageUpdate {
+	iu.mutation.SetDescription(s)
+	return iu
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (iu *ImageUpdate) SetNillableDescription(s *string) *ImageUpdate {
+	if s != nil {
+		iu.SetDescription(*s)
+	}
 	return iu
 }
 
@@ -231,9 +245,9 @@ func (iu *ImageUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (iu *ImageUpdate) check() error {
-	if v, ok := iu.mutation.Name(); ok {
-		if err := image.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Image.name": %w`, err)}
+	if v, ok := iu.mutation.FileName(); ok {
+		if err := image.FileNameValidator(v); err != nil {
+			return &ValidationError{Name: "file_name", err: fmt.Errorf(`ent: validator failed for field "Image.file_name": %w`, err)}
 		}
 	}
 	if _, ok := iu.mutation.UserID(); iu.mutation.UserCleared() && !ok {
@@ -263,8 +277,11 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := iu.mutation.UpdatedAt(); ok {
 		_spec.SetField(image.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if value, ok := iu.mutation.Name(); ok {
-		_spec.SetField(image.FieldName, field.TypeString, value)
+	if value, ok := iu.mutation.FileName(); ok {
+		_spec.SetField(image.FieldFileName, field.TypeString, value)
+	}
+	if value, ok := iu.mutation.Description(); ok {
+		_spec.SetField(image.FieldDescription, field.TypeString, value)
 	}
 	if value, ok := iu.mutation.ExifData(); ok {
 		_spec.SetField(image.FieldExifData, field.TypeJSON, value)
@@ -485,9 +502,23 @@ func (iuo *ImageUpdateOne) SetUpdatedAt(t time.Time) *ImageUpdateOne {
 	return iuo
 }
 
-// SetName sets the "name" field.
-func (iuo *ImageUpdateOne) SetName(s string) *ImageUpdateOne {
-	iuo.mutation.SetName(s)
+// SetFileName sets the "file_name" field.
+func (iuo *ImageUpdateOne) SetFileName(s string) *ImageUpdateOne {
+	iuo.mutation.SetFileName(s)
+	return iuo
+}
+
+// SetDescription sets the "description" field.
+func (iuo *ImageUpdateOne) SetDescription(s string) *ImageUpdateOne {
+	iuo.mutation.SetDescription(s)
+	return iuo
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (iuo *ImageUpdateOne) SetNillableDescription(s *string) *ImageUpdateOne {
+	if s != nil {
+		iuo.SetDescription(*s)
+	}
 	return iuo
 }
 
@@ -690,9 +721,9 @@ func (iuo *ImageUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (iuo *ImageUpdateOne) check() error {
-	if v, ok := iuo.mutation.Name(); ok {
-		if err := image.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Image.name": %w`, err)}
+	if v, ok := iuo.mutation.FileName(); ok {
+		if err := image.FileNameValidator(v); err != nil {
+			return &ValidationError{Name: "file_name", err: fmt.Errorf(`ent: validator failed for field "Image.file_name": %w`, err)}
 		}
 	}
 	if _, ok := iuo.mutation.UserID(); iuo.mutation.UserCleared() && !ok {
@@ -739,8 +770,11 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 	if value, ok := iuo.mutation.UpdatedAt(); ok {
 		_spec.SetField(image.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if value, ok := iuo.mutation.Name(); ok {
-		_spec.SetField(image.FieldName, field.TypeString, value)
+	if value, ok := iuo.mutation.FileName(); ok {
+		_spec.SetField(image.FieldFileName, field.TypeString, value)
+	}
+	if value, ok := iuo.mutation.Description(); ok {
+		_spec.SetField(image.FieldDescription, field.TypeString, value)
 	}
 	if value, ok := iuo.mutation.ExifData(); ok {
 		_spec.SetField(image.FieldExifData, field.TypeJSON, value)

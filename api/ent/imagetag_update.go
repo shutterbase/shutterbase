@@ -50,13 +50,13 @@ func (itu *ImageTagUpdate) SetDescription(s string) *ImageTagUpdate {
 	return itu
 }
 
-// SetIsAlbum sets the "isAlbum" field.
+// SetIsAlbum sets the "is_album" field.
 func (itu *ImageTagUpdate) SetIsAlbum(b bool) *ImageTagUpdate {
 	itu.mutation.SetIsAlbum(b)
 	return itu
 }
 
-// SetNillableIsAlbum sets the "isAlbum" field if the given value is not nil.
+// SetNillableIsAlbum sets the "is_album" field if the given value is not nil.
 func (itu *ImageTagUpdate) SetNillableIsAlbum(b *bool) *ImageTagUpdate {
 	if b != nil {
 		itu.SetIsAlbum(*b)
@@ -425,13 +425,13 @@ func (ituo *ImageTagUpdateOne) SetDescription(s string) *ImageTagUpdateOne {
 	return ituo
 }
 
-// SetIsAlbum sets the "isAlbum" field.
+// SetIsAlbum sets the "is_album" field.
 func (ituo *ImageTagUpdateOne) SetIsAlbum(b bool) *ImageTagUpdateOne {
 	ituo.mutation.SetIsAlbum(b)
 	return ituo
 }
 
-// SetNillableIsAlbum sets the "isAlbum" field if the given value is not nil.
+// SetNillableIsAlbum sets the "is_album" field if the given value is not nil.
 func (ituo *ImageTagUpdateOne) SetNillableIsAlbum(b *bool) *ImageTagUpdateOne {
 	if b != nil {
 		ituo.SetIsAlbum(*b)

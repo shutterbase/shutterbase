@@ -69,6 +69,12 @@ func registerControllers(router *gin.Engine) {
 	log.Debug().Msg("-> Registering cameras controller")
 	registerCamerasController(router)
 
+	log.Debug().Msg("-> Registering image tags controller")
+	registerImageTagsController(router)
+
+	log.Debug().Msg("-> Registering images controller")
+	registerImagesController(router)
+
 	log.Debug().Msg("-> Done registering controllers")
 }
 

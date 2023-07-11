@@ -53,9 +53,23 @@ func (ic *ImageCreate) SetNillableUpdatedAt(t *time.Time) *ImageCreate {
 	return ic
 }
 
-// SetName sets the "name" field.
-func (ic *ImageCreate) SetName(s string) *ImageCreate {
-	ic.mutation.SetName(s)
+// SetFileName sets the "file_name" field.
+func (ic *ImageCreate) SetFileName(s string) *ImageCreate {
+	ic.mutation.SetFileName(s)
+	return ic
+}
+
+// SetDescription sets the "description" field.
+func (ic *ImageCreate) SetDescription(s string) *ImageCreate {
+	ic.mutation.SetDescription(s)
+	return ic
+}
+
+// SetNillableDescription sets the "description" field if the given value is not nil.
+func (ic *ImageCreate) SetNillableDescription(s *string) *ImageCreate {
+	if s != nil {
+		ic.SetDescription(*s)
+	}
 	return ic
 }
 
@@ -208,6 +222,14 @@ func (ic *ImageCreate) defaults() {
 		v := image.DefaultUpdatedAt()
 		ic.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := ic.mutation.Description(); !ok {
+		v := image.DefaultDescription
+		ic.mutation.SetDescription(v)
+	}
+	if _, ok := ic.mutation.ExifData(); !ok {
+		v := image.DefaultExifData
+		ic.mutation.SetExifData(v)
+	}
 	if _, ok := ic.mutation.ID(); !ok {
 		v := image.DefaultID()
 		ic.mutation.SetID(v)
@@ -222,13 +244,16 @@ func (ic *ImageCreate) check() error {
 	if _, ok := ic.mutation.UpdatedAt(); !ok {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "Image.updated_at"`)}
 	}
-	if _, ok := ic.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "Image.name"`)}
+	if _, ok := ic.mutation.FileName(); !ok {
+		return &ValidationError{Name: "file_name", err: errors.New(`ent: missing required field "Image.file_name"`)}
 	}
-	if v, ok := ic.mutation.Name(); ok {
-		if err := image.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Image.name": %w`, err)}
+	if v, ok := ic.mutation.FileName(); ok {
+		if err := image.FileNameValidator(v); err != nil {
+			return &ValidationError{Name: "file_name", err: fmt.Errorf(`ent: validator failed for field "Image.file_name": %w`, err)}
 		}
+	}
+	if _, ok := ic.mutation.Description(); !ok {
+		return &ValidationError{Name: "description", err: errors.New(`ent: missing required field "Image.description"`)}
 	}
 	if _, ok := ic.mutation.ExifData(); !ok {
 		return &ValidationError{Name: "exif_data", err: errors.New(`ent: missing required field "Image.exif_data"`)}
@@ -285,9 +310,13 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 		_spec.SetField(image.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
-	if value, ok := ic.mutation.Name(); ok {
-		_spec.SetField(image.FieldName, field.TypeString, value)
-		_node.Name = value
+	if value, ok := ic.mutation.FileName(); ok {
+		_spec.SetField(image.FieldFileName, field.TypeString, value)
+		_node.FileName = value
+	}
+	if value, ok := ic.mutation.Description(); ok {
+		_spec.SetField(image.FieldDescription, field.TypeString, value)
+		_node.Description = value
 	}
 	if value, ok := ic.mutation.ExifData(); ok {
 		_spec.SetField(image.FieldExifData, field.TypeJSON, value)

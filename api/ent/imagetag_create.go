@@ -64,13 +64,13 @@ func (itc *ImageTagCreate) SetDescription(s string) *ImageTagCreate {
 	return itc
 }
 
-// SetIsAlbum sets the "isAlbum" field.
+// SetIsAlbum sets the "is_album" field.
 func (itc *ImageTagCreate) SetIsAlbum(b bool) *ImageTagCreate {
 	itc.mutation.SetIsAlbum(b)
 	return itc
 }
 
-// SetNillableIsAlbum sets the "isAlbum" field if the given value is not nil.
+// SetNillableIsAlbum sets the "is_album" field if the given value is not nil.
 func (itc *ImageTagCreate) SetNillableIsAlbum(b *bool) *ImageTagCreate {
 	if b != nil {
 		itc.SetIsAlbum(*b)
@@ -242,7 +242,7 @@ func (itc *ImageTagCreate) check() error {
 		}
 	}
 	if _, ok := itc.mutation.IsAlbum(); !ok {
-		return &ValidationError{Name: "isAlbum", err: errors.New(`ent: missing required field "ImageTag.isAlbum"`)}
+		return &ValidationError{Name: "is_album", err: errors.New(`ent: missing required field "ImageTag.is_album"`)}
 	}
 	return nil
 }

@@ -76,7 +76,7 @@ func Description(v string) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldDescription, v))
 }
 
-// IsAlbum applies equality check predicate on the "isAlbum" field. It's identical to IsAlbumEQ.
+// IsAlbum applies equality check predicate on the "is_album" field. It's identical to IsAlbumEQ.
 func IsAlbum(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldIsAlbum, v))
 }
@@ -291,12 +291,12 @@ func DescriptionContainsFold(v string) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldContainsFold(FieldDescription, v))
 }
 
-// IsAlbumEQ applies the EQ predicate on the "isAlbum" field.
+// IsAlbumEQ applies the EQ predicate on the "is_album" field.
 func IsAlbumEQ(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldIsAlbum, v))
 }
 
-// IsAlbumNEQ applies the NEQ predicate on the "isAlbum" field.
+// IsAlbumNEQ applies the NEQ predicate on the "is_album" field.
 func IsAlbumNEQ(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldNEQ(FieldIsAlbum, v))
 }

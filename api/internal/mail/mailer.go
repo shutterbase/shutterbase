@@ -25,8 +25,8 @@ func InitMailer() error {
 	mailer = gomail.NewDialer(
 		config.Get().String("SMTP_HOST"),
 		config.Get().Int("SMTP_PORT"),
-		config.Get().String("SMTP_PASSWORD"),
 		config.Get().String("SMTP_USERNAME"),
+		config.Get().String("SMTP_PASSWORD"),
 	)
 
 	sendCloser, dialError := mailer.Dial()

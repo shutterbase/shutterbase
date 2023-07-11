@@ -897,7 +897,8 @@ type ImageMutation struct {
 	id                 *uuid.UUID
 	created_at         *time.Time
 	updated_at         *time.Time
-	name               *string
+	file_name          *string
+	description        *string
 	exif_data          *map[string]interface{}
 	clearedFields      map[string]struct{}
 	tags               map[uuid.UUID]struct{}
@@ -1094,40 +1095,76 @@ func (m *ImageMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
-// SetName sets the "name" field.
-func (m *ImageMutation) SetName(s string) {
-	m.name = &s
+// SetFileName sets the "file_name" field.
+func (m *ImageMutation) SetFileName(s string) {
+	m.file_name = &s
 }
 
-// Name returns the value of the "name" field in the mutation.
-func (m *ImageMutation) Name() (r string, exists bool) {
-	v := m.name
+// FileName returns the value of the "file_name" field in the mutation.
+func (m *ImageMutation) FileName() (r string, exists bool) {
+	v := m.file_name
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldName returns the old "name" field's value of the Image entity.
+// OldFileName returns the old "file_name" field's value of the Image entity.
 // If the Image object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ImageMutation) OldName(ctx context.Context) (v string, err error) {
+func (m *ImageMutation) OldFileName(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldName is only allowed on UpdateOne operations")
+		return v, errors.New("OldFileName is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldName requires an ID field in the mutation")
+		return v, errors.New("OldFileName requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldName: %w", err)
+		return v, fmt.Errorf("querying old value for OldFileName: %w", err)
 	}
-	return oldValue.Name, nil
+	return oldValue.FileName, nil
 }
 
-// ResetName resets all changes to the "name" field.
-func (m *ImageMutation) ResetName() {
-	m.name = nil
+// ResetFileName resets all changes to the "file_name" field.
+func (m *ImageMutation) ResetFileName() {
+	m.file_name = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *ImageMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *ImageMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *ImageMutation) ResetDescription() {
+	m.description = nil
 }
 
 // SetExifData sets the "exif_data" field.
@@ -1449,15 +1486,18 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.created_at != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
 	if m.updated_at != nil {
 		fields = append(fields, image.FieldUpdatedAt)
 	}
-	if m.name != nil {
-		fields = append(fields, image.FieldName)
+	if m.file_name != nil {
+		fields = append(fields, image.FieldFileName)
+	}
+	if m.description != nil {
+		fields = append(fields, image.FieldDescription)
 	}
 	if m.exif_data != nil {
 		fields = append(fields, image.FieldExifData)
@@ -1474,8 +1514,10 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case image.FieldUpdatedAt:
 		return m.UpdatedAt()
-	case image.FieldName:
-		return m.Name()
+	case image.FieldFileName:
+		return m.FileName()
+	case image.FieldDescription:
+		return m.Description()
 	case image.FieldExifData:
 		return m.ExifData()
 	}
@@ -1491,8 +1533,10 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldCreatedAt(ctx)
 	case image.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
-	case image.FieldName:
-		return m.OldName(ctx)
+	case image.FieldFileName:
+		return m.OldFileName(ctx)
+	case image.FieldDescription:
+		return m.OldDescription(ctx)
 	case image.FieldExifData:
 		return m.OldExifData(ctx)
 	}
@@ -1518,12 +1562,19 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUpdatedAt(v)
 		return nil
-	case image.FieldName:
+	case image.FieldFileName:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetName(v)
+		m.SetFileName(v)
+		return nil
+	case image.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
 		return nil
 	case image.FieldExifData:
 		v, ok := value.(map[string]interface{})
@@ -1587,8 +1638,11 @@ func (m *ImageMutation) ResetField(name string) error {
 	case image.FieldUpdatedAt:
 		m.ResetUpdatedAt()
 		return nil
-	case image.FieldName:
-		m.ResetName()
+	case image.FieldFileName:
+		m.ResetFileName()
+		return nil
+	case image.FieldDescription:
+		m.ResetDescription()
 		return nil
 	case image.FieldExifData:
 		m.ResetExifData()
@@ -1781,7 +1835,7 @@ type ImageTagMutation struct {
 	updated_at         *time.Time
 	name               *string
 	description        *string
-	isAlbum            *bool
+	is_album           *bool
 	clearedFields      map[string]struct{}
 	project            *uuid.UUID
 	clearedproject     bool
@@ -2045,21 +2099,21 @@ func (m *ImageTagMutation) ResetDescription() {
 	m.description = nil
 }
 
-// SetIsAlbum sets the "isAlbum" field.
+// SetIsAlbum sets the "is_album" field.
 func (m *ImageTagMutation) SetIsAlbum(b bool) {
-	m.isAlbum = &b
+	m.is_album = &b
 }
 
-// IsAlbum returns the value of the "isAlbum" field in the mutation.
+// IsAlbum returns the value of the "is_album" field in the mutation.
 func (m *ImageTagMutation) IsAlbum() (r bool, exists bool) {
-	v := m.isAlbum
+	v := m.is_album
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldIsAlbum returns the old "isAlbum" field's value of the ImageTag entity.
+// OldIsAlbum returns the old "is_album" field's value of the ImageTag entity.
 // If the ImageTag object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
 func (m *ImageTagMutation) OldIsAlbum(ctx context.Context) (v bool, err error) {
@@ -2076,9 +2130,9 @@ func (m *ImageTagMutation) OldIsAlbum(ctx context.Context) (v bool, err error) {
 	return oldValue.IsAlbum, nil
 }
 
-// ResetIsAlbum resets all changes to the "isAlbum" field.
+// ResetIsAlbum resets all changes to the "is_album" field.
 func (m *ImageTagMutation) ResetIsAlbum() {
-	m.isAlbum = nil
+	m.is_album = nil
 }
 
 // SetProjectID sets the "project" edge to the Project entity by id.
@@ -2299,7 +2353,7 @@ func (m *ImageTagMutation) Fields() []string {
 	if m.description != nil {
 		fields = append(fields, imagetag.FieldDescription)
 	}
-	if m.isAlbum != nil {
+	if m.is_album != nil {
 		fields = append(fields, imagetag.FieldIsAlbum)
 	}
 	return fields

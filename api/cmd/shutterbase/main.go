@@ -9,6 +9,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/controller"
 	"github.com/shutterbase/shutterbase/internal/repository"
+	"github.com/shutterbase/shutterbase/internal/storage"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
 
@@ -40,6 +41,14 @@ func main() {
 	log.Info().Msg("")
 
 	log.Info().Msg("---")
+	log.Info().Msg("initializing storage backend")
+	err = storage.Init()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize storage backend")
+	}
+	log.Info().Msg("")
+
+	log.Info().Msg("---")
 	log.Info().Msg("starting server")
 	controller.StartServer()
 }
@@ -58,6 +67,7 @@ func initConfig() {
 
 		config.String("S3_HOST").NotEmpty().Default("localhost"),
 		config.Int("S3_PORT").Default(9000),
+		config.Bool("S3_SSL").Default(true),
 		config.String("S3_ACCESS_KEY").NotEmpty(),
 		config.String("S3_SECRET_KEY").NotEmpty().Sensitive(),
 		config.String("S3_BUCKET").NotEmpty(),
@@ -81,6 +91,8 @@ func initConfig() {
 
 		config.Bool("USER_DEFAULT_ACTIVE").Default(false),
 		config.String("INITIAL_ADMIN_PASSWORD").NotEmpty().Sensitive(),
+
+		config.Int("LRU_CACHE_SIZE").Default(1000),
 	})
 	if err != nil {
 		panic(err)
