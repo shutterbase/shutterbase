@@ -24,12 +24,12 @@ type TimeOffset struct {
 	CreatedAt time.Time `json:"createdAt"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updatedAt"`
-	// ServerTime holds the value of the "serverTime" field.
+	// ServerTime holds the value of the "server_time" field.
 	ServerTime time.Time `json:"serverTime"`
-	// CameraTime holds the value of the "cameraTime" field.
+	// CameraTime holds the value of the "camera_time" field.
 	CameraTime time.Time `json:"cameraTime"`
-	// Offset holds the value of the "offset" field.
-	Offset time.Time `json:"offset"`
+	// OffsetSeconds holds the value of the "offset_seconds" field.
+	OffsetSeconds int `json:"offsetSeconds"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TimeOffsetQuery when eager-loading is set.
 	Edges                   TimeOffsetEdges `json:"edges"`
@@ -96,7 +96,9 @@ func (*TimeOffset) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case timeoffset.FieldCreatedAt, timeoffset.FieldUpdatedAt, timeoffset.FieldServerTime, timeoffset.FieldCameraTime, timeoffset.FieldOffset:
+		case timeoffset.FieldOffsetSeconds:
+			values[i] = new(sql.NullInt64)
+		case timeoffset.FieldCreatedAt, timeoffset.FieldUpdatedAt, timeoffset.FieldServerTime, timeoffset.FieldCameraTime:
 			values[i] = new(sql.NullTime)
 		case timeoffset.FieldID:
 			values[i] = new(uuid.UUID)
@@ -141,21 +143,21 @@ func (to *TimeOffset) assignValues(columns []string, values []any) error {
 			}
 		case timeoffset.FieldServerTime:
 			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field serverTime", values[i])
+				return fmt.Errorf("unexpected type %T for field server_time", values[i])
 			} else if value.Valid {
 				to.ServerTime = value.Time
 			}
 		case timeoffset.FieldCameraTime:
 			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field cameraTime", values[i])
+				return fmt.Errorf("unexpected type %T for field camera_time", values[i])
 			} else if value.Valid {
 				to.CameraTime = value.Time
 			}
-		case timeoffset.FieldOffset:
-			if value, ok := values[i].(*sql.NullTime); !ok {
-				return fmt.Errorf("unexpected type %T for field offset", values[i])
+		case timeoffset.FieldOffsetSeconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field offset_seconds", values[i])
 			} else if value.Valid {
-				to.Offset = value.Time
+				to.OffsetSeconds = int(value.Int64)
 			}
 		case timeoffset.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -235,14 +237,14 @@ func (to *TimeOffset) String() string {
 	builder.WriteString("updated_at=")
 	builder.WriteString(to.UpdatedAt.Format(time.ANSIC))
 	builder.WriteString(", ")
-	builder.WriteString("serverTime=")
+	builder.WriteString("server_time=")
 	builder.WriteString(to.ServerTime.Format(time.ANSIC))
 	builder.WriteString(", ")
-	builder.WriteString("cameraTime=")
+	builder.WriteString("camera_time=")
 	builder.WriteString(to.CameraTime.Format(time.ANSIC))
 	builder.WriteString(", ")
-	builder.WriteString("offset=")
-	builder.WriteString(to.Offset.Format(time.ANSIC))
+	builder.WriteString("offset_seconds=")
+	builder.WriteString(fmt.Sprintf("%v", to.OffsetSeconds))
 	builder.WriteByte(')')
 	return builder.String()
 }

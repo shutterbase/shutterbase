@@ -19,12 +19,12 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
-	// FieldServerTime holds the string denoting the servertime field in the database.
+	// FieldServerTime holds the string denoting the server_time field in the database.
 	FieldServerTime = "server_time"
-	// FieldCameraTime holds the string denoting the cameratime field in the database.
+	// FieldCameraTime holds the string denoting the camera_time field in the database.
 	FieldCameraTime = "camera_time"
-	// FieldOffset holds the string denoting the offset field in the database.
-	FieldOffset = "offset"
+	// FieldOffsetSeconds holds the string denoting the offset_seconds field in the database.
+	FieldOffsetSeconds = "offset_seconds"
 	// EdgeCamera holds the string denoting the camera edge name in mutations.
 	EdgeCamera = "camera"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
@@ -63,7 +63,7 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldServerTime,
 	FieldCameraTime,
-	FieldOffset,
+	FieldOffsetSeconds,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "time_offsets"
@@ -118,19 +118,19 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
-// ByServerTime orders the results by the serverTime field.
+// ByServerTime orders the results by the server_time field.
 func ByServerTime(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldServerTime, opts...).ToFunc()
 }
 
-// ByCameraTime orders the results by the cameraTime field.
+// ByCameraTime orders the results by the camera_time field.
 func ByCameraTime(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCameraTime, opts...).ToFunc()
 }
 
-// ByOffset orders the results by the offset field.
-func ByOffset(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldOffset, opts...).ToFunc()
+// ByOffsetSeconds orders the results by the offset_seconds field.
+func ByOffsetSeconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOffsetSeconds, opts...).ToFunc()
 }
 
 // ByCameraField orders the results by camera field.

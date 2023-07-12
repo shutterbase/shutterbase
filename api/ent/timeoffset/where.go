@@ -66,19 +66,19 @@ func UpdatedAt(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
-// ServerTime applies equality check predicate on the "serverTime" field. It's identical to ServerTimeEQ.
+// ServerTime applies equality check predicate on the "server_time" field. It's identical to ServerTimeEQ.
 func ServerTime(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldEQ(FieldServerTime, v))
 }
 
-// CameraTime applies equality check predicate on the "cameraTime" field. It's identical to CameraTimeEQ.
+// CameraTime applies equality check predicate on the "camera_time" field. It's identical to CameraTimeEQ.
 func CameraTime(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldEQ(FieldCameraTime, v))
 }
 
-// Offset applies equality check predicate on the "offset" field. It's identical to OffsetEQ.
-func Offset(v time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldEQ(FieldOffset, v))
+// OffsetSeconds applies equality check predicate on the "offset_seconds" field. It's identical to OffsetSecondsEQ.
+func OffsetSeconds(v int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldEQ(FieldOffsetSeconds, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
@@ -161,124 +161,124 @@ func UpdatedAtLTE(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
-// ServerTimeEQ applies the EQ predicate on the "serverTime" field.
+// ServerTimeEQ applies the EQ predicate on the "server_time" field.
 func ServerTimeEQ(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldEQ(FieldServerTime, v))
 }
 
-// ServerTimeNEQ applies the NEQ predicate on the "serverTime" field.
+// ServerTimeNEQ applies the NEQ predicate on the "server_time" field.
 func ServerTimeNEQ(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldNEQ(FieldServerTime, v))
 }
 
-// ServerTimeIn applies the In predicate on the "serverTime" field.
+// ServerTimeIn applies the In predicate on the "server_time" field.
 func ServerTimeIn(vs ...time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldIn(FieldServerTime, vs...))
 }
 
-// ServerTimeNotIn applies the NotIn predicate on the "serverTime" field.
+// ServerTimeNotIn applies the NotIn predicate on the "server_time" field.
 func ServerTimeNotIn(vs ...time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldNotIn(FieldServerTime, vs...))
 }
 
-// ServerTimeGT applies the GT predicate on the "serverTime" field.
+// ServerTimeGT applies the GT predicate on the "server_time" field.
 func ServerTimeGT(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldGT(FieldServerTime, v))
 }
 
-// ServerTimeGTE applies the GTE predicate on the "serverTime" field.
+// ServerTimeGTE applies the GTE predicate on the "server_time" field.
 func ServerTimeGTE(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldGTE(FieldServerTime, v))
 }
 
-// ServerTimeLT applies the LT predicate on the "serverTime" field.
+// ServerTimeLT applies the LT predicate on the "server_time" field.
 func ServerTimeLT(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldLT(FieldServerTime, v))
 }
 
-// ServerTimeLTE applies the LTE predicate on the "serverTime" field.
+// ServerTimeLTE applies the LTE predicate on the "server_time" field.
 func ServerTimeLTE(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldLTE(FieldServerTime, v))
 }
 
-// CameraTimeEQ applies the EQ predicate on the "cameraTime" field.
+// CameraTimeEQ applies the EQ predicate on the "camera_time" field.
 func CameraTimeEQ(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldEQ(FieldCameraTime, v))
 }
 
-// CameraTimeNEQ applies the NEQ predicate on the "cameraTime" field.
+// CameraTimeNEQ applies the NEQ predicate on the "camera_time" field.
 func CameraTimeNEQ(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldNEQ(FieldCameraTime, v))
 }
 
-// CameraTimeIn applies the In predicate on the "cameraTime" field.
+// CameraTimeIn applies the In predicate on the "camera_time" field.
 func CameraTimeIn(vs ...time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldIn(FieldCameraTime, vs...))
 }
 
-// CameraTimeNotIn applies the NotIn predicate on the "cameraTime" field.
+// CameraTimeNotIn applies the NotIn predicate on the "camera_time" field.
 func CameraTimeNotIn(vs ...time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldNotIn(FieldCameraTime, vs...))
 }
 
-// CameraTimeGT applies the GT predicate on the "cameraTime" field.
+// CameraTimeGT applies the GT predicate on the "camera_time" field.
 func CameraTimeGT(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldGT(FieldCameraTime, v))
 }
 
-// CameraTimeGTE applies the GTE predicate on the "cameraTime" field.
+// CameraTimeGTE applies the GTE predicate on the "camera_time" field.
 func CameraTimeGTE(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldGTE(FieldCameraTime, v))
 }
 
-// CameraTimeLT applies the LT predicate on the "cameraTime" field.
+// CameraTimeLT applies the LT predicate on the "camera_time" field.
 func CameraTimeLT(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldLT(FieldCameraTime, v))
 }
 
-// CameraTimeLTE applies the LTE predicate on the "cameraTime" field.
+// CameraTimeLTE applies the LTE predicate on the "camera_time" field.
 func CameraTimeLTE(v time.Time) predicate.TimeOffset {
 	return predicate.TimeOffset(sql.FieldLTE(FieldCameraTime, v))
 }
 
-// OffsetEQ applies the EQ predicate on the "offset" field.
-func OffsetEQ(v time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldEQ(FieldOffset, v))
+// OffsetSecondsEQ applies the EQ predicate on the "offset_seconds" field.
+func OffsetSecondsEQ(v int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldEQ(FieldOffsetSeconds, v))
 }
 
-// OffsetNEQ applies the NEQ predicate on the "offset" field.
-func OffsetNEQ(v time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldNEQ(FieldOffset, v))
+// OffsetSecondsNEQ applies the NEQ predicate on the "offset_seconds" field.
+func OffsetSecondsNEQ(v int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldNEQ(FieldOffsetSeconds, v))
 }
 
-// OffsetIn applies the In predicate on the "offset" field.
-func OffsetIn(vs ...time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldIn(FieldOffset, vs...))
+// OffsetSecondsIn applies the In predicate on the "offset_seconds" field.
+func OffsetSecondsIn(vs ...int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldIn(FieldOffsetSeconds, vs...))
 }
 
-// OffsetNotIn applies the NotIn predicate on the "offset" field.
-func OffsetNotIn(vs ...time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldNotIn(FieldOffset, vs...))
+// OffsetSecondsNotIn applies the NotIn predicate on the "offset_seconds" field.
+func OffsetSecondsNotIn(vs ...int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldNotIn(FieldOffsetSeconds, vs...))
 }
 
-// OffsetGT applies the GT predicate on the "offset" field.
-func OffsetGT(v time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldGT(FieldOffset, v))
+// OffsetSecondsGT applies the GT predicate on the "offset_seconds" field.
+func OffsetSecondsGT(v int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldGT(FieldOffsetSeconds, v))
 }
 
-// OffsetGTE applies the GTE predicate on the "offset" field.
-func OffsetGTE(v time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldGTE(FieldOffset, v))
+// OffsetSecondsGTE applies the GTE predicate on the "offset_seconds" field.
+func OffsetSecondsGTE(v int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldGTE(FieldOffsetSeconds, v))
 }
 
-// OffsetLT applies the LT predicate on the "offset" field.
-func OffsetLT(v time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldLT(FieldOffset, v))
+// OffsetSecondsLT applies the LT predicate on the "offset_seconds" field.
+func OffsetSecondsLT(v int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldLT(FieldOffsetSeconds, v))
 }
 
-// OffsetLTE applies the LTE predicate on the "offset" field.
-func OffsetLTE(v time.Time) predicate.TimeOffset {
-	return predicate.TimeOffset(sql.FieldLTE(FieldOffset, v))
+// OffsetSecondsLTE applies the LTE predicate on the "offset_seconds" field.
+func OffsetSecondsLTE(v int) predicate.TimeOffset {
+	return predicate.TimeOffset(sql.FieldLTE(FieldOffsetSeconds, v))
 }
 
 // HasCamera applies the HasEdge predicate on the "camera" edge.

@@ -14,6 +14,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/storage"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 const IMAGES_RESOURCE = "/projects/:pid/images"
@@ -116,6 +117,15 @@ func createImageController(c *gin.Context) {
 			api_error.INTERNAL.Send(c)
 			return
 		}
+
+		exifTags, err := util.GetExifTags(data)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get exif tags for image creation")
+			api_error.INTERNAL.Send(c)
+			return
+		}
+
+		itemCreate.SetExifData(map[string]interface{}{"exif_tags": exifTags})
 
 		// TODO: add default tags for project, author tag, etc
 		_, err = itemCreate.Save(ctx)

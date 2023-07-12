@@ -20,9 +20,9 @@ func registerCamerasController(router *gin.Engine) {
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, CAMERAS_RESOURCE), createCameraController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, CAMERAS_RESOURCE), getCamerasController)
-	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, CAMERAS_RESOURCE), getCameraController)
-	router.PUT(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, CAMERAS_RESOURCE), updateCameraController)
-	router.DELETE(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, CAMERAS_RESOURCE), deleteCameraController)
+	router.GET(fmt.Sprintf("%s%s/:cid", CONTEXT_PATH, CAMERAS_RESOURCE), getCameraController)
+	router.PUT(fmt.Sprintf("%s%s/:cid", CONTEXT_PATH, CAMERAS_RESOURCE), updateCameraController)
+	router.DELETE(fmt.Sprintf("%s%s/:cid", CONTEXT_PATH, CAMERAS_RESOURCE), deleteCameraController)
 }
 
 type EditCameraBody struct {
@@ -116,7 +116,7 @@ func getCamerasController(c *gin.Context) {
 func getCameraController(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("cid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return
@@ -147,7 +147,7 @@ func updateCameraController(c *gin.Context) {
 	ctx := c.Request.Context()
 	userContext := authorization.GetUserContextFromGinContext(c)
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("cid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return
@@ -200,7 +200,7 @@ func updateCameraController(c *gin.Context) {
 func deleteCameraController(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("cid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return

@@ -8,11 +8,11 @@
 
 ### Images
 
-- [ ] `GET /projects/:pid/images`
-- [ ] `GET /projects/:pid/images/:id`
-- [ ] `POST /projects/:pid/images`
-- [ ] `PUT /projects/:pid/images/:id`
-- [ ] `DELETE /projects/:pid/images/:id`
+- [x] `GET /projects/:pid/images`
+- [x] `GET /projects/:pid/images/:id`
+- [x] `POST /projects/:pid/images`
+- [x] `PUT /projects/:pid/images/:id`
+- [x] `DELETE /projects/:pid/images/:id`
 
 ### Cameras
 
@@ -22,8 +22,8 @@
 
 ### Time Offset
 
-- [ ] `POST /users/:uid/cameras/:id/time_offset`
-- [ ] `GET /users/:uid/cameras/:id/time_offset`
+- [ ] `POST /users/:uid/cameras/:id/time_offsets`
+- [ ] `GET /users/:uid/cameras/:id/time_offsets`
 
 ### Tags
 

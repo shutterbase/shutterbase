@@ -51,21 +51,21 @@ func (toc *TimeOffsetCreate) SetNillableUpdatedAt(t *time.Time) *TimeOffsetCreat
 	return toc
 }
 
-// SetServerTime sets the "serverTime" field.
+// SetServerTime sets the "server_time" field.
 func (toc *TimeOffsetCreate) SetServerTime(t time.Time) *TimeOffsetCreate {
 	toc.mutation.SetServerTime(t)
 	return toc
 }
 
-// SetCameraTime sets the "cameraTime" field.
+// SetCameraTime sets the "camera_time" field.
 func (toc *TimeOffsetCreate) SetCameraTime(t time.Time) *TimeOffsetCreate {
 	toc.mutation.SetCameraTime(t)
 	return toc
 }
 
-// SetOffset sets the "offset" field.
-func (toc *TimeOffsetCreate) SetOffset(t time.Time) *TimeOffsetCreate {
-	toc.mutation.SetOffset(t)
+// SetOffsetSeconds sets the "offset_seconds" field.
+func (toc *TimeOffsetCreate) SetOffsetSeconds(i int) *TimeOffsetCreate {
+	toc.mutation.SetOffsetSeconds(i)
 	return toc
 }
 
@@ -198,13 +198,13 @@ func (toc *TimeOffsetCreate) check() error {
 		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "TimeOffset.updated_at"`)}
 	}
 	if _, ok := toc.mutation.ServerTime(); !ok {
-		return &ValidationError{Name: "serverTime", err: errors.New(`ent: missing required field "TimeOffset.serverTime"`)}
+		return &ValidationError{Name: "server_time", err: errors.New(`ent: missing required field "TimeOffset.server_time"`)}
 	}
 	if _, ok := toc.mutation.CameraTime(); !ok {
-		return &ValidationError{Name: "cameraTime", err: errors.New(`ent: missing required field "TimeOffset.cameraTime"`)}
+		return &ValidationError{Name: "camera_time", err: errors.New(`ent: missing required field "TimeOffset.camera_time"`)}
 	}
-	if _, ok := toc.mutation.Offset(); !ok {
-		return &ValidationError{Name: "offset", err: errors.New(`ent: missing required field "TimeOffset.offset"`)}
+	if _, ok := toc.mutation.OffsetSeconds(); !ok {
+		return &ValidationError{Name: "offset_seconds", err: errors.New(`ent: missing required field "TimeOffset.offset_seconds"`)}
 	}
 	return nil
 }
@@ -257,9 +257,9 @@ func (toc *TimeOffsetCreate) createSpec() (*TimeOffset, *sqlgraph.CreateSpec) {
 		_spec.SetField(timeoffset.FieldCameraTime, field.TypeTime, value)
 		_node.CameraTime = value
 	}
-	if value, ok := toc.mutation.Offset(); ok {
-		_spec.SetField(timeoffset.FieldOffset, field.TypeTime, value)
-		_node.Offset = value
+	if value, ok := toc.mutation.OffsetSeconds(); ok {
+		_spec.SetField(timeoffset.FieldOffsetSeconds, field.TypeInt, value)
+		_node.OffsetSeconds = value
 	}
 	if nodes := toc.mutation.CameraIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

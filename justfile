@@ -18,6 +18,7 @@ new-entity NAME:
 # stop the development environment
 stop:
   docker stop shutterbase-db
+  docker stop shutterbase-s3
 
 alias b := backend
 # start the development environment

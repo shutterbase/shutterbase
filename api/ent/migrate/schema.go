@@ -235,7 +235,7 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "server_time", Type: field.TypeTime},
 		{Name: "camera_time", Type: field.TypeTime},
-		{Name: "offset", Type: field.TypeTime},
+		{Name: "offset_seconds", Type: field.TypeInt},
 		{Name: "time_offset_camera", Type: field.TypeUUID, Nullable: true},
 		{Name: "time_offset_created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "time_offset_modified_by", Type: field.TypeUUID, Nullable: true},

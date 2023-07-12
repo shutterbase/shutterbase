@@ -12,9 +12,9 @@ type TimeOffset struct {
 
 func (TimeOffset) Fields() []ent.Field {
 	return []ent.Field{
-		field.Time("serverTime").Immutable().StructTag(`json:"serverTime"`),
-		field.Time("cameraTime").Immutable().StructTag(`json:"cameraTime"`),
-		field.Time("offset").Immutable().StructTag(`json:"offset"`),
+		field.Time("server_time").Immutable().StructTag(`json:"serverTime"`),
+		field.Time("camera_time").Immutable().StructTag(`json:"cameraTime"`),
+		field.Int("offset_seconds").Immutable().StructTag(`json:"offsetSeconds"`),
 	}
 }
 

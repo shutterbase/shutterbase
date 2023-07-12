@@ -7,9 +7,9 @@ const UUID_REGEX string = "<[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-f
 var policies = []*ladon.DefaultPolicy{
 	{
 		ID:          "7d708b20-8858-4e31-8cc3-752ebe11c139",
-		Description: "Allow anonymous access to health endpoint",
+		Description: "Allow anonymous access to health and time endpoint",
 		Subjects:    []string{"<.+>"},
-		Resources:   []string{"/health"},
+		Resources:   []string{"/health", "/time", "/time/qr"},
 		Actions:     []string{REQUEST.String(), READ.String()},
 		Conditions:  ladon.Conditions{},
 		Effect:      ladon.AllowAccess,
@@ -32,15 +32,15 @@ var policies = []*ladon.DefaultPolicy{
 		Conditions:  ladon.Conditions{},
 		Effect:      ladon.AllowAccess,
 	},
-	// {
-	// 	ID:          "ffcf103a-99eb-4cda-ba85-4de52b772b2a",
-	// 	Description: "Allow request handling for all authenticated users",
-	// 	Subjects:    []string{"role:user"},
-	// 	Resources:   []string{"/users", "/users/" + UUID_REGEX},
-	// 	Actions:     []string{REQUEST.String()},
-	// 	Conditions:  ladon.Conditions{},
-	// 	Effect:      ladon.AllowAccess,
-	// },
+	{
+		ID:          "ffcf103a-99eb-4cda-ba85-4de52b772b2a",
+		Description: "Allow exif info for all authenticated users",
+		Subjects:    []string{"role:user"},
+		Resources:   []string{"/exif-infos"},
+		Actions:     []string{READ.String()},
+		Conditions:  ladon.Conditions{},
+		Effect:      ladon.AllowAccess,
+	},
 	{
 		ID:          "adfdb95b-ccac-4690-8321-bb064d6c8160",
 		Description: "Allow all Action on admin user",
@@ -150,10 +150,15 @@ var policies = []*ladon.DefaultPolicy{
 	},
 	{
 		ID:          "45a20b6b-f30e-47d6-95ad-8b17ef272f9a",
-		Description: "Allow user access to its own cameras",
+		Description: "Allow user access to its own cameras and time offsets",
 		Subjects:    []string{"role:user"},
-		Resources:   []string{"/users/" + UUID_REGEX + "/cameras", "/users/" + UUID_REGEX + "/cameras/" + UUID_REGEX},
-		Actions:     CRUD.GetItems(),
+		Resources: []string{
+			"/users/" + UUID_REGEX + "/cameras",
+			"/users/" + UUID_REGEX + "/cameras/" + UUID_REGEX,
+			"/users/" + UUID_REGEX + "/cameras/" + UUID_REGEX + "/time-offsets",
+			"/users/" + UUID_REGEX + "/cameras/" + UUID_REGEX + "/time-offsets/" + UUID_REGEX,
+		},
+		Actions: CRUD.GetItems(),
 		Conditions: ladon.Conditions{
 			"userId": &OwnUserPathCondition{},
 		},

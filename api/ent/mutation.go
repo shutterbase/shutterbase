@@ -4881,9 +4881,10 @@ type TimeOffsetMutation struct {
 	id                 *uuid.UUID
 	created_at         *time.Time
 	updated_at         *time.Time
-	serverTime         *time.Time
-	cameraTime         *time.Time
-	_offset            *time.Time
+	server_time        *time.Time
+	camera_time        *time.Time
+	offset_seconds     *int
+	addoffset_seconds  *int
 	clearedFields      map[string]struct{}
 	camera             *uuid.UUID
 	clearedcamera      bool
@@ -5072,21 +5073,21 @@ func (m *TimeOffsetMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
-// SetServerTime sets the "serverTime" field.
+// SetServerTime sets the "server_time" field.
 func (m *TimeOffsetMutation) SetServerTime(t time.Time) {
-	m.serverTime = &t
+	m.server_time = &t
 }
 
-// ServerTime returns the value of the "serverTime" field in the mutation.
+// ServerTime returns the value of the "server_time" field in the mutation.
 func (m *TimeOffsetMutation) ServerTime() (r time.Time, exists bool) {
-	v := m.serverTime
+	v := m.server_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldServerTime returns the old "serverTime" field's value of the TimeOffset entity.
+// OldServerTime returns the old "server_time" field's value of the TimeOffset entity.
 // If the TimeOffset object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
 func (m *TimeOffsetMutation) OldServerTime(ctx context.Context) (v time.Time, err error) {
@@ -5103,26 +5104,26 @@ func (m *TimeOffsetMutation) OldServerTime(ctx context.Context) (v time.Time, er
 	return oldValue.ServerTime, nil
 }
 
-// ResetServerTime resets all changes to the "serverTime" field.
+// ResetServerTime resets all changes to the "server_time" field.
 func (m *TimeOffsetMutation) ResetServerTime() {
-	m.serverTime = nil
+	m.server_time = nil
 }
 
-// SetCameraTime sets the "cameraTime" field.
+// SetCameraTime sets the "camera_time" field.
 func (m *TimeOffsetMutation) SetCameraTime(t time.Time) {
-	m.cameraTime = &t
+	m.camera_time = &t
 }
 
-// CameraTime returns the value of the "cameraTime" field in the mutation.
+// CameraTime returns the value of the "camera_time" field in the mutation.
 func (m *TimeOffsetMutation) CameraTime() (r time.Time, exists bool) {
-	v := m.cameraTime
+	v := m.camera_time
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldCameraTime returns the old "cameraTime" field's value of the TimeOffset entity.
+// OldCameraTime returns the old "camera_time" field's value of the TimeOffset entity.
 // If the TimeOffset object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
 func (m *TimeOffsetMutation) OldCameraTime(ctx context.Context) (v time.Time, err error) {
@@ -5139,45 +5140,65 @@ func (m *TimeOffsetMutation) OldCameraTime(ctx context.Context) (v time.Time, er
 	return oldValue.CameraTime, nil
 }
 
-// ResetCameraTime resets all changes to the "cameraTime" field.
+// ResetCameraTime resets all changes to the "camera_time" field.
 func (m *TimeOffsetMutation) ResetCameraTime() {
-	m.cameraTime = nil
+	m.camera_time = nil
 }
 
-// SetOffset sets the "offset" field.
-func (m *TimeOffsetMutation) SetOffset(t time.Time) {
-	m._offset = &t
+// SetOffsetSeconds sets the "offset_seconds" field.
+func (m *TimeOffsetMutation) SetOffsetSeconds(i int) {
+	m.offset_seconds = &i
+	m.addoffset_seconds = nil
 }
 
-// Offset returns the value of the "offset" field in the mutation.
-func (m *TimeOffsetMutation) Offset() (r time.Time, exists bool) {
-	v := m._offset
+// OffsetSeconds returns the value of the "offset_seconds" field in the mutation.
+func (m *TimeOffsetMutation) OffsetSeconds() (r int, exists bool) {
+	v := m.offset_seconds
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldOffset returns the old "offset" field's value of the TimeOffset entity.
+// OldOffsetSeconds returns the old "offset_seconds" field's value of the TimeOffset entity.
 // If the TimeOffset object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *TimeOffsetMutation) OldOffset(ctx context.Context) (v time.Time, err error) {
+func (m *TimeOffsetMutation) OldOffsetSeconds(ctx context.Context) (v int, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldOffset is only allowed on UpdateOne operations")
+		return v, errors.New("OldOffsetSeconds is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldOffset requires an ID field in the mutation")
+		return v, errors.New("OldOffsetSeconds requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldOffset: %w", err)
+		return v, fmt.Errorf("querying old value for OldOffsetSeconds: %w", err)
 	}
-	return oldValue.Offset, nil
+	return oldValue.OffsetSeconds, nil
 }
 
-// ResetOffset resets all changes to the "offset" field.
-func (m *TimeOffsetMutation) ResetOffset() {
-	m._offset = nil
+// AddOffsetSeconds adds i to the "offset_seconds" field.
+func (m *TimeOffsetMutation) AddOffsetSeconds(i int) {
+	if m.addoffset_seconds != nil {
+		*m.addoffset_seconds += i
+	} else {
+		m.addoffset_seconds = &i
+	}
+}
+
+// AddedOffsetSeconds returns the value that was added to the "offset_seconds" field in this mutation.
+func (m *TimeOffsetMutation) AddedOffsetSeconds() (r int, exists bool) {
+	v := m.addoffset_seconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOffsetSeconds resets all changes to the "offset_seconds" field.
+func (m *TimeOffsetMutation) ResetOffsetSeconds() {
+	m.offset_seconds = nil
+	m.addoffset_seconds = nil
 }
 
 // SetCameraID sets the "camera" edge to the Camera entity by id.
@@ -5338,14 +5359,14 @@ func (m *TimeOffsetMutation) Fields() []string {
 	if m.updated_at != nil {
 		fields = append(fields, timeoffset.FieldUpdatedAt)
 	}
-	if m.serverTime != nil {
+	if m.server_time != nil {
 		fields = append(fields, timeoffset.FieldServerTime)
 	}
-	if m.cameraTime != nil {
+	if m.camera_time != nil {
 		fields = append(fields, timeoffset.FieldCameraTime)
 	}
-	if m._offset != nil {
-		fields = append(fields, timeoffset.FieldOffset)
+	if m.offset_seconds != nil {
+		fields = append(fields, timeoffset.FieldOffsetSeconds)
 	}
 	return fields
 }
@@ -5363,8 +5384,8 @@ func (m *TimeOffsetMutation) Field(name string) (ent.Value, bool) {
 		return m.ServerTime()
 	case timeoffset.FieldCameraTime:
 		return m.CameraTime()
-	case timeoffset.FieldOffset:
-		return m.Offset()
+	case timeoffset.FieldOffsetSeconds:
+		return m.OffsetSeconds()
 	}
 	return nil, false
 }
@@ -5382,8 +5403,8 @@ func (m *TimeOffsetMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldServerTime(ctx)
 	case timeoffset.FieldCameraTime:
 		return m.OldCameraTime(ctx)
-	case timeoffset.FieldOffset:
-		return m.OldOffset(ctx)
+	case timeoffset.FieldOffsetSeconds:
+		return m.OldOffsetSeconds(ctx)
 	}
 	return nil, fmt.Errorf("unknown TimeOffset field %s", name)
 }
@@ -5421,12 +5442,12 @@ func (m *TimeOffsetMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCameraTime(v)
 		return nil
-	case timeoffset.FieldOffset:
-		v, ok := value.(time.Time)
+	case timeoffset.FieldOffsetSeconds:
+		v, ok := value.(int)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetOffset(v)
+		m.SetOffsetSeconds(v)
 		return nil
 	}
 	return fmt.Errorf("unknown TimeOffset field %s", name)
@@ -5435,13 +5456,21 @@ func (m *TimeOffsetMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *TimeOffsetMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addoffset_seconds != nil {
+		fields = append(fields, timeoffset.FieldOffsetSeconds)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *TimeOffsetMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case timeoffset.FieldOffsetSeconds:
+		return m.AddedOffsetSeconds()
+	}
 	return nil, false
 }
 
@@ -5450,6 +5479,13 @@ func (m *TimeOffsetMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *TimeOffsetMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case timeoffset.FieldOffsetSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOffsetSeconds(v)
+		return nil
 	}
 	return fmt.Errorf("unknown TimeOffset numeric field %s", name)
 }
@@ -5489,8 +5525,8 @@ func (m *TimeOffsetMutation) ResetField(name string) error {
 	case timeoffset.FieldCameraTime:
 		m.ResetCameraTime()
 		return nil
-	case timeoffset.FieldOffset:
-		m.ResetOffset()
+	case timeoffset.FieldOffsetSeconds:
+		m.ResetOffsetSeconds()
 		return nil
 	}
 	return fmt.Errorf("unknown TimeOffset field %s", name)

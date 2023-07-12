@@ -51,6 +51,12 @@ func registerControllers(router *gin.Engine) {
 	log.Debug().Msg("-> Registering health controller")
 	registerHealthController(router)
 
+	log.Debug().Msg("-> Registering time controller")
+	registerTimeController(router)
+
+	log.Debug().Msg("-> Registering exif info controller")
+	registerExifInfosController(router)
+
 	log.Debug().Msg("-> Registering authentication controller")
 	registerAuthenticationController(router)
 
@@ -74,6 +80,9 @@ func registerControllers(router *gin.Engine) {
 
 	log.Debug().Msg("-> Registering images controller")
 	registerImagesController(router)
+
+	log.Debug().Msg("-> Registering time offsets controller")
+	registerTimeOffsetsController(router)
 
 	log.Debug().Msg("-> Done registering controllers")
 }
