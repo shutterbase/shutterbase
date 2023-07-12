@@ -117,7 +117,7 @@ func getUserController(c *gin.Context) {
 	ctx := c.Request.Context()
 	// userContext := authorization.GetUserContextFromGinContext(c)
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("uid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return
@@ -148,7 +148,7 @@ func updateUserController(c *gin.Context) {
 	ctx := c.Request.Context()
 	userContext := authorization.GetUserContextFromGinContext(c)
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("uid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return
@@ -232,7 +232,7 @@ func updateUserRoleController(c *gin.Context) {
 	ctx := c.Request.Context()
 	userContext := authorization.GetUserContextFromGinContext(c)
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("uid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return
@@ -296,7 +296,7 @@ func updateUserRoleController(c *gin.Context) {
 func deleteUserController(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("uid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return

@@ -289,6 +289,15 @@ func getImageFileController(c *gin.Context) {
 	}
 
 	item, err := repository.GetImage(ctx, id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			api_error.NOT_FOUND.Send(c)
+		} else {
+			log.Error().Err(err).Msg("failed to get image for image file")
+			api_error.INTERNAL.Send(c)
+		}
+		return
+	}
 
 	c.Header("Cache-Control", "max-age=604800")
 	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
