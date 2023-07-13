@@ -24,14 +24,6 @@ const routes: RouteRecordRaw[] = [
         path: "/confirm-email/",
         component: () => import("pages/ConfirmEmail.vue"),
       },
-      { path: "/help/", component: () => import("pages/chore/Help.vue") },
-      { path: "/privacy/", component: () => import("pages/chore/Privacy.vue") },
-      { path: "/terms/", component: () => import("pages/chore/Terms.vue") },
-      { path: "/legal/", component: () => import("pages/chore/Legal.vue") },
-      {
-        path: "/codebooks/:id",
-        component: () => import("pages/CodebookDetail.vue"),
-      },
     ],
   },
   {
