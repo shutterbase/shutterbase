@@ -2,7 +2,7 @@ package controller
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -104,7 +104,7 @@ func createImageController(c *gin.Context) {
 			return
 		}
 		defer file.Close()
-		data, err := ioutil.ReadAll(file)
+		data, err := io.ReadAll(file)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to read file for image creation")
 			api_error.INTERNAL.Send(c)

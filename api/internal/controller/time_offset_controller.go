@@ -24,7 +24,7 @@ func registerTimeOffsetsController(router *gin.Engine) {
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, TIME_OFFSETS_RESOURCE), createTimeOffsetController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, TIME_OFFSETS_RESOURCE), getTimeOffsetsController)
-	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TIME_OFFSETS_RESOURCE), getTimeOffsetsController)
+	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TIME_OFFSETS_RESOURCE), getTimeOffsetController)
 	router.DELETE(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TIME_OFFSETS_RESOURCE), deleteTimeOffsetController)
 }
 

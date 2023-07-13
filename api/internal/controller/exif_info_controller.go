@@ -2,7 +2,7 @@ package controller
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mxcd/go-config/config"
@@ -40,7 +40,7 @@ func getExifInfosController(c *gin.Context) {
 			return
 		}
 		defer file.Close()
-		data, err := ioutil.ReadAll(file)
+		data, err := io.ReadAll(file)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to read file for exif infos")
 			api_error.INTERNAL.Send(c)
