@@ -1,6 +1,8 @@
 package util
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/dsoprea/go-exif/v3"
@@ -79,12 +81,18 @@ func GetExifTag(tagName string, jpegData []byte) (*exif.ExifTag, error) {
 		return nil, err
 	}
 
-	for _, exifTag := range exifTags {
-		if exifTag.TagName == tagName {
-			return &exifTag, nil
+	exifTag := FindExifTag(tagName, exifTags)
+
+	return exifTag, nil
+}
+
+func FindExifTag(tagName string, tags []exif.ExifTag) *exif.ExifTag {
+	for _, tag := range tags {
+		if tag.TagName == tagName {
+			return &tag
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 func ParseExifDateTime(dateTimeString string) (time.Time, error) {
@@ -92,6 +100,39 @@ func ParseExifDateTime(dateTimeString string) (time.Time, error) {
 	if err != nil {
 		return dateTime, err
 	}
+	return dateTime, nil
+}
+
+func GetDateTimeDigitized(jpegData []byte) (time.Time, error) {
+	exifTags, err := GetExifTags(jpegData)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	dateTimeDigitizedTag := FindExifTag("DateTimeDigitized", exifTags)
+	if dateTimeDigitizedTag == nil {
+		return time.Time{}, errors.New("DateTimeDigitized not found")
+	}
+	// TODO: add search for DateTimeOriginal
+
+	offsetTimeDigitizedTag := FindExifTag("OffsetTimeDigitized", exifTags)
+	timeOffset := time.Duration(0)
+	if offsetTimeDigitizedTag == nil {
+		log.Warn().Msg("OffsetTimeDigitized not found")
+	} else {
+		timeOffsetString := offsetTimeDigitizedTag.Value.(string)
+		timeOffsetString = strings.Replace(timeOffsetString, ":", "h", 1) + "m"
+		timeOffset, err = time.ParseDuration(timeOffsetString)
+		if err != nil {
+			log.Err(err).Msgf("Error parsing OffsetTimeDigitized '%s", offsetTimeDigitizedTag.Value.(string))
+		}
+	}
+
+	dateTime, err := ParseExifDateTime(dateTimeDigitizedTag.Value.(string))
+	if err != nil {
+		return dateTime, err
+	}
+	dateTime = dateTime.Add(-timeOffset)
 	return dateTime, nil
 }
 

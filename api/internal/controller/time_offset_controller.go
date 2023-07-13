@@ -90,29 +90,9 @@ func createTimeOffsetController(c *gin.Context) {
 		return
 	}
 
-	dateTimeOriginalTag, err := util.GetExifTag("DateTimeOriginal", data)
+	imageCaptureTime, err := util.GetDateTimeDigitized(data)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get exif tag 'DateTimeOriginal' for time offset creation")
-		api_error.INTERNAL.Send(c)
-		return
-	}
-
-	if dateTimeOriginalTag == nil {
-		log.Error().Msg("exif tag 'DateTimeOriginal' not found for time offset creation")
-		api_error.BAD_REQUEST.Send(c)
-		return
-	}
-
-	dateTimeOriginalString := dateTimeOriginalTag.FormattedFirst
-	if dateTimeOriginalString == "" {
-		log.Error().Msg("exif tag 'DateTimeOriginal' is empty for time offset creation")
-		api_error.BAD_REQUEST.Send(c)
-		return
-	}
-
-	imageCaptureTime, err := util.ParseExifDateTime(dateTimeOriginalString)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to parse time from exif tag 'DateTimeOriginal' for time offset creation")
+		log.Error().Err(err).Msg("failed to get capture time from exif tag 'DateTimeOriginal' for time offset creation")
 		api_error.BAD_REQUEST.Send(c)
 		return
 	}
