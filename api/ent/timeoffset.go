@@ -32,11 +32,11 @@ type TimeOffset struct {
 	OffsetSeconds int `json:"offsetSeconds"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the TimeOffsetQuery when eager-loading is set.
-	Edges                   TimeOffsetEdges `json:"edges"`
-	time_offset_camera      *uuid.UUID
-	time_offset_created_by  *uuid.UUID
-	time_offset_modified_by *uuid.UUID
-	selectValues            sql.SelectValues
+	Edges                  TimeOffsetEdges `json:"edges"`
+	time_offset_camera     *uuid.UUID
+	time_offset_created_by *uuid.UUID
+	time_offset_updated_by *uuid.UUID
+	selectValues           sql.SelectValues
 }
 
 // TimeOffsetEdges holds the relations/edges for other nodes in the graph.
@@ -45,8 +45,8 @@ type TimeOffsetEdges struct {
 	Camera *Camera `json:"camera"`
 	// CreatedBy holds the value of the created_by edge.
 	CreatedBy *User `json:"createdBy"`
-	// ModifiedBy holds the value of the modified_by edge.
-	ModifiedBy *User `json:"modifiedBy"`
+	// UpdatedBy holds the value of the updated_by edge.
+	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [3]bool
@@ -78,17 +78,17 @@ func (e TimeOffsetEdges) CreatedByOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "created_by"}
 }
 
-// ModifiedByOrErr returns the ModifiedBy value or an error if the edge
+// UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e TimeOffsetEdges) ModifiedByOrErr() (*User, error) {
+func (e TimeOffsetEdges) UpdatedByOrErr() (*User, error) {
 	if e.loadedTypes[2] {
-		if e.ModifiedBy == nil {
+		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
 		}
-		return e.ModifiedBy, nil
+		return e.UpdatedBy, nil
 	}
-	return nil, &NotLoadedError{edge: "modified_by"}
+	return nil, &NotLoadedError{edge: "updated_by"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -106,7 +106,7 @@ func (*TimeOffset) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case timeoffset.ForeignKeys[1]: // time_offset_created_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case timeoffset.ForeignKeys[2]: // time_offset_modified_by
+		case timeoffset.ForeignKeys[2]: // time_offset_updated_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -175,10 +175,10 @@ func (to *TimeOffset) assignValues(columns []string, values []any) error {
 			}
 		case timeoffset.ForeignKeys[2]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field time_offset_modified_by", values[i])
+				return fmt.Errorf("unexpected type %T for field time_offset_updated_by", values[i])
 			} else if value.Valid {
-				to.time_offset_modified_by = new(uuid.UUID)
-				*to.time_offset_modified_by = *value.S.(*uuid.UUID)
+				to.time_offset_updated_by = new(uuid.UUID)
+				*to.time_offset_updated_by = *value.S.(*uuid.UUID)
 			}
 		default:
 			to.selectValues.Set(columns[i], values[i])
@@ -203,9 +203,9 @@ func (to *TimeOffset) QueryCreatedBy() *UserQuery {
 	return NewTimeOffsetClient(to.config).QueryCreatedBy(to)
 }
 
-// QueryModifiedBy queries the "modified_by" edge of the TimeOffset entity.
-func (to *TimeOffset) QueryModifiedBy() *UserQuery {
-	return NewTimeOffsetClient(to.config).QueryModifiedBy(to)
+// QueryUpdatedBy queries the "updated_by" edge of the TimeOffset entity.
+func (to *TimeOffset) QueryUpdatedBy() *UserQuery {
+	return NewTimeOffsetClient(to.config).QueryUpdatedBy(to)
 }
 
 // Update returns a builder for updating this TimeOffset.

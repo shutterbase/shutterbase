@@ -75,23 +75,23 @@ func (tou *TimeOffsetUpdate) SetCreatedBy(u *User) *TimeOffsetUpdate {
 	return tou.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (tou *TimeOffsetUpdate) SetModifiedByID(id uuid.UUID) *TimeOffsetUpdate {
-	tou.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (tou *TimeOffsetUpdate) SetUpdatedByID(id uuid.UUID) *TimeOffsetUpdate {
+	tou.mutation.SetUpdatedByID(id)
 	return tou
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (tou *TimeOffsetUpdate) SetNillableModifiedByID(id *uuid.UUID) *TimeOffsetUpdate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (tou *TimeOffsetUpdate) SetNillableUpdatedByID(id *uuid.UUID) *TimeOffsetUpdate {
 	if id != nil {
-		tou = tou.SetModifiedByID(*id)
+		tou = tou.SetUpdatedByID(*id)
 	}
 	return tou
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (tou *TimeOffsetUpdate) SetModifiedBy(u *User) *TimeOffsetUpdate {
-	return tou.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (tou *TimeOffsetUpdate) SetUpdatedBy(u *User) *TimeOffsetUpdate {
+	return tou.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the TimeOffsetMutation object of the builder.
@@ -111,9 +111,9 @@ func (tou *TimeOffsetUpdate) ClearCreatedBy() *TimeOffsetUpdate {
 	return tou
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (tou *TimeOffsetUpdate) ClearModifiedBy() *TimeOffsetUpdate {
-	tou.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (tou *TimeOffsetUpdate) ClearUpdatedBy() *TimeOffsetUpdate {
+	tou.mutation.ClearUpdatedBy()
 	return tou
 }
 
@@ -223,12 +223,12 @@ func (tou *TimeOffsetUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if tou.mutation.ModifiedByCleared() {
+	if tou.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   timeoffset.ModifiedByTable,
-			Columns: []string{timeoffset.ModifiedByColumn},
+			Table:   timeoffset.UpdatedByTable,
+			Columns: []string{timeoffset.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -236,12 +236,12 @@ func (tou *TimeOffsetUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := tou.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := tou.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   timeoffset.ModifiedByTable,
-			Columns: []string{timeoffset.ModifiedByColumn},
+			Table:   timeoffset.UpdatedByTable,
+			Columns: []string{timeoffset.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -316,23 +316,23 @@ func (touo *TimeOffsetUpdateOne) SetCreatedBy(u *User) *TimeOffsetUpdateOne {
 	return touo.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (touo *TimeOffsetUpdateOne) SetModifiedByID(id uuid.UUID) *TimeOffsetUpdateOne {
-	touo.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (touo *TimeOffsetUpdateOne) SetUpdatedByID(id uuid.UUID) *TimeOffsetUpdateOne {
+	touo.mutation.SetUpdatedByID(id)
 	return touo
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (touo *TimeOffsetUpdateOne) SetNillableModifiedByID(id *uuid.UUID) *TimeOffsetUpdateOne {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (touo *TimeOffsetUpdateOne) SetNillableUpdatedByID(id *uuid.UUID) *TimeOffsetUpdateOne {
 	if id != nil {
-		touo = touo.SetModifiedByID(*id)
+		touo = touo.SetUpdatedByID(*id)
 	}
 	return touo
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (touo *TimeOffsetUpdateOne) SetModifiedBy(u *User) *TimeOffsetUpdateOne {
-	return touo.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (touo *TimeOffsetUpdateOne) SetUpdatedBy(u *User) *TimeOffsetUpdateOne {
+	return touo.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the TimeOffsetMutation object of the builder.
@@ -352,9 +352,9 @@ func (touo *TimeOffsetUpdateOne) ClearCreatedBy() *TimeOffsetUpdateOne {
 	return touo
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (touo *TimeOffsetUpdateOne) ClearModifiedBy() *TimeOffsetUpdateOne {
-	touo.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (touo *TimeOffsetUpdateOne) ClearUpdatedBy() *TimeOffsetUpdateOne {
+	touo.mutation.ClearUpdatedBy()
 	return touo
 }
 
@@ -494,12 +494,12 @@ func (touo *TimeOffsetUpdateOne) sqlSave(ctx context.Context) (_node *TimeOffset
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if touo.mutation.ModifiedByCleared() {
+	if touo.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   timeoffset.ModifiedByTable,
-			Columns: []string{timeoffset.ModifiedByColumn},
+			Table:   timeoffset.UpdatedByTable,
+			Columns: []string{timeoffset.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -507,12 +507,12 @@ func (touo *TimeOffsetUpdateOne) sqlSave(ctx context.Context) (_node *TimeOffset
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := touo.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := touo.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   timeoffset.ModifiedByTable,
-			Columns: []string{timeoffset.ModifiedByColumn},
+			Table:   timeoffset.UpdatedByTable,
+			Columns: []string{timeoffset.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),

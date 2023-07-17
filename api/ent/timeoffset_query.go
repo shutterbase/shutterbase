@@ -20,14 +20,14 @@ import (
 // TimeOffsetQuery is the builder for querying TimeOffset entities.
 type TimeOffsetQuery struct {
 	config
-	ctx            *QueryContext
-	order          []timeoffset.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.TimeOffset
-	withCamera     *CameraQuery
-	withCreatedBy  *UserQuery
-	withModifiedBy *UserQuery
-	withFKs        bool
+	ctx           *QueryContext
+	order         []timeoffset.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.TimeOffset
+	withCamera    *CameraQuery
+	withCreatedBy *UserQuery
+	withUpdatedBy *UserQuery
+	withFKs       bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -108,8 +108,8 @@ func (toq *TimeOffsetQuery) QueryCreatedBy() *UserQuery {
 	return query
 }
 
-// QueryModifiedBy chains the current query on the "modified_by" edge.
-func (toq *TimeOffsetQuery) QueryModifiedBy() *UserQuery {
+// QueryUpdatedBy chains the current query on the "updated_by" edge.
+func (toq *TimeOffsetQuery) QueryUpdatedBy() *UserQuery {
 	query := (&UserClient{config: toq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := toq.prepareQuery(ctx); err != nil {
@@ -122,7 +122,7 @@ func (toq *TimeOffsetQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(timeoffset.Table, timeoffset.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, timeoffset.ModifiedByTable, timeoffset.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, timeoffset.UpdatedByTable, timeoffset.UpdatedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(toq.driver.Dialect(), step)
 		return fromU, nil
@@ -317,14 +317,14 @@ func (toq *TimeOffsetQuery) Clone() *TimeOffsetQuery {
 		return nil
 	}
 	return &TimeOffsetQuery{
-		config:         toq.config,
-		ctx:            toq.ctx.Clone(),
-		order:          append([]timeoffset.OrderOption{}, toq.order...),
-		inters:         append([]Interceptor{}, toq.inters...),
-		predicates:     append([]predicate.TimeOffset{}, toq.predicates...),
-		withCamera:     toq.withCamera.Clone(),
-		withCreatedBy:  toq.withCreatedBy.Clone(),
-		withModifiedBy: toq.withModifiedBy.Clone(),
+		config:        toq.config,
+		ctx:           toq.ctx.Clone(),
+		order:         append([]timeoffset.OrderOption{}, toq.order...),
+		inters:        append([]Interceptor{}, toq.inters...),
+		predicates:    append([]predicate.TimeOffset{}, toq.predicates...),
+		withCamera:    toq.withCamera.Clone(),
+		withCreatedBy: toq.withCreatedBy.Clone(),
+		withUpdatedBy: toq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  toq.sql.Clone(),
 		path: toq.path,
@@ -353,14 +353,14 @@ func (toq *TimeOffsetQuery) WithCreatedBy(opts ...func(*UserQuery)) *TimeOffsetQ
 	return toq
 }
 
-// WithModifiedBy tells the query-builder to eager-load the nodes that are connected to
-// the "modified_by" edge. The optional arguments are used to configure the query builder of the edge.
-func (toq *TimeOffsetQuery) WithModifiedBy(opts ...func(*UserQuery)) *TimeOffsetQuery {
+// WithUpdatedBy tells the query-builder to eager-load the nodes that are connected to
+// the "updated_by" edge. The optional arguments are used to configure the query builder of the edge.
+func (toq *TimeOffsetQuery) WithUpdatedBy(opts ...func(*UserQuery)) *TimeOffsetQuery {
 	query := (&UserClient{config: toq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	toq.withModifiedBy = query
+	toq.withUpdatedBy = query
 	return toq
 }
 
@@ -446,10 +446,10 @@ func (toq *TimeOffsetQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 		loadedTypes = [3]bool{
 			toq.withCamera != nil,
 			toq.withCreatedBy != nil,
-			toq.withModifiedBy != nil,
+			toq.withUpdatedBy != nil,
 		}
 	)
-	if toq.withCamera != nil || toq.withCreatedBy != nil || toq.withModifiedBy != nil {
+	if toq.withCamera != nil || toq.withCreatedBy != nil || toq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -485,9 +485,9 @@ func (toq *TimeOffsetQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*
 			return nil, err
 		}
 	}
-	if query := toq.withModifiedBy; query != nil {
-		if err := toq.loadModifiedBy(ctx, query, nodes, nil,
-			func(n *TimeOffset, e *User) { n.Edges.ModifiedBy = e }); err != nil {
+	if query := toq.withUpdatedBy; query != nil {
+		if err := toq.loadUpdatedBy(ctx, query, nodes, nil,
+			func(n *TimeOffset, e *User) { n.Edges.UpdatedBy = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -558,14 +558,14 @@ func (toq *TimeOffsetQuery) loadCreatedBy(ctx context.Context, query *UserQuery,
 	}
 	return nil
 }
-func (toq *TimeOffsetQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes []*TimeOffset, init func(*TimeOffset), assign func(*TimeOffset, *User)) error {
+func (toq *TimeOffsetQuery) loadUpdatedBy(ctx context.Context, query *UserQuery, nodes []*TimeOffset, init func(*TimeOffset), assign func(*TimeOffset, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*TimeOffset)
 	for i := range nodes {
-		if nodes[i].time_offset_modified_by == nil {
+		if nodes[i].time_offset_updated_by == nil {
 			continue
 		}
-		fk := *nodes[i].time_offset_modified_by
+		fk := *nodes[i].time_offset_updated_by
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -582,7 +582,7 @@ func (toq *TimeOffsetQuery) loadModifiedBy(ctx context.Context, query *UserQuery
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "time_offset_modified_by" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "time_offset_updated_by" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

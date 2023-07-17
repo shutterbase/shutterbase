@@ -129,6 +129,10 @@ func authContextMiddleware(c *gin.Context) {
 
 func anonymousUserBlockerMiddleware(c *gin.Context) {
 	resource := c.Request.URL.Path
+	if c.Request.Method == "OPTIONS" {
+		c.Next()
+		return
+	}
 	resource = strings.TrimPrefix(resource, config.Get().String("API_CONTEXT_PATH"))
 	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(resource).Action(authorization.REQUEST))
 	if err != nil || !allowed {

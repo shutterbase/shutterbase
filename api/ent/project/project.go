@@ -31,8 +31,8 @@ const (
 	EdgeTags = "tags"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
 	EdgeCreatedBy = "created_by"
-	// EdgeModifiedBy holds the string denoting the modified_by edge name in mutations.
-	EdgeModifiedBy = "modified_by"
+	// EdgeUpdatedBy holds the string denoting the updated_by edge name in mutations.
+	EdgeUpdatedBy = "updated_by"
 	// Table holds the table name of the project in the database.
 	Table = "projects"
 	// AssignmentsTable is the table that holds the assignments relation/edge.
@@ -63,13 +63,13 @@ const (
 	CreatedByInverseTable = "users"
 	// CreatedByColumn is the table column denoting the created_by relation/edge.
 	CreatedByColumn = "project_created_by"
-	// ModifiedByTable is the table that holds the modified_by relation/edge.
-	ModifiedByTable = "projects"
-	// ModifiedByInverseTable is the table name for the User entity.
+	// UpdatedByTable is the table that holds the updated_by relation/edge.
+	UpdatedByTable = "projects"
+	// UpdatedByInverseTable is the table name for the User entity.
 	// It exists in this package in order to avoid circular dependency with the "user" package.
-	ModifiedByInverseTable = "users"
-	// ModifiedByColumn is the table column denoting the modified_by relation/edge.
-	ModifiedByColumn = "project_modified_by"
+	UpdatedByInverseTable = "users"
+	// UpdatedByColumn is the table column denoting the updated_by relation/edge.
+	UpdatedByColumn = "project_updated_by"
 )
 
 // Columns holds all SQL columns for project fields.
@@ -85,7 +85,7 @@ var Columns = []string{
 // table and are not defined as standalone fields in the schema.
 var ForeignKeys = []string{
 	"project_created_by",
-	"project_modified_by",
+	"project_updated_by",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -195,10 +195,10 @@ func ByCreatedByField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
-// ByModifiedByField orders the results by modified_by field.
-func ByModifiedByField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByUpdatedByField orders the results by updated_by field.
+func ByUpdatedByField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newModifiedByStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newUpdatedByStep(), sql.OrderByField(field, opts...))
 	}
 }
 func newAssignmentsStep() *sqlgraph.Step {
@@ -229,10 +229,10 @@ func newCreatedByStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2O, false, CreatedByTable, CreatedByColumn),
 	)
 }
-func newModifiedByStep() *sqlgraph.Step {
+func newUpdatedByStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(ModifiedByInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, false, ModifiedByTable, ModifiedByColumn),
+		sqlgraph.To(UpdatedByInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, UpdatedByTable, UpdatedByColumn),
 	)
 }

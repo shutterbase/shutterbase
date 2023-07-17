@@ -100,7 +100,7 @@ func createProjectAssignmentController(c *gin.Context) {
 		SetUser(user).
 		SetProject(project).
 		SetCreatedBy(userContext.User).
-		SetModifiedBy(userContext.User)
+		SetUpdatedBy(userContext.User)
 
 	item, err := itemCreate.Save(ctx)
 	if err != nil {
@@ -210,7 +210,7 @@ func updateProjectAssignmentController(c *gin.Context) {
 		return
 	}
 
-	item, err = item.Update().SetRole(role).SetModifiedBy(userContext.User).Save(ctx)
+	item, err = item.Update().SetRole(role).SetUpdatedBy(userContext.User).Save(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to save project assignment for project assignment update")
 		api_error.INTERNAL.Send(c)

@@ -40,7 +40,7 @@ func GetCameras(ctx context.Context, userId uuid.UUID, paginationParameters *Pag
 }
 
 func GetCamera(ctx context.Context, id uuid.UUID) (*ent.Camera, error) {
-	item, err := databaseClient.Camera.Query().Where(camera.ID(id)).WithOwner().WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.Camera.Query().Where(camera.ID(id)).WithOwner().WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting camera")
 	}

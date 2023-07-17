@@ -30,7 +30,7 @@ type CameraQuery struct {
 	withImages      *ImageQuery
 	withOwner       *UserQuery
 	withCreatedBy   *UserQuery
-	withModifiedBy  *UserQuery
+	withUpdatedBy   *UserQuery
 	withFKs         bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -156,8 +156,8 @@ func (cq *CameraQuery) QueryCreatedBy() *UserQuery {
 	return query
 }
 
-// QueryModifiedBy chains the current query on the "modified_by" edge.
-func (cq *CameraQuery) QueryModifiedBy() *UserQuery {
+// QueryUpdatedBy chains the current query on the "updated_by" edge.
+func (cq *CameraQuery) QueryUpdatedBy() *UserQuery {
 	query := (&UserClient{config: cq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := cq.prepareQuery(ctx); err != nil {
@@ -170,7 +170,7 @@ func (cq *CameraQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(camera.Table, camera.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, camera.ModifiedByTable, camera.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, camera.UpdatedByTable, camera.UpdatedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(cq.driver.Dialect(), step)
 		return fromU, nil
@@ -374,7 +374,7 @@ func (cq *CameraQuery) Clone() *CameraQuery {
 		withImages:      cq.withImages.Clone(),
 		withOwner:       cq.withOwner.Clone(),
 		withCreatedBy:   cq.withCreatedBy.Clone(),
-		withModifiedBy:  cq.withModifiedBy.Clone(),
+		withUpdatedBy:   cq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  cq.sql.Clone(),
 		path: cq.path,
@@ -425,14 +425,14 @@ func (cq *CameraQuery) WithCreatedBy(opts ...func(*UserQuery)) *CameraQuery {
 	return cq
 }
 
-// WithModifiedBy tells the query-builder to eager-load the nodes that are connected to
-// the "modified_by" edge. The optional arguments are used to configure the query builder of the edge.
-func (cq *CameraQuery) WithModifiedBy(opts ...func(*UserQuery)) *CameraQuery {
+// WithUpdatedBy tells the query-builder to eager-load the nodes that are connected to
+// the "updated_by" edge. The optional arguments are used to configure the query builder of the edge.
+func (cq *CameraQuery) WithUpdatedBy(opts ...func(*UserQuery)) *CameraQuery {
 	query := (&UserClient{config: cq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	cq.withModifiedBy = query
+	cq.withUpdatedBy = query
 	return cq
 }
 
@@ -520,10 +520,10 @@ func (cq *CameraQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Camer
 			cq.withImages != nil,
 			cq.withOwner != nil,
 			cq.withCreatedBy != nil,
-			cq.withModifiedBy != nil,
+			cq.withUpdatedBy != nil,
 		}
 	)
-	if cq.withOwner != nil || cq.withCreatedBy != nil || cq.withModifiedBy != nil {
+	if cq.withOwner != nil || cq.withCreatedBy != nil || cq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -573,9 +573,9 @@ func (cq *CameraQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Camer
 			return nil, err
 		}
 	}
-	if query := cq.withModifiedBy; query != nil {
-		if err := cq.loadModifiedBy(ctx, query, nodes, nil,
-			func(n *Camera, e *User) { n.Edges.ModifiedBy = e }); err != nil {
+	if query := cq.withUpdatedBy; query != nil {
+		if err := cq.loadUpdatedBy(ctx, query, nodes, nil,
+			func(n *Camera, e *User) { n.Edges.UpdatedBy = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -708,14 +708,14 @@ func (cq *CameraQuery) loadCreatedBy(ctx context.Context, query *UserQuery, node
 	}
 	return nil
 }
-func (cq *CameraQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes []*Camera, init func(*Camera), assign func(*Camera, *User)) error {
+func (cq *CameraQuery) loadUpdatedBy(ctx context.Context, query *UserQuery, nodes []*Camera, init func(*Camera), assign func(*Camera, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*Camera)
 	for i := range nodes {
-		if nodes[i].camera_modified_by == nil {
+		if nodes[i].camera_updated_by == nil {
 			continue
 		}
-		fk := *nodes[i].camera_modified_by
+		fk := *nodes[i].camera_updated_by
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -732,7 +732,7 @@ func (cq *CameraQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nod
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "camera_modified_by" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "camera_updated_by" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

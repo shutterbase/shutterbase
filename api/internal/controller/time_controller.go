@@ -19,6 +19,7 @@ func registerTimeController(router *gin.Engine) {
 
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, TIME_RESOURCE), getTimeController)
 	router.GET(fmt.Sprintf("%s%s/qr", CONTEXT_PATH, TIME_RESOURCE), getTimeQrCodeController)
+	router.GET(fmt.Sprintf("%s%s/qr/:qrid", CONTEXT_PATH, TIME_RESOURCE), getTimeQrCodeController)
 }
 
 func getTimeController(c *gin.Context) {

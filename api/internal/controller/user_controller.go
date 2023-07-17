@@ -24,7 +24,7 @@ func registerUsersController(router *gin.Engine) {
 	router.GET(fmt.Sprintf("%s%s/minimal", CONTEXT_PATH, USERS_RESOURCE), getMinimalUsersController)
 	router.GET(fmt.Sprintf("%s%s/:uid", CONTEXT_PATH, USERS_RESOURCE), getUserController)
 	router.PUT(fmt.Sprintf("%s%s/:uid", CONTEXT_PATH, USERS_RESOURCE), updateUserController)
-	router.PUT(fmt.Sprintf("%s%s/:uid/role", CONTEXT_PATH, USERS_RESOURCE), updateUserRoleController)
+	// router.PUT(fmt.Sprintf("%s%s/:uid/role", CONTEXT_PATH, USERS_RESOURCE), updateUserRoleController)
 	router.DELETE(fmt.Sprintf("%s%s/:uid", CONTEXT_PATH, USERS_RESOURCE), deleteUserController)
 }
 
@@ -216,19 +216,41 @@ func updateUserController(c *gin.Context) {
 		query.SetPassword(hashedPassword)
 	}
 
-	query.SetModifiedBy(userContext.User)
+	if body.Role != nil {
+		if !authorization.IsAdmin(c) {
+			log.Warn().Err(err).Msg("unauthorized access to update user.Role denied")
+			api_error.FORBIDDEN.Send(c)
+			return
+		}
+		role, err := repository.GetRoleByKey(ctx, *body.Role)
+		if err != nil {
+			log.Warn().Err(err).Str("role", *body.Role).Msg("failed to get role for user update")
+			api_error.BAD_REQUEST.Send(c)
+			return
+		}
+		query.SetRole(role)
+	}
 
-	item, err = query.Save(ctx)
+	query.SetUpdatedBy(userContext.User)
+
+	_, err = query.Save(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to save user for user update")
 		api_error.INTERNAL.Send(c)
 		return
 	}
 
-	c.JSON(200, item)
+	updatedItem, err := repository.GetUser(ctx, id)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get updated user for user update")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	c.JSON(200, updatedItem)
 }
 
-func updateUserRoleController(c *gin.Context) {
+/* func updateUserRoleController(c *gin.Context) {
 	ctx := c.Request.Context()
 	userContext := authorization.GetUserContextFromGinContext(c)
 
@@ -281,7 +303,7 @@ func updateUserRoleController(c *gin.Context) {
 	}
 
 	query.SetRole(role)
-	query.SetModifiedByID(userContext.User.ID)
+	query.SetUpdatedByID(userContext.User.ID)
 
 	item, err = query.Save(ctx)
 	if err != nil {
@@ -291,7 +313,7 @@ func updateUserRoleController(c *gin.Context) {
 	}
 
 	c.JSON(200, item)
-}
+} */
 
 func deleteUserController(c *gin.Context) {
 	ctx := c.Request.Context()

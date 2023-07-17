@@ -29,10 +29,10 @@ type Project struct {
 	Description string `json:"description,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
-	Edges               ProjectEdges `json:"edges"`
-	project_created_by  *uuid.UUID
-	project_modified_by *uuid.UUID
-	selectValues        sql.SelectValues
+	Edges              ProjectEdges `json:"edges"`
+	project_created_by *uuid.UUID
+	project_updated_by *uuid.UUID
+	selectValues       sql.SelectValues
 }
 
 // ProjectEdges holds the relations/edges for other nodes in the graph.
@@ -45,8 +45,8 @@ type ProjectEdges struct {
 	Tags []*ImageTag `json:"tags,omitempty"`
 	// CreatedBy holds the value of the created_by edge.
 	CreatedBy *User `json:"createdBy"`
-	// ModifiedBy holds the value of the modified_by edge.
-	ModifiedBy *User `json:"modifiedBy"`
+	// UpdatedBy holds the value of the updated_by edge.
+	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [5]bool
@@ -92,17 +92,17 @@ func (e ProjectEdges) CreatedByOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "created_by"}
 }
 
-// ModifiedByOrErr returns the ModifiedBy value or an error if the edge
+// UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e ProjectEdges) ModifiedByOrErr() (*User, error) {
+func (e ProjectEdges) UpdatedByOrErr() (*User, error) {
 	if e.loadedTypes[4] {
-		if e.ModifiedBy == nil {
+		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
 		}
-		return e.ModifiedBy, nil
+		return e.UpdatedBy, nil
 	}
-	return nil, &NotLoadedError{edge: "modified_by"}
+	return nil, &NotLoadedError{edge: "updated_by"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -118,7 +118,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 			values[i] = new(uuid.UUID)
 		case project.ForeignKeys[0]: // project_created_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case project.ForeignKeys[1]: // project_modified_by
+		case project.ForeignKeys[1]: // project_updated_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -174,10 +174,10 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 			}
 		case project.ForeignKeys[1]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field project_modified_by", values[i])
+				return fmt.Errorf("unexpected type %T for field project_updated_by", values[i])
 			} else if value.Valid {
-				pr.project_modified_by = new(uuid.UUID)
-				*pr.project_modified_by = *value.S.(*uuid.UUID)
+				pr.project_updated_by = new(uuid.UUID)
+				*pr.project_updated_by = *value.S.(*uuid.UUID)
 			}
 		default:
 			pr.selectValues.Set(columns[i], values[i])
@@ -212,9 +212,9 @@ func (pr *Project) QueryCreatedBy() *UserQuery {
 	return NewProjectClient(pr.config).QueryCreatedBy(pr)
 }
 
-// QueryModifiedBy queries the "modified_by" edge of the Project entity.
-func (pr *Project) QueryModifiedBy() *UserQuery {
-	return NewProjectClient(pr.config).QueryModifiedBy(pr)
+// QueryUpdatedBy queries the "updated_by" edge of the Project entity.
+func (pr *Project) QueryUpdatedBy() *UserQuery {
+	return NewProjectClient(pr.config).QueryUpdatedBy(pr)
 }
 
 // Update returns a builder for updating this Project.

@@ -2,6 +2,7 @@ package util
 
 import (
 	"os"
+	"time"
 
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog"
@@ -16,6 +17,7 @@ func InitLogger() error {
 }
 
 func setLogOutput() {
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	devMode := config.Get().Bool("DEV_MODE")
 	if devMode {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02T15:04:05.000Z"})

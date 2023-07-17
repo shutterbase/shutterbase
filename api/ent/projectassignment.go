@@ -27,13 +27,13 @@ type ProjectAssignment struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectAssignmentQuery when eager-loading is set.
-	Edges                          ProjectAssignmentEdges `json:"edges"`
-	project_assignment_user        *uuid.UUID
-	project_assignment_project     *uuid.UUID
-	project_assignment_role        *uuid.UUID
-	project_assignment_created_by  *uuid.UUID
-	project_assignment_modified_by *uuid.UUID
-	selectValues                   sql.SelectValues
+	Edges                         ProjectAssignmentEdges `json:"edges"`
+	project_assignment_user       *uuid.UUID
+	project_assignment_project    *uuid.UUID
+	project_assignment_role       *uuid.UUID
+	project_assignment_created_by *uuid.UUID
+	project_assignment_updated_by *uuid.UUID
+	selectValues                  sql.SelectValues
 }
 
 // ProjectAssignmentEdges holds the relations/edges for other nodes in the graph.
@@ -46,8 +46,8 @@ type ProjectAssignmentEdges struct {
 	Role *Role `json:"role,omitempty"`
 	// CreatedBy holds the value of the created_by edge.
 	CreatedBy *User `json:"createdBy"`
-	// ModifiedBy holds the value of the modified_by edge.
-	ModifiedBy *User `json:"modifiedBy"`
+	// UpdatedBy holds the value of the updated_by edge.
+	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [5]bool
@@ -105,17 +105,17 @@ func (e ProjectAssignmentEdges) CreatedByOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "created_by"}
 }
 
-// ModifiedByOrErr returns the ModifiedBy value or an error if the edge
+// UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e ProjectAssignmentEdges) ModifiedByOrErr() (*User, error) {
+func (e ProjectAssignmentEdges) UpdatedByOrErr() (*User, error) {
 	if e.loadedTypes[4] {
-		if e.ModifiedBy == nil {
+		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
 		}
-		return e.ModifiedBy, nil
+		return e.UpdatedBy, nil
 	}
-	return nil, &NotLoadedError{edge: "modified_by"}
+	return nil, &NotLoadedError{edge: "updated_by"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -135,7 +135,7 @@ func (*ProjectAssignment) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case projectassignment.ForeignKeys[3]: // project_assignment_created_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case projectassignment.ForeignKeys[4]: // project_assignment_modified_by
+		case projectassignment.ForeignKeys[4]: // project_assignment_updated_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -200,10 +200,10 @@ func (pa *ProjectAssignment) assignValues(columns []string, values []any) error 
 			}
 		case projectassignment.ForeignKeys[4]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field project_assignment_modified_by", values[i])
+				return fmt.Errorf("unexpected type %T for field project_assignment_updated_by", values[i])
 			} else if value.Valid {
-				pa.project_assignment_modified_by = new(uuid.UUID)
-				*pa.project_assignment_modified_by = *value.S.(*uuid.UUID)
+				pa.project_assignment_updated_by = new(uuid.UUID)
+				*pa.project_assignment_updated_by = *value.S.(*uuid.UUID)
 			}
 		default:
 			pa.selectValues.Set(columns[i], values[i])
@@ -238,9 +238,9 @@ func (pa *ProjectAssignment) QueryCreatedBy() *UserQuery {
 	return NewProjectAssignmentClient(pa.config).QueryCreatedBy(pa)
 }
 
-// QueryModifiedBy queries the "modified_by" edge of the ProjectAssignment entity.
-func (pa *ProjectAssignment) QueryModifiedBy() *UserQuery {
-	return NewProjectAssignmentClient(pa.config).QueryModifiedBy(pa)
+// QueryUpdatedBy queries the "updated_by" edge of the ProjectAssignment entity.
+func (pa *ProjectAssignment) QueryUpdatedBy() *UserQuery {
+	return NewProjectAssignmentClient(pa.config).QueryUpdatedBy(pa)
 }
 
 // Update returns a builder for updating this ProjectAssignment.

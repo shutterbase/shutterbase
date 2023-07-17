@@ -126,23 +126,23 @@ func (pac *ProjectAssignmentCreate) SetCreatedBy(u *User) *ProjectAssignmentCrea
 	return pac.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (pac *ProjectAssignmentCreate) SetModifiedByID(id uuid.UUID) *ProjectAssignmentCreate {
-	pac.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (pac *ProjectAssignmentCreate) SetUpdatedByID(id uuid.UUID) *ProjectAssignmentCreate {
+	pac.mutation.SetUpdatedByID(id)
 	return pac
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (pac *ProjectAssignmentCreate) SetNillableModifiedByID(id *uuid.UUID) *ProjectAssignmentCreate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (pac *ProjectAssignmentCreate) SetNillableUpdatedByID(id *uuid.UUID) *ProjectAssignmentCreate {
 	if id != nil {
-		pac = pac.SetModifiedByID(*id)
+		pac = pac.SetUpdatedByID(*id)
 	}
 	return pac
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (pac *ProjectAssignmentCreate) SetModifiedBy(u *User) *ProjectAssignmentCreate {
-	return pac.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (pac *ProjectAssignmentCreate) SetUpdatedBy(u *User) *ProjectAssignmentCreate {
+	return pac.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ProjectAssignmentMutation object of the builder.
@@ -319,12 +319,12 @@ func (pac *ProjectAssignmentCreate) createSpec() (*ProjectAssignment, *sqlgraph.
 		_node.project_assignment_created_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := pac.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := pac.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   projectassignment.ModifiedByTable,
-			Columns: []string{projectassignment.ModifiedByColumn},
+			Table:   projectassignment.UpdatedByTable,
+			Columns: []string{projectassignment.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -333,7 +333,7 @@ func (pac *ProjectAssignmentCreate) createSpec() (*ProjectAssignment, *sqlgraph.
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.project_assignment_modified_by = &nodes[0]
+		_node.project_assignment_updated_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

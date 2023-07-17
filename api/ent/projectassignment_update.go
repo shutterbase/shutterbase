@@ -98,23 +98,23 @@ func (pau *ProjectAssignmentUpdate) SetCreatedBy(u *User) *ProjectAssignmentUpda
 	return pau.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (pau *ProjectAssignmentUpdate) SetModifiedByID(id uuid.UUID) *ProjectAssignmentUpdate {
-	pau.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (pau *ProjectAssignmentUpdate) SetUpdatedByID(id uuid.UUID) *ProjectAssignmentUpdate {
+	pau.mutation.SetUpdatedByID(id)
 	return pau
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (pau *ProjectAssignmentUpdate) SetNillableModifiedByID(id *uuid.UUID) *ProjectAssignmentUpdate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (pau *ProjectAssignmentUpdate) SetNillableUpdatedByID(id *uuid.UUID) *ProjectAssignmentUpdate {
 	if id != nil {
-		pau = pau.SetModifiedByID(*id)
+		pau = pau.SetUpdatedByID(*id)
 	}
 	return pau
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (pau *ProjectAssignmentUpdate) SetModifiedBy(u *User) *ProjectAssignmentUpdate {
-	return pau.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (pau *ProjectAssignmentUpdate) SetUpdatedBy(u *User) *ProjectAssignmentUpdate {
+	return pau.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ProjectAssignmentMutation object of the builder.
@@ -146,9 +146,9 @@ func (pau *ProjectAssignmentUpdate) ClearCreatedBy() *ProjectAssignmentUpdate {
 	return pau
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (pau *ProjectAssignmentUpdate) ClearModifiedBy() *ProjectAssignmentUpdate {
-	pau.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (pau *ProjectAssignmentUpdate) ClearUpdatedBy() *ProjectAssignmentUpdate {
+	pau.mutation.ClearUpdatedBy()
 	return pau
 }
 
@@ -330,12 +330,12 @@ func (pau *ProjectAssignmentUpdate) sqlSave(ctx context.Context) (n int, err err
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if pau.mutation.ModifiedByCleared() {
+	if pau.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   projectassignment.ModifiedByTable,
-			Columns: []string{projectassignment.ModifiedByColumn},
+			Table:   projectassignment.UpdatedByTable,
+			Columns: []string{projectassignment.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -343,12 +343,12 @@ func (pau *ProjectAssignmentUpdate) sqlSave(ctx context.Context) (n int, err err
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := pau.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := pau.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   projectassignment.ModifiedByTable,
-			Columns: []string{projectassignment.ModifiedByColumn},
+			Table:   projectassignment.UpdatedByTable,
+			Columns: []string{projectassignment.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -445,23 +445,23 @@ func (pauo *ProjectAssignmentUpdateOne) SetCreatedBy(u *User) *ProjectAssignment
 	return pauo.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (pauo *ProjectAssignmentUpdateOne) SetModifiedByID(id uuid.UUID) *ProjectAssignmentUpdateOne {
-	pauo.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (pauo *ProjectAssignmentUpdateOne) SetUpdatedByID(id uuid.UUID) *ProjectAssignmentUpdateOne {
+	pauo.mutation.SetUpdatedByID(id)
 	return pauo
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (pauo *ProjectAssignmentUpdateOne) SetNillableModifiedByID(id *uuid.UUID) *ProjectAssignmentUpdateOne {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (pauo *ProjectAssignmentUpdateOne) SetNillableUpdatedByID(id *uuid.UUID) *ProjectAssignmentUpdateOne {
 	if id != nil {
-		pauo = pauo.SetModifiedByID(*id)
+		pauo = pauo.SetUpdatedByID(*id)
 	}
 	return pauo
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (pauo *ProjectAssignmentUpdateOne) SetModifiedBy(u *User) *ProjectAssignmentUpdateOne {
-	return pauo.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (pauo *ProjectAssignmentUpdateOne) SetUpdatedBy(u *User) *ProjectAssignmentUpdateOne {
+	return pauo.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ProjectAssignmentMutation object of the builder.
@@ -493,9 +493,9 @@ func (pauo *ProjectAssignmentUpdateOne) ClearCreatedBy() *ProjectAssignmentUpdat
 	return pauo
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (pauo *ProjectAssignmentUpdateOne) ClearModifiedBy() *ProjectAssignmentUpdateOne {
-	pauo.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (pauo *ProjectAssignmentUpdateOne) ClearUpdatedBy() *ProjectAssignmentUpdateOne {
+	pauo.mutation.ClearUpdatedBy()
 	return pauo
 }
 
@@ -707,12 +707,12 @@ func (pauo *ProjectAssignmentUpdateOne) sqlSave(ctx context.Context) (_node *Pro
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if pauo.mutation.ModifiedByCleared() {
+	if pauo.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   projectassignment.ModifiedByTable,
-			Columns: []string{projectassignment.ModifiedByColumn},
+			Table:   projectassignment.UpdatedByTable,
+			Columns: []string{projectassignment.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -720,12 +720,12 @@ func (pauo *ProjectAssignmentUpdateOne) sqlSave(ctx context.Context) (_node *Pro
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := pauo.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := pauo.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   projectassignment.ModifiedByTable,
-			Columns: []string{projectassignment.ModifiedByColumn},
+			Table:   projectassignment.UpdatedByTable,
+			Columns: []string{projectassignment.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),

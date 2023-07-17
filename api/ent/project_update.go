@@ -115,23 +115,23 @@ func (pu *ProjectUpdate) SetCreatedBy(u *User) *ProjectUpdate {
 	return pu.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (pu *ProjectUpdate) SetModifiedByID(id uuid.UUID) *ProjectUpdate {
-	pu.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (pu *ProjectUpdate) SetUpdatedByID(id uuid.UUID) *ProjectUpdate {
+	pu.mutation.SetUpdatedByID(id)
 	return pu
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (pu *ProjectUpdate) SetNillableModifiedByID(id *uuid.UUID) *ProjectUpdate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableUpdatedByID(id *uuid.UUID) *ProjectUpdate {
 	if id != nil {
-		pu = pu.SetModifiedByID(*id)
+		pu = pu.SetUpdatedByID(*id)
 	}
 	return pu
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (pu *ProjectUpdate) SetModifiedBy(u *User) *ProjectUpdate {
-	return pu.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (pu *ProjectUpdate) SetUpdatedBy(u *User) *ProjectUpdate {
+	return pu.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ProjectMutation object of the builder.
@@ -208,9 +208,9 @@ func (pu *ProjectUpdate) ClearCreatedBy() *ProjectUpdate {
 	return pu
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (pu *ProjectUpdate) ClearModifiedBy() *ProjectUpdate {
-	pu.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (pu *ProjectUpdate) ClearUpdatedBy() *ProjectUpdate {
+	pu.mutation.ClearUpdatedBy()
 	return pu
 }
 
@@ -450,12 +450,12 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if pu.mutation.ModifiedByCleared() {
+	if pu.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   project.ModifiedByTable,
-			Columns: []string{project.ModifiedByColumn},
+			Table:   project.UpdatedByTable,
+			Columns: []string{project.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -463,12 +463,12 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := pu.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := pu.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   project.ModifiedByTable,
-			Columns: []string{project.ModifiedByColumn},
+			Table:   project.UpdatedByTable,
+			Columns: []string{project.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -581,23 +581,23 @@ func (puo *ProjectUpdateOne) SetCreatedBy(u *User) *ProjectUpdateOne {
 	return puo.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (puo *ProjectUpdateOne) SetModifiedByID(id uuid.UUID) *ProjectUpdateOne {
-	puo.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (puo *ProjectUpdateOne) SetUpdatedByID(id uuid.UUID) *ProjectUpdateOne {
+	puo.mutation.SetUpdatedByID(id)
 	return puo
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (puo *ProjectUpdateOne) SetNillableModifiedByID(id *uuid.UUID) *ProjectUpdateOne {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableUpdatedByID(id *uuid.UUID) *ProjectUpdateOne {
 	if id != nil {
-		puo = puo.SetModifiedByID(*id)
+		puo = puo.SetUpdatedByID(*id)
 	}
 	return puo
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (puo *ProjectUpdateOne) SetModifiedBy(u *User) *ProjectUpdateOne {
-	return puo.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (puo *ProjectUpdateOne) SetUpdatedBy(u *User) *ProjectUpdateOne {
+	return puo.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ProjectMutation object of the builder.
@@ -674,9 +674,9 @@ func (puo *ProjectUpdateOne) ClearCreatedBy() *ProjectUpdateOne {
 	return puo
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (puo *ProjectUpdateOne) ClearModifiedBy() *ProjectUpdateOne {
-	puo.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (puo *ProjectUpdateOne) ClearUpdatedBy() *ProjectUpdateOne {
+	puo.mutation.ClearUpdatedBy()
 	return puo
 }
 
@@ -946,12 +946,12 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if puo.mutation.ModifiedByCleared() {
+	if puo.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   project.ModifiedByTable,
-			Columns: []string{project.ModifiedByColumn},
+			Table:   project.UpdatedByTable,
+			Columns: []string{project.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -959,12 +959,12 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := puo.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := puo.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   project.ModifiedByTable,
-			Columns: []string{project.ModifiedByColumn},
+			Table:   project.UpdatedByTable,
+			Columns: []string{project.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),

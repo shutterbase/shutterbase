@@ -49,7 +49,7 @@ func GetProjectAssignment(ctx context.Context, id uuid.UUID) (*ent.ProjectAssign
 		WithProject().
 		WithRole().
 		WithUser().
-		Where(projectassignment.ID(id)).WithCreatedBy().WithModifiedBy().Only(ctx)
+		Where(projectassignment.ID(id)).WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting project assignment")
 	}

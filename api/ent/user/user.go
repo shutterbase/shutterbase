@@ -53,8 +53,8 @@ const (
 	EdgeCreatedBy = "created_by"
 	// EdgeModifiedUsers holds the string denoting the modified_users edge name in mutations.
 	EdgeModifiedUsers = "modified_users"
-	// EdgeModifiedBy holds the string denoting the modified_by edge name in mutations.
-	EdgeModifiedBy = "modified_by"
+	// EdgeUpdatedBy holds the string denoting the updated_by edge name in mutations.
+	EdgeUpdatedBy = "updated_by"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// RoleTable is the table that holds the role relation/edge.
@@ -96,11 +96,11 @@ const (
 	// ModifiedUsersTable is the table that holds the modified_users relation/edge.
 	ModifiedUsersTable = "users"
 	// ModifiedUsersColumn is the table column denoting the modified_users relation/edge.
-	ModifiedUsersColumn = "user_modified_by"
-	// ModifiedByTable is the table that holds the modified_by relation/edge.
-	ModifiedByTable = "users"
-	// ModifiedByColumn is the table column denoting the modified_by relation/edge.
-	ModifiedByColumn = "user_modified_by"
+	ModifiedUsersColumn = "user_updated_by"
+	// UpdatedByTable is the table that holds the updated_by relation/edge.
+	UpdatedByTable = "users"
+	// UpdatedByColumn is the table column denoting the updated_by relation/edge.
+	UpdatedByColumn = "user_updated_by"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -125,7 +125,7 @@ var Columns = []string{
 var ForeignKeys = []string{
 	"user_role",
 	"user_created_by",
-	"user_modified_by",
+	"user_updated_by",
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -321,10 +321,10 @@ func ByModifiedUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
-// ByModifiedByField orders the results by modified_by field.
-func ByModifiedByField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByUpdatedByField orders the results by updated_by field.
+func ByUpdatedByField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newModifiedByStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newUpdatedByStep(), sql.OrderByField(field, opts...))
 	}
 }
 func newRoleStep() *sqlgraph.Step {
@@ -376,10 +376,10 @@ func newModifiedUsersStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.O2M, true, ModifiedUsersTable, ModifiedUsersColumn),
 	)
 }
-func newModifiedByStep() *sqlgraph.Step {
+func newUpdatedByStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(Table, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, false, ModifiedByTable, ModifiedByColumn),
+		sqlgraph.Edge(sqlgraph.M2O, false, UpdatedByTable, UpdatedByColumn),
 	)
 }

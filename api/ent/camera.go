@@ -29,11 +29,11 @@ type Camera struct {
 	Description string `json:"description,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CameraQuery when eager-loading is set.
-	Edges              CameraEdges `json:"edges"`
-	camera_owner       *uuid.UUID
-	camera_created_by  *uuid.UUID
-	camera_modified_by *uuid.UUID
-	selectValues       sql.SelectValues
+	Edges             CameraEdges `json:"edges"`
+	camera_owner      *uuid.UUID
+	camera_created_by *uuid.UUID
+	camera_updated_by *uuid.UUID
+	selectValues      sql.SelectValues
 }
 
 // CameraEdges holds the relations/edges for other nodes in the graph.
@@ -46,8 +46,8 @@ type CameraEdges struct {
 	Owner *User `json:"owner"`
 	// CreatedBy holds the value of the created_by edge.
 	CreatedBy *User `json:"createdBy"`
-	// ModifiedBy holds the value of the modified_by edge.
-	ModifiedBy *User `json:"modifiedBy"`
+	// UpdatedBy holds the value of the updated_by edge.
+	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [5]bool
@@ -97,17 +97,17 @@ func (e CameraEdges) CreatedByOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "created_by"}
 }
 
-// ModifiedByOrErr returns the ModifiedBy value or an error if the edge
+// UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e CameraEdges) ModifiedByOrErr() (*User, error) {
+func (e CameraEdges) UpdatedByOrErr() (*User, error) {
 	if e.loadedTypes[4] {
-		if e.ModifiedBy == nil {
+		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
 		}
-		return e.ModifiedBy, nil
+		return e.UpdatedBy, nil
 	}
-	return nil, &NotLoadedError{edge: "modified_by"}
+	return nil, &NotLoadedError{edge: "updated_by"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -125,7 +125,7 @@ func (*Camera) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case camera.ForeignKeys[1]: // camera_created_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case camera.ForeignKeys[2]: // camera_modified_by
+		case camera.ForeignKeys[2]: // camera_updated_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -188,10 +188,10 @@ func (c *Camera) assignValues(columns []string, values []any) error {
 			}
 		case camera.ForeignKeys[2]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field camera_modified_by", values[i])
+				return fmt.Errorf("unexpected type %T for field camera_updated_by", values[i])
 			} else if value.Valid {
-				c.camera_modified_by = new(uuid.UUID)
-				*c.camera_modified_by = *value.S.(*uuid.UUID)
+				c.camera_updated_by = new(uuid.UUID)
+				*c.camera_updated_by = *value.S.(*uuid.UUID)
 			}
 		default:
 			c.selectValues.Set(columns[i], values[i])
@@ -226,9 +226,9 @@ func (c *Camera) QueryCreatedBy() *UserQuery {
 	return NewCameraClient(c.config).QueryCreatedBy(c)
 }
 
-// QueryModifiedBy queries the "modified_by" edge of the Camera entity.
-func (c *Camera) QueryModifiedBy() *UserQuery {
-	return NewCameraClient(c.config).QueryModifiedBy(c)
+// QueryUpdatedBy queries the "updated_by" edge of the Camera entity.
+func (c *Camera) QueryUpdatedBy() *UserQuery {
+	return NewCameraClient(c.config).QueryUpdatedBy(c)
 }
 
 // Update returns a builder for updating this Camera.

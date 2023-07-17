@@ -170,7 +170,7 @@ func GetMinimalUsers(ctx context.Context, paginationParameters *PaginationParame
 }
 
 func GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error) {
-	item, err := databaseClient.User.Query().Where(user.ID(id)).WithRole().WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.User.Query().Where(user.ID(id)).WithRole().WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error finding User")
 	}
@@ -201,7 +201,7 @@ func UserExists(ctx context.Context, email string) (bool, error) {
 }
 
 func GetUserByEmail(ctx context.Context, email string) (*ent.User, error) {
-	item, err := databaseClient.User.Query().Where(user.Email(email)).WithRole().WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.User.Query().Where(user.Email(email)).WithRole().WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Error().Err(err).Msgf("DB error getting user by email: %s", email)
 	}

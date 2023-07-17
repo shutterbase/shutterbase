@@ -118,23 +118,23 @@ func (cu *CameraUpdate) SetCreatedBy(u *User) *CameraUpdate {
 	return cu.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (cu *CameraUpdate) SetModifiedByID(id uuid.UUID) *CameraUpdate {
-	cu.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (cu *CameraUpdate) SetUpdatedByID(id uuid.UUID) *CameraUpdate {
+	cu.mutation.SetUpdatedByID(id)
 	return cu
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (cu *CameraUpdate) SetNillableModifiedByID(id *uuid.UUID) *CameraUpdate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (cu *CameraUpdate) SetNillableUpdatedByID(id *uuid.UUID) *CameraUpdate {
 	if id != nil {
-		cu = cu.SetModifiedByID(*id)
+		cu = cu.SetUpdatedByID(*id)
 	}
 	return cu
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (cu *CameraUpdate) SetModifiedBy(u *User) *CameraUpdate {
-	return cu.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (cu *CameraUpdate) SetUpdatedBy(u *User) *CameraUpdate {
+	return cu.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the CameraMutation object of the builder.
@@ -196,9 +196,9 @@ func (cu *CameraUpdate) ClearCreatedBy() *CameraUpdate {
 	return cu
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (cu *CameraUpdate) ClearModifiedBy() *CameraUpdate {
-	cu.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (cu *CameraUpdate) ClearUpdatedBy() *CameraUpdate {
+	cu.mutation.ClearUpdatedBy()
 	return cu
 }
 
@@ -422,12 +422,12 @@ func (cu *CameraUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if cu.mutation.ModifiedByCleared() {
+	if cu.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   camera.ModifiedByTable,
-			Columns: []string{camera.ModifiedByColumn},
+			Table:   camera.UpdatedByTable,
+			Columns: []string{camera.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -435,12 +435,12 @@ func (cu *CameraUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := cu.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := cu.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   camera.ModifiedByTable,
-			Columns: []string{camera.ModifiedByColumn},
+			Table:   camera.UpdatedByTable,
+			Columns: []string{camera.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -557,23 +557,23 @@ func (cuo *CameraUpdateOne) SetCreatedBy(u *User) *CameraUpdateOne {
 	return cuo.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (cuo *CameraUpdateOne) SetModifiedByID(id uuid.UUID) *CameraUpdateOne {
-	cuo.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (cuo *CameraUpdateOne) SetUpdatedByID(id uuid.UUID) *CameraUpdateOne {
+	cuo.mutation.SetUpdatedByID(id)
 	return cuo
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (cuo *CameraUpdateOne) SetNillableModifiedByID(id *uuid.UUID) *CameraUpdateOne {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (cuo *CameraUpdateOne) SetNillableUpdatedByID(id *uuid.UUID) *CameraUpdateOne {
 	if id != nil {
-		cuo = cuo.SetModifiedByID(*id)
+		cuo = cuo.SetUpdatedByID(*id)
 	}
 	return cuo
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (cuo *CameraUpdateOne) SetModifiedBy(u *User) *CameraUpdateOne {
-	return cuo.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (cuo *CameraUpdateOne) SetUpdatedBy(u *User) *CameraUpdateOne {
+	return cuo.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the CameraMutation object of the builder.
@@ -635,9 +635,9 @@ func (cuo *CameraUpdateOne) ClearCreatedBy() *CameraUpdateOne {
 	return cuo
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (cuo *CameraUpdateOne) ClearModifiedBy() *CameraUpdateOne {
-	cuo.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (cuo *CameraUpdateOne) ClearUpdatedBy() *CameraUpdateOne {
+	cuo.mutation.ClearUpdatedBy()
 	return cuo
 }
 
@@ -891,12 +891,12 @@ func (cuo *CameraUpdateOne) sqlSave(ctx context.Context) (_node *Camera, err err
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if cuo.mutation.ModifiedByCleared() {
+	if cuo.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   camera.ModifiedByTable,
-			Columns: []string{camera.ModifiedByColumn},
+			Table:   camera.UpdatedByTable,
+			Columns: []string{camera.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -904,12 +904,12 @@ func (cuo *CameraUpdateOne) sqlSave(ctx context.Context) (_node *Camera, err err
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := cuo.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := cuo.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   camera.ModifiedByTable,
-			Columns: []string{camera.ModifiedByColumn},
+			Table:   camera.UpdatedByTable,
+			Columns: []string{camera.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),

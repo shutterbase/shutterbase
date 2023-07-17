@@ -31,7 +31,7 @@ type ProjectQuery struct {
 	withImages      *ImageQuery
 	withTags        *ImageTagQuery
 	withCreatedBy   *UserQuery
-	withModifiedBy  *UserQuery
+	withUpdatedBy   *UserQuery
 	withFKs         bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -157,8 +157,8 @@ func (pq *ProjectQuery) QueryCreatedBy() *UserQuery {
 	return query
 }
 
-// QueryModifiedBy chains the current query on the "modified_by" edge.
-func (pq *ProjectQuery) QueryModifiedBy() *UserQuery {
+// QueryUpdatedBy chains the current query on the "updated_by" edge.
+func (pq *ProjectQuery) QueryUpdatedBy() *UserQuery {
 	query := (&UserClient{config: pq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := pq.prepareQuery(ctx); err != nil {
@@ -171,7 +171,7 @@ func (pq *ProjectQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, project.ModifiedByTable, project.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, project.UpdatedByTable, project.UpdatedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
 		return fromU, nil
@@ -375,7 +375,7 @@ func (pq *ProjectQuery) Clone() *ProjectQuery {
 		withImages:      pq.withImages.Clone(),
 		withTags:        pq.withTags.Clone(),
 		withCreatedBy:   pq.withCreatedBy.Clone(),
-		withModifiedBy:  pq.withModifiedBy.Clone(),
+		withUpdatedBy:   pq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  pq.sql.Clone(),
 		path: pq.path,
@@ -426,14 +426,14 @@ func (pq *ProjectQuery) WithCreatedBy(opts ...func(*UserQuery)) *ProjectQuery {
 	return pq
 }
 
-// WithModifiedBy tells the query-builder to eager-load the nodes that are connected to
-// the "modified_by" edge. The optional arguments are used to configure the query builder of the edge.
-func (pq *ProjectQuery) WithModifiedBy(opts ...func(*UserQuery)) *ProjectQuery {
+// WithUpdatedBy tells the query-builder to eager-load the nodes that are connected to
+// the "updated_by" edge. The optional arguments are used to configure the query builder of the edge.
+func (pq *ProjectQuery) WithUpdatedBy(opts ...func(*UserQuery)) *ProjectQuery {
 	query := (&UserClient{config: pq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	pq.withModifiedBy = query
+	pq.withUpdatedBy = query
 	return pq
 }
 
@@ -521,10 +521,10 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			pq.withImages != nil,
 			pq.withTags != nil,
 			pq.withCreatedBy != nil,
-			pq.withModifiedBy != nil,
+			pq.withUpdatedBy != nil,
 		}
 	)
-	if pq.withCreatedBy != nil || pq.withModifiedBy != nil {
+	if pq.withCreatedBy != nil || pq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -575,9 +575,9 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			return nil, err
 		}
 	}
-	if query := pq.withModifiedBy; query != nil {
-		if err := pq.loadModifiedBy(ctx, query, nodes, nil,
-			func(n *Project, e *User) { n.Edges.ModifiedBy = e }); err != nil {
+	if query := pq.withUpdatedBy; query != nil {
+		if err := pq.loadUpdatedBy(ctx, query, nodes, nil,
+			func(n *Project, e *User) { n.Edges.UpdatedBy = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -709,14 +709,14 @@ func (pq *ProjectQuery) loadCreatedBy(ctx context.Context, query *UserQuery, nod
 	}
 	return nil
 }
-func (pq *ProjectQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes []*Project, init func(*Project), assign func(*Project, *User)) error {
+func (pq *ProjectQuery) loadUpdatedBy(ctx context.Context, query *UserQuery, nodes []*Project, init func(*Project), assign func(*Project, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*Project)
 	for i := range nodes {
-		if nodes[i].project_modified_by == nil {
+		if nodes[i].project_updated_by == nil {
 			continue
 		}
-		fk := *nodes[i].project_modified_by
+		fk := *nodes[i].project_updated_by
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -733,7 +733,7 @@ func (pq *ProjectQuery) loadModifiedBy(ctx context.Context, query *UserQuery, no
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "project_modified_by" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "project_updated_by" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

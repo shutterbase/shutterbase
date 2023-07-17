@@ -29,6 +29,6 @@ func (Project) Edges() []ent.Edge {
 		edge.From("images", Image.Type).Ref("project"),
 		edge.From("tags", ImageTag.Type).Ref("project"),
 		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`),
-		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`),
+		edge.To("updated_by", User.Type).Unique().StructTag(`json:"updatedBy"`),
 	}
 }

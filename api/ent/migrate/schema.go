@@ -17,7 +17,7 @@ var (
 		{Name: "description", Type: field.TypeString},
 		{Name: "camera_owner", Type: field.TypeUUID, Nullable: true},
 		{Name: "camera_created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "camera_modified_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "camera_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// CamerasTable holds the schema information for the "cameras" table.
 	CamerasTable = &schema.Table{
@@ -38,7 +38,7 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "cameras_users_modified_by",
+				Symbol:     "cameras_users_updated_by",
 				Columns:    []*schema.Column{CamerasColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
@@ -57,7 +57,7 @@ var (
 		{Name: "image_project", Type: field.TypeUUID},
 		{Name: "image_camera", Type: field.TypeUUID},
 		{Name: "image_created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "image_modified_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "image_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// ImagesTable holds the schema information for the "images" table.
 	ImagesTable = &schema.Table{
@@ -90,7 +90,7 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "images_users_modified_by",
+				Symbol:     "images_users_updated_by",
 				Columns:    []*schema.Column{ImagesColumns[10]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
@@ -107,7 +107,7 @@ var (
 		{Name: "is_album", Type: field.TypeBool, Default: false},
 		{Name: "image_tag_project", Type: field.TypeUUID, Nullable: true},
 		{Name: "image_tag_created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "image_tag_modified_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "image_tag_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// ImageTagsTable holds the schema information for the "image_tags" table.
 	ImageTagsTable = &schema.Table{
@@ -128,7 +128,7 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "image_tags_users_modified_by",
+				Symbol:     "image_tags_users_updated_by",
 				Columns:    []*schema.Column{ImageTagsColumns[8]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
@@ -143,7 +143,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString},
 		{Name: "project_created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "project_modified_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "project_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{
@@ -158,7 +158,7 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "projects_users_modified_by",
+				Symbol:     "projects_users_updated_by",
 				Columns:    []*schema.Column{ProjectsColumns[6]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
@@ -174,7 +174,7 @@ var (
 		{Name: "project_assignment_project", Type: field.TypeUUID},
 		{Name: "project_assignment_role", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_assignment_created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "project_assignment_modified_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "project_assignment_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// ProjectAssignmentsTable holds the schema information for the "project_assignments" table.
 	ProjectAssignmentsTable = &schema.Table{
@@ -207,7 +207,7 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "project_assignments_users_modified_by",
+				Symbol:     "project_assignments_users_updated_by",
 				Columns:    []*schema.Column{ProjectAssignmentsColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
@@ -238,7 +238,7 @@ var (
 		{Name: "offset_seconds", Type: field.TypeInt},
 		{Name: "time_offset_camera", Type: field.TypeUUID, Nullable: true},
 		{Name: "time_offset_created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "time_offset_modified_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "time_offset_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// TimeOffsetsTable holds the schema information for the "time_offsets" table.
 	TimeOffsetsTable = &schema.Table{
@@ -259,7 +259,7 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "time_offsets_users_modified_by",
+				Symbol:     "time_offsets_users_updated_by",
 				Columns:    []*schema.Column{TimeOffsetsColumns[8]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
@@ -283,7 +283,7 @@ var (
 		{Name: "active", Type: field.TypeBool, Default: false},
 		{Name: "user_role", Type: field.TypeUUID, Nullable: true},
 		{Name: "user_created_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "user_modified_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "user_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
 	// UsersTable holds the schema information for the "users" table.
 	UsersTable = &schema.Table{
@@ -304,7 +304,7 @@ var (
 				OnDelete:   schema.SetNull,
 			},
 			{
-				Symbol:     "users_users_modified_by",
+				Symbol:     "users_users_updated_by",
 				Columns:    []*schema.Column{UsersColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,

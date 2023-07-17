@@ -9,7 +9,7 @@ var policies = []*ladon.DefaultPolicy{
 		ID:          "7d708b20-8858-4e31-8cc3-752ebe11c139",
 		Description: "Allow anonymous access to health and time endpoint",
 		Subjects:    []string{"<.+>"},
-		Resources:   []string{"/health", "/time", "/time/qr"},
+		Resources:   []string{"/health", "/time", "/time/qr", "/time/qr/<.+>"},
 		Actions:     []string{REQUEST.String(), READ.String()},
 		Conditions:  ladon.Conditions{},
 		Effect:      ladon.AllowAccess,

@@ -28,6 +28,6 @@ func (TimeOffset) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("camera", Camera.Type).Unique().StructTag(`json:"camera"`),
 		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`),
-		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`),
+		edge.To("updated_by", User.Type).Unique().StructTag(`json:"updatedBy"`),
 	}
 }

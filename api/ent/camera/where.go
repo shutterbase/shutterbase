@@ -378,21 +378,21 @@ func HasCreatedByWith(preds ...predicate.User) predicate.Camera {
 	})
 }
 
-// HasModifiedBy applies the HasEdge predicate on the "modified_by" edge.
-func HasModifiedBy() predicate.Camera {
+// HasUpdatedBy applies the HasEdge predicate on the "updated_by" edge.
+func HasUpdatedBy() predicate.Camera {
 	return predicate.Camera(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, ModifiedByTable, ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, UpdatedByTable, UpdatedByColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasModifiedByWith applies the HasEdge predicate on the "modified_by" edge with a given conditions (other predicates).
-func HasModifiedByWith(preds ...predicate.User) predicate.Camera {
+// HasUpdatedByWith applies the HasEdge predicate on the "updated_by" edge with a given conditions (other predicates).
+func HasUpdatedByWith(preds ...predicate.User) predicate.Camera {
 	return predicate.Camera(func(s *sql.Selector) {
-		step := newModifiedByStep()
+		step := newUpdatedByStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

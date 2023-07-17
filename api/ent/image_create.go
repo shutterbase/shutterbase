@@ -160,23 +160,23 @@ func (ic *ImageCreate) SetCreatedBy(u *User) *ImageCreate {
 	return ic.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (ic *ImageCreate) SetModifiedByID(id uuid.UUID) *ImageCreate {
-	ic.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (ic *ImageCreate) SetUpdatedByID(id uuid.UUID) *ImageCreate {
+	ic.mutation.SetUpdatedByID(id)
 	return ic
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (ic *ImageCreate) SetNillableModifiedByID(id *uuid.UUID) *ImageCreate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (ic *ImageCreate) SetNillableUpdatedByID(id *uuid.UUID) *ImageCreate {
 	if id != nil {
-		ic = ic.SetModifiedByID(*id)
+		ic = ic.SetUpdatedByID(*id)
 	}
 	return ic
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (ic *ImageCreate) SetModifiedBy(u *User) *ImageCreate {
-	return ic.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (ic *ImageCreate) SetUpdatedBy(u *User) *ImageCreate {
+	return ic.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ImageMutation object of the builder.
@@ -406,12 +406,12 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 		_node.image_created_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := ic.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := ic.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   image.ModifiedByTable,
-			Columns: []string{image.ModifiedByColumn},
+			Table:   image.UpdatedByTable,
+			Columns: []string{image.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -420,7 +420,7 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.image_modified_by = &nodes[0]
+		_node.image_updated_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

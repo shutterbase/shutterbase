@@ -21,16 +21,16 @@ import (
 // ProjectAssignmentQuery is the builder for querying ProjectAssignment entities.
 type ProjectAssignmentQuery struct {
 	config
-	ctx            *QueryContext
-	order          []projectassignment.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.ProjectAssignment
-	withUser       *UserQuery
-	withProject    *ProjectQuery
-	withRole       *RoleQuery
-	withCreatedBy  *UserQuery
-	withModifiedBy *UserQuery
-	withFKs        bool
+	ctx           *QueryContext
+	order         []projectassignment.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.ProjectAssignment
+	withUser      *UserQuery
+	withProject   *ProjectQuery
+	withRole      *RoleQuery
+	withCreatedBy *UserQuery
+	withUpdatedBy *UserQuery
+	withFKs       bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -155,8 +155,8 @@ func (paq *ProjectAssignmentQuery) QueryCreatedBy() *UserQuery {
 	return query
 }
 
-// QueryModifiedBy chains the current query on the "modified_by" edge.
-func (paq *ProjectAssignmentQuery) QueryModifiedBy() *UserQuery {
+// QueryUpdatedBy chains the current query on the "updated_by" edge.
+func (paq *ProjectAssignmentQuery) QueryUpdatedBy() *UserQuery {
 	query := (&UserClient{config: paq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := paq.prepareQuery(ctx); err != nil {
@@ -169,7 +169,7 @@ func (paq *ProjectAssignmentQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(projectassignment.Table, projectassignment.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, projectassignment.ModifiedByTable, projectassignment.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, projectassignment.UpdatedByTable, projectassignment.UpdatedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(paq.driver.Dialect(), step)
 		return fromU, nil
@@ -364,16 +364,16 @@ func (paq *ProjectAssignmentQuery) Clone() *ProjectAssignmentQuery {
 		return nil
 	}
 	return &ProjectAssignmentQuery{
-		config:         paq.config,
-		ctx:            paq.ctx.Clone(),
-		order:          append([]projectassignment.OrderOption{}, paq.order...),
-		inters:         append([]Interceptor{}, paq.inters...),
-		predicates:     append([]predicate.ProjectAssignment{}, paq.predicates...),
-		withUser:       paq.withUser.Clone(),
-		withProject:    paq.withProject.Clone(),
-		withRole:       paq.withRole.Clone(),
-		withCreatedBy:  paq.withCreatedBy.Clone(),
-		withModifiedBy: paq.withModifiedBy.Clone(),
+		config:        paq.config,
+		ctx:           paq.ctx.Clone(),
+		order:         append([]projectassignment.OrderOption{}, paq.order...),
+		inters:        append([]Interceptor{}, paq.inters...),
+		predicates:    append([]predicate.ProjectAssignment{}, paq.predicates...),
+		withUser:      paq.withUser.Clone(),
+		withProject:   paq.withProject.Clone(),
+		withRole:      paq.withRole.Clone(),
+		withCreatedBy: paq.withCreatedBy.Clone(),
+		withUpdatedBy: paq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  paq.sql.Clone(),
 		path: paq.path,
@@ -424,14 +424,14 @@ func (paq *ProjectAssignmentQuery) WithCreatedBy(opts ...func(*UserQuery)) *Proj
 	return paq
 }
 
-// WithModifiedBy tells the query-builder to eager-load the nodes that are connected to
-// the "modified_by" edge. The optional arguments are used to configure the query builder of the edge.
-func (paq *ProjectAssignmentQuery) WithModifiedBy(opts ...func(*UserQuery)) *ProjectAssignmentQuery {
+// WithUpdatedBy tells the query-builder to eager-load the nodes that are connected to
+// the "updated_by" edge. The optional arguments are used to configure the query builder of the edge.
+func (paq *ProjectAssignmentQuery) WithUpdatedBy(opts ...func(*UserQuery)) *ProjectAssignmentQuery {
 	query := (&UserClient{config: paq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	paq.withModifiedBy = query
+	paq.withUpdatedBy = query
 	return paq
 }
 
@@ -519,10 +519,10 @@ func (paq *ProjectAssignmentQuery) sqlAll(ctx context.Context, hooks ...queryHoo
 			paq.withProject != nil,
 			paq.withRole != nil,
 			paq.withCreatedBy != nil,
-			paq.withModifiedBy != nil,
+			paq.withUpdatedBy != nil,
 		}
 	)
-	if paq.withUser != nil || paq.withProject != nil || paq.withRole != nil || paq.withCreatedBy != nil || paq.withModifiedBy != nil {
+	if paq.withUser != nil || paq.withProject != nil || paq.withRole != nil || paq.withCreatedBy != nil || paq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -570,9 +570,9 @@ func (paq *ProjectAssignmentQuery) sqlAll(ctx context.Context, hooks ...queryHoo
 			return nil, err
 		}
 	}
-	if query := paq.withModifiedBy; query != nil {
-		if err := paq.loadModifiedBy(ctx, query, nodes, nil,
-			func(n *ProjectAssignment, e *User) { n.Edges.ModifiedBy = e }); err != nil {
+	if query := paq.withUpdatedBy; query != nil {
+		if err := paq.loadUpdatedBy(ctx, query, nodes, nil,
+			func(n *ProjectAssignment, e *User) { n.Edges.UpdatedBy = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -707,14 +707,14 @@ func (paq *ProjectAssignmentQuery) loadCreatedBy(ctx context.Context, query *Use
 	}
 	return nil
 }
-func (paq *ProjectAssignmentQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes []*ProjectAssignment, init func(*ProjectAssignment), assign func(*ProjectAssignment, *User)) error {
+func (paq *ProjectAssignmentQuery) loadUpdatedBy(ctx context.Context, query *UserQuery, nodes []*ProjectAssignment, init func(*ProjectAssignment), assign func(*ProjectAssignment, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*ProjectAssignment)
 	for i := range nodes {
-		if nodes[i].project_assignment_modified_by == nil {
+		if nodes[i].project_assignment_updated_by == nil {
 			continue
 		}
-		fk := *nodes[i].project_assignment_modified_by
+		fk := *nodes[i].project_assignment_updated_by
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -731,7 +731,7 @@ func (paq *ProjectAssignmentQuery) loadModifiedBy(ctx context.Context, query *Us
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "project_assignment_modified_by" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "project_assignment_updated_by" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

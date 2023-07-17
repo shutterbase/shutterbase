@@ -132,23 +132,23 @@ func (iu *ImageUpdate) SetCreatedBy(u *User) *ImageUpdate {
 	return iu.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (iu *ImageUpdate) SetModifiedByID(id uuid.UUID) *ImageUpdate {
-	iu.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (iu *ImageUpdate) SetUpdatedByID(id uuid.UUID) *ImageUpdate {
+	iu.mutation.SetUpdatedByID(id)
 	return iu
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (iu *ImageUpdate) SetNillableModifiedByID(id *uuid.UUID) *ImageUpdate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (iu *ImageUpdate) SetNillableUpdatedByID(id *uuid.UUID) *ImageUpdate {
 	if id != nil {
-		iu = iu.SetModifiedByID(*id)
+		iu = iu.SetUpdatedByID(*id)
 	}
 	return iu
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (iu *ImageUpdate) SetModifiedBy(u *User) *ImageUpdate {
-	return iu.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (iu *ImageUpdate) SetUpdatedBy(u *User) *ImageUpdate {
+	return iu.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ImageMutation object of the builder.
@@ -201,9 +201,9 @@ func (iu *ImageUpdate) ClearCreatedBy() *ImageUpdate {
 	return iu
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (iu *ImageUpdate) ClearModifiedBy() *ImageUpdate {
-	iu.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (iu *ImageUpdate) ClearUpdatedBy() *ImageUpdate {
+	iu.mutation.ClearUpdatedBy()
 	return iu
 }
 
@@ -447,12 +447,12 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if iu.mutation.ModifiedByCleared() {
+	if iu.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   image.ModifiedByTable,
-			Columns: []string{image.ModifiedByColumn},
+			Table:   image.UpdatedByTable,
+			Columns: []string{image.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -460,12 +460,12 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := iu.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := iu.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   image.ModifiedByTable,
-			Columns: []string{image.ModifiedByColumn},
+			Table:   image.UpdatedByTable,
+			Columns: []string{image.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -595,23 +595,23 @@ func (iuo *ImageUpdateOne) SetCreatedBy(u *User) *ImageUpdateOne {
 	return iuo.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (iuo *ImageUpdateOne) SetModifiedByID(id uuid.UUID) *ImageUpdateOne {
-	iuo.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (iuo *ImageUpdateOne) SetUpdatedByID(id uuid.UUID) *ImageUpdateOne {
+	iuo.mutation.SetUpdatedByID(id)
 	return iuo
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (iuo *ImageUpdateOne) SetNillableModifiedByID(id *uuid.UUID) *ImageUpdateOne {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (iuo *ImageUpdateOne) SetNillableUpdatedByID(id *uuid.UUID) *ImageUpdateOne {
 	if id != nil {
-		iuo = iuo.SetModifiedByID(*id)
+		iuo = iuo.SetUpdatedByID(*id)
 	}
 	return iuo
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (iuo *ImageUpdateOne) SetModifiedBy(u *User) *ImageUpdateOne {
-	return iuo.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (iuo *ImageUpdateOne) SetUpdatedBy(u *User) *ImageUpdateOne {
+	return iuo.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ImageMutation object of the builder.
@@ -664,9 +664,9 @@ func (iuo *ImageUpdateOne) ClearCreatedBy() *ImageUpdateOne {
 	return iuo
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (iuo *ImageUpdateOne) ClearModifiedBy() *ImageUpdateOne {
-	iuo.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (iuo *ImageUpdateOne) ClearUpdatedBy() *ImageUpdateOne {
+	iuo.mutation.ClearUpdatedBy()
 	return iuo
 }
 
@@ -940,12 +940,12 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if iuo.mutation.ModifiedByCleared() {
+	if iuo.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   image.ModifiedByTable,
-			Columns: []string{image.ModifiedByColumn},
+			Table:   image.UpdatedByTable,
+			Columns: []string{image.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -953,12 +953,12 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := iuo.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := iuo.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   image.ModifiedByTable,
-			Columns: []string{image.ModifiedByColumn},
+			Table:   image.UpdatedByTable,
+			Columns: []string{image.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),

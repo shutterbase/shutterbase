@@ -81,7 +81,7 @@ func GetPublicImages(ctx context.Context, paginationParameters *PaginationParame
 }
 
 func GetImage(ctx context.Context, id uuid.UUID) (*ent.Image, error) {
-	item, err := databaseClient.Image.Query().Where(image.ID(id)).WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.Image.Query().Where(image.ID(id)).WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting image")
 	}

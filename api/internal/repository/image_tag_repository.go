@@ -41,7 +41,7 @@ func GetImageTags(ctx context.Context, projectId uuid.UUID, paginationParameters
 }
 
 func GetImageTag(ctx context.Context, id uuid.UUID) (*ent.ImageTag, error) {
-	item, err := databaseClient.ImageTag.Query().Where(imagetag.ID(id)).WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.ImageTag.Query().Where(imagetag.ID(id)).WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting image tag")
 	}

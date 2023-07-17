@@ -288,23 +288,23 @@ func (uc *UserCreate) AddModifiedUsers(u ...*User) *UserCreate {
 	return uc.AddModifiedUserIDs(ids...)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (uc *UserCreate) SetModifiedByID(id uuid.UUID) *UserCreate {
-	uc.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (uc *UserCreate) SetUpdatedByID(id uuid.UUID) *UserCreate {
+	uc.mutation.SetUpdatedByID(id)
 	return uc
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (uc *UserCreate) SetNillableModifiedByID(id *uuid.UUID) *UserCreate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (uc *UserCreate) SetNillableUpdatedByID(id *uuid.UUID) *UserCreate {
 	if id != nil {
-		uc = uc.SetModifiedByID(*id)
+		uc = uc.SetUpdatedByID(*id)
 	}
 	return uc
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (uc *UserCreate) SetModifiedBy(u *User) *UserCreate {
-	return uc.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (uc *UserCreate) SetUpdatedBy(u *User) *UserCreate {
+	return uc.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -635,12 +635,12 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := uc.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := uc.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   user.ModifiedByTable,
-			Columns: []string{user.ModifiedByColumn},
+			Table:   user.UpdatedByTable,
+			Columns: []string{user.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -649,7 +649,7 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.user_modified_by = &nodes[0]
+		_node.user_updated_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

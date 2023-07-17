@@ -95,7 +95,7 @@ func createImageController(c *gin.Context) {
 			SetCamera(camera).
 			SetUser(userContext.User).
 			SetCreatedBy(userContext.User).
-			SetModifiedBy(userContext.User)
+			SetUpdatedBy(userContext.User)
 
 		file, err := value[0].Open()
 		if err != nil {
@@ -246,7 +246,7 @@ func updateImageController(c *gin.Context) {
 		itemUpdate.SetDescription(*body.Description)
 	}
 
-	item, err = itemUpdate.SetModifiedBy(userContext.User).Save(ctx)
+	item, err = itemUpdate.SetUpdatedBy(userContext.User).Save(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to save image for image update")
 		api_error.INTERNAL.Send(c)

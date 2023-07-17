@@ -63,8 +63,8 @@ type CameraMutation struct {
 	clearedowner       bool
 	created_by         *uuid.UUID
 	clearedcreated_by  bool
-	modified_by        *uuid.UUID
-	clearedmodified_by bool
+	updated_by         *uuid.UUID
+	clearedupdated_by  bool
 	done               bool
 	oldValue           func(context.Context) (*Camera, error)
 	predicates         []predicate.Camera
@@ -504,43 +504,43 @@ func (m *CameraMutation) ResetCreatedBy() {
 	m.clearedcreated_by = false
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by id.
-func (m *CameraMutation) SetModifiedByID(id uuid.UUID) {
-	m.modified_by = &id
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *CameraMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (m *CameraMutation) ClearModifiedBy() {
-	m.clearedmodified_by = true
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *CameraMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
 }
 
-// ModifiedByCleared reports if the "modified_by" edge to the User entity was cleared.
-func (m *CameraMutation) ModifiedByCleared() bool {
-	return m.clearedmodified_by
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *CameraMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
 }
 
-// ModifiedByID returns the "modified_by" edge ID in the mutation.
-func (m *CameraMutation) ModifiedByID() (id uuid.UUID, exists bool) {
-	if m.modified_by != nil {
-		return *m.modified_by, true
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *CameraMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
 	}
 	return
 }
 
-// ModifiedByIDs returns the "modified_by" edge IDs in the mutation.
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModifiedByID instead. It exists only for internal usage by the builders.
-func (m *CameraMutation) ModifiedByIDs() (ids []uuid.UUID) {
-	if id := m.modified_by; id != nil {
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *CameraMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModifiedBy resets all changes to the "modified_by" edge.
-func (m *CameraMutation) ResetModifiedBy() {
-	m.modified_by = nil
-	m.clearedmodified_by = false
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *CameraMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
 }
 
 // Where appends a list predicates to the CameraMutation builder.
@@ -740,8 +740,8 @@ func (m *CameraMutation) AddedEdges() []string {
 	if m.created_by != nil {
 		edges = append(edges, camera.EdgeCreatedBy)
 	}
-	if m.modified_by != nil {
-		edges = append(edges, camera.EdgeModifiedBy)
+	if m.updated_by != nil {
+		edges = append(edges, camera.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -770,8 +770,8 @@ func (m *CameraMutation) AddedIDs(name string) []ent.Value {
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
 		}
-	case camera.EdgeModifiedBy:
-		if id := m.modified_by; id != nil {
+	case camera.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
 			return []ent.Value{*id}
 		}
 	}
@@ -825,8 +825,8 @@ func (m *CameraMutation) ClearedEdges() []string {
 	if m.clearedcreated_by {
 		edges = append(edges, camera.EdgeCreatedBy)
 	}
-	if m.clearedmodified_by {
-		edges = append(edges, camera.EdgeModifiedBy)
+	if m.clearedupdated_by {
+		edges = append(edges, camera.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -843,8 +843,8 @@ func (m *CameraMutation) EdgeCleared(name string) bool {
 		return m.clearedowner
 	case camera.EdgeCreatedBy:
 		return m.clearedcreated_by
-	case camera.EdgeModifiedBy:
-		return m.clearedmodified_by
+	case camera.EdgeUpdatedBy:
+		return m.clearedupdated_by
 	}
 	return false
 }
@@ -859,8 +859,8 @@ func (m *CameraMutation) ClearEdge(name string) error {
 	case camera.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
-	case camera.EdgeModifiedBy:
-		m.ClearModifiedBy()
+	case camera.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown Camera unique edge %s", name)
@@ -882,8 +882,8 @@ func (m *CameraMutation) ResetEdge(name string) error {
 	case camera.EdgeCreatedBy:
 		m.ResetCreatedBy()
 		return nil
-	case camera.EdgeModifiedBy:
-		m.ResetModifiedBy()
+	case camera.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown Camera edge %s", name)
@@ -892,31 +892,31 @@ func (m *CameraMutation) ResetEdge(name string) error {
 // ImageMutation represents an operation that mutates the Image nodes in the graph.
 type ImageMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *uuid.UUID
-	created_at         *time.Time
-	updated_at         *time.Time
-	file_name          *string
-	description        *string
-	exif_data          *map[string]interface{}
-	clearedFields      map[string]struct{}
-	tags               map[uuid.UUID]struct{}
-	removedtags        map[uuid.UUID]struct{}
-	clearedtags        bool
-	user               *uuid.UUID
-	cleareduser        bool
-	project            *uuid.UUID
-	clearedproject     bool
-	camera             *uuid.UUID
-	clearedcamera      bool
-	created_by         *uuid.UUID
-	clearedcreated_by  bool
-	modified_by        *uuid.UUID
-	clearedmodified_by bool
-	done               bool
-	oldValue           func(context.Context) (*Image, error)
-	predicates         []predicate.Image
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	created_at        *time.Time
+	updated_at        *time.Time
+	file_name         *string
+	description       *string
+	exif_data         *map[string]interface{}
+	clearedFields     map[string]struct{}
+	tags              map[uuid.UUID]struct{}
+	removedtags       map[uuid.UUID]struct{}
+	clearedtags       bool
+	user              *uuid.UUID
+	cleareduser       bool
+	project           *uuid.UUID
+	clearedproject    bool
+	camera            *uuid.UUID
+	clearedcamera     bool
+	created_by        *uuid.UUID
+	clearedcreated_by bool
+	updated_by        *uuid.UUID
+	clearedupdated_by bool
+	done              bool
+	oldValue          func(context.Context) (*Image, error)
+	predicates        []predicate.Image
 }
 
 var _ ent.Mutation = (*ImageMutation)(nil)
@@ -1413,43 +1413,43 @@ func (m *ImageMutation) ResetCreatedBy() {
 	m.clearedcreated_by = false
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by id.
-func (m *ImageMutation) SetModifiedByID(id uuid.UUID) {
-	m.modified_by = &id
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *ImageMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (m *ImageMutation) ClearModifiedBy() {
-	m.clearedmodified_by = true
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *ImageMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
 }
 
-// ModifiedByCleared reports if the "modified_by" edge to the User entity was cleared.
-func (m *ImageMutation) ModifiedByCleared() bool {
-	return m.clearedmodified_by
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *ImageMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
 }
 
-// ModifiedByID returns the "modified_by" edge ID in the mutation.
-func (m *ImageMutation) ModifiedByID() (id uuid.UUID, exists bool) {
-	if m.modified_by != nil {
-		return *m.modified_by, true
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *ImageMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
 	}
 	return
 }
 
-// ModifiedByIDs returns the "modified_by" edge IDs in the mutation.
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModifiedByID instead. It exists only for internal usage by the builders.
-func (m *ImageMutation) ModifiedByIDs() (ids []uuid.UUID) {
-	if id := m.modified_by; id != nil {
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *ImageMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModifiedBy resets all changes to the "modified_by" edge.
-func (m *ImageMutation) ResetModifiedBy() {
-	m.modified_by = nil
-	m.clearedmodified_by = false
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *ImageMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
 }
 
 // Where appends a list predicates to the ImageMutation builder.
@@ -1669,8 +1669,8 @@ func (m *ImageMutation) AddedEdges() []string {
 	if m.created_by != nil {
 		edges = append(edges, image.EdgeCreatedBy)
 	}
-	if m.modified_by != nil {
-		edges = append(edges, image.EdgeModifiedBy)
+	if m.updated_by != nil {
+		edges = append(edges, image.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -1701,8 +1701,8 @@ func (m *ImageMutation) AddedIDs(name string) []ent.Value {
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
 		}
-	case image.EdgeModifiedBy:
-		if id := m.modified_by; id != nil {
+	case image.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
 			return []ent.Value{*id}
 		}
 	}
@@ -1750,8 +1750,8 @@ func (m *ImageMutation) ClearedEdges() []string {
 	if m.clearedcreated_by {
 		edges = append(edges, image.EdgeCreatedBy)
 	}
-	if m.clearedmodified_by {
-		edges = append(edges, image.EdgeModifiedBy)
+	if m.clearedupdated_by {
+		edges = append(edges, image.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -1770,8 +1770,8 @@ func (m *ImageMutation) EdgeCleared(name string) bool {
 		return m.clearedcamera
 	case image.EdgeCreatedBy:
 		return m.clearedcreated_by
-	case image.EdgeModifiedBy:
-		return m.clearedmodified_by
+	case image.EdgeUpdatedBy:
+		return m.clearedupdated_by
 	}
 	return false
 }
@@ -1792,8 +1792,8 @@ func (m *ImageMutation) ClearEdge(name string) error {
 	case image.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
-	case image.EdgeModifiedBy:
-		m.ClearModifiedBy()
+	case image.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown Image unique edge %s", name)
@@ -1818,8 +1818,8 @@ func (m *ImageMutation) ResetEdge(name string) error {
 	case image.EdgeCreatedBy:
 		m.ResetCreatedBy()
 		return nil
-	case image.EdgeModifiedBy:
-		m.ResetModifiedBy()
+	case image.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown Image edge %s", name)
@@ -1828,27 +1828,27 @@ func (m *ImageMutation) ResetEdge(name string) error {
 // ImageTagMutation represents an operation that mutates the ImageTag nodes in the graph.
 type ImageTagMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *uuid.UUID
-	created_at         *time.Time
-	updated_at         *time.Time
-	name               *string
-	description        *string
-	is_album           *bool
-	clearedFields      map[string]struct{}
-	project            *uuid.UUID
-	clearedproject     bool
-	images             map[uuid.UUID]struct{}
-	removedimages      map[uuid.UUID]struct{}
-	clearedimages      bool
-	created_by         *uuid.UUID
-	clearedcreated_by  bool
-	modified_by        *uuid.UUID
-	clearedmodified_by bool
-	done               bool
-	oldValue           func(context.Context) (*ImageTag, error)
-	predicates         []predicate.ImageTag
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	created_at        *time.Time
+	updated_at        *time.Time
+	name              *string
+	description       *string
+	is_album          *bool
+	clearedFields     map[string]struct{}
+	project           *uuid.UUID
+	clearedproject    bool
+	images            map[uuid.UUID]struct{}
+	removedimages     map[uuid.UUID]struct{}
+	clearedimages     bool
+	created_by        *uuid.UUID
+	clearedcreated_by bool
+	updated_by        *uuid.UUID
+	clearedupdated_by bool
+	done              bool
+	oldValue          func(context.Context) (*ImageTag, error)
+	predicates        []predicate.ImageTag
 }
 
 var _ ent.Mutation = (*ImageTagMutation)(nil)
@@ -2267,43 +2267,43 @@ func (m *ImageTagMutation) ResetCreatedBy() {
 	m.clearedcreated_by = false
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by id.
-func (m *ImageTagMutation) SetModifiedByID(id uuid.UUID) {
-	m.modified_by = &id
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *ImageTagMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (m *ImageTagMutation) ClearModifiedBy() {
-	m.clearedmodified_by = true
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *ImageTagMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
 }
 
-// ModifiedByCleared reports if the "modified_by" edge to the User entity was cleared.
-func (m *ImageTagMutation) ModifiedByCleared() bool {
-	return m.clearedmodified_by
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *ImageTagMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
 }
 
-// ModifiedByID returns the "modified_by" edge ID in the mutation.
-func (m *ImageTagMutation) ModifiedByID() (id uuid.UUID, exists bool) {
-	if m.modified_by != nil {
-		return *m.modified_by, true
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *ImageTagMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
 	}
 	return
 }
 
-// ModifiedByIDs returns the "modified_by" edge IDs in the mutation.
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModifiedByID instead. It exists only for internal usage by the builders.
-func (m *ImageTagMutation) ModifiedByIDs() (ids []uuid.UUID) {
-	if id := m.modified_by; id != nil {
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *ImageTagMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModifiedBy resets all changes to the "modified_by" edge.
-func (m *ImageTagMutation) ResetModifiedBy() {
-	m.modified_by = nil
-	m.clearedmodified_by = false
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *ImageTagMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
 }
 
 // Where appends a list predicates to the ImageTagMutation builder.
@@ -2517,8 +2517,8 @@ func (m *ImageTagMutation) AddedEdges() []string {
 	if m.created_by != nil {
 		edges = append(edges, imagetag.EdgeCreatedBy)
 	}
-	if m.modified_by != nil {
-		edges = append(edges, imagetag.EdgeModifiedBy)
+	if m.updated_by != nil {
+		edges = append(edges, imagetag.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -2541,8 +2541,8 @@ func (m *ImageTagMutation) AddedIDs(name string) []ent.Value {
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
 		}
-	case imagetag.EdgeModifiedBy:
-		if id := m.modified_by; id != nil {
+	case imagetag.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
 			return []ent.Value{*id}
 		}
 	}
@@ -2584,8 +2584,8 @@ func (m *ImageTagMutation) ClearedEdges() []string {
 	if m.clearedcreated_by {
 		edges = append(edges, imagetag.EdgeCreatedBy)
 	}
-	if m.clearedmodified_by {
-		edges = append(edges, imagetag.EdgeModifiedBy)
+	if m.clearedupdated_by {
+		edges = append(edges, imagetag.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -2600,8 +2600,8 @@ func (m *ImageTagMutation) EdgeCleared(name string) bool {
 		return m.clearedimages
 	case imagetag.EdgeCreatedBy:
 		return m.clearedcreated_by
-	case imagetag.EdgeModifiedBy:
-		return m.clearedmodified_by
+	case imagetag.EdgeUpdatedBy:
+		return m.clearedupdated_by
 	}
 	return false
 }
@@ -2616,8 +2616,8 @@ func (m *ImageTagMutation) ClearEdge(name string) error {
 	case imagetag.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
-	case imagetag.EdgeModifiedBy:
-		m.ClearModifiedBy()
+	case imagetag.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown ImageTag unique edge %s", name)
@@ -2636,8 +2636,8 @@ func (m *ImageTagMutation) ResetEdge(name string) error {
 	case imagetag.EdgeCreatedBy:
 		m.ResetCreatedBy()
 		return nil
-	case imagetag.EdgeModifiedBy:
-		m.ResetModifiedBy()
+	case imagetag.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown ImageTag edge %s", name)
@@ -2665,8 +2665,8 @@ type ProjectMutation struct {
 	clearedtags        bool
 	created_by         *uuid.UUID
 	clearedcreated_by  bool
-	modified_by        *uuid.UUID
-	clearedmodified_by bool
+	updated_by         *uuid.UUID
+	clearedupdated_by  bool
 	done               bool
 	oldValue           func(context.Context) (*Project, error)
 	predicates         []predicate.Project
@@ -3121,43 +3121,43 @@ func (m *ProjectMutation) ResetCreatedBy() {
 	m.clearedcreated_by = false
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by id.
-func (m *ProjectMutation) SetModifiedByID(id uuid.UUID) {
-	m.modified_by = &id
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *ProjectMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (m *ProjectMutation) ClearModifiedBy() {
-	m.clearedmodified_by = true
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *ProjectMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
 }
 
-// ModifiedByCleared reports if the "modified_by" edge to the User entity was cleared.
-func (m *ProjectMutation) ModifiedByCleared() bool {
-	return m.clearedmodified_by
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *ProjectMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
 }
 
-// ModifiedByID returns the "modified_by" edge ID in the mutation.
-func (m *ProjectMutation) ModifiedByID() (id uuid.UUID, exists bool) {
-	if m.modified_by != nil {
-		return *m.modified_by, true
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *ProjectMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
 	}
 	return
 }
 
-// ModifiedByIDs returns the "modified_by" edge IDs in the mutation.
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModifiedByID instead. It exists only for internal usage by the builders.
-func (m *ProjectMutation) ModifiedByIDs() (ids []uuid.UUID) {
-	if id := m.modified_by; id != nil {
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *ProjectMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModifiedBy resets all changes to the "modified_by" edge.
-func (m *ProjectMutation) ResetModifiedBy() {
-	m.modified_by = nil
-	m.clearedmodified_by = false
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *ProjectMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
 }
 
 // Where appends a list predicates to the ProjectMutation builder.
@@ -3357,8 +3357,8 @@ func (m *ProjectMutation) AddedEdges() []string {
 	if m.created_by != nil {
 		edges = append(edges, project.EdgeCreatedBy)
 	}
-	if m.modified_by != nil {
-		edges = append(edges, project.EdgeModifiedBy)
+	if m.updated_by != nil {
+		edges = append(edges, project.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -3389,8 +3389,8 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
 		}
-	case project.EdgeModifiedBy:
-		if id := m.modified_by; id != nil {
+	case project.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
 			return []ent.Value{*id}
 		}
 	}
@@ -3453,8 +3453,8 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	if m.clearedcreated_by {
 		edges = append(edges, project.EdgeCreatedBy)
 	}
-	if m.clearedmodified_by {
-		edges = append(edges, project.EdgeModifiedBy)
+	if m.clearedupdated_by {
+		edges = append(edges, project.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -3471,8 +3471,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedtags
 	case project.EdgeCreatedBy:
 		return m.clearedcreated_by
-	case project.EdgeModifiedBy:
-		return m.clearedmodified_by
+	case project.EdgeUpdatedBy:
+		return m.clearedupdated_by
 	}
 	return false
 }
@@ -3484,8 +3484,8 @@ func (m *ProjectMutation) ClearEdge(name string) error {
 	case project.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
-	case project.EdgeModifiedBy:
-		m.ClearModifiedBy()
+	case project.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown Project unique edge %s", name)
@@ -3507,8 +3507,8 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 	case project.EdgeCreatedBy:
 		m.ResetCreatedBy()
 		return nil
-	case project.EdgeModifiedBy:
-		m.ResetModifiedBy()
+	case project.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown Project edge %s", name)
@@ -3517,25 +3517,25 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 // ProjectAssignmentMutation represents an operation that mutates the ProjectAssignment nodes in the graph.
 type ProjectAssignmentMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *uuid.UUID
-	created_at         *time.Time
-	updated_at         *time.Time
-	clearedFields      map[string]struct{}
-	user               *uuid.UUID
-	cleareduser        bool
-	project            *uuid.UUID
-	clearedproject     bool
-	role               *uuid.UUID
-	clearedrole        bool
-	created_by         *uuid.UUID
-	clearedcreated_by  bool
-	modified_by        *uuid.UUID
-	clearedmodified_by bool
-	done               bool
-	oldValue           func(context.Context) (*ProjectAssignment, error)
-	predicates         []predicate.ProjectAssignment
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	created_at        *time.Time
+	updated_at        *time.Time
+	clearedFields     map[string]struct{}
+	user              *uuid.UUID
+	cleareduser       bool
+	project           *uuid.UUID
+	clearedproject    bool
+	role              *uuid.UUID
+	clearedrole       bool
+	created_by        *uuid.UUID
+	clearedcreated_by bool
+	updated_by        *uuid.UUID
+	clearedupdated_by bool
+	done              bool
+	oldValue          func(context.Context) (*ProjectAssignment, error)
+	predicates        []predicate.ProjectAssignment
 }
 
 var _ ent.Mutation = (*ProjectAssignmentMutation)(nil)
@@ -3870,43 +3870,43 @@ func (m *ProjectAssignmentMutation) ResetCreatedBy() {
 	m.clearedcreated_by = false
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by id.
-func (m *ProjectAssignmentMutation) SetModifiedByID(id uuid.UUID) {
-	m.modified_by = &id
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *ProjectAssignmentMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (m *ProjectAssignmentMutation) ClearModifiedBy() {
-	m.clearedmodified_by = true
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *ProjectAssignmentMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
 }
 
-// ModifiedByCleared reports if the "modified_by" edge to the User entity was cleared.
-func (m *ProjectAssignmentMutation) ModifiedByCleared() bool {
-	return m.clearedmodified_by
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *ProjectAssignmentMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
 }
 
-// ModifiedByID returns the "modified_by" edge ID in the mutation.
-func (m *ProjectAssignmentMutation) ModifiedByID() (id uuid.UUID, exists bool) {
-	if m.modified_by != nil {
-		return *m.modified_by, true
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *ProjectAssignmentMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
 	}
 	return
 }
 
-// ModifiedByIDs returns the "modified_by" edge IDs in the mutation.
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModifiedByID instead. It exists only for internal usage by the builders.
-func (m *ProjectAssignmentMutation) ModifiedByIDs() (ids []uuid.UUID) {
-	if id := m.modified_by; id != nil {
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *ProjectAssignmentMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModifiedBy resets all changes to the "modified_by" edge.
-func (m *ProjectAssignmentMutation) ResetModifiedBy() {
-	m.modified_by = nil
-	m.clearedmodified_by = false
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *ProjectAssignmentMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
 }
 
 // Where appends a list predicates to the ProjectAssignmentMutation builder.
@@ -4072,8 +4072,8 @@ func (m *ProjectAssignmentMutation) AddedEdges() []string {
 	if m.created_by != nil {
 		edges = append(edges, projectassignment.EdgeCreatedBy)
 	}
-	if m.modified_by != nil {
-		edges = append(edges, projectassignment.EdgeModifiedBy)
+	if m.updated_by != nil {
+		edges = append(edges, projectassignment.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -4098,8 +4098,8 @@ func (m *ProjectAssignmentMutation) AddedIDs(name string) []ent.Value {
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
 		}
-	case projectassignment.EdgeModifiedBy:
-		if id := m.modified_by; id != nil {
+	case projectassignment.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
 			return []ent.Value{*id}
 		}
 	}
@@ -4133,8 +4133,8 @@ func (m *ProjectAssignmentMutation) ClearedEdges() []string {
 	if m.clearedcreated_by {
 		edges = append(edges, projectassignment.EdgeCreatedBy)
 	}
-	if m.clearedmodified_by {
-		edges = append(edges, projectassignment.EdgeModifiedBy)
+	if m.clearedupdated_by {
+		edges = append(edges, projectassignment.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -4151,8 +4151,8 @@ func (m *ProjectAssignmentMutation) EdgeCleared(name string) bool {
 		return m.clearedrole
 	case projectassignment.EdgeCreatedBy:
 		return m.clearedcreated_by
-	case projectassignment.EdgeModifiedBy:
-		return m.clearedmodified_by
+	case projectassignment.EdgeUpdatedBy:
+		return m.clearedupdated_by
 	}
 	return false
 }
@@ -4173,8 +4173,8 @@ func (m *ProjectAssignmentMutation) ClearEdge(name string) error {
 	case projectassignment.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
-	case projectassignment.EdgeModifiedBy:
-		m.ClearModifiedBy()
+	case projectassignment.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown ProjectAssignment unique edge %s", name)
@@ -4196,8 +4196,8 @@ func (m *ProjectAssignmentMutation) ResetEdge(name string) error {
 	case projectassignment.EdgeCreatedBy:
 		m.ResetCreatedBy()
 		return nil
-	case projectassignment.EdgeModifiedBy:
-		m.ResetModifiedBy()
+	case projectassignment.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown ProjectAssignment edge %s", name)
@@ -4876,25 +4876,25 @@ func (m *RoleMutation) ResetEdge(name string) error {
 // TimeOffsetMutation represents an operation that mutates the TimeOffset nodes in the graph.
 type TimeOffsetMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *uuid.UUID
-	created_at         *time.Time
-	updated_at         *time.Time
-	server_time        *time.Time
-	camera_time        *time.Time
-	offset_seconds     *int
-	addoffset_seconds  *int
-	clearedFields      map[string]struct{}
-	camera             *uuid.UUID
-	clearedcamera      bool
-	created_by         *uuid.UUID
-	clearedcreated_by  bool
-	modified_by        *uuid.UUID
-	clearedmodified_by bool
-	done               bool
-	oldValue           func(context.Context) (*TimeOffset, error)
-	predicates         []predicate.TimeOffset
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	created_at        *time.Time
+	updated_at        *time.Time
+	server_time       *time.Time
+	camera_time       *time.Time
+	offset_seconds    *int
+	addoffset_seconds *int
+	clearedFields     map[string]struct{}
+	camera            *uuid.UUID
+	clearedcamera     bool
+	created_by        *uuid.UUID
+	clearedcreated_by bool
+	updated_by        *uuid.UUID
+	clearedupdated_by bool
+	done              bool
+	oldValue          func(context.Context) (*TimeOffset, error)
+	predicates        []predicate.TimeOffset
 }
 
 var _ ent.Mutation = (*TimeOffsetMutation)(nil)
@@ -5279,43 +5279,43 @@ func (m *TimeOffsetMutation) ResetCreatedBy() {
 	m.clearedcreated_by = false
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by id.
-func (m *TimeOffsetMutation) SetModifiedByID(id uuid.UUID) {
-	m.modified_by = &id
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *TimeOffsetMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (m *TimeOffsetMutation) ClearModifiedBy() {
-	m.clearedmodified_by = true
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *TimeOffsetMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
 }
 
-// ModifiedByCleared reports if the "modified_by" edge to the User entity was cleared.
-func (m *TimeOffsetMutation) ModifiedByCleared() bool {
-	return m.clearedmodified_by
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *TimeOffsetMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
 }
 
-// ModifiedByID returns the "modified_by" edge ID in the mutation.
-func (m *TimeOffsetMutation) ModifiedByID() (id uuid.UUID, exists bool) {
-	if m.modified_by != nil {
-		return *m.modified_by, true
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *TimeOffsetMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
 	}
 	return
 }
 
-// ModifiedByIDs returns the "modified_by" edge IDs in the mutation.
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModifiedByID instead. It exists only for internal usage by the builders.
-func (m *TimeOffsetMutation) ModifiedByIDs() (ids []uuid.UUID) {
-	if id := m.modified_by; id != nil {
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *TimeOffsetMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModifiedBy resets all changes to the "modified_by" edge.
-func (m *TimeOffsetMutation) ResetModifiedBy() {
-	m.modified_by = nil
-	m.clearedmodified_by = false
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *TimeOffsetMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
 }
 
 // Where appends a list predicates to the TimeOffsetMutation builder.
@@ -5541,8 +5541,8 @@ func (m *TimeOffsetMutation) AddedEdges() []string {
 	if m.created_by != nil {
 		edges = append(edges, timeoffset.EdgeCreatedBy)
 	}
-	if m.modified_by != nil {
-		edges = append(edges, timeoffset.EdgeModifiedBy)
+	if m.updated_by != nil {
+		edges = append(edges, timeoffset.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -5559,8 +5559,8 @@ func (m *TimeOffsetMutation) AddedIDs(name string) []ent.Value {
 		if id := m.created_by; id != nil {
 			return []ent.Value{*id}
 		}
-	case timeoffset.EdgeModifiedBy:
-		if id := m.modified_by; id != nil {
+	case timeoffset.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
 			return []ent.Value{*id}
 		}
 	}
@@ -5588,8 +5588,8 @@ func (m *TimeOffsetMutation) ClearedEdges() []string {
 	if m.clearedcreated_by {
 		edges = append(edges, timeoffset.EdgeCreatedBy)
 	}
-	if m.clearedmodified_by {
-		edges = append(edges, timeoffset.EdgeModifiedBy)
+	if m.clearedupdated_by {
+		edges = append(edges, timeoffset.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -5602,8 +5602,8 @@ func (m *TimeOffsetMutation) EdgeCleared(name string) bool {
 		return m.clearedcamera
 	case timeoffset.EdgeCreatedBy:
 		return m.clearedcreated_by
-	case timeoffset.EdgeModifiedBy:
-		return m.clearedmodified_by
+	case timeoffset.EdgeUpdatedBy:
+		return m.clearedupdated_by
 	}
 	return false
 }
@@ -5618,8 +5618,8 @@ func (m *TimeOffsetMutation) ClearEdge(name string) error {
 	case timeoffset.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
-	case timeoffset.EdgeModifiedBy:
-		m.ClearModifiedBy()
+	case timeoffset.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown TimeOffset unique edge %s", name)
@@ -5635,8 +5635,8 @@ func (m *TimeOffsetMutation) ResetEdge(name string) error {
 	case timeoffset.EdgeCreatedBy:
 		m.ResetCreatedBy()
 		return nil
-	case timeoffset.EdgeModifiedBy:
-		m.ResetModifiedBy()
+	case timeoffset.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown TimeOffset edge %s", name)
@@ -5680,8 +5680,8 @@ type UserMutation struct {
 	modified_users            map[uuid.UUID]struct{}
 	removedmodified_users     map[uuid.UUID]struct{}
 	clearedmodified_users     bool
-	modified_by               *uuid.UUID
-	clearedmodified_by        bool
+	updated_by                *uuid.UUID
+	clearedupdated_by         bool
 	done                      bool
 	oldValue                  func(context.Context) (*User, error)
 	predicates                []predicate.User
@@ -6571,43 +6571,43 @@ func (m *UserMutation) ResetModifiedUsers() {
 	m.removedmodified_users = nil
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by id.
-func (m *UserMutation) SetModifiedByID(id uuid.UUID) {
-	m.modified_by = &id
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *UserMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (m *UserMutation) ClearModifiedBy() {
-	m.clearedmodified_by = true
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *UserMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
 }
 
-// ModifiedByCleared reports if the "modified_by" edge to the User entity was cleared.
-func (m *UserMutation) ModifiedByCleared() bool {
-	return m.clearedmodified_by
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *UserMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
 }
 
-// ModifiedByID returns the "modified_by" edge ID in the mutation.
-func (m *UserMutation) ModifiedByID() (id uuid.UUID, exists bool) {
-	if m.modified_by != nil {
-		return *m.modified_by, true
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *UserMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
 	}
 	return
 }
 
-// ModifiedByIDs returns the "modified_by" edge IDs in the mutation.
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
 // Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
-// ModifiedByID instead. It exists only for internal usage by the builders.
-func (m *UserMutation) ModifiedByIDs() (ids []uuid.UUID) {
-	if id := m.modified_by; id != nil {
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *UserMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
 		ids = append(ids, *id)
 	}
 	return
 }
 
-// ResetModifiedBy resets all changes to the "modified_by" edge.
-func (m *UserMutation) ResetModifiedBy() {
-	m.modified_by = nil
-	m.clearedmodified_by = false
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *UserMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
 }
 
 // Where appends a list predicates to the UserMutation builder.
@@ -6952,8 +6952,8 @@ func (m *UserMutation) AddedEdges() []string {
 	if m.modified_users != nil {
 		edges = append(edges, user.EdgeModifiedUsers)
 	}
-	if m.modified_by != nil {
-		edges = append(edges, user.EdgeModifiedBy)
+	if m.updated_by != nil {
+		edges = append(edges, user.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -7000,8 +7000,8 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
-	case user.EdgeModifiedBy:
-		if id := m.modified_by; id != nil {
+	case user.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
 			return []ent.Value{*id}
 		}
 	}
@@ -7091,8 +7091,8 @@ func (m *UserMutation) ClearedEdges() []string {
 	if m.clearedmodified_users {
 		edges = append(edges, user.EdgeModifiedUsers)
 	}
-	if m.clearedmodified_by {
-		edges = append(edges, user.EdgeModifiedBy)
+	if m.clearedupdated_by {
+		edges = append(edges, user.EdgeUpdatedBy)
 	}
 	return edges
 }
@@ -7115,8 +7115,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedcreated_by
 	case user.EdgeModifiedUsers:
 		return m.clearedmodified_users
-	case user.EdgeModifiedBy:
-		return m.clearedmodified_by
+	case user.EdgeUpdatedBy:
+		return m.clearedupdated_by
 	}
 	return false
 }
@@ -7131,8 +7131,8 @@ func (m *UserMutation) ClearEdge(name string) error {
 	case user.EdgeCreatedBy:
 		m.ClearCreatedBy()
 		return nil
-	case user.EdgeModifiedBy:
-		m.ClearModifiedBy()
+	case user.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown User unique edge %s", name)
@@ -7163,8 +7163,8 @@ func (m *UserMutation) ResetEdge(name string) error {
 	case user.EdgeModifiedUsers:
 		m.ResetModifiedUsers()
 		return nil
-	case user.EdgeModifiedBy:
-		m.ResetModifiedBy()
+	case user.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

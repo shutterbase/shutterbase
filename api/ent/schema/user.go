@@ -42,7 +42,7 @@ func (User) Edges() []ent.Edge {
 		edge.From("cameras", Camera.Type).Ref("owner"),
 		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`).From("created_users"),
 		// edge.To("created_by", User.Type).StructTag(`json:"createdBy"`),
-		// edge.To("modified_by", User.Type).StructTag(`json:"modifiedBy"`),
-		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`).From("modified_users"),
+		// edge.To("updated_by", User.Type).StructTag(`json:"updatedBy"`),
+		edge.To("updated_by", User.Type).Unique().StructTag(`json:"updatedBy"`).From("modified_users"),
 	}
 }

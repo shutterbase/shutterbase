@@ -74,7 +74,7 @@ func createCameraController(c *gin.Context) {
 		SetName(body.Name).
 		SetDescription(body.Description).
 		SetCreatedBy(userContext.User).
-		SetModifiedBy(userContext.User)
+		SetUpdatedBy(userContext.User)
 
 	item, err := itemCreate.Save(ctx)
 	if err != nil {
@@ -187,7 +187,7 @@ func updateCameraController(c *gin.Context) {
 		query = query.SetDescription(*body.Description)
 	}
 
-	item, err = query.SetModifiedBy(userContext.User).Save(ctx)
+	item, err = query.SetUpdatedBy(userContext.User).Save(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to save camera for camera update")
 		api_error.INTERNAL.Send(c)

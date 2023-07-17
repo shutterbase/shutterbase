@@ -146,23 +146,23 @@ func (cc *CameraCreate) SetCreatedBy(u *User) *CameraCreate {
 	return cc.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (cc *CameraCreate) SetModifiedByID(id uuid.UUID) *CameraCreate {
-	cc.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (cc *CameraCreate) SetUpdatedByID(id uuid.UUID) *CameraCreate {
+	cc.mutation.SetUpdatedByID(id)
 	return cc
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (cc *CameraCreate) SetNillableModifiedByID(id *uuid.UUID) *CameraCreate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (cc *CameraCreate) SetNillableUpdatedByID(id *uuid.UUID) *CameraCreate {
 	if id != nil {
-		cc = cc.SetModifiedByID(*id)
+		cc = cc.SetUpdatedByID(*id)
 	}
 	return cc
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (cc *CameraCreate) SetModifiedBy(u *User) *CameraCreate {
-	return cc.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (cc *CameraCreate) SetUpdatedBy(u *User) *CameraCreate {
+	return cc.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the CameraMutation object of the builder.
@@ -355,12 +355,12 @@ func (cc *CameraCreate) createSpec() (*Camera, *sqlgraph.CreateSpec) {
 		_node.camera_created_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := cc.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := cc.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   camera.ModifiedByTable,
-			Columns: []string{camera.ModifiedByColumn},
+			Table:   camera.UpdatedByTable,
+			Columns: []string{camera.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -369,7 +369,7 @@ func (cc *CameraCreate) createSpec() (*Camera, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.camera_modified_by = &nodes[0]
+		_node.camera_updated_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

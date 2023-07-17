@@ -35,8 +35,8 @@ const (
 	EdgeCamera = "camera"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
 	EdgeCreatedBy = "created_by"
-	// EdgeModifiedBy holds the string denoting the modified_by edge name in mutations.
-	EdgeModifiedBy = "modified_by"
+	// EdgeUpdatedBy holds the string denoting the updated_by edge name in mutations.
+	EdgeUpdatedBy = "updated_by"
 	// Table holds the table name of the image in the database.
 	Table = "images"
 	// TagsTable is the table that holds the tags relation/edge. The primary key declared below.
@@ -72,13 +72,13 @@ const (
 	CreatedByInverseTable = "users"
 	// CreatedByColumn is the table column denoting the created_by relation/edge.
 	CreatedByColumn = "image_created_by"
-	// ModifiedByTable is the table that holds the modified_by relation/edge.
-	ModifiedByTable = "images"
-	// ModifiedByInverseTable is the table name for the User entity.
+	// UpdatedByTable is the table that holds the updated_by relation/edge.
+	UpdatedByTable = "images"
+	// UpdatedByInverseTable is the table name for the User entity.
 	// It exists in this package in order to avoid circular dependency with the "user" package.
-	ModifiedByInverseTable = "users"
-	// ModifiedByColumn is the table column denoting the modified_by relation/edge.
-	ModifiedByColumn = "image_modified_by"
+	UpdatedByInverseTable = "users"
+	// UpdatedByColumn is the table column denoting the updated_by relation/edge.
+	UpdatedByColumn = "image_updated_by"
 )
 
 // Columns holds all SQL columns for image fields.
@@ -98,7 +98,7 @@ var ForeignKeys = []string{
 	"image_project",
 	"image_camera",
 	"image_created_by",
-	"image_modified_by",
+	"image_updated_by",
 }
 
 var (
@@ -209,10 +209,10 @@ func ByCreatedByField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
-// ByModifiedByField orders the results by modified_by field.
-func ByModifiedByField(field string, opts ...sql.OrderTermOption) OrderOption {
+// ByUpdatedByField orders the results by updated_by field.
+func ByUpdatedByField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newModifiedByStep(), sql.OrderByField(field, opts...))
+		sqlgraph.OrderByNeighborTerms(s, newUpdatedByStep(), sql.OrderByField(field, opts...))
 	}
 }
 func newTagsStep() *sqlgraph.Step {
@@ -250,10 +250,10 @@ func newCreatedByStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2O, false, CreatedByTable, CreatedByColumn),
 	)
 }
-func newModifiedByStep() *sqlgraph.Step {
+func newUpdatedByStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(ModifiedByInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2O, false, ModifiedByTable, ModifiedByColumn),
+		sqlgraph.To(UpdatedByInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, UpdatedByTable, UpdatedByColumn),
 	)
 }

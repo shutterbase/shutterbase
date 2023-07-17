@@ -30,6 +30,6 @@ func (ImageTag) Edges() []ent.Edge {
 		edge.To("project", Project.Type).Unique().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("images", Image.Type),
 		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),
-		edge.To("modified_by", User.Type).Unique().StructTag(`json:"modifiedBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),
+		edge.To("updated_by", User.Type).Unique().StructTag(`json:"updatedBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),
 	}
 }

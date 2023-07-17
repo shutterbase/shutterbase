@@ -143,23 +143,23 @@ func (pc *ProjectCreate) SetCreatedBy(u *User) *ProjectCreate {
 	return pc.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (pc *ProjectCreate) SetModifiedByID(id uuid.UUID) *ProjectCreate {
-	pc.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (pc *ProjectCreate) SetUpdatedByID(id uuid.UUID) *ProjectCreate {
+	pc.mutation.SetUpdatedByID(id)
 	return pc
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (pc *ProjectCreate) SetNillableModifiedByID(id *uuid.UUID) *ProjectCreate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (pc *ProjectCreate) SetNillableUpdatedByID(id *uuid.UUID) *ProjectCreate {
 	if id != nil {
-		pc = pc.SetModifiedByID(*id)
+		pc = pc.SetUpdatedByID(*id)
 	}
 	return pc
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (pc *ProjectCreate) SetModifiedBy(u *User) *ProjectCreate {
-	return pc.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (pc *ProjectCreate) SetUpdatedBy(u *User) *ProjectCreate {
+	return pc.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ProjectMutation object of the builder.
@@ -351,12 +351,12 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 		_node.project_created_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := pc.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := pc.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   project.ModifiedByTable,
-			Columns: []string{project.ModifiedByColumn},
+			Table:   project.UpdatedByTable,
+			Columns: []string{project.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -365,7 +365,7 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.project_modified_by = &nodes[0]
+		_node.project_updated_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

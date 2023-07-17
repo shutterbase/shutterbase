@@ -145,23 +145,23 @@ func (itc *ImageTagCreate) SetCreatedBy(u *User) *ImageTagCreate {
 	return itc.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (itc *ImageTagCreate) SetModifiedByID(id uuid.UUID) *ImageTagCreate {
-	itc.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (itc *ImageTagCreate) SetUpdatedByID(id uuid.UUID) *ImageTagCreate {
+	itc.mutation.SetUpdatedByID(id)
 	return itc
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (itc *ImageTagCreate) SetNillableModifiedByID(id *uuid.UUID) *ImageTagCreate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (itc *ImageTagCreate) SetNillableUpdatedByID(id *uuid.UUID) *ImageTagCreate {
 	if id != nil {
-		itc = itc.SetModifiedByID(*id)
+		itc = itc.SetUpdatedByID(*id)
 	}
 	return itc
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (itc *ImageTagCreate) SetModifiedBy(u *User) *ImageTagCreate {
-	return itc.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (itc *ImageTagCreate) SetUpdatedBy(u *User) *ImageTagCreate {
+	return itc.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ImageTagMutation object of the builder.
@@ -349,12 +349,12 @@ func (itc *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 		_node.image_tag_created_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := itc.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := itc.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   imagetag.ModifiedByTable,
-			Columns: []string{imagetag.ModifiedByColumn},
+			Table:   imagetag.UpdatedByTable,
+			Columns: []string{imagetag.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -363,7 +363,7 @@ func (itc *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.image_tag_modified_by = &nodes[0]
+		_node.image_tag_updated_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

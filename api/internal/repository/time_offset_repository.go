@@ -36,7 +36,7 @@ func GetTimeOffsets(ctx context.Context, cameraId uuid.UUID, paginationParameter
 }
 
 func GetTimeOffset(ctx context.Context, id uuid.UUID) (*ent.TimeOffset, error) {
-	item, err := databaseClient.TimeOffset.Query().Where(timeoffset.ID(id)).WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.TimeOffset.Query().Where(timeoffset.ID(id)).WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting time offset")
 	}

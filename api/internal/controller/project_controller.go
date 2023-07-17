@@ -63,7 +63,7 @@ func createProjectController(c *gin.Context) {
 		SetName(body.Name).
 		SetDescription(body.Description).
 		SetCreatedBy(userContext.User).
-		SetModifiedBy(userContext.User)
+		SetUpdatedBy(userContext.User)
 
 	item, err := itemCreate.Save(ctx)
 	if err != nil {
@@ -180,7 +180,7 @@ func updateProjectController(c *gin.Context) {
 		query.SetDescription(*body.Description)
 	}
 
-	query.SetModifiedBy(userContext.User)
+	query.SetUpdatedBy(userContext.User)
 
 	item, err = query.Save(ctx)
 	if err != nil {

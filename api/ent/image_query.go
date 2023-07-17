@@ -23,17 +23,17 @@ import (
 // ImageQuery is the builder for querying Image entities.
 type ImageQuery struct {
 	config
-	ctx            *QueryContext
-	order          []image.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.Image
-	withTags       *ImageTagQuery
-	withUser       *UserQuery
-	withProject    *ProjectQuery
-	withCamera     *CameraQuery
-	withCreatedBy  *UserQuery
-	withModifiedBy *UserQuery
-	withFKs        bool
+	ctx           *QueryContext
+	order         []image.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.Image
+	withTags      *ImageTagQuery
+	withUser      *UserQuery
+	withProject   *ProjectQuery
+	withCamera    *CameraQuery
+	withCreatedBy *UserQuery
+	withUpdatedBy *UserQuery
+	withFKs       bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -180,8 +180,8 @@ func (iq *ImageQuery) QueryCreatedBy() *UserQuery {
 	return query
 }
 
-// QueryModifiedBy chains the current query on the "modified_by" edge.
-func (iq *ImageQuery) QueryModifiedBy() *UserQuery {
+// QueryUpdatedBy chains the current query on the "updated_by" edge.
+func (iq *ImageQuery) QueryUpdatedBy() *UserQuery {
 	query := (&UserClient{config: iq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := iq.prepareQuery(ctx); err != nil {
@@ -194,7 +194,7 @@ func (iq *ImageQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(image.Table, image.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, image.ModifiedByTable, image.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, image.UpdatedByTable, image.UpdatedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(iq.driver.Dialect(), step)
 		return fromU, nil
@@ -389,17 +389,17 @@ func (iq *ImageQuery) Clone() *ImageQuery {
 		return nil
 	}
 	return &ImageQuery{
-		config:         iq.config,
-		ctx:            iq.ctx.Clone(),
-		order:          append([]image.OrderOption{}, iq.order...),
-		inters:         append([]Interceptor{}, iq.inters...),
-		predicates:     append([]predicate.Image{}, iq.predicates...),
-		withTags:       iq.withTags.Clone(),
-		withUser:       iq.withUser.Clone(),
-		withProject:    iq.withProject.Clone(),
-		withCamera:     iq.withCamera.Clone(),
-		withCreatedBy:  iq.withCreatedBy.Clone(),
-		withModifiedBy: iq.withModifiedBy.Clone(),
+		config:        iq.config,
+		ctx:           iq.ctx.Clone(),
+		order:         append([]image.OrderOption{}, iq.order...),
+		inters:        append([]Interceptor{}, iq.inters...),
+		predicates:    append([]predicate.Image{}, iq.predicates...),
+		withTags:      iq.withTags.Clone(),
+		withUser:      iq.withUser.Clone(),
+		withProject:   iq.withProject.Clone(),
+		withCamera:    iq.withCamera.Clone(),
+		withCreatedBy: iq.withCreatedBy.Clone(),
+		withUpdatedBy: iq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  iq.sql.Clone(),
 		path: iq.path,
@@ -461,14 +461,14 @@ func (iq *ImageQuery) WithCreatedBy(opts ...func(*UserQuery)) *ImageQuery {
 	return iq
 }
 
-// WithModifiedBy tells the query-builder to eager-load the nodes that are connected to
-// the "modified_by" edge. The optional arguments are used to configure the query builder of the edge.
-func (iq *ImageQuery) WithModifiedBy(opts ...func(*UserQuery)) *ImageQuery {
+// WithUpdatedBy tells the query-builder to eager-load the nodes that are connected to
+// the "updated_by" edge. The optional arguments are used to configure the query builder of the edge.
+func (iq *ImageQuery) WithUpdatedBy(opts ...func(*UserQuery)) *ImageQuery {
 	query := (&UserClient{config: iq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	iq.withModifiedBy = query
+	iq.withUpdatedBy = query
 	return iq
 }
 
@@ -557,10 +557,10 @@ func (iq *ImageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Image,
 			iq.withProject != nil,
 			iq.withCamera != nil,
 			iq.withCreatedBy != nil,
-			iq.withModifiedBy != nil,
+			iq.withUpdatedBy != nil,
 		}
 	)
-	if iq.withUser != nil || iq.withProject != nil || iq.withCamera != nil || iq.withCreatedBy != nil || iq.withModifiedBy != nil {
+	if iq.withUser != nil || iq.withProject != nil || iq.withCamera != nil || iq.withCreatedBy != nil || iq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -615,9 +615,9 @@ func (iq *ImageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Image,
 			return nil, err
 		}
 	}
-	if query := iq.withModifiedBy; query != nil {
-		if err := iq.loadModifiedBy(ctx, query, nodes, nil,
-			func(n *Image, e *User) { n.Edges.ModifiedBy = e }); err != nil {
+	if query := iq.withUpdatedBy; query != nil {
+		if err := iq.loadUpdatedBy(ctx, query, nodes, nil,
+			func(n *Image, e *User) { n.Edges.UpdatedBy = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -813,14 +813,14 @@ func (iq *ImageQuery) loadCreatedBy(ctx context.Context, query *UserQuery, nodes
 	}
 	return nil
 }
-func (iq *ImageQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes []*Image, init func(*Image), assign func(*Image, *User)) error {
+func (iq *ImageQuery) loadUpdatedBy(ctx context.Context, query *UserQuery, nodes []*Image, init func(*Image), assign func(*Image, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*Image)
 	for i := range nodes {
-		if nodes[i].image_modified_by == nil {
+		if nodes[i].image_updated_by == nil {
 			continue
 		}
-		fk := *nodes[i].image_modified_by
+		fk := *nodes[i].image_updated_by
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -837,7 +837,7 @@ func (iq *ImageQuery) loadModifiedBy(ctx context.Context, query *UserQuery, node
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "image_modified_by" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "image_updated_by" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

@@ -32,11 +32,11 @@ type ImageTag struct {
 	IsAlbum bool `json:"isAlbum"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ImageTagQuery when eager-loading is set.
-	Edges                 ImageTagEdges `json:"edges"`
-	image_tag_project     *uuid.UUID
-	image_tag_created_by  *uuid.UUID
-	image_tag_modified_by *uuid.UUID
-	selectValues          sql.SelectValues
+	Edges                ImageTagEdges `json:"edges"`
+	image_tag_project    *uuid.UUID
+	image_tag_created_by *uuid.UUID
+	image_tag_updated_by *uuid.UUID
+	selectValues         sql.SelectValues
 }
 
 // ImageTagEdges holds the relations/edges for other nodes in the graph.
@@ -47,8 +47,8 @@ type ImageTagEdges struct {
 	Images []*Image `json:"images,omitempty"`
 	// CreatedBy holds the value of the created_by edge.
 	CreatedBy *User `json:"createdBy"`
-	// ModifiedBy holds the value of the modified_by edge.
-	ModifiedBy *User `json:"modifiedBy"`
+	// UpdatedBy holds the value of the updated_by edge.
+	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [4]bool
@@ -89,17 +89,17 @@ func (e ImageTagEdges) CreatedByOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "created_by"}
 }
 
-// ModifiedByOrErr returns the ModifiedBy value or an error if the edge
+// UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e ImageTagEdges) ModifiedByOrErr() (*User, error) {
+func (e ImageTagEdges) UpdatedByOrErr() (*User, error) {
 	if e.loadedTypes[3] {
-		if e.ModifiedBy == nil {
+		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
 		}
-		return e.ModifiedBy, nil
+		return e.UpdatedBy, nil
 	}
-	return nil, &NotLoadedError{edge: "modified_by"}
+	return nil, &NotLoadedError{edge: "updated_by"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -119,7 +119,7 @@ func (*ImageTag) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case imagetag.ForeignKeys[1]: // image_tag_created_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case imagetag.ForeignKeys[2]: // image_tag_modified_by
+		case imagetag.ForeignKeys[2]: // image_tag_updated_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -188,10 +188,10 @@ func (it *ImageTag) assignValues(columns []string, values []any) error {
 			}
 		case imagetag.ForeignKeys[2]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field image_tag_modified_by", values[i])
+				return fmt.Errorf("unexpected type %T for field image_tag_updated_by", values[i])
 			} else if value.Valid {
-				it.image_tag_modified_by = new(uuid.UUID)
-				*it.image_tag_modified_by = *value.S.(*uuid.UUID)
+				it.image_tag_updated_by = new(uuid.UUID)
+				*it.image_tag_updated_by = *value.S.(*uuid.UUID)
 			}
 		default:
 			it.selectValues.Set(columns[i], values[i])
@@ -221,9 +221,9 @@ func (it *ImageTag) QueryCreatedBy() *UserQuery {
 	return NewImageTagClient(it.config).QueryCreatedBy(it)
 }
 
-// QueryModifiedBy queries the "modified_by" edge of the ImageTag entity.
-func (it *ImageTag) QueryModifiedBy() *UserQuery {
-	return NewImageTagClient(it.config).QueryModifiedBy(it)
+// QueryUpdatedBy queries the "updated_by" edge of the ImageTag entity.
+func (it *ImageTag) QueryUpdatedBy() *UserQuery {
+	return NewImageTagClient(it.config).QueryUpdatedBy(it)
 }
 
 // Update returns a builder for updating this ImageTag.

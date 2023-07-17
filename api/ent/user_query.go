@@ -34,7 +34,7 @@ type UserQuery struct {
 	withCreatedUsers       *UserQuery
 	withCreatedBy          *UserQuery
 	withModifiedUsers      *UserQuery
-	withModifiedBy         *UserQuery
+	withUpdatedBy          *UserQuery
 	withFKs                bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -226,8 +226,8 @@ func (uq *UserQuery) QueryModifiedUsers() *UserQuery {
 	return query
 }
 
-// QueryModifiedBy chains the current query on the "modified_by" edge.
-func (uq *UserQuery) QueryModifiedBy() *UserQuery {
+// QueryUpdatedBy chains the current query on the "updated_by" edge.
+func (uq *UserQuery) QueryUpdatedBy() *UserQuery {
 	query := (&UserClient{config: uq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := uq.prepareQuery(ctx); err != nil {
@@ -240,7 +240,7 @@ func (uq *UserQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, user.ModifiedByTable, user.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.UpdatedByTable, user.UpdatedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(uq.driver.Dialect(), step)
 		return fromU, nil
@@ -447,7 +447,7 @@ func (uq *UserQuery) Clone() *UserQuery {
 		withCreatedUsers:       uq.withCreatedUsers.Clone(),
 		withCreatedBy:          uq.withCreatedBy.Clone(),
 		withModifiedUsers:      uq.withModifiedUsers.Clone(),
-		withModifiedBy:         uq.withModifiedBy.Clone(),
+		withUpdatedBy:          uq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  uq.sql.Clone(),
 		path: uq.path,
@@ -531,14 +531,14 @@ func (uq *UserQuery) WithModifiedUsers(opts ...func(*UserQuery)) *UserQuery {
 	return uq
 }
 
-// WithModifiedBy tells the query-builder to eager-load the nodes that are connected to
-// the "modified_by" edge. The optional arguments are used to configure the query builder of the edge.
-func (uq *UserQuery) WithModifiedBy(opts ...func(*UserQuery)) *UserQuery {
+// WithUpdatedBy tells the query-builder to eager-load the nodes that are connected to
+// the "updated_by" edge. The optional arguments are used to configure the query builder of the edge.
+func (uq *UserQuery) WithUpdatedBy(opts ...func(*UserQuery)) *UserQuery {
 	query := (&UserClient{config: uq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	uq.withModifiedBy = query
+	uq.withUpdatedBy = query
 	return uq
 }
 
@@ -629,10 +629,10 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			uq.withCreatedUsers != nil,
 			uq.withCreatedBy != nil,
 			uq.withModifiedUsers != nil,
-			uq.withModifiedBy != nil,
+			uq.withUpdatedBy != nil,
 		}
 	)
-	if uq.withRole != nil || uq.withCreatedBy != nil || uq.withModifiedBy != nil {
+	if uq.withRole != nil || uq.withCreatedBy != nil || uq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -705,9 +705,9 @@ func (uq *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			return nil, err
 		}
 	}
-	if query := uq.withModifiedBy; query != nil {
-		if err := uq.loadModifiedBy(ctx, query, nodes, nil,
-			func(n *User, e *User) { n.Edges.ModifiedBy = e }); err != nil {
+	if query := uq.withUpdatedBy; query != nil {
+		if err := uq.loadUpdatedBy(ctx, query, nodes, nil,
+			func(n *User, e *User) { n.Edges.UpdatedBy = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -921,26 +921,26 @@ func (uq *UserQuery) loadModifiedUsers(ctx context.Context, query *UserQuery, no
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.user_modified_by
+		fk := n.user_updated_by
 		if fk == nil {
-			return fmt.Errorf(`foreign-key "user_modified_by" is nil for node %v`, n.ID)
+			return fmt.Errorf(`foreign-key "user_updated_by" is nil for node %v`, n.ID)
 		}
 		node, ok := nodeids[*fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "user_modified_by" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "user_updated_by" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}
 	return nil
 }
-func (uq *UserQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes []*User, init func(*User), assign func(*User, *User)) error {
+func (uq *UserQuery) loadUpdatedBy(ctx context.Context, query *UserQuery, nodes []*User, init func(*User), assign func(*User, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*User)
 	for i := range nodes {
-		if nodes[i].user_modified_by == nil {
+		if nodes[i].user_updated_by == nil {
 			continue
 		}
-		fk := *nodes[i].user_modified_by
+		fk := *nodes[i].user_updated_by
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -957,7 +957,7 @@ func (uq *UserQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "user_modified_by" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "user_updated_by" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

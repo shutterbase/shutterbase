@@ -121,23 +121,23 @@ func (toc *TimeOffsetCreate) SetCreatedBy(u *User) *TimeOffsetCreate {
 	return toc.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (toc *TimeOffsetCreate) SetModifiedByID(id uuid.UUID) *TimeOffsetCreate {
-	toc.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (toc *TimeOffsetCreate) SetUpdatedByID(id uuid.UUID) *TimeOffsetCreate {
+	toc.mutation.SetUpdatedByID(id)
 	return toc
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (toc *TimeOffsetCreate) SetNillableModifiedByID(id *uuid.UUID) *TimeOffsetCreate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (toc *TimeOffsetCreate) SetNillableUpdatedByID(id *uuid.UUID) *TimeOffsetCreate {
 	if id != nil {
-		toc = toc.SetModifiedByID(*id)
+		toc = toc.SetUpdatedByID(*id)
 	}
 	return toc
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (toc *TimeOffsetCreate) SetModifiedBy(u *User) *TimeOffsetCreate {
-	return toc.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (toc *TimeOffsetCreate) SetUpdatedBy(u *User) *TimeOffsetCreate {
+	return toc.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the TimeOffsetMutation object of the builder.
@@ -295,12 +295,12 @@ func (toc *TimeOffsetCreate) createSpec() (*TimeOffset, *sqlgraph.CreateSpec) {
 		_node.time_offset_created_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := toc.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := toc.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   timeoffset.ModifiedByTable,
-			Columns: []string{timeoffset.ModifiedByColumn},
+			Table:   timeoffset.UpdatedByTable,
+			Columns: []string{timeoffset.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -309,7 +309,7 @@ func (toc *TimeOffsetCreate) createSpec() (*TimeOffset, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_node.time_offset_modified_by = &nodes[0]
+		_node.time_offset_updated_by = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

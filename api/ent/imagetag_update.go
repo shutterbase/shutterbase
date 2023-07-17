@@ -117,23 +117,23 @@ func (itu *ImageTagUpdate) SetCreatedBy(u *User) *ImageTagUpdate {
 	return itu.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (itu *ImageTagUpdate) SetModifiedByID(id uuid.UUID) *ImageTagUpdate {
-	itu.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (itu *ImageTagUpdate) SetUpdatedByID(id uuid.UUID) *ImageTagUpdate {
+	itu.mutation.SetUpdatedByID(id)
 	return itu
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (itu *ImageTagUpdate) SetNillableModifiedByID(id *uuid.UUID) *ImageTagUpdate {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (itu *ImageTagUpdate) SetNillableUpdatedByID(id *uuid.UUID) *ImageTagUpdate {
 	if id != nil {
-		itu = itu.SetModifiedByID(*id)
+		itu = itu.SetUpdatedByID(*id)
 	}
 	return itu
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (itu *ImageTagUpdate) SetModifiedBy(u *User) *ImageTagUpdate {
-	return itu.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (itu *ImageTagUpdate) SetUpdatedBy(u *User) *ImageTagUpdate {
+	return itu.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ImageTagMutation object of the builder.
@@ -174,9 +174,9 @@ func (itu *ImageTagUpdate) ClearCreatedBy() *ImageTagUpdate {
 	return itu
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (itu *ImageTagUpdate) ClearModifiedBy() *ImageTagUpdate {
-	itu.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (itu *ImageTagUpdate) ClearUpdatedBy() *ImageTagUpdate {
+	itu.mutation.ClearUpdatedBy()
 	return itu
 }
 
@@ -358,12 +358,12 @@ func (itu *ImageTagUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if itu.mutation.ModifiedByCleared() {
+	if itu.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   imagetag.ModifiedByTable,
-			Columns: []string{imagetag.ModifiedByColumn},
+			Table:   imagetag.UpdatedByTable,
+			Columns: []string{imagetag.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -371,12 +371,12 @@ func (itu *ImageTagUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := itu.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := itu.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   imagetag.ModifiedByTable,
-			Columns: []string{imagetag.ModifiedByColumn},
+			Table:   imagetag.UpdatedByTable,
+			Columns: []string{imagetag.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -492,23 +492,23 @@ func (ituo *ImageTagUpdateOne) SetCreatedBy(u *User) *ImageTagUpdateOne {
 	return ituo.SetCreatedByID(u.ID)
 }
 
-// SetModifiedByID sets the "modified_by" edge to the User entity by ID.
-func (ituo *ImageTagUpdateOne) SetModifiedByID(id uuid.UUID) *ImageTagUpdateOne {
-	ituo.mutation.SetModifiedByID(id)
+// SetUpdatedByID sets the "updated_by" edge to the User entity by ID.
+func (ituo *ImageTagUpdateOne) SetUpdatedByID(id uuid.UUID) *ImageTagUpdateOne {
+	ituo.mutation.SetUpdatedByID(id)
 	return ituo
 }
 
-// SetNillableModifiedByID sets the "modified_by" edge to the User entity by ID if the given value is not nil.
-func (ituo *ImageTagUpdateOne) SetNillableModifiedByID(id *uuid.UUID) *ImageTagUpdateOne {
+// SetNillableUpdatedByID sets the "updated_by" edge to the User entity by ID if the given value is not nil.
+func (ituo *ImageTagUpdateOne) SetNillableUpdatedByID(id *uuid.UUID) *ImageTagUpdateOne {
 	if id != nil {
-		ituo = ituo.SetModifiedByID(*id)
+		ituo = ituo.SetUpdatedByID(*id)
 	}
 	return ituo
 }
 
-// SetModifiedBy sets the "modified_by" edge to the User entity.
-func (ituo *ImageTagUpdateOne) SetModifiedBy(u *User) *ImageTagUpdateOne {
-	return ituo.SetModifiedByID(u.ID)
+// SetUpdatedBy sets the "updated_by" edge to the User entity.
+func (ituo *ImageTagUpdateOne) SetUpdatedBy(u *User) *ImageTagUpdateOne {
+	return ituo.SetUpdatedByID(u.ID)
 }
 
 // Mutation returns the ImageTagMutation object of the builder.
@@ -549,9 +549,9 @@ func (ituo *ImageTagUpdateOne) ClearCreatedBy() *ImageTagUpdateOne {
 	return ituo
 }
 
-// ClearModifiedBy clears the "modified_by" edge to the User entity.
-func (ituo *ImageTagUpdateOne) ClearModifiedBy() *ImageTagUpdateOne {
-	ituo.mutation.ClearModifiedBy()
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (ituo *ImageTagUpdateOne) ClearUpdatedBy() *ImageTagUpdateOne {
+	ituo.mutation.ClearUpdatedBy()
 	return ituo
 }
 
@@ -763,12 +763,12 @@ func (ituo *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, er
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if ituo.mutation.ModifiedByCleared() {
+	if ituo.mutation.UpdatedByCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   imagetag.ModifiedByTable,
-			Columns: []string{imagetag.ModifiedByColumn},
+			Table:   imagetag.UpdatedByTable,
+			Columns: []string{imagetag.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
@@ -776,12 +776,12 @@ func (ituo *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, er
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := ituo.mutation.ModifiedByIDs(); len(nodes) > 0 {
+	if nodes := ituo.mutation.UpdatedByIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
 			Inverse: false,
-			Table:   imagetag.ModifiedByTable,
-			Columns: []string{imagetag.ModifiedByColumn},
+			Table:   imagetag.UpdatedByTable,
+			Columns: []string{imagetag.UpdatedByColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),

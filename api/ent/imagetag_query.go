@@ -22,15 +22,15 @@ import (
 // ImageTagQuery is the builder for querying ImageTag entities.
 type ImageTagQuery struct {
 	config
-	ctx            *QueryContext
-	order          []imagetag.OrderOption
-	inters         []Interceptor
-	predicates     []predicate.ImageTag
-	withProject    *ProjectQuery
-	withImages     *ImageQuery
-	withCreatedBy  *UserQuery
-	withModifiedBy *UserQuery
-	withFKs        bool
+	ctx           *QueryContext
+	order         []imagetag.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.ImageTag
+	withProject   *ProjectQuery
+	withImages    *ImageQuery
+	withCreatedBy *UserQuery
+	withUpdatedBy *UserQuery
+	withFKs       bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -133,8 +133,8 @@ func (itq *ImageTagQuery) QueryCreatedBy() *UserQuery {
 	return query
 }
 
-// QueryModifiedBy chains the current query on the "modified_by" edge.
-func (itq *ImageTagQuery) QueryModifiedBy() *UserQuery {
+// QueryUpdatedBy chains the current query on the "updated_by" edge.
+func (itq *ImageTagQuery) QueryUpdatedBy() *UserQuery {
 	query := (&UserClient{config: itq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := itq.prepareQuery(ctx); err != nil {
@@ -147,7 +147,7 @@ func (itq *ImageTagQuery) QueryModifiedBy() *UserQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(imagetag.Table, imagetag.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, imagetag.ModifiedByTable, imagetag.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, imagetag.UpdatedByTable, imagetag.UpdatedByColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(itq.driver.Dialect(), step)
 		return fromU, nil
@@ -342,15 +342,15 @@ func (itq *ImageTagQuery) Clone() *ImageTagQuery {
 		return nil
 	}
 	return &ImageTagQuery{
-		config:         itq.config,
-		ctx:            itq.ctx.Clone(),
-		order:          append([]imagetag.OrderOption{}, itq.order...),
-		inters:         append([]Interceptor{}, itq.inters...),
-		predicates:     append([]predicate.ImageTag{}, itq.predicates...),
-		withProject:    itq.withProject.Clone(),
-		withImages:     itq.withImages.Clone(),
-		withCreatedBy:  itq.withCreatedBy.Clone(),
-		withModifiedBy: itq.withModifiedBy.Clone(),
+		config:        itq.config,
+		ctx:           itq.ctx.Clone(),
+		order:         append([]imagetag.OrderOption{}, itq.order...),
+		inters:        append([]Interceptor{}, itq.inters...),
+		predicates:    append([]predicate.ImageTag{}, itq.predicates...),
+		withProject:   itq.withProject.Clone(),
+		withImages:    itq.withImages.Clone(),
+		withCreatedBy: itq.withCreatedBy.Clone(),
+		withUpdatedBy: itq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  itq.sql.Clone(),
 		path: itq.path,
@@ -390,14 +390,14 @@ func (itq *ImageTagQuery) WithCreatedBy(opts ...func(*UserQuery)) *ImageTagQuery
 	return itq
 }
 
-// WithModifiedBy tells the query-builder to eager-load the nodes that are connected to
-// the "modified_by" edge. The optional arguments are used to configure the query builder of the edge.
-func (itq *ImageTagQuery) WithModifiedBy(opts ...func(*UserQuery)) *ImageTagQuery {
+// WithUpdatedBy tells the query-builder to eager-load the nodes that are connected to
+// the "updated_by" edge. The optional arguments are used to configure the query builder of the edge.
+func (itq *ImageTagQuery) WithUpdatedBy(opts ...func(*UserQuery)) *ImageTagQuery {
 	query := (&UserClient{config: itq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	itq.withModifiedBy = query
+	itq.withUpdatedBy = query
 	return itq
 }
 
@@ -484,10 +484,10 @@ func (itq *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Im
 			itq.withProject != nil,
 			itq.withImages != nil,
 			itq.withCreatedBy != nil,
-			itq.withModifiedBy != nil,
+			itq.withUpdatedBy != nil,
 		}
 	)
-	if itq.withProject != nil || itq.withCreatedBy != nil || itq.withModifiedBy != nil {
+	if itq.withProject != nil || itq.withCreatedBy != nil || itq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -530,9 +530,9 @@ func (itq *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Im
 			return nil, err
 		}
 	}
-	if query := itq.withModifiedBy; query != nil {
-		if err := itq.loadModifiedBy(ctx, query, nodes, nil,
-			func(n *ImageTag, e *User) { n.Edges.ModifiedBy = e }); err != nil {
+	if query := itq.withUpdatedBy; query != nil {
+		if err := itq.loadUpdatedBy(ctx, query, nodes, nil,
+			func(n *ImageTag, e *User) { n.Edges.UpdatedBy = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -664,14 +664,14 @@ func (itq *ImageTagQuery) loadCreatedBy(ctx context.Context, query *UserQuery, n
 	}
 	return nil
 }
-func (itq *ImageTagQuery) loadModifiedBy(ctx context.Context, query *UserQuery, nodes []*ImageTag, init func(*ImageTag), assign func(*ImageTag, *User)) error {
+func (itq *ImageTagQuery) loadUpdatedBy(ctx context.Context, query *UserQuery, nodes []*ImageTag, init func(*ImageTag), assign func(*ImageTag, *User)) error {
 	ids := make([]uuid.UUID, 0, len(nodes))
 	nodeids := make(map[uuid.UUID][]*ImageTag)
 	for i := range nodes {
-		if nodes[i].image_tag_modified_by == nil {
+		if nodes[i].image_tag_updated_by == nil {
 			continue
 		}
-		fk := *nodes[i].image_tag_modified_by
+		fk := *nodes[i].image_tag_updated_by
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -688,7 +688,7 @@ func (itq *ImageTagQuery) loadModifiedBy(ctx context.Context, query *UserQuery, 
 	for _, n := range neighbors {
 		nodes, ok := nodeids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "image_tag_modified_by" returned %v`, n.ID)
+			return fmt.Errorf(`unexpected foreign-key "image_tag_updated_by" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

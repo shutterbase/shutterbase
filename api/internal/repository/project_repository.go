@@ -57,7 +57,7 @@ func GetProjects(ctx context.Context, paginationParameters *PaginationParameters
 }
 
 func GetProject(ctx context.Context, id uuid.UUID) (*ent.Project, error) {
-	item, err := databaseClient.Project.Query().Where(project.ID(id)).WithCreatedBy().WithModifiedBy().Only(ctx)
+	item, err := databaseClient.Project.Query().Where(project.ID(id)).WithCreatedBy().WithUpdatedBy().Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting project")
 	}

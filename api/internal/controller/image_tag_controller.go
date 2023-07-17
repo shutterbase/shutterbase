@@ -78,7 +78,7 @@ func createImageTagController(c *gin.Context) {
 		SetIsAlbum(body.IsAlbum).
 		SetProject(project).
 		SetCreatedBy(userContext.User).
-		SetModifiedBy(userContext.User)
+		SetUpdatedBy(userContext.User)
 
 	item, err := itemCreate.Save(ctx)
 	if err != nil {
@@ -195,7 +195,7 @@ func updateImageTagController(c *gin.Context) {
 		itemUpdate.SetIsAlbum(*body.IsAlbum)
 	}
 
-	item, err = itemUpdate.SetModifiedBy(userContext.User).Save(ctx)
+	item, err = itemUpdate.SetUpdatedBy(userContext.User).Save(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to save image tag for image tag update")
 		api_error.INTERNAL.Send(c)

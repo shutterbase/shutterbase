@@ -412,15 +412,15 @@ func (c *CameraClient) QueryCreatedBy(ca *Camera) *UserQuery {
 	return query
 }
 
-// QueryModifiedBy queries the modified_by edge of a Camera.
-func (c *CameraClient) QueryModifiedBy(ca *Camera) *UserQuery {
+// QueryUpdatedBy queries the updated_by edge of a Camera.
+func (c *CameraClient) QueryUpdatedBy(ca *Camera) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := ca.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(camera.Table, camera.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, camera.ModifiedByTable, camera.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, camera.UpdatedByTable, camera.UpdatedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(ca.driver.Dialect(), step)
 		return fromV, nil
@@ -626,15 +626,15 @@ func (c *ImageClient) QueryCreatedBy(i *Image) *UserQuery {
 	return query
 }
 
-// QueryModifiedBy queries the modified_by edge of a Image.
-func (c *ImageClient) QueryModifiedBy(i *Image) *UserQuery {
+// QueryUpdatedBy queries the updated_by edge of a Image.
+func (c *ImageClient) QueryUpdatedBy(i *Image) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := i.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(image.Table, image.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, image.ModifiedByTable, image.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, image.UpdatedByTable, image.UpdatedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(i.driver.Dialect(), step)
 		return fromV, nil
@@ -808,15 +808,15 @@ func (c *ImageTagClient) QueryCreatedBy(it *ImageTag) *UserQuery {
 	return query
 }
 
-// QueryModifiedBy queries the modified_by edge of a ImageTag.
-func (c *ImageTagClient) QueryModifiedBy(it *ImageTag) *UserQuery {
+// QueryUpdatedBy queries the updated_by edge of a ImageTag.
+func (c *ImageTagClient) QueryUpdatedBy(it *ImageTag) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := it.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(imagetag.Table, imagetag.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, imagetag.ModifiedByTable, imagetag.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, imagetag.UpdatedByTable, imagetag.UpdatedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(it.driver.Dialect(), step)
 		return fromV, nil
@@ -1006,15 +1006,15 @@ func (c *ProjectClient) QueryCreatedBy(pr *Project) *UserQuery {
 	return query
 }
 
-// QueryModifiedBy queries the modified_by edge of a Project.
-func (c *ProjectClient) QueryModifiedBy(pr *Project) *UserQuery {
+// QueryUpdatedBy queries the updated_by edge of a Project.
+func (c *ProjectClient) QueryUpdatedBy(pr *Project) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := pr.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, project.ModifiedByTable, project.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, project.UpdatedByTable, project.UpdatedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(pr.driver.Dialect(), step)
 		return fromV, nil
@@ -1204,15 +1204,15 @@ func (c *ProjectAssignmentClient) QueryCreatedBy(pa *ProjectAssignment) *UserQue
 	return query
 }
 
-// QueryModifiedBy queries the modified_by edge of a ProjectAssignment.
-func (c *ProjectAssignmentClient) QueryModifiedBy(pa *ProjectAssignment) *UserQuery {
+// QueryUpdatedBy queries the updated_by edge of a ProjectAssignment.
+func (c *ProjectAssignmentClient) QueryUpdatedBy(pa *ProjectAssignment) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := pa.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(projectassignment.Table, projectassignment.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, projectassignment.ModifiedByTable, projectassignment.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, projectassignment.UpdatedByTable, projectassignment.UpdatedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(pa.driver.Dialect(), step)
 		return fromV, nil
@@ -1520,15 +1520,15 @@ func (c *TimeOffsetClient) QueryCreatedBy(to *TimeOffset) *UserQuery {
 	return query
 }
 
-// QueryModifiedBy queries the modified_by edge of a TimeOffset.
-func (c *TimeOffsetClient) QueryModifiedBy(to *TimeOffset) *UserQuery {
+// QueryUpdatedBy queries the updated_by edge of a TimeOffset.
+func (c *TimeOffsetClient) QueryUpdatedBy(to *TimeOffset) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := to.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(timeoffset.Table, timeoffset.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, timeoffset.ModifiedByTable, timeoffset.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, timeoffset.UpdatedByTable, timeoffset.UpdatedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(to.driver.Dialect(), step)
 		return fromV, nil
@@ -1766,15 +1766,15 @@ func (c *UserClient) QueryModifiedUsers(u *User) *UserQuery {
 	return query
 }
 
-// QueryModifiedBy queries the modified_by edge of a User.
-func (c *UserClient) QueryModifiedBy(u *User) *UserQuery {
+// QueryUpdatedBy queries the updated_by edge of a User.
+func (c *UserClient) QueryUpdatedBy(u *User) *UserQuery {
 	query := (&UserClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := u.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, false, user.ModifiedByTable, user.ModifiedByColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, user.UpdatedByTable, user.UpdatedByColumn),
 		)
 		fromV = sqlgraph.Neighbors(u.driver.Dialect(), step)
 		return fromV, nil

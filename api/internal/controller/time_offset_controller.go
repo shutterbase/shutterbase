@@ -74,7 +74,7 @@ func createTimeOffsetController(c *gin.Context) {
 		SetID(itemId).
 		SetCamera(camera).
 		SetCreatedBy(userContext.User).
-		SetModifiedBy(userContext.User)
+		SetUpdatedBy(userContext.User)
 
 	file, err := formFile.Open()
 	if err != nil {

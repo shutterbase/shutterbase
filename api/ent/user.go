@@ -45,11 +45,11 @@ type User struct {
 	Active bool `json:"active"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
-	Edges            UserEdges `json:"edges"`
-	user_role        *uuid.UUID
-	user_created_by  *uuid.UUID
-	user_modified_by *uuid.UUID
-	selectValues     sql.SelectValues
+	Edges           UserEdges `json:"edges"`
+	user_role       *uuid.UUID
+	user_created_by *uuid.UUID
+	user_updated_by *uuid.UUID
+	selectValues    sql.SelectValues
 }
 
 // UserEdges holds the relations/edges for other nodes in the graph.
@@ -68,8 +68,8 @@ type UserEdges struct {
 	CreatedBy *User `json:"createdBy"`
 	// ModifiedUsers holds the value of the modified_users edge.
 	ModifiedUsers []*User `json:"modified_users,omitempty"`
-	// ModifiedBy holds the value of the modified_by edge.
-	ModifiedBy *User `json:"modifiedBy"`
+	// UpdatedBy holds the value of the updated_by edge.
+	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [8]bool
@@ -146,17 +146,17 @@ func (e UserEdges) ModifiedUsersOrErr() ([]*User, error) {
 	return nil, &NotLoadedError{edge: "modified_users"}
 }
 
-// ModifiedByOrErr returns the ModifiedBy value or an error if the edge
+// UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e UserEdges) ModifiedByOrErr() (*User, error) {
+func (e UserEdges) UpdatedByOrErr() (*User, error) {
 	if e.loadedTypes[7] {
-		if e.ModifiedBy == nil {
+		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
 		}
-		return e.ModifiedBy, nil
+		return e.UpdatedBy, nil
 	}
-	return nil, &NotLoadedError{edge: "modified_by"}
+	return nil, &NotLoadedError{edge: "updated_by"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -178,7 +178,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case user.ForeignKeys[1]: // user_created_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case user.ForeignKeys[2]: // user_modified_by
+		case user.ForeignKeys[2]: // user_updated_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -289,10 +289,10 @@ func (u *User) assignValues(columns []string, values []any) error {
 			}
 		case user.ForeignKeys[2]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
-				return fmt.Errorf("unexpected type %T for field user_modified_by", values[i])
+				return fmt.Errorf("unexpected type %T for field user_updated_by", values[i])
 			} else if value.Valid {
-				u.user_modified_by = new(uuid.UUID)
-				*u.user_modified_by = *value.S.(*uuid.UUID)
+				u.user_updated_by = new(uuid.UUID)
+				*u.user_updated_by = *value.S.(*uuid.UUID)
 			}
 		default:
 			u.selectValues.Set(columns[i], values[i])
@@ -342,9 +342,9 @@ func (u *User) QueryModifiedUsers() *UserQuery {
 	return NewUserClient(u.config).QueryModifiedUsers(u)
 }
 
-// QueryModifiedBy queries the "modified_by" edge of the User entity.
-func (u *User) QueryModifiedBy() *UserQuery {
-	return NewUserClient(u.config).QueryModifiedBy(u)
+// QueryUpdatedBy queries the "updated_by" edge of the User entity.
+func (u *User) QueryUpdatedBy() *UserQuery {
+	return NewUserClient(u.config).QueryUpdatedBy(u)
 }
 
 // Update returns a builder for updating this User.
