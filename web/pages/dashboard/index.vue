@@ -1,7 +1,8 @@
 <template>
   <NuxtLayout name="logged-in">
     <div class="">
-      <TotalUserStat></TotalUserStat>
+      <TotalUserStat class="mr-16"></TotalUserStat>
+      <ProjectStat class="mr-16"></ProjectStat>
     </div>
   </NuxtLayout>
 </template>

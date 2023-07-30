@@ -117,7 +117,10 @@ function createTimeOffset() {
   navigateTo(`/dashboard/users/${props.userId}/cameras/${props.id}/offset`);
 }
 
-function deleteTimeOffset(id: string) {
-  console.log(`deleteTimeOffset: ${id}`);
+async function deleteTimeOffset(id: string) {
+  const { data } = await useFetch(`/users/${props.userId}/cameras/${props.id}/time-offsets/${id}`, getFetchOptions(Method.DELETE, {}));
+  if (data) {
+    navigateTo(`/dashboard/users/${props.userId}/cameras/${props.id}`);
+  }
 }
 </script>

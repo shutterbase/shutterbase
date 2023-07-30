@@ -18,6 +18,7 @@ func (User) Fields() []ent.Field {
 		field.String("first_name").NotEmpty().StructTag(`json:"firstName"`),
 		field.String("last_name").NotEmpty().StructTag(`json:"lastName"`),
 		field.String("email").NotEmpty().Unique().Immutable().StructTag(`json:"email"`),
+		field.String("copyright_tag").NotEmpty().Unique().StructTag(`json:"copyrightTag"`),
 		field.Bool("email_validated").Default(false).StructTag(`json:"emailValidated"`),
 		field.UUID("validation_key", uuid.UUID{}).Default(uuid.New).StructTag(`json:"-"`),
 		field.Time("validation_sent_at").Default(time.Now).StructTag(`json:"validationSentAt"`),

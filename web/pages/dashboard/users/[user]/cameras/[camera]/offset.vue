@@ -19,7 +19,6 @@
         <h3 class="font-bold text-lg">Drop your time offset image below:</h3>
         <div id="offsetDropzone" ref="offsetDropzone" class="dropzone"></div>
         <div class="modal-action">
-          <!-- if there is a button in form, it will close the modal -->
           <button class="btn">Close</button>
         </div>
       </form>
