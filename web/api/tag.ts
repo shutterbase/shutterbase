@@ -25,3 +25,7 @@ export interface CreateTagInput {
   description: string;
   isAlbum: boolean;
 }
+
+export interface CreateTagsInput {
+  tags: CreateTagInput[];
+}

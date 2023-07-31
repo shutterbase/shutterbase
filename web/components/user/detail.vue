@@ -17,6 +17,12 @@
       </div>
       <div>
         <label class="label">
+          <span class="label-text">Copyright Tag</span>
+        </label>
+        <input type="text" placeholder="Copyright Tag" v-model="copyrightTag" class="input input-bordered w-full max-w-xs" />
+      </div>
+      <div>
+        <label class="label">
           <span class="label-text">Email</span>
         </label>
         <input type="text" placeholder="Email" v-model="email" class="input input-bordered w-full max-w-xs" disabled />
@@ -73,6 +79,7 @@ const initialItem = item as Ref<User>;
 
 const firstName = ref("");
 const lastName = ref("");
+const copyrightTag = ref("");
 const email = ref("");
 const globalRole = ref("");
 const accountActive = ref(false);
@@ -81,6 +88,7 @@ const emailValidated = ref(false);
 function updateEditValues(editItem: Ref<User>) {
   firstName.value = editItem.value.firstName;
   lastName.value = editItem.value.lastName;
+  copyrightTag.value = editItem.value.copyrightTag;
   email.value = editItem.value.email;
   globalRole.value = editItem.value.edges.role.key;
   accountActive.value = editItem.value.active;
@@ -93,6 +101,7 @@ const modified = computed(() => {
   return (
     firstName.value !== initialItem.value.firstName ||
     lastName.value !== initialItem.value.lastName ||
+    copyrightTag.value !== initialItem.value.copyrightTag ||
     globalRole.value !== initialItem.value.edges.role.key ||
     accountActive.value !== initialItem.value.active ||
     emailValidated.value !== initialItem.value.emailValidated
@@ -106,6 +115,9 @@ async function update() {
   }
   if (lastName.value !== initialItem.value.lastName) {
     updateData.lastName = lastName.value;
+  }
+  if (copyrightTag.value !== initialItem.value.copyrightTag) {
+    updateData.copyrightTag = copyrightTag.value;
   }
   if (globalRole.value !== initialItem.value.edges.role.key) {
     updateData.role = globalRole.value;
@@ -122,6 +134,7 @@ async function update() {
   if (data) {
     initialItem.value.firstName = updatedItem.value.firstName;
     initialItem.value.lastName = updatedItem.value.lastName;
+    initialItem.value.copyrightTag = updatedItem.value.copyrightTag;
     initialItem.value.active = updatedItem.value.active;
     initialItem.value.emailValidated = updatedItem.value.emailValidated;
     initialItem.value.edges.role.key = updatedItem.value.edges.role.key;

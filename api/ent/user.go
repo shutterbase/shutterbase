@@ -29,6 +29,8 @@ type User struct {
 	LastName string `json:"lastName"`
 	// Email holds the value of the "email" field.
 	Email string `json:"email"`
+	// CopyrightTag holds the value of the "copyright_tag" field.
+	CopyrightTag string `json:"copyrightTag"`
 	// EmailValidated holds the value of the "email_validated" field.
 	EmailValidated bool `json:"emailValidated"`
 	// ValidationKey holds the value of the "validation_key" field.
@@ -168,7 +170,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case user.FieldEmailValidated, user.FieldActive:
 			values[i] = new(sql.NullBool)
-		case user.FieldFirstName, user.FieldLastName, user.FieldEmail:
+		case user.FieldFirstName, user.FieldLastName, user.FieldEmail, user.FieldCopyrightTag:
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldValidationSentAt, user.FieldPasswordResetAt:
 			values[i] = new(sql.NullTime)
@@ -230,6 +232,12 @@ func (u *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field email", values[i])
 			} else if value.Valid {
 				u.Email = value.String
+			}
+		case user.FieldCopyrightTag:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field copyright_tag", values[i])
+			} else if value.Valid {
+				u.CopyrightTag = value.String
 			}
 		case user.FieldEmailValidated:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -384,6 +392,9 @@ func (u *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("email=")
 	builder.WriteString(u.Email)
+	builder.WriteString(", ")
+	builder.WriteString("copyright_tag=")
+	builder.WriteString(u.CopyrightTag)
 	builder.WriteString(", ")
 	builder.WriteString("email_validated=")
 	builder.WriteString(fmt.Sprintf("%v", u.EmailValidated))

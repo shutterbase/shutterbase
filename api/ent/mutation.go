@@ -5653,6 +5653,7 @@ type UserMutation struct {
 	first_name                *string
 	last_name                 *string
 	email                     *string
+	copyright_tag             *string
 	email_validated           *bool
 	validation_key            *uuid.UUID
 	validation_sent_at        *time.Time
@@ -5969,6 +5970,42 @@ func (m *UserMutation) OldEmail(ctx context.Context) (v string, err error) {
 // ResetEmail resets all changes to the "email" field.
 func (m *UserMutation) ResetEmail() {
 	m.email = nil
+}
+
+// SetCopyrightTag sets the "copyright_tag" field.
+func (m *UserMutation) SetCopyrightTag(s string) {
+	m.copyright_tag = &s
+}
+
+// CopyrightTag returns the value of the "copyright_tag" field in the mutation.
+func (m *UserMutation) CopyrightTag() (r string, exists bool) {
+	v := m.copyright_tag
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCopyrightTag returns the old "copyright_tag" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldCopyrightTag(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCopyrightTag is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCopyrightTag requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCopyrightTag: %w", err)
+	}
+	return oldValue.CopyrightTag, nil
+}
+
+// ResetCopyrightTag resets all changes to the "copyright_tag" field.
+func (m *UserMutation) ResetCopyrightTag() {
+	m.copyright_tag = nil
 }
 
 // SetEmailValidated sets the "email_validated" field.
@@ -6644,7 +6681,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -6659,6 +6696,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.email != nil {
 		fields = append(fields, user.FieldEmail)
+	}
+	if m.copyright_tag != nil {
+		fields = append(fields, user.FieldCopyrightTag)
 	}
 	if m.email_validated != nil {
 		fields = append(fields, user.FieldEmailValidated)
@@ -6699,6 +6739,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.LastName()
 	case user.FieldEmail:
 		return m.Email()
+	case user.FieldCopyrightTag:
+		return m.CopyrightTag()
 	case user.FieldEmailValidated:
 		return m.EmailValidated()
 	case user.FieldValidationKey:
@@ -6732,6 +6774,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldLastName(ctx)
 	case user.FieldEmail:
 		return m.OldEmail(ctx)
+	case user.FieldCopyrightTag:
+		return m.OldCopyrightTag(ctx)
 	case user.FieldEmailValidated:
 		return m.OldEmailValidated(ctx)
 	case user.FieldValidationKey:
@@ -6789,6 +6833,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEmail(v)
+		return nil
+	case user.FieldCopyrightTag:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCopyrightTag(v)
 		return nil
 	case user.FieldEmailValidated:
 		v, ok := value.(bool)
@@ -6902,6 +6953,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldEmail:
 		m.ResetEmail()
+		return nil
+	case user.FieldCopyrightTag:
+		m.ResetCopyrightTag()
 		return nil
 	case user.FieldEmailValidated:
 		m.ResetEmailValidated()

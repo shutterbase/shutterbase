@@ -25,6 +25,8 @@ const (
 	FieldLastName = "last_name"
 	// FieldEmail holds the string denoting the email field in the database.
 	FieldEmail = "email"
+	// FieldCopyrightTag holds the string denoting the copyright_tag field in the database.
+	FieldCopyrightTag = "copyright_tag"
 	// FieldEmailValidated holds the string denoting the email_validated field in the database.
 	FieldEmailValidated = "email_validated"
 	// FieldValidationKey holds the string denoting the validation_key field in the database.
@@ -111,6 +113,7 @@ var Columns = []string{
 	FieldFirstName,
 	FieldLastName,
 	FieldEmail,
+	FieldCopyrightTag,
 	FieldEmailValidated,
 	FieldValidationKey,
 	FieldValidationSentAt,
@@ -156,6 +159,8 @@ var (
 	LastNameValidator func(string) error
 	// EmailValidator is a validator for the "email" field. It is called by the builders before save.
 	EmailValidator func(string) error
+	// CopyrightTagValidator is a validator for the "copyright_tag" field. It is called by the builders before save.
+	CopyrightTagValidator func(string) error
 	// DefaultEmailValidated holds the default value on creation for the "email_validated" field.
 	DefaultEmailValidated bool
 	// DefaultValidationKey holds the default value on creation for the "validation_key" field.
@@ -205,6 +210,11 @@ func ByLastName(opts ...sql.OrderTermOption) OrderOption {
 // ByEmail orders the results by the email field.
 func ByEmail(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEmail, opts...).ToFunc()
+}
+
+// ByCopyrightTag orders the results by the copyright_tag field.
+func ByCopyrightTag(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCopyrightTag, opts...).ToFunc()
 }
 
 // ByEmailValidated orders the results by the email_validated field.

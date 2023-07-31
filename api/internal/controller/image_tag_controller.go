@@ -19,6 +19,7 @@ func registerImageTagsController(router *gin.Engine) {
 	CONTEXT_PATH := config.Get().String("API_CONTEXT_PATH")
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, TAGS_RESOURCE), createImageTagController)
+	router.POST(fmt.Sprintf("%s%s/bulk", CONTEXT_PATH, TAGS_RESOURCE), createImageTagsController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, TAGS_RESOURCE), getImageTagsController)
 	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TAGS_RESOURCE), getImageTagController)
 	router.PUT(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TAGS_RESOURCE), updateImageTagController)
@@ -26,7 +27,6 @@ func registerImageTagsController(router *gin.Engine) {
 }
 
 type EditImageTagBody struct {
-	Name        *string `json:"name"`
 	Description *string `json:"description"`
 	IsAlbum     *bool   `json:"isAlbum"`
 }
@@ -35,6 +35,10 @@ type CreateImageTagBody struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	IsAlbum     bool   `json:"isAlbum"`
+}
+
+type CreateImageTagsBody struct {
+	Tags []CreateImageTagBody `json:"tags"`
 }
 
 func createImageTagController(c *gin.Context) {
@@ -72,6 +76,16 @@ func createImageTagController(c *gin.Context) {
 		return
 	}
 
+	imageTagExists, err := repository.ImageTagExists(ctx, project.ID, body.Name)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to check image tag existance for image tag creation")
+		return
+	}
+	if imageTagExists {
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
 	itemCreate := repository.GetDatabaseClient().ImageTag.Create().
 		SetName(body.Name).
 		SetDescription(body.Description).
@@ -88,6 +102,72 @@ func createImageTagController(c *gin.Context) {
 	}
 
 	c.JSON(200, item)
+}
+
+func createImageTagsController(c *gin.Context) {
+	ctx := c.Request.Context()
+	userContext := authorization.GetUserContextFromGinContext(c)
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.CREATE))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to create image tags denied")
+		api_error.FORBIDDEN.Send(c)
+		return
+	}
+
+	projectId, err := uuid.Parse(c.Param("pid"))
+	if err != nil {
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
+	var body CreateImageTagsBody
+	if err := c.Bind(&body); err != nil {
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
+	project, err := repository.GetProject(ctx, projectId)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			log.Error().Err(err).Msg("failed to find project for image tag creation")
+			api_error.NOT_FOUND.Send(c)
+			return
+		}
+		log.Error().Err(err).Msg("failed to get project for image tag creation")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	var bulkItems []*ent.ImageTagCreate
+	for _, tag := range body.Tags {
+		imageTagExists, err := repository.ImageTagExists(ctx, project.ID, tag.Name)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to check image tag existance for image tag creation")
+			return
+		}
+		if imageTagExists {
+			api_error.BAD_REQUEST.Send(c)
+			return
+		}
+
+		bulkItems = append(bulkItems, repository.GetDatabaseClient().ImageTag.Create().
+			SetName(tag.Name).
+			SetDescription(tag.Description).
+			SetIsAlbum(tag.IsAlbum).
+			SetProject(project).
+			SetCreatedBy(userContext.User).
+			SetUpdatedBy(userContext.User))
+	}
+
+	items, err := repository.GetDatabaseClient().ImageTag.CreateBulk(bulkItems...).Save(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to save image tags for image tags creation")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	c.JSON(200, items)
 }
 
 func getImageTagsController(c *gin.Context) {
@@ -182,10 +262,6 @@ func updateImageTagController(c *gin.Context) {
 	}
 
 	itemUpdate := item.Update()
-
-	if body.Name != nil {
-		itemUpdate.SetName(*body.Name)
-	}
 
 	if body.Description != nil {
 		itemUpdate.SetDescription(*body.Description)

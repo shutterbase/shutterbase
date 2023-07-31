@@ -229,32 +229,36 @@ func init() {
 	userDescEmail := userFields[2].Descriptor()
 	// user.EmailValidator is a validator for the "email" field. It is called by the builders before save.
 	user.EmailValidator = userDescEmail.Validators[0].(func(string) error)
+	// userDescCopyrightTag is the schema descriptor for copyright_tag field.
+	userDescCopyrightTag := userFields[3].Descriptor()
+	// user.CopyrightTagValidator is a validator for the "copyright_tag" field. It is called by the builders before save.
+	user.CopyrightTagValidator = userDescCopyrightTag.Validators[0].(func(string) error)
 	// userDescEmailValidated is the schema descriptor for email_validated field.
-	userDescEmailValidated := userFields[3].Descriptor()
+	userDescEmailValidated := userFields[4].Descriptor()
 	// user.DefaultEmailValidated holds the default value on creation for the email_validated field.
 	user.DefaultEmailValidated = userDescEmailValidated.Default.(bool)
 	// userDescValidationKey is the schema descriptor for validation_key field.
-	userDescValidationKey := userFields[4].Descriptor()
+	userDescValidationKey := userFields[5].Descriptor()
 	// user.DefaultValidationKey holds the default value on creation for the validation_key field.
 	user.DefaultValidationKey = userDescValidationKey.Default.(func() uuid.UUID)
 	// userDescValidationSentAt is the schema descriptor for validation_sent_at field.
-	userDescValidationSentAt := userFields[5].Descriptor()
+	userDescValidationSentAt := userFields[6].Descriptor()
 	// user.DefaultValidationSentAt holds the default value on creation for the validation_sent_at field.
 	user.DefaultValidationSentAt = userDescValidationSentAt.Default.(func() time.Time)
 	// userDescPassword is the schema descriptor for password field.
-	userDescPassword := userFields[6].Descriptor()
+	userDescPassword := userFields[7].Descriptor()
 	// user.PasswordValidator is a validator for the "password" field. It is called by the builders before save.
 	user.PasswordValidator = userDescPassword.Validators[0].(func([]byte) error)
 	// userDescPasswordResetKey is the schema descriptor for password_reset_key field.
-	userDescPasswordResetKey := userFields[7].Descriptor()
+	userDescPasswordResetKey := userFields[8].Descriptor()
 	// user.DefaultPasswordResetKey holds the default value on creation for the password_reset_key field.
 	user.DefaultPasswordResetKey = userDescPasswordResetKey.Default.(func() uuid.UUID)
 	// userDescPasswordResetAt is the schema descriptor for password_reset_at field.
-	userDescPasswordResetAt := userFields[8].Descriptor()
+	userDescPasswordResetAt := userFields[9].Descriptor()
 	// user.DefaultPasswordResetAt holds the default value on creation for the password_reset_at field.
 	user.DefaultPasswordResetAt = userDescPasswordResetAt.Default.(func() time.Time)
 	// userDescActive is the schema descriptor for active field.
-	userDescActive := userFields[9].Descriptor()
+	userDescActive := userFields[10].Descriptor()
 	// user.DefaultActive holds the default value on creation for the active field.
 	user.DefaultActive = userDescActive.Default.(bool)
 	// userDescID is the schema descriptor for id field.

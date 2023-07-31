@@ -4,6 +4,7 @@ export interface User {
   id: string;
   firstName: string;
   lastName: string;
+  copyrightTag: string;
   email: string;
   emailValidated: boolean;
   active: boolean;
@@ -25,6 +26,7 @@ export interface Role {
 export interface UpdateUserInput {
   firstName?: string;
   lastName?: string;
+  copyrightTag?: string;
   active?: boolean;
   emailValidated?: boolean;
   password?: string;

@@ -71,6 +71,12 @@ func (uc *UserCreate) SetEmail(s string) *UserCreate {
 	return uc
 }
 
+// SetCopyrightTag sets the "copyright_tag" field.
+func (uc *UserCreate) SetCopyrightTag(s string) *UserCreate {
+	uc.mutation.SetCopyrightTag(s)
+	return uc
+}
+
 // SetEmailValidated sets the "email_validated" field.
 func (uc *UserCreate) SetEmailValidated(b bool) *UserCreate {
 	uc.mutation.SetEmailValidated(b)
@@ -412,6 +418,14 @@ func (uc *UserCreate) check() error {
 			return &ValidationError{Name: "email", err: fmt.Errorf(`ent: validator failed for field "User.email": %w`, err)}
 		}
 	}
+	if _, ok := uc.mutation.CopyrightTag(); !ok {
+		return &ValidationError{Name: "copyright_tag", err: errors.New(`ent: missing required field "User.copyright_tag"`)}
+	}
+	if v, ok := uc.mutation.CopyrightTag(); ok {
+		if err := user.CopyrightTagValidator(v); err != nil {
+			return &ValidationError{Name: "copyright_tag", err: fmt.Errorf(`ent: validator failed for field "User.copyright_tag": %w`, err)}
+		}
+	}
 	if _, ok := uc.mutation.EmailValidated(); !ok {
 		return &ValidationError{Name: "email_validated", err: errors.New(`ent: missing required field "User.email_validated"`)}
 	}
@@ -492,6 +506,10 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := uc.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 		_node.Email = value
+	}
+	if value, ok := uc.mutation.CopyrightTag(); ok {
+		_spec.SetField(user.FieldCopyrightTag, field.TypeString, value)
+		_node.CopyrightTag = value
 	}
 	if value, ok := uc.mutation.EmailValidated(); ok {
 		_spec.SetField(user.FieldEmailValidated, field.TypeBool, value)

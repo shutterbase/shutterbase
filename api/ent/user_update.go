@@ -51,6 +51,12 @@ func (uu *UserUpdate) SetLastName(s string) *UserUpdate {
 	return uu
 }
 
+// SetCopyrightTag sets the "copyright_tag" field.
+func (uu *UserUpdate) SetCopyrightTag(s string) *UserUpdate {
+	uu.mutation.SetCopyrightTag(s)
+	return uu
+}
+
 // SetEmailValidated sets the "email_validated" field.
 func (uu *UserUpdate) SetEmailValidated(b bool) *UserUpdate {
 	uu.mutation.SetEmailValidated(b)
@@ -449,6 +455,11 @@ func (uu *UserUpdate) check() error {
 			return &ValidationError{Name: "last_name", err: fmt.Errorf(`ent: validator failed for field "User.last_name": %w`, err)}
 		}
 	}
+	if v, ok := uu.mutation.CopyrightTag(); ok {
+		if err := user.CopyrightTagValidator(v); err != nil {
+			return &ValidationError{Name: "copyright_tag", err: fmt.Errorf(`ent: validator failed for field "User.copyright_tag": %w`, err)}
+		}
+	}
 	if v, ok := uu.mutation.Password(); ok {
 		if err := user.PasswordValidator(v); err != nil {
 			return &ValidationError{Name: "password", err: fmt.Errorf(`ent: validator failed for field "User.password": %w`, err)}
@@ -477,6 +488,9 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := uu.mutation.LastName(); ok {
 		_spec.SetField(user.FieldLastName, field.TypeString, value)
+	}
+	if value, ok := uu.mutation.CopyrightTag(); ok {
+		_spec.SetField(user.FieldCopyrightTag, field.TypeString, value)
 	}
 	if value, ok := uu.mutation.EmailValidated(); ok {
 		_spec.SetField(user.FieldEmailValidated, field.TypeBool, value)
@@ -846,6 +860,12 @@ func (uuo *UserUpdateOne) SetFirstName(s string) *UserUpdateOne {
 // SetLastName sets the "last_name" field.
 func (uuo *UserUpdateOne) SetLastName(s string) *UserUpdateOne {
 	uuo.mutation.SetLastName(s)
+	return uuo
+}
+
+// SetCopyrightTag sets the "copyright_tag" field.
+func (uuo *UserUpdateOne) SetCopyrightTag(s string) *UserUpdateOne {
+	uuo.mutation.SetCopyrightTag(s)
 	return uuo
 }
 
@@ -1260,6 +1280,11 @@ func (uuo *UserUpdateOne) check() error {
 			return &ValidationError{Name: "last_name", err: fmt.Errorf(`ent: validator failed for field "User.last_name": %w`, err)}
 		}
 	}
+	if v, ok := uuo.mutation.CopyrightTag(); ok {
+		if err := user.CopyrightTagValidator(v); err != nil {
+			return &ValidationError{Name: "copyright_tag", err: fmt.Errorf(`ent: validator failed for field "User.copyright_tag": %w`, err)}
+		}
+	}
 	if v, ok := uuo.mutation.Password(); ok {
 		if err := user.PasswordValidator(v); err != nil {
 			return &ValidationError{Name: "password", err: fmt.Errorf(`ent: validator failed for field "User.password": %w`, err)}
@@ -1305,6 +1330,9 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 	}
 	if value, ok := uuo.mutation.LastName(); ok {
 		_spec.SetField(user.FieldLastName, field.TypeString, value)
+	}
+	if value, ok := uuo.mutation.CopyrightTag(); ok {
+		_spec.SetField(user.FieldCopyrightTag, field.TypeString, value)
 	}
 	if value, ok := uuo.mutation.EmailValidated(); ok {
 		_spec.SetField(user.FieldEmailValidated, field.TypeBool, value)

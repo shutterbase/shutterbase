@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,6 +32,7 @@ func registerUsersController(router *gin.Engine) {
 type EditUserBody struct {
 	FirstName      *string `json:"firstName,omitempty"`
 	LastName       *string `json:"lastName,omitempty"`
+	CopyrightTag   *string `json:"copyrightTag,omitempty"`
 	Password       *string `json:"password,omitempty"`
 	Active         *bool   `json:"active,omitempty"`
 	Role           *string `json:"role,omitempty"`
@@ -42,10 +44,11 @@ type EditUserRoleBody struct {
 }
 
 type CreateUserBody struct {
-	FirstName string `json:"firstName" binding:"required"`
-	LastName  string `json:"lastName" binding:"required"`
-	Email     string `json:"email" binding:"required"`
-	Password  string `json:"password" binding:"required"`
+	FirstName    string  `json:"firstName" binding:"required"`
+	LastName     string  `json:"lastName" binding:"required"`
+	CopyrightTag *string `json:"copyrightTag,omitempty"`
+	Email        string  `json:"email" binding:"required"`
+	Password     string  `json:"password" binding:"required"`
 }
 
 func getOwnUserController(c *gin.Context) {
@@ -185,6 +188,9 @@ func updateUserController(c *gin.Context) {
 	}
 	if body.LastName != nil {
 		query.SetLastName(*body.LastName)
+	}
+	if body.CopyrightTag != nil {
+		query.SetCopyrightTag(strings.ToLower(*body.CopyrightTag))
 	}
 
 	if body.Active != nil {

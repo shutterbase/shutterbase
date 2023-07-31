@@ -81,6 +81,11 @@ func Email(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldEmail, v))
 }
 
+// CopyrightTag applies equality check predicate on the "copyright_tag" field. It's identical to CopyrightTagEQ.
+func CopyrightTag(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldCopyrightTag, v))
+}
+
 // EmailValidated applies equality check predicate on the "email_validated" field. It's identical to EmailValidatedEQ.
 func EmailValidated(v bool) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldEmailValidated, v))
@@ -389,6 +394,71 @@ func EmailEqualFold(v string) predicate.User {
 // EmailContainsFold applies the ContainsFold predicate on the "email" field.
 func EmailContainsFold(v string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldEmail, v))
+}
+
+// CopyrightTagEQ applies the EQ predicate on the "copyright_tag" field.
+func CopyrightTagEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldCopyrightTag, v))
+}
+
+// CopyrightTagNEQ applies the NEQ predicate on the "copyright_tag" field.
+func CopyrightTagNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldCopyrightTag, v))
+}
+
+// CopyrightTagIn applies the In predicate on the "copyright_tag" field.
+func CopyrightTagIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldCopyrightTag, vs...))
+}
+
+// CopyrightTagNotIn applies the NotIn predicate on the "copyright_tag" field.
+func CopyrightTagNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldCopyrightTag, vs...))
+}
+
+// CopyrightTagGT applies the GT predicate on the "copyright_tag" field.
+func CopyrightTagGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldCopyrightTag, v))
+}
+
+// CopyrightTagGTE applies the GTE predicate on the "copyright_tag" field.
+func CopyrightTagGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldCopyrightTag, v))
+}
+
+// CopyrightTagLT applies the LT predicate on the "copyright_tag" field.
+func CopyrightTagLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldCopyrightTag, v))
+}
+
+// CopyrightTagLTE applies the LTE predicate on the "copyright_tag" field.
+func CopyrightTagLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldCopyrightTag, v))
+}
+
+// CopyrightTagContains applies the Contains predicate on the "copyright_tag" field.
+func CopyrightTagContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldCopyrightTag, v))
+}
+
+// CopyrightTagHasPrefix applies the HasPrefix predicate on the "copyright_tag" field.
+func CopyrightTagHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldCopyrightTag, v))
+}
+
+// CopyrightTagHasSuffix applies the HasSuffix predicate on the "copyright_tag" field.
+func CopyrightTagHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldCopyrightTag, v))
+}
+
+// CopyrightTagEqualFold applies the EqualFold predicate on the "copyright_tag" field.
+func CopyrightTagEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldCopyrightTag, v))
+}
+
+// CopyrightTagContainsFold applies the ContainsFold predicate on the "copyright_tag" field.
+func CopyrightTagContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldCopyrightTag, v))
 }
 
 // EmailValidatedEQ applies the EQ predicate on the "email_validated" field.

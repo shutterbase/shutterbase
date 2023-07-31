@@ -38,12 +38,6 @@ func (itu *ImageTagUpdate) SetUpdatedAt(t time.Time) *ImageTagUpdate {
 	return itu
 }
 
-// SetName sets the "name" field.
-func (itu *ImageTagUpdate) SetName(s string) *ImageTagUpdate {
-	itu.mutation.SetName(s)
-	return itu
-}
-
 // SetDescription sets the "description" field.
 func (itu *ImageTagUpdate) SetDescription(s string) *ImageTagUpdate {
 	itu.mutation.SetDescription(s)
@@ -218,11 +212,6 @@ func (itu *ImageTagUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (itu *ImageTagUpdate) check() error {
-	if v, ok := itu.mutation.Name(); ok {
-		if err := imagetag.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "ImageTag.name": %w`, err)}
-		}
-	}
 	if v, ok := itu.mutation.Description(); ok {
 		if err := imagetag.DescriptionValidator(v); err != nil {
 			return &ValidationError{Name: "description", err: fmt.Errorf(`ent: validator failed for field "ImageTag.description": %w`, err)}
@@ -245,9 +234,6 @@ func (itu *ImageTagUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := itu.mutation.UpdatedAt(); ok {
 		_spec.SetField(imagetag.FieldUpdatedAt, field.TypeTime, value)
-	}
-	if value, ok := itu.mutation.Name(); ok {
-		_spec.SetField(imagetag.FieldName, field.TypeString, value)
 	}
 	if value, ok := itu.mutation.Description(); ok {
 		_spec.SetField(imagetag.FieldDescription, field.TypeString, value)
@@ -410,12 +396,6 @@ type ImageTagUpdateOne struct {
 // SetUpdatedAt sets the "updated_at" field.
 func (ituo *ImageTagUpdateOne) SetUpdatedAt(t time.Time) *ImageTagUpdateOne {
 	ituo.mutation.SetUpdatedAt(t)
-	return ituo
-}
-
-// SetName sets the "name" field.
-func (ituo *ImageTagUpdateOne) SetName(s string) *ImageTagUpdateOne {
-	ituo.mutation.SetName(s)
 	return ituo
 }
 
@@ -606,11 +586,6 @@ func (ituo *ImageTagUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (ituo *ImageTagUpdateOne) check() error {
-	if v, ok := ituo.mutation.Name(); ok {
-		if err := imagetag.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "ImageTag.name": %w`, err)}
-		}
-	}
 	if v, ok := ituo.mutation.Description(); ok {
 		if err := imagetag.DescriptionValidator(v); err != nil {
 			return &ValidationError{Name: "description", err: fmt.Errorf(`ent: validator failed for field "ImageTag.description": %w`, err)}
@@ -650,9 +625,6 @@ func (ituo *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, er
 	}
 	if value, ok := ituo.mutation.UpdatedAt(); ok {
 		_spec.SetField(imagetag.FieldUpdatedAt, field.TypeTime, value)
-	}
-	if value, ok := ituo.mutation.Name(); ok {
-		_spec.SetField(imagetag.FieldName, field.TypeString, value)
 	}
 	if value, ok := ituo.mutation.Description(); ok {
 		_spec.SetField(imagetag.FieldDescription, field.TypeString, value)

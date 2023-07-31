@@ -48,6 +48,19 @@ func GetImageTag(ctx context.Context, id uuid.UUID) (*ent.ImageTag, error) {
 	return item, err
 }
 
+func ImageTagExists(ctx context.Context, projectId uuid.UUID, name string) (bool, error) {
+	count, err := databaseClient.ImageTag.Query().
+		Where(
+			imagetag.HasProjectWith(project.ID(projectId)),
+			imagetag.NameEQ(name),
+		).
+		Count(ctx)
+	if err != nil {
+		log.Info().Err(err).Msg("Error checking if image tag exists")
+	}
+	return count > 0, err
+}
+
 func DeleteImageTag(ctx context.Context, id uuid.UUID) error {
 	err := databaseClient.ImageTag.DeleteOneID(id).Exec(ctx)
 	if err != nil {
