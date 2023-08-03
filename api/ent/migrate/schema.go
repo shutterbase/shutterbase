@@ -8,6 +8,42 @@ import (
 )
 
 var (
+	// BatchesColumns holds the columns for the "batches" table.
+	BatchesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "name", Type: field.TypeString},
+		{Name: "batch_project", Type: field.TypeUUID},
+		{Name: "batch_created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "batch_updated_by", Type: field.TypeUUID, Nullable: true},
+	}
+	// BatchesTable holds the schema information for the "batches" table.
+	BatchesTable = &schema.Table{
+		Name:       "batches",
+		Columns:    BatchesColumns,
+		PrimaryKey: []*schema.Column{BatchesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "batches_projects_project",
+				Columns:    []*schema.Column{BatchesColumns[4]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "batches_users_created_by",
+				Columns:    []*schema.Column{BatchesColumns[5]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "batches_users_updated_by",
+				Columns:    []*schema.Column{BatchesColumns[6]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
 	// CamerasColumns holds the columns for the "cameras" table.
 	CamerasColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -50,10 +86,12 @@ var (
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "updated_at", Type: field.TypeTime},
-		{Name: "fileName", Type: field.TypeString},
+		{Name: "thumbnail_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "file_name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString, Default: ""},
 		{Name: "exif_data", Type: field.TypeJSON},
 		{Name: "image_user", Type: field.TypeUUID},
+		{Name: "image_batch", Type: field.TypeUUID},
 		{Name: "image_project", Type: field.TypeUUID},
 		{Name: "image_camera", Type: field.TypeUUID},
 		{Name: "image_created_by", Type: field.TypeUUID, Nullable: true},
@@ -67,31 +105,37 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "images_users_user",
-				Columns:    []*schema.Column{ImagesColumns[6]},
+				Columns:    []*schema.Column{ImagesColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
+				Symbol:     "images_batches_batch",
+				Columns:    []*schema.Column{ImagesColumns[8]},
+				RefColumns: []*schema.Column{BatchesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
 				Symbol:     "images_projects_project",
-				Columns:    []*schema.Column{ImagesColumns[7]},
+				Columns:    []*schema.Column{ImagesColumns[9]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_cameras_camera",
-				Columns:    []*schema.Column{ImagesColumns[8]},
+				Columns:    []*schema.Column{ImagesColumns[10]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_users_created_by",
-				Columns:    []*schema.Column{ImagesColumns[9]},
+				Columns:    []*schema.Column{ImagesColumns[11]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "images_users_updated_by",
-				Columns:    []*schema.Column{ImagesColumns[10]},
+				Columns:    []*schema.Column{ImagesColumns[12]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -339,6 +383,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		BatchesTable,
 		CamerasTable,
 		ImagesTable,
 		ImageTagsTable,
@@ -352,14 +397,18 @@ var (
 )
 
 func init() {
+	BatchesTable.ForeignKeys[0].RefTable = ProjectsTable
+	BatchesTable.ForeignKeys[1].RefTable = UsersTable
+	BatchesTable.ForeignKeys[2].RefTable = UsersTable
 	CamerasTable.ForeignKeys[0].RefTable = UsersTable
 	CamerasTable.ForeignKeys[1].RefTable = UsersTable
 	CamerasTable.ForeignKeys[2].RefTable = UsersTable
 	ImagesTable.ForeignKeys[0].RefTable = UsersTable
-	ImagesTable.ForeignKeys[1].RefTable = ProjectsTable
-	ImagesTable.ForeignKeys[2].RefTable = CamerasTable
-	ImagesTable.ForeignKeys[3].RefTable = UsersTable
+	ImagesTable.ForeignKeys[1].RefTable = BatchesTable
+	ImagesTable.ForeignKeys[2].RefTable = ProjectsTable
+	ImagesTable.ForeignKeys[3].RefTable = CamerasTable
 	ImagesTable.ForeignKeys[4].RefTable = UsersTable
+	ImagesTable.ForeignKeys[5].RefTable = UsersTable
 	ImageTagsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ImageTagsTable.ForeignKeys[1].RefTable = UsersTable
 	ImageTagsTable.ForeignKeys[2].RefTable = UsersTable

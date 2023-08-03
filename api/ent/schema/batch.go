@@ -2,33 +2,31 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
 
-type Project struct {
+type Batch struct {
 	ent.Schema
 }
 
-func (Project) Fields() []ent.Field {
+func (Batch) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty(),
-		field.String("description").NotEmpty(),
 	}
 }
 
-func (Project) Mixin() []ent.Mixin {
+func (Batch) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		DefaultMixin{},
 	}
 }
 
-func (Project) Edges() []ent.Edge {
+func (Batch) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("assignments", ProjectAssignment.Type).Ref("project"),
-		edge.From("images", Image.Type).Ref("project"),
-		edge.From("batches", Batch.Type).Ref("project"),
-		edge.From("tags", ImageTag.Type).Ref("project"),
+		edge.From("images", Image.Type).Ref("batch"),
+		edge.To("project", Project.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`),
 		edge.To("updated_by", User.Type).Unique().StructTag(`json:"updatedBy"`),
 	}

@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/project"
@@ -26,8 +27,10 @@ type Image struct {
 	CreatedAt time.Time `json:"createdAt"`
 	// UpdatedAt holds the value of the "updated_at" field.
 	UpdatedAt time.Time `json:"updatedAt"`
+	// ThumbnailID holds the value of the "thumbnail_id" field.
+	ThumbnailID uuid.UUID `json:"thumbnailId"`
 	// FileName holds the value of the "file_name" field.
-	FileName string `json:"file_name,omitempty"`
+	FileName string `json:"fileName"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
 	// ExifData holds the value of the "exif_data" field.
@@ -36,6 +39,7 @@ type Image struct {
 	// The values are being populated by the ImageQuery when eager-loading is set.
 	Edges            ImageEdges `json:"edges"`
 	image_user       *uuid.UUID
+	image_batch      *uuid.UUID
 	image_project    *uuid.UUID
 	image_camera     *uuid.UUID
 	image_created_by *uuid.UUID
@@ -49,6 +53,8 @@ type ImageEdges struct {
 	Tags []*ImageTag `json:"tags,omitempty"`
 	// User holds the value of the user edge.
 	User *User `json:"user,omitempty"`
+	// Batch holds the value of the batch edge.
+	Batch *Batch `json:"batch,omitempty"`
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
 	// Camera holds the value of the camera edge.
@@ -59,7 +65,7 @@ type ImageEdges struct {
 	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // TagsOrErr returns the Tags value or an error if the edge
@@ -84,10 +90,23 @@ func (e ImageEdges) UserOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "user"}
 }
 
+// BatchOrErr returns the Batch value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e ImageEdges) BatchOrErr() (*Batch, error) {
+	if e.loadedTypes[2] {
+		if e.Batch == nil {
+			// Edge was loaded but was not found.
+			return nil, &NotFoundError{label: batch.Label}
+		}
+		return e.Batch, nil
+	}
+	return nil, &NotLoadedError{edge: "batch"}
+}
+
 // ProjectOrErr returns the Project value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ImageEdges) ProjectOrErr() (*Project, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		if e.Project == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: project.Label}
@@ -100,7 +119,7 @@ func (e ImageEdges) ProjectOrErr() (*Project, error) {
 // CameraOrErr returns the Camera value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ImageEdges) CameraOrErr() (*Camera, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		if e.Camera == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: camera.Label}
@@ -113,7 +132,7 @@ func (e ImageEdges) CameraOrErr() (*Camera, error) {
 // CreatedByOrErr returns the CreatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ImageEdges) CreatedByOrErr() (*User, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		if e.CreatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -126,7 +145,7 @@ func (e ImageEdges) CreatedByOrErr() (*User, error) {
 // UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ImageEdges) UpdatedByOrErr() (*User, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -147,17 +166,19 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case image.FieldCreatedAt, image.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case image.FieldID:
+		case image.FieldID, image.FieldThumbnailID:
 			values[i] = new(uuid.UUID)
 		case image.ForeignKeys[0]: // image_user
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case image.ForeignKeys[1]: // image_project
+		case image.ForeignKeys[1]: // image_batch
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case image.ForeignKeys[2]: // image_camera
+		case image.ForeignKeys[2]: // image_project
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case image.ForeignKeys[3]: // image_created_by
+		case image.ForeignKeys[3]: // image_camera
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case image.ForeignKeys[4]: // image_updated_by
+		case image.ForeignKeys[4]: // image_created_by
+			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case image.ForeignKeys[5]: // image_updated_by
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		default:
 			values[i] = new(sql.UnknownType)
@@ -192,6 +213,12 @@ func (i *Image) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				i.UpdatedAt = value.Time
 			}
+		case image.FieldThumbnailID:
+			if value, ok := values[j].(*uuid.UUID); !ok {
+				return fmt.Errorf("unexpected type %T for field thumbnail_id", values[j])
+			} else if value != nil {
+				i.ThumbnailID = *value
+			}
 		case image.FieldFileName:
 			if value, ok := values[j].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field file_name", values[j])
@@ -221,26 +248,33 @@ func (i *Image) assignValues(columns []string, values []any) error {
 			}
 		case image.ForeignKeys[1]:
 			if value, ok := values[j].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field image_batch", values[j])
+			} else if value.Valid {
+				i.image_batch = new(uuid.UUID)
+				*i.image_batch = *value.S.(*uuid.UUID)
+			}
+		case image.ForeignKeys[2]:
+			if value, ok := values[j].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field image_project", values[j])
 			} else if value.Valid {
 				i.image_project = new(uuid.UUID)
 				*i.image_project = *value.S.(*uuid.UUID)
 			}
-		case image.ForeignKeys[2]:
+		case image.ForeignKeys[3]:
 			if value, ok := values[j].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field image_camera", values[j])
 			} else if value.Valid {
 				i.image_camera = new(uuid.UUID)
 				*i.image_camera = *value.S.(*uuid.UUID)
 			}
-		case image.ForeignKeys[3]:
+		case image.ForeignKeys[4]:
 			if value, ok := values[j].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field image_created_by", values[j])
 			} else if value.Valid {
 				i.image_created_by = new(uuid.UUID)
 				*i.image_created_by = *value.S.(*uuid.UUID)
 			}
-		case image.ForeignKeys[4]:
+		case image.ForeignKeys[5]:
 			if value, ok := values[j].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field image_updated_by", values[j])
 			} else if value.Valid {
@@ -268,6 +302,11 @@ func (i *Image) QueryTags() *ImageTagQuery {
 // QueryUser queries the "user" edge of the Image entity.
 func (i *Image) QueryUser() *UserQuery {
 	return NewImageClient(i.config).QueryUser(i)
+}
+
+// QueryBatch queries the "batch" edge of the Image entity.
+func (i *Image) QueryBatch() *BatchQuery {
+	return NewImageClient(i.config).QueryBatch(i)
 }
 
 // QueryProject queries the "project" edge of the Image entity.
@@ -318,6 +357,9 @@ func (i *Image) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("updated_at=")
 	builder.WriteString(i.UpdatedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("thumbnail_id=")
+	builder.WriteString(fmt.Sprintf("%v", i.ThumbnailID))
 	builder.WriteString(", ")
 	builder.WriteString("file_name=")
 	builder.WriteString(i.FileName)

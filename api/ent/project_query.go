@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/predicate"
@@ -29,6 +30,7 @@ type ProjectQuery struct {
 	predicates      []predicate.Project
 	withAssignments *ProjectAssignmentQuery
 	withImages      *ImageQuery
+	withBatches     *BatchQuery
 	withTags        *ImageTagQuery
 	withCreatedBy   *UserQuery
 	withUpdatedBy   *UserQuery
@@ -106,6 +108,28 @@ func (pq *ProjectQuery) QueryImages() *ImageQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(image.Table, image.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, project.ImagesTable, project.ImagesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryBatches chains the current query on the "batches" edge.
+func (pq *ProjectQuery) QueryBatches() *BatchQuery {
+	query := (&BatchClient{config: pq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := pq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := pq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(batch.Table, batch.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, project.BatchesTable, project.BatchesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(pq.driver.Dialect(), step)
 		return fromU, nil
@@ -373,6 +397,7 @@ func (pq *ProjectQuery) Clone() *ProjectQuery {
 		predicates:      append([]predicate.Project{}, pq.predicates...),
 		withAssignments: pq.withAssignments.Clone(),
 		withImages:      pq.withImages.Clone(),
+		withBatches:     pq.withBatches.Clone(),
 		withTags:        pq.withTags.Clone(),
 		withCreatedBy:   pq.withCreatedBy.Clone(),
 		withUpdatedBy:   pq.withUpdatedBy.Clone(),
@@ -401,6 +426,17 @@ func (pq *ProjectQuery) WithImages(opts ...func(*ImageQuery)) *ProjectQuery {
 		opt(query)
 	}
 	pq.withImages = query
+	return pq
+}
+
+// WithBatches tells the query-builder to eager-load the nodes that are connected to
+// the "batches" edge. The optional arguments are used to configure the query builder of the edge.
+func (pq *ProjectQuery) WithBatches(opts ...func(*BatchQuery)) *ProjectQuery {
+	query := (&BatchClient{config: pq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	pq.withBatches = query
 	return pq
 }
 
@@ -516,9 +552,10 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		nodes       = []*Project{}
 		withFKs     = pq.withFKs
 		_spec       = pq.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			pq.withAssignments != nil,
 			pq.withImages != nil,
+			pq.withBatches != nil,
 			pq.withTags != nil,
 			pq.withCreatedBy != nil,
 			pq.withUpdatedBy != nil,
@@ -559,6 +596,13 @@ func (pq *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := pq.loadImages(ctx, query, nodes,
 			func(n *Project) { n.Edges.Images = []*Image{} },
 			func(n *Project, e *Image) { n.Edges.Images = append(n.Edges.Images, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := pq.withBatches; query != nil {
+		if err := pq.loadBatches(ctx, query, nodes,
+			func(n *Project) { n.Edges.Batches = []*Batch{} },
+			func(n *Project, e *Batch) { n.Edges.Batches = append(n.Edges.Batches, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -641,6 +685,37 @@ func (pq *ProjectQuery) loadImages(ctx context.Context, query *ImageQuery, nodes
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "image_project" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (pq *ProjectQuery) loadBatches(ctx context.Context, query *BatchQuery, nodes []*Project, init func(*Project), assign func(*Project, *Batch)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.Batch(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.BatchesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.batch_project
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "batch_project" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "batch_project" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

@@ -66,6 +66,11 @@ func UpdatedAt(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
+// ThumbnailID applies equality check predicate on the "thumbnail_id" field. It's identical to ThumbnailIDEQ.
+func ThumbnailID(v uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldThumbnailID, v))
+}
+
 // FileName applies equality check predicate on the "file_name" field. It's identical to FileNameEQ.
 func FileName(v string) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldFileName, v))
@@ -154,6 +159,56 @@ func UpdatedAtLT(v time.Time) predicate.Image {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// ThumbnailIDEQ applies the EQ predicate on the "thumbnail_id" field.
+func ThumbnailIDEQ(v uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldThumbnailID, v))
+}
+
+// ThumbnailIDNEQ applies the NEQ predicate on the "thumbnail_id" field.
+func ThumbnailIDNEQ(v uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldThumbnailID, v))
+}
+
+// ThumbnailIDIn applies the In predicate on the "thumbnail_id" field.
+func ThumbnailIDIn(vs ...uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldThumbnailID, vs...))
+}
+
+// ThumbnailIDNotIn applies the NotIn predicate on the "thumbnail_id" field.
+func ThumbnailIDNotIn(vs ...uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldThumbnailID, vs...))
+}
+
+// ThumbnailIDGT applies the GT predicate on the "thumbnail_id" field.
+func ThumbnailIDGT(v uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldThumbnailID, v))
+}
+
+// ThumbnailIDGTE applies the GTE predicate on the "thumbnail_id" field.
+func ThumbnailIDGTE(v uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldThumbnailID, v))
+}
+
+// ThumbnailIDLT applies the LT predicate on the "thumbnail_id" field.
+func ThumbnailIDLT(v uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldThumbnailID, v))
+}
+
+// ThumbnailIDLTE applies the LTE predicate on the "thumbnail_id" field.
+func ThumbnailIDLTE(v uuid.UUID) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldThumbnailID, v))
+}
+
+// ThumbnailIDIsNil applies the IsNil predicate on the "thumbnail_id" field.
+func ThumbnailIDIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldThumbnailID))
+}
+
+// ThumbnailIDNotNil applies the NotNil predicate on the "thumbnail_id" field.
+func ThumbnailIDNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldThumbnailID))
 }
 
 // FileNameEQ applies the EQ predicate on the "file_name" field.
@@ -324,6 +379,29 @@ func HasUser() predicate.Image {
 func HasUserWith(preds ...predicate.User) predicate.Image {
 	return predicate.Image(func(s *sql.Selector) {
 		step := newUserStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasBatch applies the HasEdge predicate on the "batch" edge.
+func HasBatch() predicate.Image {
+	return predicate.Image(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, BatchTable, BatchColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasBatchWith applies the HasEdge predicate on the "batch" edge with a given conditions (other predicates).
+func HasBatchWith(preds ...predicate.Batch) predicate.Image {
+	return predicate.Image(func(s *sql.Selector) {
+		step := newBatchStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

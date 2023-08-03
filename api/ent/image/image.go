@@ -19,8 +19,10 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// FieldThumbnailID holds the string denoting the thumbnail_id field in the database.
+	FieldThumbnailID = "thumbnail_id"
 	// FieldFileName holds the string denoting the file_name field in the database.
-	FieldFileName = "fileName"
+	FieldFileName = "file_name"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
 	// FieldExifData holds the string denoting the exif_data field in the database.
@@ -29,6 +31,8 @@ const (
 	EdgeTags = "tags"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
+	// EdgeBatch holds the string denoting the batch edge name in mutations.
+	EdgeBatch = "batch"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
 	// EdgeCamera holds the string denoting the camera edge name in mutations.
@@ -51,6 +55,13 @@ const (
 	UserInverseTable = "users"
 	// UserColumn is the table column denoting the user relation/edge.
 	UserColumn = "image_user"
+	// BatchTable is the table that holds the batch relation/edge.
+	BatchTable = "images"
+	// BatchInverseTable is the table name for the Batch entity.
+	// It exists in this package in order to avoid circular dependency with the "batch" package.
+	BatchInverseTable = "batches"
+	// BatchColumn is the table column denoting the batch relation/edge.
+	BatchColumn = "image_batch"
 	// ProjectTable is the table that holds the project relation/edge.
 	ProjectTable = "images"
 	// ProjectInverseTable is the table name for the Project entity.
@@ -86,6 +97,7 @@ var Columns = []string{
 	FieldID,
 	FieldCreatedAt,
 	FieldUpdatedAt,
+	FieldThumbnailID,
 	FieldFileName,
 	FieldDescription,
 	FieldExifData,
@@ -95,6 +107,7 @@ var Columns = []string{
 // table and are not defined as standalone fields in the schema.
 var ForeignKeys = []string{
 	"image_user",
+	"image_batch",
 	"image_project",
 	"image_camera",
 	"image_created_by",
@@ -157,6 +170,11 @@ func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
 }
 
+// ByThumbnailID orders the results by the thumbnail_id field.
+func ByThumbnailID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldThumbnailID, opts...).ToFunc()
+}
+
 // ByFileName orders the results by the file_name field.
 func ByFileName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFileName, opts...).ToFunc()
@@ -185,6 +203,13 @@ func ByTags(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 func ByUserField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newUserStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByBatchField orders the results by batch field.
+func ByBatchField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newBatchStep(), sql.OrderByField(field, opts...))
 	}
 }
 
@@ -227,6 +252,13 @@ func newUserStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UserInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, UserTable, UserColumn),
+	)
+}
+func newBatchStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(BatchInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, BatchTable, BatchColumn),
 	)
 }
 func newProjectStep() *sqlgraph.Step {

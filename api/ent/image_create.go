@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -49,6 +50,20 @@ func (ic *ImageCreate) SetUpdatedAt(t time.Time) *ImageCreate {
 func (ic *ImageCreate) SetNillableUpdatedAt(t *time.Time) *ImageCreate {
 	if t != nil {
 		ic.SetUpdatedAt(*t)
+	}
+	return ic
+}
+
+// SetThumbnailID sets the "thumbnail_id" field.
+func (ic *ImageCreate) SetThumbnailID(u uuid.UUID) *ImageCreate {
+	ic.mutation.SetThumbnailID(u)
+	return ic
+}
+
+// SetNillableThumbnailID sets the "thumbnail_id" field if the given value is not nil.
+func (ic *ImageCreate) SetNillableThumbnailID(u *uuid.UUID) *ImageCreate {
+	if u != nil {
+		ic.SetThumbnailID(*u)
 	}
 	return ic
 }
@@ -117,6 +132,17 @@ func (ic *ImageCreate) SetUserID(id uuid.UUID) *ImageCreate {
 // SetUser sets the "user" edge to the User entity.
 func (ic *ImageCreate) SetUser(u *User) *ImageCreate {
 	return ic.SetUserID(u.ID)
+}
+
+// SetBatchID sets the "batch" edge to the Batch entity by ID.
+func (ic *ImageCreate) SetBatchID(id uuid.UUID) *ImageCreate {
+	ic.mutation.SetBatchID(id)
+	return ic
+}
+
+// SetBatch sets the "batch" edge to the Batch entity.
+func (ic *ImageCreate) SetBatch(b *Batch) *ImageCreate {
+	return ic.SetBatchID(b.ID)
 }
 
 // SetProjectID sets the "project" edge to the Project entity by ID.
@@ -261,6 +287,9 @@ func (ic *ImageCreate) check() error {
 	if _, ok := ic.mutation.UserID(); !ok {
 		return &ValidationError{Name: "user", err: errors.New(`ent: missing required edge "Image.user"`)}
 	}
+	if _, ok := ic.mutation.BatchID(); !ok {
+		return &ValidationError{Name: "batch", err: errors.New(`ent: missing required edge "Image.batch"`)}
+	}
 	if _, ok := ic.mutation.ProjectID(); !ok {
 		return &ValidationError{Name: "project", err: errors.New(`ent: missing required edge "Image.project"`)}
 	}
@@ -310,6 +339,10 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 		_spec.SetField(image.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
+	if value, ok := ic.mutation.ThumbnailID(); ok {
+		_spec.SetField(image.FieldThumbnailID, field.TypeUUID, value)
+		_node.ThumbnailID = value
+	}
 	if value, ok := ic.mutation.FileName(); ok {
 		_spec.SetField(image.FieldFileName, field.TypeString, value)
 		_node.FileName = value
@@ -353,6 +386,23 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.image_user = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := ic.mutation.BatchIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   image.BatchTable,
+			Columns: []string{image.BatchColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.image_batch = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := ic.mutation.ProjectIDs(); len(nodes) > 0 {

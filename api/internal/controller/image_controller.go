@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -15,17 +18,27 @@ import (
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/storage"
 	"github.com/shutterbase/shutterbase/internal/util"
+
+	"image"
+	"image/jpeg"
+	_ "image/jpeg"
+
+	"github.com/nfnt/resize"
 )
 
 const IMAGES_RESOURCE = "/projects/:pid/images"
 
+var THUMBNAIL_SIZE uint = 512
+
 func registerImagesController(router *gin.Engine) {
 	CONTEXT_PATH := config.Get().String("API_CONTEXT_PATH")
+	THUMBNAIL_SIZE = uint(config.Get().Int("THUMBNAIL_SIZE"))
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), createImageController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), getImagesController)
 	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, IMAGES_RESOURCE), getImageController)
 	router.GET(fmt.Sprintf("%s%s/:id/file", CONTEXT_PATH, IMAGES_RESOURCE), getImageFileController)
+	router.GET(fmt.Sprintf("%s%s/:id/thumb", CONTEXT_PATH, IMAGES_RESOURCE), getImageThumbController)
 	router.PUT(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, IMAGES_RESOURCE), updateImageController)
 	router.DELETE(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, IMAGES_RESOURCE), deleteImageController)
 }
@@ -73,6 +86,13 @@ func createImageController(c *gin.Context) {
 		return
 	}
 
+	batchId, err := uuid.Parse(c.Request.MultipartForm.Value["batchId"][0])
+	if err != nil {
+		log.Error().Err(err).Msg("failed to parse batch id for image creation")
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
 	camera, err := repository.GetCamera(ctx, cameraId)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -85,12 +105,25 @@ func createImageController(c *gin.Context) {
 		return
 	}
 
+	batch, err := repository.GetBatch(ctx, batchId)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			log.Error().Err(err).Msg("failed to find batch for image creation")
+			api_error.NOT_FOUND.Send(c)
+			return
+		}
+		log.Error().Err(err).Msg("failed to get batch for image creation")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
 	// TODO: check with dropzonejs if this is the correct way to handle multiple files
 	for _, value := range c.Request.MultipartForm.File {
 		itemId := uuid.New()
 		itemCreate := repository.GetDatabaseClient().Image.Create().
 			SetID(itemId).
 			SetProject(project).
+			SetBatch(batch).
 			SetFileName(value[0].Filename).
 			SetCamera(camera).
 			SetUser(userContext.User).
@@ -134,6 +167,33 @@ func createImageController(c *gin.Context) {
 			api_error.INTERNAL.Send(c)
 			return
 		}
+
+		go func() {
+			image, _, err := image.Decode(bytes.NewReader(data))
+			if err != nil {
+				log.Error().Err(err).Msg("failed to decode image for thumbnail creation")
+			}
+			newImage := resize.Resize(THUMBNAIL_SIZE, 0, image, resize.Lanczos3)
+			thumbnailBuffer := bytes.Buffer{}
+			thumbnailWriter := bufio.NewWriter(&thumbnailBuffer)
+			err = jpeg.Encode(thumbnailWriter, newImage, nil)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to encode image for thumbnail creation")
+				return
+			}
+			thumbnailId := uuid.New()
+			err = storage.PutFile(context.Background(), thumbnailId, thumbnailBuffer.Bytes())
+			if err != nil {
+				log.Error().Err(err).Msg("failed to save thumbnail for thumbnail creation")
+				return
+			}
+			_, err = repository.GetDatabaseClient().Image.UpdateOneID(itemId).SetThumbnailID(thumbnailId).Save(context.Background())
+			if err != nil {
+				log.Error().Err(err).Msg("failed to save thumbnail id for thumbnail creation")
+				return
+			}
+			log.Debug().Msgf("created thumbnail for image %s", itemId.String())
+		}()
 	}
 
 	c.Status(200)
@@ -312,6 +372,45 @@ func getImageFileController(c *gin.Context) {
 	c.Header("Cache-Control", "max-age=604800")
 	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
 	data, err := storage.GetFile(ctx, id)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image file")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	c.Data(200, "image/jpeg", *data)
+}
+
+func getImageThumbController(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to image denied")
+		api_error.FORBIDDEN.Send(c)
+		return
+	}
+
+	item, err := repository.GetImage(ctx, id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			api_error.NOT_FOUND.Send(c)
+		} else {
+			log.Error().Err(err).Msg("failed to get image for image file")
+			api_error.INTERNAL.Send(c)
+		}
+		return
+	}
+
+	c.Header("Cache-Control", "max-age=604800")
+	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
+	data, err := storage.GetFile(ctx, item.ThumbnailID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get image file")
 		api_error.INTERNAL.Send(c)

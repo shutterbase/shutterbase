@@ -93,6 +93,7 @@ func initConfig() {
 		config.String("INITIAL_ADMIN_PASSWORD").NotEmpty().Sensitive(),
 
 		config.Int("LRU_CACHE_SIZE").Default(1000),
+		config.Int("THUMBNAIL_SIZE").Default(512),
 	})
 	if err != nil {
 		panic(err)

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -29,6 +30,7 @@ type ImageQuery struct {
 	predicates    []predicate.Image
 	withTags      *ImageTagQuery
 	withUser      *UserQuery
+	withBatch     *BatchQuery
 	withProject   *ProjectQuery
 	withCamera    *CameraQuery
 	withCreatedBy *UserQuery
@@ -107,6 +109,28 @@ func (iq *ImageQuery) QueryUser() *UserQuery {
 			sqlgraph.From(image.Table, image.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, image.UserTable, image.UserColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(iq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryBatch chains the current query on the "batch" edge.
+func (iq *ImageQuery) QueryBatch() *BatchQuery {
+	query := (&BatchClient{config: iq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := iq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := iq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(image.Table, image.FieldID, selector),
+			sqlgraph.To(batch.Table, batch.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, image.BatchTable, image.BatchColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(iq.driver.Dialect(), step)
 		return fromU, nil
@@ -396,6 +420,7 @@ func (iq *ImageQuery) Clone() *ImageQuery {
 		predicates:    append([]predicate.Image{}, iq.predicates...),
 		withTags:      iq.withTags.Clone(),
 		withUser:      iq.withUser.Clone(),
+		withBatch:     iq.withBatch.Clone(),
 		withProject:   iq.withProject.Clone(),
 		withCamera:    iq.withCamera.Clone(),
 		withCreatedBy: iq.withCreatedBy.Clone(),
@@ -425,6 +450,17 @@ func (iq *ImageQuery) WithUser(opts ...func(*UserQuery)) *ImageQuery {
 		opt(query)
 	}
 	iq.withUser = query
+	return iq
+}
+
+// WithBatch tells the query-builder to eager-load the nodes that are connected to
+// the "batch" edge. The optional arguments are used to configure the query builder of the edge.
+func (iq *ImageQuery) WithBatch(opts ...func(*BatchQuery)) *ImageQuery {
+	query := (&BatchClient{config: iq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	iq.withBatch = query
 	return iq
 }
 
@@ -551,16 +587,17 @@ func (iq *ImageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Image,
 		nodes       = []*Image{}
 		withFKs     = iq.withFKs
 		_spec       = iq.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
 			iq.withTags != nil,
 			iq.withUser != nil,
+			iq.withBatch != nil,
 			iq.withProject != nil,
 			iq.withCamera != nil,
 			iq.withCreatedBy != nil,
 			iq.withUpdatedBy != nil,
 		}
 	)
-	if iq.withUser != nil || iq.withProject != nil || iq.withCamera != nil || iq.withCreatedBy != nil || iq.withUpdatedBy != nil {
+	if iq.withUser != nil || iq.withBatch != nil || iq.withProject != nil || iq.withCamera != nil || iq.withCreatedBy != nil || iq.withUpdatedBy != nil {
 		withFKs = true
 	}
 	if withFKs {
@@ -594,6 +631,12 @@ func (iq *ImageQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Image,
 	if query := iq.withUser; query != nil {
 		if err := iq.loadUser(ctx, query, nodes, nil,
 			func(n *Image, e *User) { n.Edges.User = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := iq.withBatch; query != nil {
+		if err := iq.loadBatch(ctx, query, nodes, nil,
+			func(n *Image, e *Batch) { n.Edges.Batch = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -710,6 +753,38 @@ func (iq *ImageQuery) loadUser(ctx context.Context, query *UserQuery, nodes []*I
 		nodes, ok := nodeids[n.ID]
 		if !ok {
 			return fmt.Errorf(`unexpected foreign-key "image_user" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (iq *ImageQuery) loadBatch(ctx context.Context, query *BatchQuery, nodes []*Image, init func(*Image), assign func(*Image, *Batch)) error {
+	ids := make([]uuid.UUID, 0, len(nodes))
+	nodeids := make(map[uuid.UUID][]*Image)
+	for i := range nodes {
+		if nodes[i].image_batch == nil {
+			continue
+		}
+		fk := *nodes[i].image_batch
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(batch.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "image_batch" returned %v`, n.ID)
 		}
 		for i := range nodes {
 			assign(nodes[i], n)

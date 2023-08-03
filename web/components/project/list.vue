@@ -7,12 +7,17 @@
           <tr>
             <th>Name</th>
             <th>Description</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in data?.items || []" :key="item.id" class="hover click hover:cursor-pointer" @click="toDetailPage(item.id)">
+          <tr v-for="item in data?.items || []" :key="item.id" class="hover">
             <td>{{ item.name }}</td>
             <td>{{ item.description }}</td>
+            <td>
+              <button class="btn btn-xs btn-secondary mr-2" @click="makeActiveProject(item.id)">Make active project</button>
+              <button class="btn btn-xs btn-secondary" @click="toDetailPage(item.id)">Edit</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -30,6 +35,9 @@
 import { ref } from "vue";
 import { Method, ListResult, API_BASE_URL } from "~/api/common";
 import { Project } from "~/api/project";
+
+const store = useStore();
+
 const limit = ref(5);
 const page = ref(1);
 const offset = computed(() => {
@@ -57,4 +65,8 @@ const toDetailPage = (id: string) => {
 const toCreatePage = () => {
   navigateTo(`/dashboard/projects/create`);
 };
+
+function makeActiveProject(id: string) {
+  store.activeProjectId = id;
+}
 </script>

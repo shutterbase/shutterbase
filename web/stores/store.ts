@@ -30,6 +30,9 @@ export const useStore = defineStore(
     const ownUserJson: Ref<string> = ref("");
     const ownUserRefreshInterval: Ref<NodeJS.Timeout | undefined> = ref(undefined) as Ref<NodeJS.Timeout | undefined>;
 
+    const activeProjectId: Ref<string> = ref("");
+    const activeProjectName: Ref<string> = ref("");
+
     function getOwnUser(): User | null {
       if (ownUserJson.value === "") return null;
       return JSON.parse(ownUserJson.value);
@@ -149,9 +152,15 @@ export const useStore = defineStore(
       emitter.emit("login");
     }
 
+    function setActiveProjectName(name: string) {
+      activeProjectName.value = name;
+    }
+
     return {
       getOwnUser,
       ownUserJson,
+      activeProjectId,
+      activeProjectName,
       isAdmin,
       startIntervals,
       authTokenExpiration,
@@ -160,6 +169,7 @@ export const useStore = defineStore(
       isLoggedIn,
       setLoggedIn,
       setLoggedOut,
+      setActiveProjectName,
     };
   },
   { persist: true }

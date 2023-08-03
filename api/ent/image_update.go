@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -36,6 +37,26 @@ func (iu *ImageUpdate) Where(ps ...predicate.Image) *ImageUpdate {
 // SetUpdatedAt sets the "updated_at" field.
 func (iu *ImageUpdate) SetUpdatedAt(t time.Time) *ImageUpdate {
 	iu.mutation.SetUpdatedAt(t)
+	return iu
+}
+
+// SetThumbnailID sets the "thumbnail_id" field.
+func (iu *ImageUpdate) SetThumbnailID(u uuid.UUID) *ImageUpdate {
+	iu.mutation.SetThumbnailID(u)
+	return iu
+}
+
+// SetNillableThumbnailID sets the "thumbnail_id" field if the given value is not nil.
+func (iu *ImageUpdate) SetNillableThumbnailID(u *uuid.UUID) *ImageUpdate {
+	if u != nil {
+		iu.SetThumbnailID(*u)
+	}
+	return iu
+}
+
+// ClearThumbnailID clears the value of the "thumbnail_id" field.
+func (iu *ImageUpdate) ClearThumbnailID() *ImageUpdate {
+	iu.mutation.ClearThumbnailID()
 	return iu
 }
 
@@ -89,6 +110,17 @@ func (iu *ImageUpdate) SetUserID(id uuid.UUID) *ImageUpdate {
 // SetUser sets the "user" edge to the User entity.
 func (iu *ImageUpdate) SetUser(u *User) *ImageUpdate {
 	return iu.SetUserID(u.ID)
+}
+
+// SetBatchID sets the "batch" edge to the Batch entity by ID.
+func (iu *ImageUpdate) SetBatchID(id uuid.UUID) *ImageUpdate {
+	iu.mutation.SetBatchID(id)
+	return iu
+}
+
+// SetBatch sets the "batch" edge to the Batch entity.
+func (iu *ImageUpdate) SetBatch(b *Batch) *ImageUpdate {
+	return iu.SetBatchID(b.ID)
 }
 
 // SetProjectID sets the "project" edge to the Project entity by ID.
@@ -183,6 +215,12 @@ func (iu *ImageUpdate) ClearUser() *ImageUpdate {
 	return iu
 }
 
+// ClearBatch clears the "batch" edge to the Batch entity.
+func (iu *ImageUpdate) ClearBatch() *ImageUpdate {
+	iu.mutation.ClearBatch()
+	return iu
+}
+
 // ClearProject clears the "project" edge to the Project entity.
 func (iu *ImageUpdate) ClearProject() *ImageUpdate {
 	iu.mutation.ClearProject()
@@ -253,6 +291,9 @@ func (iu *ImageUpdate) check() error {
 	if _, ok := iu.mutation.UserID(); iu.mutation.UserCleared() && !ok {
 		return errors.New(`ent: clearing a required unique edge "Image.user"`)
 	}
+	if _, ok := iu.mutation.BatchID(); iu.mutation.BatchCleared() && !ok {
+		return errors.New(`ent: clearing a required unique edge "Image.batch"`)
+	}
 	if _, ok := iu.mutation.ProjectID(); iu.mutation.ProjectCleared() && !ok {
 		return errors.New(`ent: clearing a required unique edge "Image.project"`)
 	}
@@ -276,6 +317,12 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := iu.mutation.UpdatedAt(); ok {
 		_spec.SetField(image.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := iu.mutation.ThumbnailID(); ok {
+		_spec.SetField(image.FieldThumbnailID, field.TypeUUID, value)
+	}
+	if iu.mutation.ThumbnailIDCleared() {
+		_spec.ClearField(image.FieldThumbnailID, field.TypeUUID)
 	}
 	if value, ok := iu.mutation.FileName(); ok {
 		_spec.SetField(image.FieldFileName, field.TypeString, value)
@@ -353,6 +400,35 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if iu.mutation.BatchCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   image.BatchTable,
+			Columns: []string{image.BatchColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := iu.mutation.BatchIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   image.BatchTable,
+			Columns: []string{image.BatchColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -502,6 +578,26 @@ func (iuo *ImageUpdateOne) SetUpdatedAt(t time.Time) *ImageUpdateOne {
 	return iuo
 }
 
+// SetThumbnailID sets the "thumbnail_id" field.
+func (iuo *ImageUpdateOne) SetThumbnailID(u uuid.UUID) *ImageUpdateOne {
+	iuo.mutation.SetThumbnailID(u)
+	return iuo
+}
+
+// SetNillableThumbnailID sets the "thumbnail_id" field if the given value is not nil.
+func (iuo *ImageUpdateOne) SetNillableThumbnailID(u *uuid.UUID) *ImageUpdateOne {
+	if u != nil {
+		iuo.SetThumbnailID(*u)
+	}
+	return iuo
+}
+
+// ClearThumbnailID clears the value of the "thumbnail_id" field.
+func (iuo *ImageUpdateOne) ClearThumbnailID() *ImageUpdateOne {
+	iuo.mutation.ClearThumbnailID()
+	return iuo
+}
+
 // SetFileName sets the "file_name" field.
 func (iuo *ImageUpdateOne) SetFileName(s string) *ImageUpdateOne {
 	iuo.mutation.SetFileName(s)
@@ -552,6 +648,17 @@ func (iuo *ImageUpdateOne) SetUserID(id uuid.UUID) *ImageUpdateOne {
 // SetUser sets the "user" edge to the User entity.
 func (iuo *ImageUpdateOne) SetUser(u *User) *ImageUpdateOne {
 	return iuo.SetUserID(u.ID)
+}
+
+// SetBatchID sets the "batch" edge to the Batch entity by ID.
+func (iuo *ImageUpdateOne) SetBatchID(id uuid.UUID) *ImageUpdateOne {
+	iuo.mutation.SetBatchID(id)
+	return iuo
+}
+
+// SetBatch sets the "batch" edge to the Batch entity.
+func (iuo *ImageUpdateOne) SetBatch(b *Batch) *ImageUpdateOne {
+	return iuo.SetBatchID(b.ID)
 }
 
 // SetProjectID sets the "project" edge to the Project entity by ID.
@@ -646,6 +753,12 @@ func (iuo *ImageUpdateOne) ClearUser() *ImageUpdateOne {
 	return iuo
 }
 
+// ClearBatch clears the "batch" edge to the Batch entity.
+func (iuo *ImageUpdateOne) ClearBatch() *ImageUpdateOne {
+	iuo.mutation.ClearBatch()
+	return iuo
+}
+
 // ClearProject clears the "project" edge to the Project entity.
 func (iuo *ImageUpdateOne) ClearProject() *ImageUpdateOne {
 	iuo.mutation.ClearProject()
@@ -729,6 +842,9 @@ func (iuo *ImageUpdateOne) check() error {
 	if _, ok := iuo.mutation.UserID(); iuo.mutation.UserCleared() && !ok {
 		return errors.New(`ent: clearing a required unique edge "Image.user"`)
 	}
+	if _, ok := iuo.mutation.BatchID(); iuo.mutation.BatchCleared() && !ok {
+		return errors.New(`ent: clearing a required unique edge "Image.batch"`)
+	}
 	if _, ok := iuo.mutation.ProjectID(); iuo.mutation.ProjectCleared() && !ok {
 		return errors.New(`ent: clearing a required unique edge "Image.project"`)
 	}
@@ -769,6 +885,12 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 	}
 	if value, ok := iuo.mutation.UpdatedAt(); ok {
 		_spec.SetField(image.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := iuo.mutation.ThumbnailID(); ok {
+		_spec.SetField(image.FieldThumbnailID, field.TypeUUID, value)
+	}
+	if iuo.mutation.ThumbnailIDCleared() {
+		_spec.ClearField(image.FieldThumbnailID, field.TypeUUID)
 	}
 	if value, ok := iuo.mutation.FileName(); ok {
 		_spec.SetField(image.FieldFileName, field.TypeString, value)
@@ -846,6 +968,35 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if iuo.mutation.BatchCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   image.BatchTable,
+			Columns: []string{image.BatchColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := iuo.mutation.BatchIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   image.BatchTable,
+			Columns: []string{image.BatchColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

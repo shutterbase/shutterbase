@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -32,6 +33,7 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
+	TypeBatch             = "Batch"
 	TypeCamera            = "Camera"
 	TypeImage             = "Image"
 	TypeImageTag          = "ImageTag"
@@ -41,6 +43,716 @@ const (
 	TypeTimeOffset        = "TimeOffset"
 	TypeUser              = "User"
 )
+
+// BatchMutation represents an operation that mutates the Batch nodes in the graph.
+type BatchMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	created_at        *time.Time
+	updated_at        *time.Time
+	name              *string
+	clearedFields     map[string]struct{}
+	images            map[uuid.UUID]struct{}
+	removedimages     map[uuid.UUID]struct{}
+	clearedimages     bool
+	project           *uuid.UUID
+	clearedproject    bool
+	created_by        *uuid.UUID
+	clearedcreated_by bool
+	updated_by        *uuid.UUID
+	clearedupdated_by bool
+	done              bool
+	oldValue          func(context.Context) (*Batch, error)
+	predicates        []predicate.Batch
+}
+
+var _ ent.Mutation = (*BatchMutation)(nil)
+
+// batchOption allows management of the mutation configuration using functional options.
+type batchOption func(*BatchMutation)
+
+// newBatchMutation creates new mutation for the Batch entity.
+func newBatchMutation(c config, op Op, opts ...batchOption) *BatchMutation {
+	m := &BatchMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeBatch,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withBatchID sets the ID field of the mutation.
+func withBatchID(id uuid.UUID) batchOption {
+	return func(m *BatchMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Batch
+		)
+		m.oldValue = func(ctx context.Context) (*Batch, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Batch.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withBatch sets the old Batch of the mutation.
+func withBatch(node *Batch) batchOption {
+	return func(m *BatchMutation) {
+		m.oldValue = func(context.Context) (*Batch, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m BatchMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m BatchMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Batch entities.
+func (m *BatchMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *BatchMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *BatchMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Batch.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *BatchMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *BatchMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Batch entity.
+// If the Batch object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *BatchMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *BatchMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *BatchMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the Batch entity.
+// If the Batch object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *BatchMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetName sets the "name" field.
+func (m *BatchMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *BatchMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Batch entity.
+// If the Batch object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *BatchMutation) ResetName() {
+	m.name = nil
+}
+
+// AddImageIDs adds the "images" edge to the Image entity by ids.
+func (m *BatchMutation) AddImageIDs(ids ...uuid.UUID) {
+	if m.images == nil {
+		m.images = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.images[ids[i]] = struct{}{}
+	}
+}
+
+// ClearImages clears the "images" edge to the Image entity.
+func (m *BatchMutation) ClearImages() {
+	m.clearedimages = true
+}
+
+// ImagesCleared reports if the "images" edge to the Image entity was cleared.
+func (m *BatchMutation) ImagesCleared() bool {
+	return m.clearedimages
+}
+
+// RemoveImageIDs removes the "images" edge to the Image entity by IDs.
+func (m *BatchMutation) RemoveImageIDs(ids ...uuid.UUID) {
+	if m.removedimages == nil {
+		m.removedimages = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.images, ids[i])
+		m.removedimages[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedImages returns the removed IDs of the "images" edge to the Image entity.
+func (m *BatchMutation) RemovedImagesIDs() (ids []uuid.UUID) {
+	for id := range m.removedimages {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ImagesIDs returns the "images" edge IDs in the mutation.
+func (m *BatchMutation) ImagesIDs() (ids []uuid.UUID) {
+	for id := range m.images {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetImages resets all changes to the "images" edge.
+func (m *BatchMutation) ResetImages() {
+	m.images = nil
+	m.clearedimages = false
+	m.removedimages = nil
+}
+
+// SetProjectID sets the "project" edge to the Project entity by id.
+func (m *BatchMutation) SetProjectID(id uuid.UUID) {
+	m.project = &id
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *BatchMutation) ClearProject() {
+	m.clearedproject = true
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *BatchMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectID returns the "project" edge ID in the mutation.
+func (m *BatchMutation) ProjectID() (id uuid.UUID, exists bool) {
+	if m.project != nil {
+		return *m.project, true
+	}
+	return
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *BatchMutation) ProjectIDs() (ids []uuid.UUID) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *BatchMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// SetCreatedByID sets the "created_by" edge to the User entity by id.
+func (m *BatchMutation) SetCreatedByID(id uuid.UUID) {
+	m.created_by = &id
+}
+
+// ClearCreatedBy clears the "created_by" edge to the User entity.
+func (m *BatchMutation) ClearCreatedBy() {
+	m.clearedcreated_by = true
+}
+
+// CreatedByCleared reports if the "created_by" edge to the User entity was cleared.
+func (m *BatchMutation) CreatedByCleared() bool {
+	return m.clearedcreated_by
+}
+
+// CreatedByID returns the "created_by" edge ID in the mutation.
+func (m *BatchMutation) CreatedByID() (id uuid.UUID, exists bool) {
+	if m.created_by != nil {
+		return *m.created_by, true
+	}
+	return
+}
+
+// CreatedByIDs returns the "created_by" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CreatedByID instead. It exists only for internal usage by the builders.
+func (m *BatchMutation) CreatedByIDs() (ids []uuid.UUID) {
+	if id := m.created_by; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCreatedBy resets all changes to the "created_by" edge.
+func (m *BatchMutation) ResetCreatedBy() {
+	m.created_by = nil
+	m.clearedcreated_by = false
+}
+
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *BatchMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
+}
+
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *BatchMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
+}
+
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *BatchMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
+}
+
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *BatchMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
+	}
+	return
+}
+
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *BatchMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *BatchMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
+}
+
+// Where appends a list predicates to the BatchMutation builder.
+func (m *BatchMutation) Where(ps ...predicate.Batch) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the BatchMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *BatchMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Batch, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *BatchMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *BatchMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Batch).
+func (m *BatchMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *BatchMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.created_at != nil {
+		fields = append(fields, batch.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, batch.FieldUpdatedAt)
+	}
+	if m.name != nil {
+		fields = append(fields, batch.FieldName)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *BatchMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case batch.FieldCreatedAt:
+		return m.CreatedAt()
+	case batch.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case batch.FieldName:
+		return m.Name()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *BatchMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case batch.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case batch.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case batch.FieldName:
+		return m.OldName(ctx)
+	}
+	return nil, fmt.Errorf("unknown Batch field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BatchMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case batch.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case batch.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case batch.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Batch field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *BatchMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *BatchMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BatchMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Batch numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *BatchMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *BatchMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *BatchMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Batch nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *BatchMutation) ResetField(name string) error {
+	switch name {
+	case batch.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case batch.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case batch.FieldName:
+		m.ResetName()
+		return nil
+	}
+	return fmt.Errorf("unknown Batch field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *BatchMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.images != nil {
+		edges = append(edges, batch.EdgeImages)
+	}
+	if m.project != nil {
+		edges = append(edges, batch.EdgeProject)
+	}
+	if m.created_by != nil {
+		edges = append(edges, batch.EdgeCreatedBy)
+	}
+	if m.updated_by != nil {
+		edges = append(edges, batch.EdgeUpdatedBy)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *BatchMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case batch.EdgeImages:
+		ids := make([]ent.Value, 0, len(m.images))
+		for id := range m.images {
+			ids = append(ids, id)
+		}
+		return ids
+	case batch.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case batch.EdgeCreatedBy:
+		if id := m.created_by; id != nil {
+			return []ent.Value{*id}
+		}
+	case batch.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *BatchMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.removedimages != nil {
+		edges = append(edges, batch.EdgeImages)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *BatchMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case batch.EdgeImages:
+		ids := make([]ent.Value, 0, len(m.removedimages))
+		for id := range m.removedimages {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *BatchMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedimages {
+		edges = append(edges, batch.EdgeImages)
+	}
+	if m.clearedproject {
+		edges = append(edges, batch.EdgeProject)
+	}
+	if m.clearedcreated_by {
+		edges = append(edges, batch.EdgeCreatedBy)
+	}
+	if m.clearedupdated_by {
+		edges = append(edges, batch.EdgeUpdatedBy)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *BatchMutation) EdgeCleared(name string) bool {
+	switch name {
+	case batch.EdgeImages:
+		return m.clearedimages
+	case batch.EdgeProject:
+		return m.clearedproject
+	case batch.EdgeCreatedBy:
+		return m.clearedcreated_by
+	case batch.EdgeUpdatedBy:
+		return m.clearedupdated_by
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *BatchMutation) ClearEdge(name string) error {
+	switch name {
+	case batch.EdgeProject:
+		m.ClearProject()
+		return nil
+	case batch.EdgeCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	case batch.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown Batch unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *BatchMutation) ResetEdge(name string) error {
+	switch name {
+	case batch.EdgeImages:
+		m.ResetImages()
+		return nil
+	case batch.EdgeProject:
+		m.ResetProject()
+		return nil
+	case batch.EdgeCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case batch.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown Batch edge %s", name)
+}
 
 // CameraMutation represents an operation that mutates the Camera nodes in the graph.
 type CameraMutation struct {
@@ -897,6 +1609,7 @@ type ImageMutation struct {
 	id                *uuid.UUID
 	created_at        *time.Time
 	updated_at        *time.Time
+	thumbnail_id      *uuid.UUID
 	file_name         *string
 	description       *string
 	exif_data         *map[string]interface{}
@@ -906,6 +1619,8 @@ type ImageMutation struct {
 	clearedtags       bool
 	user              *uuid.UUID
 	cleareduser       bool
+	batch             *uuid.UUID
+	clearedbatch      bool
 	project           *uuid.UUID
 	clearedproject    bool
 	camera            *uuid.UUID
@@ -1093,6 +1808,55 @@ func (m *ImageMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err erro
 // ResetUpdatedAt resets all changes to the "updated_at" field.
 func (m *ImageMutation) ResetUpdatedAt() {
 	m.updated_at = nil
+}
+
+// SetThumbnailID sets the "thumbnail_id" field.
+func (m *ImageMutation) SetThumbnailID(u uuid.UUID) {
+	m.thumbnail_id = &u
+}
+
+// ThumbnailID returns the value of the "thumbnail_id" field in the mutation.
+func (m *ImageMutation) ThumbnailID() (r uuid.UUID, exists bool) {
+	v := m.thumbnail_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThumbnailID returns the old "thumbnail_id" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldThumbnailID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThumbnailID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThumbnailID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThumbnailID: %w", err)
+	}
+	return oldValue.ThumbnailID, nil
+}
+
+// ClearThumbnailID clears the value of the "thumbnail_id" field.
+func (m *ImageMutation) ClearThumbnailID() {
+	m.thumbnail_id = nil
+	m.clearedFields[image.FieldThumbnailID] = struct{}{}
+}
+
+// ThumbnailIDCleared returns if the "thumbnail_id" field was cleared in this mutation.
+func (m *ImageMutation) ThumbnailIDCleared() bool {
+	_, ok := m.clearedFields[image.FieldThumbnailID]
+	return ok
+}
+
+// ResetThumbnailID resets all changes to the "thumbnail_id" field.
+func (m *ImageMutation) ResetThumbnailID() {
+	m.thumbnail_id = nil
+	delete(m.clearedFields, image.FieldThumbnailID)
 }
 
 // SetFileName sets the "file_name" field.
@@ -1296,6 +2060,45 @@ func (m *ImageMutation) ResetUser() {
 	m.cleareduser = false
 }
 
+// SetBatchID sets the "batch" edge to the Batch entity by id.
+func (m *ImageMutation) SetBatchID(id uuid.UUID) {
+	m.batch = &id
+}
+
+// ClearBatch clears the "batch" edge to the Batch entity.
+func (m *ImageMutation) ClearBatch() {
+	m.clearedbatch = true
+}
+
+// BatchCleared reports if the "batch" edge to the Batch entity was cleared.
+func (m *ImageMutation) BatchCleared() bool {
+	return m.clearedbatch
+}
+
+// BatchID returns the "batch" edge ID in the mutation.
+func (m *ImageMutation) BatchID() (id uuid.UUID, exists bool) {
+	if m.batch != nil {
+		return *m.batch, true
+	}
+	return
+}
+
+// BatchIDs returns the "batch" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// BatchID instead. It exists only for internal usage by the builders.
+func (m *ImageMutation) BatchIDs() (ids []uuid.UUID) {
+	if id := m.batch; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetBatch resets all changes to the "batch" edge.
+func (m *ImageMutation) ResetBatch() {
+	m.batch = nil
+	m.clearedbatch = false
+}
+
 // SetProjectID sets the "project" edge to the Project entity by id.
 func (m *ImageMutation) SetProjectID(id uuid.UUID) {
 	m.project = &id
@@ -1486,12 +2289,15 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 6)
 	if m.created_at != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
 	if m.updated_at != nil {
 		fields = append(fields, image.FieldUpdatedAt)
+	}
+	if m.thumbnail_id != nil {
+		fields = append(fields, image.FieldThumbnailID)
 	}
 	if m.file_name != nil {
 		fields = append(fields, image.FieldFileName)
@@ -1514,6 +2320,8 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.CreatedAt()
 	case image.FieldUpdatedAt:
 		return m.UpdatedAt()
+	case image.FieldThumbnailID:
+		return m.ThumbnailID()
 	case image.FieldFileName:
 		return m.FileName()
 	case image.FieldDescription:
@@ -1533,6 +2341,8 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldCreatedAt(ctx)
 	case image.FieldUpdatedAt:
 		return m.OldUpdatedAt(ctx)
+	case image.FieldThumbnailID:
+		return m.OldThumbnailID(ctx)
 	case image.FieldFileName:
 		return m.OldFileName(ctx)
 	case image.FieldDescription:
@@ -1561,6 +2371,13 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetUpdatedAt(v)
+		return nil
+	case image.FieldThumbnailID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThumbnailID(v)
 		return nil
 	case image.FieldFileName:
 		v, ok := value.(string)
@@ -1612,7 +2429,11 @@ func (m *ImageMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *ImageMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(image.FieldThumbnailID) {
+		fields = append(fields, image.FieldThumbnailID)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -1625,6 +2446,11 @@ func (m *ImageMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *ImageMutation) ClearField(name string) error {
+	switch name {
+	case image.FieldThumbnailID:
+		m.ClearThumbnailID()
+		return nil
+	}
 	return fmt.Errorf("unknown Image nullable field %s", name)
 }
 
@@ -1637,6 +2463,9 @@ func (m *ImageMutation) ResetField(name string) error {
 		return nil
 	case image.FieldUpdatedAt:
 		m.ResetUpdatedAt()
+		return nil
+	case image.FieldThumbnailID:
+		m.ResetThumbnailID()
 		return nil
 	case image.FieldFileName:
 		m.ResetFileName()
@@ -1653,12 +2482,15 @@ func (m *ImageMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ImageMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.tags != nil {
 		edges = append(edges, image.EdgeTags)
 	}
 	if m.user != nil {
 		edges = append(edges, image.EdgeUser)
+	}
+	if m.batch != nil {
+		edges = append(edges, image.EdgeBatch)
 	}
 	if m.project != nil {
 		edges = append(edges, image.EdgeProject)
@@ -1689,6 +2521,10 @@ func (m *ImageMutation) AddedIDs(name string) []ent.Value {
 		if id := m.user; id != nil {
 			return []ent.Value{*id}
 		}
+	case image.EdgeBatch:
+		if id := m.batch; id != nil {
+			return []ent.Value{*id}
+		}
 	case image.EdgeProject:
 		if id := m.project; id != nil {
 			return []ent.Value{*id}
@@ -1711,7 +2547,7 @@ func (m *ImageMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ImageMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedtags != nil {
 		edges = append(edges, image.EdgeTags)
 	}
@@ -1734,12 +2570,15 @@ func (m *ImageMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ImageMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.clearedtags {
 		edges = append(edges, image.EdgeTags)
 	}
 	if m.cleareduser {
 		edges = append(edges, image.EdgeUser)
+	}
+	if m.clearedbatch {
+		edges = append(edges, image.EdgeBatch)
 	}
 	if m.clearedproject {
 		edges = append(edges, image.EdgeProject)
@@ -1764,6 +2603,8 @@ func (m *ImageMutation) EdgeCleared(name string) bool {
 		return m.clearedtags
 	case image.EdgeUser:
 		return m.cleareduser
+	case image.EdgeBatch:
+		return m.clearedbatch
 	case image.EdgeProject:
 		return m.clearedproject
 	case image.EdgeCamera:
@@ -1782,6 +2623,9 @@ func (m *ImageMutation) ClearEdge(name string) error {
 	switch name {
 	case image.EdgeUser:
 		m.ClearUser()
+		return nil
+	case image.EdgeBatch:
+		m.ClearBatch()
 		return nil
 	case image.EdgeProject:
 		m.ClearProject()
@@ -1808,6 +2652,9 @@ func (m *ImageMutation) ResetEdge(name string) error {
 		return nil
 	case image.EdgeUser:
 		m.ResetUser()
+		return nil
+	case image.EdgeBatch:
+		m.ResetBatch()
 		return nil
 	case image.EdgeProject:
 		m.ResetProject()
@@ -2660,6 +3507,9 @@ type ProjectMutation struct {
 	images             map[uuid.UUID]struct{}
 	removedimages      map[uuid.UUID]struct{}
 	clearedimages      bool
+	batches            map[uuid.UUID]struct{}
+	removedbatches     map[uuid.UUID]struct{}
+	clearedbatches     bool
 	tags               map[uuid.UUID]struct{}
 	removedtags        map[uuid.UUID]struct{}
 	clearedtags        bool
@@ -3028,6 +3878,60 @@ func (m *ProjectMutation) ResetImages() {
 	m.removedimages = nil
 }
 
+// AddBatchIDs adds the "batches" edge to the Batch entity by ids.
+func (m *ProjectMutation) AddBatchIDs(ids ...uuid.UUID) {
+	if m.batches == nil {
+		m.batches = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.batches[ids[i]] = struct{}{}
+	}
+}
+
+// ClearBatches clears the "batches" edge to the Batch entity.
+func (m *ProjectMutation) ClearBatches() {
+	m.clearedbatches = true
+}
+
+// BatchesCleared reports if the "batches" edge to the Batch entity was cleared.
+func (m *ProjectMutation) BatchesCleared() bool {
+	return m.clearedbatches
+}
+
+// RemoveBatchIDs removes the "batches" edge to the Batch entity by IDs.
+func (m *ProjectMutation) RemoveBatchIDs(ids ...uuid.UUID) {
+	if m.removedbatches == nil {
+		m.removedbatches = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.batches, ids[i])
+		m.removedbatches[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedBatches returns the removed IDs of the "batches" edge to the Batch entity.
+func (m *ProjectMutation) RemovedBatchesIDs() (ids []uuid.UUID) {
+	for id := range m.removedbatches {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// BatchesIDs returns the "batches" edge IDs in the mutation.
+func (m *ProjectMutation) BatchesIDs() (ids []uuid.UUID) {
+	for id := range m.batches {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetBatches resets all changes to the "batches" edge.
+func (m *ProjectMutation) ResetBatches() {
+	m.batches = nil
+	m.clearedbatches = false
+	m.removedbatches = nil
+}
+
 // AddTagIDs adds the "tags" edge to the ImageTag entity by ids.
 func (m *ProjectMutation) AddTagIDs(ids ...uuid.UUID) {
 	if m.tags == nil {
@@ -3344,12 +4248,15 @@ func (m *ProjectMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.assignments != nil {
 		edges = append(edges, project.EdgeAssignments)
 	}
 	if m.images != nil {
 		edges = append(edges, project.EdgeImages)
+	}
+	if m.batches != nil {
+		edges = append(edges, project.EdgeBatches)
 	}
 	if m.tags != nil {
 		edges = append(edges, project.EdgeTags)
@@ -3379,6 +4286,12 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeBatches:
+		ids := make([]ent.Value, 0, len(m.batches))
+		for id := range m.batches {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeTags:
 		ids := make([]ent.Value, 0, len(m.tags))
 		for id := range m.tags {
@@ -3399,12 +4312,15 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedassignments != nil {
 		edges = append(edges, project.EdgeAssignments)
 	}
 	if m.removedimages != nil {
 		edges = append(edges, project.EdgeImages)
+	}
+	if m.removedbatches != nil {
+		edges = append(edges, project.EdgeBatches)
 	}
 	if m.removedtags != nil {
 		edges = append(edges, project.EdgeTags)
@@ -3428,6 +4344,12 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeBatches:
+		ids := make([]ent.Value, 0, len(m.removedbatches))
+		for id := range m.removedbatches {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeTags:
 		ids := make([]ent.Value, 0, len(m.removedtags))
 		for id := range m.removedtags {
@@ -3440,12 +4362,15 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedassignments {
 		edges = append(edges, project.EdgeAssignments)
 	}
 	if m.clearedimages {
 		edges = append(edges, project.EdgeImages)
+	}
+	if m.clearedbatches {
+		edges = append(edges, project.EdgeBatches)
 	}
 	if m.clearedtags {
 		edges = append(edges, project.EdgeTags)
@@ -3467,6 +4392,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedassignments
 	case project.EdgeImages:
 		return m.clearedimages
+	case project.EdgeBatches:
+		return m.clearedbatches
 	case project.EdgeTags:
 		return m.clearedtags
 	case project.EdgeCreatedBy:
@@ -3500,6 +4427,9 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeImages:
 		m.ResetImages()
+		return nil
+	case project.EdgeBatches:
+		m.ResetBatches()
 		return nil
 	case project.EdgeTags:
 		m.ResetTags()

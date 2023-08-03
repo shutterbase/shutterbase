@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 )
 
 type Image struct {
@@ -13,7 +14,8 @@ type Image struct {
 
 func (Image) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("file_name").NotEmpty().StorageKey("fileName"),
+		field.UUID("thumbnail_id", uuid.UUID{}).Optional().StructTag(`json:"thumbnailId"`),
+		field.String("file_name").NotEmpty().StructTag(`json:"fileName"`),
 		field.String("description").Default(""),
 		field.JSON("exif_data", map[string]interface{}{}).StructTag(`json:"exifData"`).Default(map[string]interface{}{}),
 	}
@@ -29,6 +31,7 @@ func (Image) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("tags", ImageTag.Type).Ref("images"),
 		edge.To("user", User.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("batch", Batch.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("project", Project.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("camera", Camera.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`).Annotations(entsql.OnDelete(entsql.SetNull)),

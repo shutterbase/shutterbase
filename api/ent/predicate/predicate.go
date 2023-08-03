@@ -6,6 +6,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Batch is the predicate function for batch builders.
+type Batch func(*sql.Selector)
+
 // Camera is the predicate function for camera builders.
 type Camera func(*sql.Selector)
 

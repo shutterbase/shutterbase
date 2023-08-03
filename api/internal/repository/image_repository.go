@@ -30,7 +30,7 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 		)
 	}
 
-	items, err := databaseClient.Image.Query().
+	items, err := databaseClient.Image.Query().WithCreatedBy().WithUpdatedBy().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
 		Where(conditions).

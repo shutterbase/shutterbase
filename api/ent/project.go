@@ -41,6 +41,8 @@ type ProjectEdges struct {
 	Assignments []*ProjectAssignment `json:"assignments,omitempty"`
 	// Images holds the value of the images edge.
 	Images []*Image `json:"images,omitempty"`
+	// Batches holds the value of the batches edge.
+	Batches []*Batch `json:"batches,omitempty"`
 	// Tags holds the value of the tags edge.
 	Tags []*ImageTag `json:"tags,omitempty"`
 	// CreatedBy holds the value of the created_by edge.
@@ -49,7 +51,7 @@ type ProjectEdges struct {
 	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // AssignmentsOrErr returns the Assignments value or an error if the edge
@@ -70,10 +72,19 @@ func (e ProjectEdges) ImagesOrErr() ([]*Image, error) {
 	return nil, &NotLoadedError{edge: "images"}
 }
 
+// BatchesOrErr returns the Batches value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) BatchesOrErr() ([]*Batch, error) {
+	if e.loadedTypes[2] {
+		return e.Batches, nil
+	}
+	return nil, &NotLoadedError{edge: "batches"}
+}
+
 // TagsOrErr returns the Tags value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) TagsOrErr() ([]*ImageTag, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.Tags, nil
 	}
 	return nil, &NotLoadedError{edge: "tags"}
@@ -82,7 +93,7 @@ func (e ProjectEdges) TagsOrErr() ([]*ImageTag, error) {
 // CreatedByOrErr returns the CreatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ProjectEdges) CreatedByOrErr() (*User, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		if e.CreatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -95,7 +106,7 @@ func (e ProjectEdges) CreatedByOrErr() (*User, error) {
 // UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e ProjectEdges) UpdatedByOrErr() (*User, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -200,6 +211,11 @@ func (pr *Project) QueryAssignments() *ProjectAssignmentQuery {
 // QueryImages queries the "images" edge of the Project entity.
 func (pr *Project) QueryImages() *ImageQuery {
 	return NewProjectClient(pr.config).QueryImages(pr)
+}
+
+// QueryBatches queries the "batches" edge of the Project entity.
+func (pr *Project) QueryBatches() *BatchQuery {
+	return NewProjectClient(pr.config).QueryBatches(pr)
 }
 
 // QueryTags queries the "tags" edge of the Project entity.

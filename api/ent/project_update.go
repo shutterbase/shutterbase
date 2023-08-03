@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/predicate"
@@ -79,6 +80,21 @@ func (pu *ProjectUpdate) AddImages(i ...*Image) *ProjectUpdate {
 		ids[j] = i[j].ID
 	}
 	return pu.AddImageIDs(ids...)
+}
+
+// AddBatchIDs adds the "batches" edge to the Batch entity by IDs.
+func (pu *ProjectUpdate) AddBatchIDs(ids ...uuid.UUID) *ProjectUpdate {
+	pu.mutation.AddBatchIDs(ids...)
+	return pu
+}
+
+// AddBatches adds the "batches" edges to the Batch entity.
+func (pu *ProjectUpdate) AddBatches(b ...*Batch) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return pu.AddBatchIDs(ids...)
 }
 
 // AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
@@ -179,6 +195,27 @@ func (pu *ProjectUpdate) RemoveImages(i ...*Image) *ProjectUpdate {
 		ids[j] = i[j].ID
 	}
 	return pu.RemoveImageIDs(ids...)
+}
+
+// ClearBatches clears all "batches" edges to the Batch entity.
+func (pu *ProjectUpdate) ClearBatches() *ProjectUpdate {
+	pu.mutation.ClearBatches()
+	return pu
+}
+
+// RemoveBatchIDs removes the "batches" edge to Batch entities by IDs.
+func (pu *ProjectUpdate) RemoveBatchIDs(ids ...uuid.UUID) *ProjectUpdate {
+	pu.mutation.RemoveBatchIDs(ids...)
+	return pu
+}
+
+// RemoveBatches removes "batches" edges to Batch entities.
+func (pu *ProjectUpdate) RemoveBatches(b ...*Batch) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return pu.RemoveBatchIDs(ids...)
 }
 
 // ClearTags clears all "tags" edges to the ImageTag entity.
@@ -376,6 +413,51 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if pu.mutation.BatchesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   project.BatchesTable,
+			Columns: []string{project.BatchesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := pu.mutation.RemovedBatchesIDs(); len(nodes) > 0 && !pu.mutation.BatchesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   project.BatchesTable,
+			Columns: []string{project.BatchesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := pu.mutation.BatchesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   project.BatchesTable,
+			Columns: []string{project.BatchesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if pu.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -547,6 +629,21 @@ func (puo *ProjectUpdateOne) AddImages(i ...*Image) *ProjectUpdateOne {
 	return puo.AddImageIDs(ids...)
 }
 
+// AddBatchIDs adds the "batches" edge to the Batch entity by IDs.
+func (puo *ProjectUpdateOne) AddBatchIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	puo.mutation.AddBatchIDs(ids...)
+	return puo
+}
+
+// AddBatches adds the "batches" edges to the Batch entity.
+func (puo *ProjectUpdateOne) AddBatches(b ...*Batch) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return puo.AddBatchIDs(ids...)
+}
+
 // AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
 func (puo *ProjectUpdateOne) AddTagIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	puo.mutation.AddTagIDs(ids...)
@@ -645,6 +742,27 @@ func (puo *ProjectUpdateOne) RemoveImages(i ...*Image) *ProjectUpdateOne {
 		ids[j] = i[j].ID
 	}
 	return puo.RemoveImageIDs(ids...)
+}
+
+// ClearBatches clears all "batches" edges to the Batch entity.
+func (puo *ProjectUpdateOne) ClearBatches() *ProjectUpdateOne {
+	puo.mutation.ClearBatches()
+	return puo
+}
+
+// RemoveBatchIDs removes the "batches" edge to Batch entities by IDs.
+func (puo *ProjectUpdateOne) RemoveBatchIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	puo.mutation.RemoveBatchIDs(ids...)
+	return puo
+}
+
+// RemoveBatches removes "batches" edges to Batch entities.
+func (puo *ProjectUpdateOne) RemoveBatches(b ...*Batch) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return puo.RemoveBatchIDs(ids...)
 }
 
 // ClearTags clears all "tags" edges to the ImageTag entity.
@@ -865,6 +983,51 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if puo.mutation.BatchesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   project.BatchesTable,
+			Columns: []string{project.BatchesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := puo.mutation.RemovedBatchesIDs(); len(nodes) > 0 && !puo.mutation.BatchesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   project.BatchesTable,
+			Columns: []string{project.BatchesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := puo.mutation.BatchesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   project.BatchesTable,
+			Columns: []string{project.BatchesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

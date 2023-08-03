@@ -81,6 +81,9 @@ func registerControllers(router *gin.Engine) {
 	log.Debug().Msg("-> Registering images controller")
 	registerImagesController(router)
 
+	log.Debug().Msg("-> Registering batches controller")
+	registerBatchesController(router)
+
 	log.Debug().Msg("-> Registering time offsets controller")
 	registerTimeOffsetsController(router)
 

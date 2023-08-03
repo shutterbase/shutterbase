@@ -9,10 +9,9 @@
         </label>
         <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
           <li><a>Homepage</a></li>
-          <li><a>Portfolio</a></li>
-          <li><a>About</a></li>
         </ul>
       </div>
+      <ActiveProjectHeader />
     </div>
     <div class="navbar-center">
       <div class="btn btn-ghost normal-case text-xl" @click="doHeaderButtonNavigation">shutterbase</div>

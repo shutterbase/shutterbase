@@ -332,6 +332,29 @@ func HasImagesWith(preds ...predicate.Image) predicate.Project {
 	})
 }
 
+// HasBatches applies the HasEdge predicate on the "batches" edge.
+func HasBatches() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, BatchesTable, BatchesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasBatchesWith applies the HasEdge predicate on the "batches" edge with a given conditions (other predicates).
+func HasBatchesWith(preds ...predicate.Batch) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newBatchesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasTags applies the HasEdge predicate on the "tags" edge.
 func HasTags() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {

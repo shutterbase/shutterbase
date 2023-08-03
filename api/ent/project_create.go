@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/project"
@@ -107,6 +108,21 @@ func (pc *ProjectCreate) AddImages(i ...*Image) *ProjectCreate {
 		ids[j] = i[j].ID
 	}
 	return pc.AddImageIDs(ids...)
+}
+
+// AddBatchIDs adds the "batches" edge to the Batch entity by IDs.
+func (pc *ProjectCreate) AddBatchIDs(ids ...uuid.UUID) *ProjectCreate {
+	pc.mutation.AddBatchIDs(ids...)
+	return pc
+}
+
+// AddBatches adds the "batches" edges to the Batch entity.
+func (pc *ProjectCreate) AddBatches(b ...*Batch) *ProjectCreate {
+	ids := make([]uuid.UUID, len(b))
+	for i := range b {
+		ids[i] = b[i].ID
+	}
+	return pc.AddBatchIDs(ids...)
 }
 
 // AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
@@ -311,6 +327,22 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := pc.mutation.BatchesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   project.BatchesTable,
+			Columns: []string{project.BatchesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(batch.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
