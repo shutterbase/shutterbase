@@ -1604,34 +1604,36 @@ func (m *CameraMutation) ResetEdge(name string) error {
 // ImageMutation represents an operation that mutates the Image nodes in the graph.
 type ImageMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *uuid.UUID
-	created_at        *time.Time
-	updated_at        *time.Time
-	thumbnail_id      *uuid.UUID
-	file_name         *string
-	description       *string
-	exif_data         *map[string]interface{}
-	clearedFields     map[string]struct{}
-	tags              map[uuid.UUID]struct{}
-	removedtags       map[uuid.UUID]struct{}
-	clearedtags       bool
-	user              *uuid.UUID
-	cleareduser       bool
-	batch             *uuid.UUID
-	clearedbatch      bool
-	project           *uuid.UUID
-	clearedproject    bool
-	camera            *uuid.UUID
-	clearedcamera     bool
-	created_by        *uuid.UUID
-	clearedcreated_by bool
-	updated_by        *uuid.UUID
-	clearedupdated_by bool
-	done              bool
-	oldValue          func(context.Context) (*Image, error)
-	predicates        []predicate.Image
+	op                    Op
+	typ                   string
+	id                    *uuid.UUID
+	created_at            *time.Time
+	updated_at            *time.Time
+	thumbnail_id          *uuid.UUID
+	file_name             *string
+	description           *string
+	exif_data             *map[string]interface{}
+	captured_at           *time.Time
+	captured_at_corrected *time.Time
+	clearedFields         map[string]struct{}
+	tags                  map[uuid.UUID]struct{}
+	removedtags           map[uuid.UUID]struct{}
+	clearedtags           bool
+	user                  *uuid.UUID
+	cleareduser           bool
+	batch                 *uuid.UUID
+	clearedbatch          bool
+	project               *uuid.UUID
+	clearedproject        bool
+	camera                *uuid.UUID
+	clearedcamera         bool
+	created_by            *uuid.UUID
+	clearedcreated_by     bool
+	updated_by            *uuid.UUID
+	clearedupdated_by     bool
+	done                  bool
+	oldValue              func(context.Context) (*Image, error)
+	predicates            []predicate.Image
 }
 
 var _ ent.Mutation = (*ImageMutation)(nil)
@@ -1967,6 +1969,104 @@ func (m *ImageMutation) ResetExifData() {
 	m.exif_data = nil
 }
 
+// SetCapturedAt sets the "captured_at" field.
+func (m *ImageMutation) SetCapturedAt(t time.Time) {
+	m.captured_at = &t
+}
+
+// CapturedAt returns the value of the "captured_at" field in the mutation.
+func (m *ImageMutation) CapturedAt() (r time.Time, exists bool) {
+	v := m.captured_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCapturedAt returns the old "captured_at" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldCapturedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCapturedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCapturedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCapturedAt: %w", err)
+	}
+	return oldValue.CapturedAt, nil
+}
+
+// ClearCapturedAt clears the value of the "captured_at" field.
+func (m *ImageMutation) ClearCapturedAt() {
+	m.captured_at = nil
+	m.clearedFields[image.FieldCapturedAt] = struct{}{}
+}
+
+// CapturedAtCleared returns if the "captured_at" field was cleared in this mutation.
+func (m *ImageMutation) CapturedAtCleared() bool {
+	_, ok := m.clearedFields[image.FieldCapturedAt]
+	return ok
+}
+
+// ResetCapturedAt resets all changes to the "captured_at" field.
+func (m *ImageMutation) ResetCapturedAt() {
+	m.captured_at = nil
+	delete(m.clearedFields, image.FieldCapturedAt)
+}
+
+// SetCapturedAtCorrected sets the "captured_at_corrected" field.
+func (m *ImageMutation) SetCapturedAtCorrected(t time.Time) {
+	m.captured_at_corrected = &t
+}
+
+// CapturedAtCorrected returns the value of the "captured_at_corrected" field in the mutation.
+func (m *ImageMutation) CapturedAtCorrected() (r time.Time, exists bool) {
+	v := m.captured_at_corrected
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCapturedAtCorrected returns the old "captured_at_corrected" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldCapturedAtCorrected(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCapturedAtCorrected is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCapturedAtCorrected requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCapturedAtCorrected: %w", err)
+	}
+	return oldValue.CapturedAtCorrected, nil
+}
+
+// ClearCapturedAtCorrected clears the value of the "captured_at_corrected" field.
+func (m *ImageMutation) ClearCapturedAtCorrected() {
+	m.captured_at_corrected = nil
+	m.clearedFields[image.FieldCapturedAtCorrected] = struct{}{}
+}
+
+// CapturedAtCorrectedCleared returns if the "captured_at_corrected" field was cleared in this mutation.
+func (m *ImageMutation) CapturedAtCorrectedCleared() bool {
+	_, ok := m.clearedFields[image.FieldCapturedAtCorrected]
+	return ok
+}
+
+// ResetCapturedAtCorrected resets all changes to the "captured_at_corrected" field.
+func (m *ImageMutation) ResetCapturedAtCorrected() {
+	m.captured_at_corrected = nil
+	delete(m.clearedFields, image.FieldCapturedAtCorrected)
+}
+
 // AddTagIDs adds the "tags" edge to the ImageTag entity by ids.
 func (m *ImageMutation) AddTagIDs(ids ...uuid.UUID) {
 	if m.tags == nil {
@@ -2289,7 +2389,7 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 8)
 	if m.created_at != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
@@ -2307,6 +2407,12 @@ func (m *ImageMutation) Fields() []string {
 	}
 	if m.exif_data != nil {
 		fields = append(fields, image.FieldExifData)
+	}
+	if m.captured_at != nil {
+		fields = append(fields, image.FieldCapturedAt)
+	}
+	if m.captured_at_corrected != nil {
+		fields = append(fields, image.FieldCapturedAtCorrected)
 	}
 	return fields
 }
@@ -2328,6 +2434,10 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case image.FieldExifData:
 		return m.ExifData()
+	case image.FieldCapturedAt:
+		return m.CapturedAt()
+	case image.FieldCapturedAtCorrected:
+		return m.CapturedAtCorrected()
 	}
 	return nil, false
 }
@@ -2349,6 +2459,10 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDescription(ctx)
 	case image.FieldExifData:
 		return m.OldExifData(ctx)
+	case image.FieldCapturedAt:
+		return m.OldCapturedAt(ctx)
+	case image.FieldCapturedAtCorrected:
+		return m.OldCapturedAtCorrected(ctx)
 	}
 	return nil, fmt.Errorf("unknown Image field %s", name)
 }
@@ -2400,6 +2514,20 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetExifData(v)
 		return nil
+	case image.FieldCapturedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCapturedAt(v)
+		return nil
+	case image.FieldCapturedAtCorrected:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCapturedAtCorrected(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Image field %s", name)
 }
@@ -2433,6 +2561,12 @@ func (m *ImageMutation) ClearedFields() []string {
 	if m.FieldCleared(image.FieldThumbnailID) {
 		fields = append(fields, image.FieldThumbnailID)
 	}
+	if m.FieldCleared(image.FieldCapturedAt) {
+		fields = append(fields, image.FieldCapturedAt)
+	}
+	if m.FieldCleared(image.FieldCapturedAtCorrected) {
+		fields = append(fields, image.FieldCapturedAtCorrected)
+	}
 	return fields
 }
 
@@ -2449,6 +2583,12 @@ func (m *ImageMutation) ClearField(name string) error {
 	switch name {
 	case image.FieldThumbnailID:
 		m.ClearThumbnailID()
+		return nil
+	case image.FieldCapturedAt:
+		m.ClearCapturedAt()
+		return nil
+	case image.FieldCapturedAtCorrected:
+		m.ClearCapturedAtCorrected()
 		return nil
 	}
 	return fmt.Errorf("unknown Image nullable field %s", name)
@@ -2475,6 +2615,12 @@ func (m *ImageMutation) ResetField(name string) error {
 		return nil
 	case image.FieldExifData:
 		m.ResetExifData()
+		return nil
+	case image.FieldCapturedAt:
+		m.ResetCapturedAt()
+		return nil
+	case image.FieldCapturedAtCorrected:
+		m.ResetCapturedAtCorrected()
 		return nil
 	}
 	return fmt.Errorf("unknown Image field %s", name)

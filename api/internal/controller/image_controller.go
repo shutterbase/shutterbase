@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -26,6 +29,8 @@ import (
 	"github.com/nfnt/resize"
 )
 
+var timeOffsetCache *lru.Cache[uuid.UUID, TimeOffsetCacheEntry]
+
 const IMAGES_RESOURCE = "/projects/:pid/images"
 
 var THUMBNAIL_SIZE uint = 512
@@ -33,6 +38,8 @@ var THUMBNAIL_SIZE uint = 512
 func registerImagesController(router *gin.Engine) {
 	CONTEXT_PATH := config.Get().String("API_CONTEXT_PATH")
 	THUMBNAIL_SIZE = uint(config.Get().Int("THUMBNAIL_SIZE"))
+
+	timeOffsetCache, _ = lru.New[uuid.UUID, TimeOffsetCacheEntry](100)
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), createImageController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), getImagesController)
@@ -159,6 +166,28 @@ func createImageController(c *gin.Context) {
 		}
 
 		itemCreate.SetExifData(map[string]interface{}{"exif_tags": exifTags})
+
+		dateTimeDigitized, err := util.GetDateTimeDigitized(data)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get date time digitized for image creation")
+			api_error.INTERNAL.Send(c)
+			return
+		}
+		itemCreate.SetCapturedAt(dateTimeDigitized)
+
+		timeOffset, err := getBestTimeOffset(ctx, camera.ID, dateTimeDigitized)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get best time offset for image creation")
+			api_error.INTERNAL.Send(c)
+			return
+		}
+
+		if timeOffset != nil {
+			offsetDuration := time.Duration(timeOffset.OffsetSeconds) * time.Second
+			log.Debug().Msgf("offsetting captured at by %s", offsetDuration)
+			correctedCaptureTime := dateTimeDigitized.Add(offsetDuration)
+			itemCreate.SetCapturedAtCorrected(correctedCaptureTime)
+		}
 
 		// TODO: add default tags for project, author tag, etc
 		_, err = itemCreate.Save(ctx)

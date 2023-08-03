@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -72,7 +72,7 @@ func GetFile(ctx context.Context, id uuid.UUID) (*[]byte, error) {
 	}
 	log.Debug().Str("id", id.String()).Msgf("file size: %d", file.Size)
 
-	buf, err := ioutil.ReadAll(object)
+	buf, err := io.ReadAll(object)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to read object from s3")
 		return nil, err
@@ -90,8 +90,7 @@ func cacheFile(id uuid.UUID, data *[]byte) {
 }
 
 func PutFile(ctx context.Context, id uuid.UUID, data []byte) error {
-	megabyteSize := float64(len(data)) / (1024 * 1024)
-	log.Debug().Str("id", id.String()).Msgf("putting file with %.2fMB to s3", megabyteSize)
+	log.Debug().Str("id", id.String()).Msgf("putting file with %s to s3", getHumanReadableSize(int64(len(data))))
 	reader := bytes.NewReader(data)
 	_, err := s3Client.PutObject(ctx, S3_BUCKET, id.String(), reader, int64(len(data)), minio.PutObjectOptions{})
 	if err != nil {
@@ -101,4 +100,18 @@ func PutFile(ctx context.Context, id uuid.UUID, data []byte) error {
 
 	go cacheFile(id, &data)
 	return nil
+}
+
+func getHumanReadableSize(size int64) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	} else if size < 1024*1024 {
+		return fmt.Sprintf("%.2f KiB", float64(size)/1024)
+	} else if size < 1024*1024*1024 {
+		return fmt.Sprintf("%.2f MiB", float64(size)/(1024*1024))
+	} else if size < 1024*1024*1024*1024 {
+		return fmt.Sprintf("%.2f GiB", float64(size)/(1024*1024*1024))
+	} else {
+		return fmt.Sprintf("%.2f TiB", float64(size)/(1024*1024*1024*1024))
+	}
 }

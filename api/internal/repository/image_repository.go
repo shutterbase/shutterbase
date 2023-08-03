@@ -33,7 +33,7 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 	items, err := databaseClient.Image.Query().WithCreatedBy().WithUpdatedBy().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
-		Where(conditions).
+		Where(conditions).Order(ent.Asc("captured_at_corrected"), ent.Asc("captured_at")).
 		All(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting images")

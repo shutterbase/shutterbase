@@ -86,6 +86,46 @@ func (iu *ImageUpdate) SetExifData(m map[string]interface{}) *ImageUpdate {
 	return iu
 }
 
+// SetCapturedAt sets the "captured_at" field.
+func (iu *ImageUpdate) SetCapturedAt(t time.Time) *ImageUpdate {
+	iu.mutation.SetCapturedAt(t)
+	return iu
+}
+
+// SetNillableCapturedAt sets the "captured_at" field if the given value is not nil.
+func (iu *ImageUpdate) SetNillableCapturedAt(t *time.Time) *ImageUpdate {
+	if t != nil {
+		iu.SetCapturedAt(*t)
+	}
+	return iu
+}
+
+// ClearCapturedAt clears the value of the "captured_at" field.
+func (iu *ImageUpdate) ClearCapturedAt() *ImageUpdate {
+	iu.mutation.ClearCapturedAt()
+	return iu
+}
+
+// SetCapturedAtCorrected sets the "captured_at_corrected" field.
+func (iu *ImageUpdate) SetCapturedAtCorrected(t time.Time) *ImageUpdate {
+	iu.mutation.SetCapturedAtCorrected(t)
+	return iu
+}
+
+// SetNillableCapturedAtCorrected sets the "captured_at_corrected" field if the given value is not nil.
+func (iu *ImageUpdate) SetNillableCapturedAtCorrected(t *time.Time) *ImageUpdate {
+	if t != nil {
+		iu.SetCapturedAtCorrected(*t)
+	}
+	return iu
+}
+
+// ClearCapturedAtCorrected clears the value of the "captured_at_corrected" field.
+func (iu *ImageUpdate) ClearCapturedAtCorrected() *ImageUpdate {
+	iu.mutation.ClearCapturedAtCorrected()
+	return iu
+}
+
 // AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
 func (iu *ImageUpdate) AddTagIDs(ids ...uuid.UUID) *ImageUpdate {
 	iu.mutation.AddTagIDs(ids...)
@@ -332,6 +372,18 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := iu.mutation.ExifData(); ok {
 		_spec.SetField(image.FieldExifData, field.TypeJSON, value)
+	}
+	if value, ok := iu.mutation.CapturedAt(); ok {
+		_spec.SetField(image.FieldCapturedAt, field.TypeTime, value)
+	}
+	if iu.mutation.CapturedAtCleared() {
+		_spec.ClearField(image.FieldCapturedAt, field.TypeTime)
+	}
+	if value, ok := iu.mutation.CapturedAtCorrected(); ok {
+		_spec.SetField(image.FieldCapturedAtCorrected, field.TypeTime, value)
+	}
+	if iu.mutation.CapturedAtCorrectedCleared() {
+		_spec.ClearField(image.FieldCapturedAtCorrected, field.TypeTime)
 	}
 	if iu.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -624,6 +676,46 @@ func (iuo *ImageUpdateOne) SetExifData(m map[string]interface{}) *ImageUpdateOne
 	return iuo
 }
 
+// SetCapturedAt sets the "captured_at" field.
+func (iuo *ImageUpdateOne) SetCapturedAt(t time.Time) *ImageUpdateOne {
+	iuo.mutation.SetCapturedAt(t)
+	return iuo
+}
+
+// SetNillableCapturedAt sets the "captured_at" field if the given value is not nil.
+func (iuo *ImageUpdateOne) SetNillableCapturedAt(t *time.Time) *ImageUpdateOne {
+	if t != nil {
+		iuo.SetCapturedAt(*t)
+	}
+	return iuo
+}
+
+// ClearCapturedAt clears the value of the "captured_at" field.
+func (iuo *ImageUpdateOne) ClearCapturedAt() *ImageUpdateOne {
+	iuo.mutation.ClearCapturedAt()
+	return iuo
+}
+
+// SetCapturedAtCorrected sets the "captured_at_corrected" field.
+func (iuo *ImageUpdateOne) SetCapturedAtCorrected(t time.Time) *ImageUpdateOne {
+	iuo.mutation.SetCapturedAtCorrected(t)
+	return iuo
+}
+
+// SetNillableCapturedAtCorrected sets the "captured_at_corrected" field if the given value is not nil.
+func (iuo *ImageUpdateOne) SetNillableCapturedAtCorrected(t *time.Time) *ImageUpdateOne {
+	if t != nil {
+		iuo.SetCapturedAtCorrected(*t)
+	}
+	return iuo
+}
+
+// ClearCapturedAtCorrected clears the value of the "captured_at_corrected" field.
+func (iuo *ImageUpdateOne) ClearCapturedAtCorrected() *ImageUpdateOne {
+	iuo.mutation.ClearCapturedAtCorrected()
+	return iuo
+}
+
 // AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
 func (iuo *ImageUpdateOne) AddTagIDs(ids ...uuid.UUID) *ImageUpdateOne {
 	iuo.mutation.AddTagIDs(ids...)
@@ -900,6 +992,18 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 	}
 	if value, ok := iuo.mutation.ExifData(); ok {
 		_spec.SetField(image.FieldExifData, field.TypeJSON, value)
+	}
+	if value, ok := iuo.mutation.CapturedAt(); ok {
+		_spec.SetField(image.FieldCapturedAt, field.TypeTime, value)
+	}
+	if iuo.mutation.CapturedAtCleared() {
+		_spec.ClearField(image.FieldCapturedAt, field.TypeTime)
+	}
+	if value, ok := iuo.mutation.CapturedAtCorrected(); ok {
+		_spec.SetField(image.FieldCapturedAtCorrected, field.TypeTime, value)
+	}
+	if iuo.mutation.CapturedAtCorrectedCleared() {
+		_spec.ClearField(image.FieldCapturedAtCorrected, field.TypeTime)
 	}
 	if iuo.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{

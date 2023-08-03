@@ -27,6 +27,10 @@ const (
 	FieldDescription = "description"
 	// FieldExifData holds the string denoting the exif_data field in the database.
 	FieldExifData = "exif_data"
+	// FieldCapturedAt holds the string denoting the captured_at field in the database.
+	FieldCapturedAt = "captured_at"
+	// FieldCapturedAtCorrected holds the string denoting the captured_at_corrected field in the database.
+	FieldCapturedAtCorrected = "captured_at_corrected"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
 	EdgeTags = "tags"
 	// EdgeUser holds the string denoting the user edge name in mutations.
@@ -101,6 +105,8 @@ var Columns = []string{
 	FieldFileName,
 	FieldDescription,
 	FieldExifData,
+	FieldCapturedAt,
+	FieldCapturedAtCorrected,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "images"
@@ -183,6 +189,16 @@ func ByFileName(opts ...sql.OrderTermOption) OrderOption {
 // ByDescription orders the results by the description field.
 func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByCapturedAt orders the results by the captured_at field.
+func ByCapturedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCapturedAt, opts...).ToFunc()
+}
+
+// ByCapturedAtCorrected orders the results by the captured_at_corrected field.
+func ByCapturedAtCorrected(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCapturedAtCorrected, opts...).ToFunc()
 }
 
 // ByTagsCount orders the results by tags count.

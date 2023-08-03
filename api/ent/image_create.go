@@ -94,6 +94,34 @@ func (ic *ImageCreate) SetExifData(m map[string]interface{}) *ImageCreate {
 	return ic
 }
 
+// SetCapturedAt sets the "captured_at" field.
+func (ic *ImageCreate) SetCapturedAt(t time.Time) *ImageCreate {
+	ic.mutation.SetCapturedAt(t)
+	return ic
+}
+
+// SetNillableCapturedAt sets the "captured_at" field if the given value is not nil.
+func (ic *ImageCreate) SetNillableCapturedAt(t *time.Time) *ImageCreate {
+	if t != nil {
+		ic.SetCapturedAt(*t)
+	}
+	return ic
+}
+
+// SetCapturedAtCorrected sets the "captured_at_corrected" field.
+func (ic *ImageCreate) SetCapturedAtCorrected(t time.Time) *ImageCreate {
+	ic.mutation.SetCapturedAtCorrected(t)
+	return ic
+}
+
+// SetNillableCapturedAtCorrected sets the "captured_at_corrected" field if the given value is not nil.
+func (ic *ImageCreate) SetNillableCapturedAtCorrected(t *time.Time) *ImageCreate {
+	if t != nil {
+		ic.SetCapturedAtCorrected(*t)
+	}
+	return ic
+}
+
 // SetID sets the "id" field.
 func (ic *ImageCreate) SetID(u uuid.UUID) *ImageCreate {
 	ic.mutation.SetID(u)
@@ -354,6 +382,14 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 	if value, ok := ic.mutation.ExifData(); ok {
 		_spec.SetField(image.FieldExifData, field.TypeJSON, value)
 		_node.ExifData = value
+	}
+	if value, ok := ic.mutation.CapturedAt(); ok {
+		_spec.SetField(image.FieldCapturedAt, field.TypeTime, value)
+		_node.CapturedAt = value
+	}
+	if value, ok := ic.mutation.CapturedAtCorrected(); ok {
+		_spec.SetField(image.FieldCapturedAtCorrected, field.TypeTime, value)
+		_node.CapturedAtCorrected = value
 	}
 	if nodes := ic.mutation.TagsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

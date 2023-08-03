@@ -81,6 +81,16 @@ func Description(v string) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldDescription, v))
 }
 
+// CapturedAt applies equality check predicate on the "captured_at" field. It's identical to CapturedAtEQ.
+func CapturedAt(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldCapturedAt, v))
+}
+
+// CapturedAtCorrected applies equality check predicate on the "captured_at_corrected" field. It's identical to CapturedAtCorrectedEQ.
+func CapturedAtCorrected(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldCapturedAtCorrected, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldCreatedAt, v))
@@ -339,6 +349,106 @@ func DescriptionEqualFold(v string) predicate.Image {
 // DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
 func DescriptionContainsFold(v string) predicate.Image {
 	return predicate.Image(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// CapturedAtEQ applies the EQ predicate on the "captured_at" field.
+func CapturedAtEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldCapturedAt, v))
+}
+
+// CapturedAtNEQ applies the NEQ predicate on the "captured_at" field.
+func CapturedAtNEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldCapturedAt, v))
+}
+
+// CapturedAtIn applies the In predicate on the "captured_at" field.
+func CapturedAtIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldCapturedAt, vs...))
+}
+
+// CapturedAtNotIn applies the NotIn predicate on the "captured_at" field.
+func CapturedAtNotIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldCapturedAt, vs...))
+}
+
+// CapturedAtGT applies the GT predicate on the "captured_at" field.
+func CapturedAtGT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldCapturedAt, v))
+}
+
+// CapturedAtGTE applies the GTE predicate on the "captured_at" field.
+func CapturedAtGTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldCapturedAt, v))
+}
+
+// CapturedAtLT applies the LT predicate on the "captured_at" field.
+func CapturedAtLT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldCapturedAt, v))
+}
+
+// CapturedAtLTE applies the LTE predicate on the "captured_at" field.
+func CapturedAtLTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldCapturedAt, v))
+}
+
+// CapturedAtIsNil applies the IsNil predicate on the "captured_at" field.
+func CapturedAtIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldCapturedAt))
+}
+
+// CapturedAtNotNil applies the NotNil predicate on the "captured_at" field.
+func CapturedAtNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldCapturedAt))
+}
+
+// CapturedAtCorrectedEQ applies the EQ predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldCapturedAtCorrected, v))
+}
+
+// CapturedAtCorrectedNEQ applies the NEQ predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedNEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldCapturedAtCorrected, v))
+}
+
+// CapturedAtCorrectedIn applies the In predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldCapturedAtCorrected, vs...))
+}
+
+// CapturedAtCorrectedNotIn applies the NotIn predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedNotIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldCapturedAtCorrected, vs...))
+}
+
+// CapturedAtCorrectedGT applies the GT predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedGT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldCapturedAtCorrected, v))
+}
+
+// CapturedAtCorrectedGTE applies the GTE predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedGTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldCapturedAtCorrected, v))
+}
+
+// CapturedAtCorrectedLT applies the LT predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedLT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldCapturedAtCorrected, v))
+}
+
+// CapturedAtCorrectedLTE applies the LTE predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedLTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldCapturedAtCorrected, v))
+}
+
+// CapturedAtCorrectedIsNil applies the IsNil predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldCapturedAtCorrected))
+}
+
+// CapturedAtCorrectedNotNil applies the NotNil predicate on the "captured_at_corrected" field.
+func CapturedAtCorrectedNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldCapturedAtCorrected))
 }
 
 // HasTags applies the HasEdge predicate on the "tags" edge.

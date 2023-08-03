@@ -1,12 +1,12 @@
 <template>
   <client-only>
-    <div class="columns-1 md:columns-2 lg:columns-3">
+    <div class="columns-1 md:columns-2 lg:columns-3 2xl:columns-4">
       <div v-for="image in images" :key="image.id">
         <div class="relative mb-4 before:content-[''] before:rounded-md before:absolute before:inset-0 before:bg-black before:bg-opacity-20">
           <img :src="getImageThumbnailUrl(image)" class="w-full rounded-md" />
           <div class="absolute inset-0 p-8 text-white flex flex-col">
             <div class="relative">
-              <a class="absolute inset-0" target="_blank" href="/"></a>
+              <a class="absolute inset-0" :href="`/dashboard/projects/${projectId}/image-detail`"></a>
               <h1 class="text-md font-bold mb-3">{{ image.fileName }}</h1>
               <p class="font-sm font-light">{{ image.edges.createdBy.firstName }} {{ image.edges.createdBy.lastName }}</p>
             </div>

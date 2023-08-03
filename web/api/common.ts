@@ -39,7 +39,7 @@ export interface ListResult<T> {
   response: ApiResponse;
 }
 
-interface ListResponse<T> {
+export interface ListResponse<T> {
   items: Array<T>;
   total: number;
 }

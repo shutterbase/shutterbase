@@ -18,6 +18,8 @@ func (Image) Fields() []ent.Field {
 		field.String("file_name").NotEmpty().StructTag(`json:"fileName"`),
 		field.String("description").Default(""),
 		field.JSON("exif_data", map[string]interface{}{}).StructTag(`json:"exifData"`).Default(map[string]interface{}{}),
+		field.Time("captured_at").Optional().StructTag(`json:"capturedAt"`),
+		field.Time("captured_at_corrected").Optional().StructTag(`json:"capturedAtCorrected"`),
 	}
 }
 

@@ -7,10 +7,12 @@
 <script setup lang="ts">
 import { emitter } from "~/boot/mitt";
 import { useRouter } from "vue-router";
+import { keyEventHandler } from "~/boot/key-events";
 
 onMounted(async () => {
   const store = useStore();
   await store.startIntervals();
+  document.addEventListener("keydown", keyEventHandler);
 });
 
 const router = useRouter();

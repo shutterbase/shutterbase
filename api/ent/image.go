@@ -35,6 +35,10 @@ type Image struct {
 	Description string `json:"description,omitempty"`
 	// ExifData holds the value of the "exif_data" field.
 	ExifData map[string]interface{} `json:"exifData"`
+	// CapturedAt holds the value of the "captured_at" field.
+	CapturedAt time.Time `json:"capturedAt"`
+	// CapturedAtCorrected holds the value of the "captured_at_corrected" field.
+	CapturedAtCorrected time.Time `json:"capturedAtCorrected"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ImageQuery when eager-loading is set.
 	Edges            ImageEdges `json:"edges"`
@@ -164,7 +168,7 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case image.FieldFileName, image.FieldDescription:
 			values[i] = new(sql.NullString)
-		case image.FieldCreatedAt, image.FieldUpdatedAt:
+		case image.FieldCreatedAt, image.FieldUpdatedAt, image.FieldCapturedAt, image.FieldCapturedAtCorrected:
 			values[i] = new(sql.NullTime)
 		case image.FieldID, image.FieldThumbnailID:
 			values[i] = new(uuid.UUID)
@@ -238,6 +242,18 @@ func (i *Image) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &i.ExifData); err != nil {
 					return fmt.Errorf("unmarshal field exif_data: %w", err)
 				}
+			}
+		case image.FieldCapturedAt:
+			if value, ok := values[j].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field captured_at", values[j])
+			} else if value.Valid {
+				i.CapturedAt = value.Time
+			}
+		case image.FieldCapturedAtCorrected:
+			if value, ok := values[j].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field captured_at_corrected", values[j])
+			} else if value.Valid {
+				i.CapturedAtCorrected = value.Time
 			}
 		case image.ForeignKeys[0]:
 			if value, ok := values[j].(*sql.NullScanner); !ok {
@@ -369,6 +385,12 @@ func (i *Image) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("exif_data=")
 	builder.WriteString(fmt.Sprintf("%v", i.ExifData))
+	builder.WriteString(", ")
+	builder.WriteString("captured_at=")
+	builder.WriteString(i.CapturedAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("captured_at_corrected=")
+	builder.WriteString(i.CapturedAtCorrected.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

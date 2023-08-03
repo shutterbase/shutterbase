@@ -8,7 +8,10 @@
           </svg>
         </label>
         <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
-          <li><a>Homepage</a></li>
+          <li><a :href="`/dashboard/projects/${activeProjectId}/images`">Project Images</a></li>
+          <li><a href="/dashboard/users">Manage Users</a></li>
+          <li><a href="/dashboard/projects">Manage Projects</a></li>
+          <li><a href="/logout">Logout</a></li>
         </ul>
       </div>
       <ActiveProjectHeader />
@@ -17,14 +20,16 @@
       <div class="btn btn-ghost normal-case text-xl" @click="doHeaderButtonNavigation">shutterbase</div>
     </div>
     <div class="navbar-end">
-      <NuxtLink to="/logout"><button class="btn">Logout</button></NuxtLink>
+      <NuxtLink class="hidden md:block" to="/logout"><button class="btn">Logout</button></NuxtLink>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { useStore } from "~/stores/store";
 const store = useStore();
+const { activeProjectId } = storeToRefs(store);
 
 function doHeaderButtonNavigation() {
   if (store.isLoggedIn()) {
