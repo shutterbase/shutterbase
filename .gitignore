@@ -3,6 +3,8 @@
 api/*.JPG
 api/*.jpg
 
+sandbox/
+
 # Created by https://www.toptal.com/developers/gitignore/api/vue,vuejs,visualstudiocode,webstorm+all,goland+all,go
 # Edit at https://www.toptal.com/developers/gitignore?templates=vue,vuejs,visualstudiocode,webstorm+all,goland+all,go
 

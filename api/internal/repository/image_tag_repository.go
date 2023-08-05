@@ -17,8 +17,8 @@ func GetImageTags(ctx context.Context, projectId uuid.UUID, paginationParameters
 		imagetag.And(
 			imagetag.HasProjectWith(project.ID(projectId)),
 			imagetag.Or(
-				imagetag.DescriptionContains(paginationParameters.Search),
-				imagetag.NameContains(paginationParameters.Search),
+				imagetag.DescriptionContainsFold(paginationParameters.Search),
+				imagetag.NameContainsFold(paginationParameters.Search),
 			),
 		)
 

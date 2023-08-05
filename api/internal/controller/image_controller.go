@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -198,20 +199,9 @@ func createImageController(c *gin.Context) {
 		}
 
 		go func() {
-			image, _, err := image.Decode(bytes.NewReader(data))
-			if err != nil {
-				log.Error().Err(err).Msg("failed to decode image for thumbnail creation")
-			}
-			newImage := resize.Resize(THUMBNAIL_SIZE, 0, image, resize.Lanczos3)
-			thumbnailBuffer := bytes.Buffer{}
-			thumbnailWriter := bufio.NewWriter(&thumbnailBuffer)
-			err = jpeg.Encode(thumbnailWriter, newImage, nil)
-			if err != nil {
-				log.Error().Err(err).Msg("failed to encode image for thumbnail creation")
-				return
-			}
+			thumbnailData, err := scaleJpegImage(data, THUMBNAIL_SIZE)
 			thumbnailId := uuid.New()
-			err = storage.PutFile(context.Background(), thumbnailId, thumbnailBuffer.Bytes())
+			err = storage.PutFile(context.Background(), thumbnailId, thumbnailData)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to save thumbnail for thumbnail creation")
 				return
@@ -387,6 +377,17 @@ func getImageFileController(c *gin.Context) {
 		return
 	}
 
+	size := 0
+	sizeString := c.Query("size")
+	if sizeString != "" {
+		parsedSize, err := strconv.Atoi(sizeString)
+		if err != nil {
+			api_error.BAD_REQUEST.Send(c)
+			return
+		}
+		size = parsedSize
+	}
+
 	item, err := repository.GetImage(ctx, id)
 	if err != nil {
 		if ent.IsNotFound(err) {
@@ -398,8 +399,6 @@ func getImageFileController(c *gin.Context) {
 		return
 	}
 
-	c.Header("Cache-Control", "max-age=604800")
-	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
 	data, err := storage.GetFile(ctx, id)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get image file")
@@ -407,6 +406,19 @@ func getImageFileController(c *gin.Context) {
 		return
 	}
 
+	if size != 0 {
+		resizedData, err := scaleJpegImage(*data, uint(size))
+		log.Debug().Msgf("resized image from %d to %d", len(*data), len(resizedData))
+		if err != nil {
+			log.Error().Err(err).Msg("failed to resize image")
+			api_error.INTERNAL.Send(c)
+			return
+		}
+		data = &resizedData
+	}
+
+	c.Header("Cache-Control", "max-age=604800")
+	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
 	c.Data(200, "image/jpeg", *data)
 }
 
@@ -417,6 +429,17 @@ func getImageThumbController(c *gin.Context) {
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
 		return
+	}
+
+	size := 0
+	sizeString := c.Query("size")
+	if sizeString != "" {
+		parsedSize, err := strconv.Atoi(sizeString)
+		if err != nil {
+			api_error.BAD_REQUEST.Send(c)
+			return
+		}
+		size = parsedSize
 	}
 
 	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
@@ -437,8 +460,6 @@ func getImageThumbController(c *gin.Context) {
 		return
 	}
 
-	c.Header("Cache-Control", "max-age=604800")
-	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
 	data, err := storage.GetFile(ctx, item.ThumbnailID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get image file")
@@ -446,5 +467,34 @@ func getImageThumbController(c *gin.Context) {
 		return
 	}
 
+	if size != 0 {
+		resizedData, err := scaleJpegImage(*data, uint(size))
+		if err != nil {
+			log.Error().Err(err).Msg("failed to resize image")
+			api_error.INTERNAL.Send(c)
+			return
+		}
+		data = &resizedData
+	}
+
+	c.Header("Cache-Control", "max-age=604800")
+	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
 	c.Data(200, "image/jpeg", *data)
+}
+
+func scaleJpegImage(data []byte, width uint) ([]byte, error) {
+	image, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		log.Error().Err(err).Msg("failed to decode image for thumbnail creation")
+	}
+	newImage := resize.Resize(width, 0, image, resize.Lanczos3)
+	thumbnailBuffer := bytes.Buffer{}
+	thumbnailWriter := bufio.NewWriter(&thumbnailBuffer)
+	err = jpeg.Encode(thumbnailWriter, newImage, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to encode image for thumbnail creation")
+		return nil, err
+	}
+	return thumbnailBuffer.Bytes(), nil
+
 }
