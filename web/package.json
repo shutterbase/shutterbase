@@ -25,7 +25,6 @@
     "@pinia/nuxt": "^0.4.11",
     "@types/luxon": "^3.3.0",
     "dropzone": "6.0.0-beta.2",
-    "lodash.debounce": "^4.0.8",
     "luxon": "^3.3.0",
     "mitt": "^3.0.1",
     "pinia": "^2.1.4",

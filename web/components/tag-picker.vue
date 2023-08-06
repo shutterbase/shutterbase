@@ -1,5 +1,5 @@
 <template>
-  <div class="">
+  <div class="h-96">
     <div>
       <input v-model="tagSearchTerm" ref="tagSearchInput" type="text" class="form-control" placeholder="Search for tags" />
     </div>
@@ -28,11 +28,20 @@
 import { requestList } from "~/api/common";
 import { storeToRefs } from "pinia";
 import { Tag } from "~/api/tag";
-import debounce from "lodash.debounce";
 import { emitter } from "~/boot/mitt";
 const emit = defineEmits(["selected"]);
 const store = useStore();
-const { activeProjectId } = storeToRefs(store);
+
+const props = defineProps({
+  projectId: {
+    type: String,
+    required: true,
+  },
+  active: {
+    type: Boolean,
+    default: true,
+  },
+});
 
 const tagSearchTerm = ref("");
 const tagSearchInput = ref<HTMLInputElement | null>(null);
@@ -42,21 +51,27 @@ const total = ref(0);
 const selectedIndex = ref(-1);
 
 async function loadTags() {
-  const result = await requestList<Tag>(`/projects/${activeProjectId.value}/tags`, { limit: 1000, search: tagSearchTerm.value });
+  const result = await requestList<Tag>(`/projects/${props.projectId}/tags`, { limit: 1000, search: tagSearchTerm.value });
   if (result.items && result.total !== undefined) {
     tags.value = result.items;
     total.value = result.total;
   }
 }
 
+let debounceTimeout: any = null;
 watch(tagSearchTerm, async () => {
-  debounce(loadTags, 250)();
+  if (!props.active) return;
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout);
+  }
+  debounceTimeout = setTimeout(async () => {
+    await loadTags();
+  }, 250);
 });
 
 await loadTags();
 
-emitter.on("display-tag-picker", (event: any) => {
-  event.preventDefault();
+emitter.on("display-tag-picker", () => {
   tagSearchInput.value?.focus();
   tagSearchTerm.value = "";
   selectedIndex.value = -1;

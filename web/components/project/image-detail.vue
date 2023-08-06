@@ -1,36 +1,65 @@
 <template>
-  <div class="columns-1">
-    <div v-if="currentImage">
-      <ItemDescriptorLine :item="currentImage" />
-      <div class="relative mb-4 before:content-[''] before:rounded-md before:absolute before:inset-0 before:bg-black before:bg-opacity-20">
-        <img :src="getImageUrl(currentImage)" class="centerImage rounded-md" />
+  <ClientOnly>
+    <div class="" style="max-height: 75%">
+      <div v-if="images[currentImageOffset]" style="max-height: 75%">
+        <ItemDescriptorLine :item="images[currentImageOffset]" />
+        <div class="divider"></div>
+        <div v-if="images[currentImageOffset].edges.tags && images[currentImageOffset].edges.tags.length !== 0" class="flex flex-row">
+          <div class="btn btn-xs" @click="openTagPicker">Add Tags</div>
+          <div
+            v-for="tag in images[currentImageOffset].edges.tags"
+            class="badge badge-primary object-center p-3 ml-2 hover click hover:cursor-pointer"
+            @click="requestRemoveTag(tag)"
+          >
+            {{ tag.name }}
+          </div>
+        </div>
+        <div v-else>
+          <div class="btn btn-xs" @click="openTagPicker">Add Tags</div>
+          No tags applied
+        </div>
+        <div class="divider"></div>
+        <div class="" style="max-height: 50%">
+          <img :src="getImageUrl(images[currentImageOffset])" class="centerImage rounded-md" />
+        </div>
       </div>
-    </div>
-    <div v-else>
-      <div class="text-center">No images available</div>
-    </div>
-    <div class="hidden lg:block">
-      <div class="flex overflow-x-scroll scroll-smooth scrollbar-hide" ref="filmstrip" v-if="images">
-        <div v-for="(image, index) in images" :key="image.id" :class="`${currentImageOffset - offset === index ? 'selectedFilmstripItem' : ''} flex-shrink-0`">
-          <img :src="getImageThumbnailUrl(image)" class="w-40 h-40 object-cover object-center rounded-sm m-1" @click="selectImage(image)" />
+      <div v-else>
+        <div class="text-center">No images available</div>
+      </div>
+      <div class="hidden lg:block">
+        <div class="flex overflow-x-scroll scroll-smooth scrollbar-hide" ref="filmstrip" v-if="images">
+          <div v-for="(image, index) in images" :key="image.id" :class="`${currentImageOffset - offset === index ? 'selectedFilmstripItem' : ''} flex-shrink-0`">
+            <img :src="getImageThumbnailUrl(image)" class="filmstrip h-40 w-40 object-cover object-center rounded-sm m-1" @click="selectImage(image)" />
+          </div>
         </div>
       </div>
     </div>
-  </div>
-  <div>
-    <link v-for="image in prefetchImages" :rel="`prefetch`" :href="getImageUrl(image)" />
-  </div>
-  <input type="checkbox" :checked="showTagPicker" id="tagPicker" class="modal-toggle" />
-  <div class="modal">
-    <form method="dialog" class="modal-box w-11/12 max-w-5xl">
-      <h3 class="font-bold text-lg">Pick a tag to add</h3>
-      <TagPicker :projectId="props.projectId" @selected="tagSelected" />
-      <div class="modal-action">
-        <!-- if there is a button, it will close the modal -->
-        <button class="btn">Close</button>
+    <div>
+      <link v-for="image in prefetchImages" :rel="`prefetch`" :href="getImageUrl(image)" />
+    </div>
+    <input type="checkbox" :checked="showTagPicker" id="tagPicker" class="modal-toggle" />
+    <div class="modal">
+      <form method="dialog" class="modal-box w-11/12 max-w-5xl">
+        <h3 class="font-bold text-lg">Pick a tag to add</h3>
+        <TagPicker :projectId="props.projectId" :active="showTagPicker" @selected="tagSelected" />
+        <div class="modal-action">
+          <!-- if there is a button, it will close the modal -->
+          <button class="btn">Close</button>
+        </div>
+      </form>
+    </div>
+    <input type="checkbox" id="removeTagDialog" :checked="showRemoveTagDialog" class="modal-toggle" />
+    <div class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Remove Tag</h3>
+        <p class="py-4">Remove tag {{ removeTagCandidate?.name }} from this image</p>
+        <div class="modal-action">
+          <label class="btn" @click="showRemoveTagDialog = false">Cancel</label>
+          <label class="btn" @click="removeTag">OK</label>
+        </div>
       </div>
-    </form>
-  </div>
+    </div>
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
@@ -39,6 +68,9 @@ import { Image } from "~/api/image";
 import { Method, getFetchOptions, API_BASE_URL, ListResponse } from "~/api/common";
 import { emitter } from "~/boot/mitt";
 import { Tag } from "~/api/tag";
+import { useStore } from "~/stores/store";
+
+const store = useStore();
 
 const props = defineProps({
   projectId: {
@@ -53,31 +85,24 @@ const totalImages = ref(0);
 const currentImageOffset = ref(0);
 
 const images = ref<Array<Image>>([]);
-const currentImage = ref<Image | null>(null);
-
 const prefetchImages = ref<Array<Image>>([]);
-
 const filmstrip = ref<HTMLElement | null>(null);
 
 const showTagPicker = ref(false);
+const showRemoveTagDialog = ref(false);
 
 function previousImage() {
   if (showTagPicker.value) return;
   if (currentImageOffset.value > 0) {
-    console.log("currentImageOffset", currentImageOffset.value);
     currentImageOffset.value--;
-    if (currentImageOffset.value >= 5) {
-      // offset.value = currentImageOffset.value - 5;
-    } else {
-      // offset.value = 0;
-    }
   }
 }
 
 function nextImage() {
   if (showTagPicker.value) return;
-  console.log("currentImageOffset", currentImageOffset.value);
-  currentImageOffset.value++;
+  if (currentImageOffset.value < totalImages.value - 1) {
+    currentImageOffset.value++;
+  }
 }
 
 emitter.on("key-ArrowLeft", previousImage);
@@ -87,17 +112,25 @@ emitter.on("key-ArrowRight", nextImage);
 emitter.on("key-l", nextImage);
 
 emitter.on("key-t", (event: any) => {
-  if (showTagPicker.value) return;
-  event.preventDefault();
-  console.log("showing tag picker");
-  emitter.emit("display-tag-picker", event);
-  showTagPicker.value = true;
+  openTagPickerWithHotkey(event);
 });
 
 emitter.on("key-Escape", () => {
-  console.log("hiding tag picker");
   showTagPicker.value = false;
 });
+
+function openTagPickerWithHotkey(event: any) {
+  if (showTagPicker.value) return;
+  event.preventDefault();
+  emitter.emit("display-tag-picker", event);
+  showTagPicker.value = true;
+}
+
+function openTagPicker() {
+  if (showTagPicker.value) return;
+  emitter.emit("display-tag-picker");
+  showTagPicker.value = true;
+}
 
 function getImageThumbnailUrl(image: Image): string {
   return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/thumb?size=200`;
@@ -107,34 +140,96 @@ function getImageUrl(image: Image): string {
   return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/file?size=1500`;
 }
 
+function sortTags(image: Image): Image {
+  if (!image.edges) return image;
+  if (!image.edges.tags) return image;
+  image.edges.tags = image.edges.tags.sort((a, b) => {
+    return a.name.localeCompare(b.name);
+  });
+  return image;
+}
+
 async function fetchImageList() {
   const url = `/projects/${props.projectId}/images?limit=${limit.value}&offset=${offset.value}`;
   const response = await useFetch(url, getFetchOptions(Method.GET));
   if (response.data.value) {
     const data = response.data.value as ListResponse<Image>;
-    images.value = data.items;
+    images.value = data.items.map((image) => sortTags(image));
     totalImages.value = data.total;
   }
   calculatePrefetchImages();
 }
 
+async function fetchCurrentImage() {
+  if (images.value[currentImageOffset.value]) {
+    const url = `/projects/${props.projectId}/images/${images.value[currentImageOffset.value].id}`;
+    const response = await useFetch(url, getFetchOptions(Method.GET));
+    if (response.data.value) {
+      const data = response.data.value as Image;
+      images.value[currentImageOffset.value] = sortTags(data);
+    }
+  }
+}
+
 function selectImage(image: Image) {
-  currentImage.value = image;
-  currentImageOffset.value = images.value.indexOf(image) + offset.value;
+  currentImageOffset.value = images.value.indexOf(image);
+}
+
+function getImageIndex(image: Image): number {
+  return images.value.indexOf(image);
 }
 
 async function tagSelected(tag: Tag) {
   showTagPicker.value = false;
-  console.log(`adding tag ${tag.name} to image ${currentImage.value?.id}`);
-  /* if (currentImage) {
-    const url = `/projects/${props.projectId}/images/${currentImage.id}/tags/${tagId}`;
-    const response = await useFetch(url, getFetchOptions(Method.PUT));
-    console.log(response.data);
+  if (images.value[currentImageOffset.value]) {
+    const imageIndex = getImageIndex(images.value[currentImageOffset.value]);
+    let currentTags: Array<Tag> = [];
+    if (images.value[imageIndex].edges && images.value[imageIndex].edges.tags) {
+      currentTags = images.value[imageIndex].edges.tags;
+    }
+    const url = `/projects/${props.projectId}/images/${images.value[imageIndex].id}`;
+    const response = await useFetch(url, getFetchOptions(Method.PUT, { tags: [...currentTags.map((t: Tag) => t.id), tag.id] }));
     if (response.data.value) {
       const data = response.data.value as Image;
-      currentImage.value = data;
+      const ownUser = store.getOwnUser();
+      images.value[imageIndex].updatedAt = data.updatedAt;
+      // @ts-ignore
+      if (!images.value[imageIndex].edges) images.value[imageIndex].edges = {};
+      if (ownUser) {
+        images.value[imageIndex].edges.updatedBy = ownUser;
+      }
+      images.value[imageIndex].edges.tags = [...currentTags, tag].sort((a, b) => a.name.localeCompare(b.name));
     }
-  } */
+  }
+}
+
+const removeTagCandidate = ref<Tag | null>(null);
+function requestRemoveTag(tag: Tag) {
+  removeTagCandidate.value = tag;
+  showRemoveTagDialog.value = true;
+}
+async function removeTag() {
+  showRemoveTagDialog.value = false;
+  if (images.value[currentImageOffset.value]) {
+    const imageIndex = getImageIndex(images.value[currentImageOffset.value]);
+    let currentTags: Array<Tag> = [];
+    if (images.value[imageIndex].edges && images.value[imageIndex].edges.tags) {
+      currentTags = images.value[imageIndex].edges.tags.filter((t: Tag) => t.id !== removeTagCandidate.value?.id);
+    }
+    const url = `/projects/${props.projectId}/images/${images.value[imageIndex].id}`;
+    const response = await useFetch(url, getFetchOptions(Method.PUT, { tags: [...currentTags.map((t: Tag) => t.id)] }));
+    if (response.data.value) {
+      const data = response.data.value as Image;
+      const ownUser = store.getOwnUser();
+      images.value[imageIndex].updatedAt = data.updatedAt;
+      // @ts-ignore
+      if (!images.value[imageIndex].edges) images.value[imageIndex].edges = {};
+      if (ownUser) {
+        images.value[imageIndex].edges.updatedBy = ownUser;
+      }
+      images.value[imageIndex].edges.tags = [...currentTags.filter((t: Tag) => t.id !== removeTagCandidate.value?.id)].sort((a, b) => a.name.localeCompare(b.name));
+    }
+  }
 }
 
 function calculatePrefetchImages() {
@@ -144,8 +239,7 @@ function calculatePrefetchImages() {
 }
 
 watch(currentImageOffset, async () => {
-  // await fetchImageList();
-  currentImage.value = images.value[currentImageOffset.value - offset.value];
+  fetchCurrentImage();
   if (filmstrip.value) {
     if (currentImageOffset.value > 4) {
       filmstrip.value.scrollLeft = (currentImageOffset.value - 4) * 168;
@@ -157,13 +251,14 @@ watch(currentImageOffset, async () => {
 });
 
 await fetchImageList();
-currentImage.value = images.value[0];
 </script>
 <style scoped>
 .centerImage {
-  max-width: 100%;
-  max-height: 1000px;
+  max-height: 50vh;
   margin: 0 auto;
+}
+.filmstrip {
+  max-height: 10vh;
 }
 .selectedFilmstripItem {
   -webkit-box-shadow: inset 0px 0px 0px 10px rgb(80, 80, 80);

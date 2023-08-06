@@ -2,6 +2,7 @@ import { Project } from "~/api/project";
 import { Batch } from "~/api/batch";
 import { User } from "~/api/user";
 import { Camera } from "api/camera";
+import { Tag } from "~/api/tag";
 
 export interface Image {
   id: string;
@@ -10,6 +11,7 @@ export interface Image {
   description: string;
   exifData: object;
   edges: {
+    tags: Tag[];
     user: User;
     batch: Batch;
     project: Project;

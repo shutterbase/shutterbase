@@ -52,8 +52,9 @@ func registerImagesController(router *gin.Engine) {
 }
 
 type EditImageBody struct {
-	FileName    *string `json:"fileName"`
-	Description *string `json:"description"`
+	FileName    *string   `json:"fileName,omitempty"`
+	Description *string   `json:"description,omitempty"`
+	Tags        *[]string `json:"tags,omitempty"`
 }
 
 func createImageController(c *gin.Context) {
@@ -323,6 +324,20 @@ func updateImageController(c *gin.Context) {
 
 	if body.Description != nil {
 		itemUpdate.SetDescription(*body.Description)
+	}
+
+	if body.Tags != nil {
+		tags := []uuid.UUID{}
+		for _, tag := range *body.Tags {
+			tagId, err := uuid.Parse(tag)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to parse tag id for image update")
+				api_error.BAD_REQUEST.Send(c)
+				return
+			}
+			tags = append(tags, tagId)
+		}
+		itemUpdate.ClearTags().AddTagIDs(tags...)
 	}
 
 	item, err = itemUpdate.SetUpdatedBy(userContext.User).Save(ctx)
