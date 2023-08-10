@@ -16,6 +16,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -81,15 +82,16 @@ var (
 func checkColumn(table, column string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			batch.Table:             batch.ValidColumn,
-			camera.Table:            camera.ValidColumn,
-			image.Table:             image.ValidColumn,
-			imagetag.Table:          imagetag.ValidColumn,
-			project.Table:           project.ValidColumn,
-			projectassignment.Table: projectassignment.ValidColumn,
-			role.Table:              role.ValidColumn,
-			timeoffset.Table:        timeoffset.ValidColumn,
-			user.Table:              user.ValidColumn,
+			batch.Table:              batch.ValidColumn,
+			camera.Table:             camera.ValidColumn,
+			image.Table:              image.ValidColumn,
+			imagetag.Table:           imagetag.ValidColumn,
+			imagetagassignment.Table: imagetagassignment.ValidColumn,
+			project.Table:            project.ValidColumn,
+			projectassignment.Table:  projectassignment.ValidColumn,
+			role.Table:               role.ValidColumn,
+			timeoffset.Table:         timeoffset.ValidColumn,
+			user.Table:               user.ValidColumn,
 		})
 	})
 	return columnCheck(table, column)

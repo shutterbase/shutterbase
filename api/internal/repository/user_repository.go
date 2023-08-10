@@ -42,7 +42,7 @@ func initAdminUser(ctx context.Context) error {
 			_, err = databaseClient.User.Create().
 				SetFirstName("Shutterbase").
 				SetLastName("Admin").
-				SetCopyrightTag("shutterbase-admin").
+				SetCopyrightTag("shutterbase_admin").
 				SetEmail(adminEmail).
 				SetEmailValidated(true).
 				SetPassword(hashedPassword).

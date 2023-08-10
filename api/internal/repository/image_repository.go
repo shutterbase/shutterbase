@@ -6,6 +6,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/project"
 
 	"github.com/google/uuid"
@@ -26,11 +27,12 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 	if len(tags) != 0 {
 		conditions = image.And(
 			conditions,
-			image.HasTagsWith(imagetag.NameIn(tags...)),
+			image.HasImageTagAssignmentsWith(imagetagassignment.HasImageTagWith(imagetag.NameIn(tags...))),
 		)
 	}
 
-	items, err := databaseClient.Image.Query().WithTags().WithCreatedBy().WithUpdatedBy().
+	items, err := databaseClient.Image.Query().
+		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithCreatedBy().WithUpdatedBy().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
 		Where(conditions).Order(ent.Asc("captured_at_corrected"), ent.Asc("captured_at")).
@@ -59,7 +61,7 @@ func GetPublicImages(ctx context.Context, paginationParameters *PaginationParame
 				image.DescriptionContains(paginationParameters.Search),
 				image.FileNameContains(paginationParameters.Search),
 			),
-			image.HasTagsWith(imagetag.NameIn(filterTags...)),
+			image.HasImageTagAssignmentsWith(imagetagassignment.HasImageTagWith(imagetag.NameIn(filterTags...))),
 		)
 
 	items, err := databaseClient.Image.Query().
@@ -81,7 +83,10 @@ func GetPublicImages(ctx context.Context, paginationParameters *PaginationParame
 }
 
 func GetImage(ctx context.Context, id uuid.UUID) (*ent.Image, error) {
-	item, err := databaseClient.Image.Query().Where(image.ID(id)).WithTags().WithCreatedBy().WithUpdatedBy().Only(ctx)
+	item, err := databaseClient.Image.Query().
+		Where(image.ID(id)).
+		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithCamera().WithUser().WithCreatedBy().WithUpdatedBy().
+		Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting image")
 	}

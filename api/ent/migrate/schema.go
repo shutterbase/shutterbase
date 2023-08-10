@@ -92,6 +92,7 @@ var (
 		{Name: "exif_data", Type: field.TypeJSON},
 		{Name: "captured_at", Type: field.TypeTime, Nullable: true},
 		{Name: "captured_at_corrected", Type: field.TypeTime, Nullable: true},
+		{Name: "inferred_at", Type: field.TypeTime, Nullable: true},
 		{Name: "image_user", Type: field.TypeUUID},
 		{Name: "image_batch", Type: field.TypeUUID},
 		{Name: "image_project", Type: field.TypeUUID},
@@ -107,37 +108,37 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "images_users_user",
-				Columns:    []*schema.Column{ImagesColumns[9]},
+				Columns:    []*schema.Column{ImagesColumns[10]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_batches_batch",
-				Columns:    []*schema.Column{ImagesColumns[10]},
+				Columns:    []*schema.Column{ImagesColumns[11]},
 				RefColumns: []*schema.Column{BatchesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_projects_project",
-				Columns:    []*schema.Column{ImagesColumns[11]},
+				Columns:    []*schema.Column{ImagesColumns[12]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_cameras_camera",
-				Columns:    []*schema.Column{ImagesColumns[12]},
+				Columns:    []*schema.Column{ImagesColumns[13]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_users_created_by",
-				Columns:    []*schema.Column{ImagesColumns[13]},
+				Columns:    []*schema.Column{ImagesColumns[14]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "images_users_updated_by",
-				Columns:    []*schema.Column{ImagesColumns[14]},
+				Columns:    []*schema.Column{ImagesColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -151,6 +152,7 @@ var (
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString},
 		{Name: "is_album", Type: field.TypeBool, Default: false},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"default", "manual"}, Default: "manual"},
 		{Name: "image_tag_project", Type: field.TypeUUID, Nullable: true},
 		{Name: "image_tag_created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "image_tag_updated_by", Type: field.TypeUUID, Nullable: true},
@@ -163,19 +165,62 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "image_tags_projects_project",
-				Columns:    []*schema.Column{ImageTagsColumns[6]},
+				Columns:    []*schema.Column{ImageTagsColumns[7]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "image_tags_users_created_by",
-				Columns:    []*schema.Column{ImageTagsColumns[7]},
+				Columns:    []*schema.Column{ImageTagsColumns[8]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "image_tags_users_updated_by",
-				Columns:    []*schema.Column{ImageTagsColumns[8]},
+				Columns:    []*schema.Column{ImageTagsColumns[9]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+	}
+	// ImageTagAssignmentsColumns holds the columns for the "image_tag_assignments" table.
+	ImageTagAssignmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"manual", "inferred", "default"}, Default: "manual"},
+		{Name: "image_tag_assignment_image", Type: field.TypeUUID},
+		{Name: "image_tag_assignment_image_tag", Type: field.TypeUUID},
+		{Name: "image_tag_assignment_created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "image_tag_assignment_updated_by", Type: field.TypeUUID, Nullable: true},
+	}
+	// ImageTagAssignmentsTable holds the schema information for the "image_tag_assignments" table.
+	ImageTagAssignmentsTable = &schema.Table{
+		Name:       "image_tag_assignments",
+		Columns:    ImageTagAssignmentsColumns,
+		PrimaryKey: []*schema.Column{ImageTagAssignmentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "image_tag_assignments_images_image",
+				Columns:    []*schema.Column{ImageTagAssignmentsColumns[4]},
+				RefColumns: []*schema.Column{ImagesColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "image_tag_assignments_image_tags_image_tag",
+				Columns:    []*schema.Column{ImageTagAssignmentsColumns[5]},
+				RefColumns: []*schema.Column{ImageTagsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "image_tag_assignments_users_created_by",
+				Columns:    []*schema.Column{ImageTagAssignmentsColumns[6]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "image_tag_assignments_users_updated_by",
+				Columns:    []*schema.Column{ImageTagAssignmentsColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -358,43 +403,18 @@ var (
 			},
 		},
 	}
-	// ImageTagImagesColumns holds the columns for the "image_tag_images" table.
-	ImageTagImagesColumns = []*schema.Column{
-		{Name: "image_tag_id", Type: field.TypeUUID},
-		{Name: "image_id", Type: field.TypeUUID},
-	}
-	// ImageTagImagesTable holds the schema information for the "image_tag_images" table.
-	ImageTagImagesTable = &schema.Table{
-		Name:       "image_tag_images",
-		Columns:    ImageTagImagesColumns,
-		PrimaryKey: []*schema.Column{ImageTagImagesColumns[0], ImageTagImagesColumns[1]},
-		ForeignKeys: []*schema.ForeignKey{
-			{
-				Symbol:     "image_tag_images_image_tag_id",
-				Columns:    []*schema.Column{ImageTagImagesColumns[0]},
-				RefColumns: []*schema.Column{ImageTagsColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "image_tag_images_image_id",
-				Columns:    []*schema.Column{ImageTagImagesColumns[1]},
-				RefColumns: []*schema.Column{ImagesColumns[0]},
-				OnDelete:   schema.Cascade,
-			},
-		},
-	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		BatchesTable,
 		CamerasTable,
 		ImagesTable,
 		ImageTagsTable,
+		ImageTagAssignmentsTable,
 		ProjectsTable,
 		ProjectAssignmentsTable,
 		RolesTable,
 		TimeOffsetsTable,
 		UsersTable,
-		ImageTagImagesTable,
 	}
 )
 
@@ -414,6 +434,10 @@ func init() {
 	ImageTagsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ImageTagsTable.ForeignKeys[1].RefTable = UsersTable
 	ImageTagsTable.ForeignKeys[2].RefTable = UsersTable
+	ImageTagAssignmentsTable.ForeignKeys[0].RefTable = ImagesTable
+	ImageTagAssignmentsTable.ForeignKeys[1].RefTable = ImageTagsTable
+	ImageTagAssignmentsTable.ForeignKeys[2].RefTable = UsersTable
+	ImageTagAssignmentsTable.ForeignKeys[3].RefTable = UsersTable
 	ProjectsTable.ForeignKeys[0].RefTable = UsersTable
 	ProjectsTable.ForeignKeys[1].RefTable = UsersTable
 	ProjectAssignmentsTable.ForeignKeys[0].RefTable = UsersTable
@@ -427,6 +451,4 @@ func init() {
 	UsersTable.ForeignKeys[0].RefTable = RolesTable
 	UsersTable.ForeignKeys[1].RefTable = UsersTable
 	UsersTable.ForeignKeys[2].RefTable = UsersTable
-	ImageTagImagesTable.ForeignKeys[0].RefTable = ImageTagsTable
-	ImageTagImagesTable.ForeignKeys[1].RefTable = ImagesTable
 }

@@ -10,27 +10,26 @@ import (
 	"strings"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/image"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/internal/api_error"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/storage"
 	"github.com/shutterbase/shutterbase/internal/util"
 
-	"image"
+	img "image"
 	"image/jpeg"
 	_ "image/jpeg"
 
 	"github.com/nfnt/resize"
 )
-
-var timeOffsetCache *lru.Cache[uuid.UUID, TimeOffsetCacheEntry]
 
 const IMAGES_RESOURCE = "/projects/:pid/images"
 
@@ -40,7 +39,14 @@ func registerImagesController(router *gin.Engine) {
 	CONTEXT_PATH := config.Get().String("API_CONTEXT_PATH")
 	THUMBNAIL_SIZE = uint(config.Get().Int("THUMBNAIL_SIZE"))
 
-	timeOffsetCache, _ = lru.New[uuid.UUID, TimeOffsetCacheEntry](100)
+	repository.DefineCache("timeOffsetCache", 100)
+	repository.DefineCache("projectTagCache", 100)
+	repository.DefineCache("photographerTagCache", 100)
+	repository.DefineCache("dateTagCache", 100)
+	repository.DefineCache("weekdayTagCache", 100)
+
+	repository.DefineCache("thumbnailCache", 2500)
+	repository.DefineCache("imageCache", 250)
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), createImageController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), getImagesController)
@@ -51,10 +57,20 @@ func registerImagesController(router *gin.Engine) {
 	router.DELETE(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, IMAGES_RESOURCE), deleteImageController)
 }
 
+type ImageCacheEntry struct {
+	Data  []byte
+	Image *ent.Image
+}
+
+type TagAssignments struct {
+	Id   string `json:"id"`
+	Type string `json:"type"`
+}
+
 type EditImageBody struct {
-	FileName    *string   `json:"fileName,omitempty"`
-	Description *string   `json:"description,omitempty"`
-	Tags        *[]string `json:"tags,omitempty"`
+	FileName    *string           `json:"fileName,omitempty"`
+	Description *string           `json:"description,omitempty"`
+	Tags        *[]TagAssignments `json:"tags,omitempty"`
 }
 
 func createImageController(c *gin.Context) {
@@ -126,7 +142,6 @@ func createImageController(c *gin.Context) {
 		return
 	}
 
-	// TODO: check with dropzonejs if this is the correct way to handle multiple files
 	for _, value := range c.Request.MultipartForm.File {
 		itemId := uuid.New()
 		itemCreate := repository.GetDatabaseClient().Image.Create().
@@ -191,16 +206,21 @@ func createImageController(c *gin.Context) {
 			itemCreate.SetCapturedAtCorrected(correctedCaptureTime)
 		}
 
-		// TODO: add default tags for project, author tag, etc
-		_, err = itemCreate.Save(ctx)
+		item, err := itemCreate.Save(ctx)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to save image for image creation")
 			api_error.INTERNAL.Send(c)
 			return
 		}
 
+		go applyDefaultTags(item.ID)
+
 		go func() {
 			thumbnailData, err := scaleJpegImage(data, THUMBNAIL_SIZE)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to scaled image for thumbnail creation")
+				return
+			}
 			thumbnailId := uuid.New()
 			err = storage.PutFile(context.Background(), thumbnailId, thumbnailData)
 			if err != nil {
@@ -327,17 +347,67 @@ func updateImageController(c *gin.Context) {
 	}
 
 	if body.Tags != nil {
-		tags := []uuid.UUID{}
-		for _, tag := range *body.Tags {
-			tagId, err := uuid.Parse(tag)
+		addAssignments := []TagAssignments{}
+		removeAssignments := []TagAssignments{}
+		for _, tagAssignment := range item.Edges.ImageTagAssignments {
+			tagFound := false
+			for _, newTagAssignment := range *body.Tags {
+				if tagAssignment.Edges.ImageTag.ID.String() == newTagAssignment.Id && tagAssignment.Type == getImageTagAssignmentType(newTagAssignment.Type) {
+					tagFound = true
+					break
+				}
+			}
+			if !tagFound {
+				removeAssignments = append(removeAssignments, TagAssignments{Id: tagAssignment.Edges.ImageTag.ID.String(), Type: string(tagAssignment.Type)})
+			}
+		}
+
+		for _, newTagAssignment := range *body.Tags {
+			tagFound := false
+			for _, tagAssignment := range item.Edges.ImageTagAssignments {
+				if tagAssignment.Edges.ImageTag.ID.String() == newTagAssignment.Id && tagAssignment.Type == getImageTagAssignmentType(newTagAssignment.Type) {
+					tagFound = true
+					break
+				}
+			}
+			if !tagFound {
+				addAssignments = append(addAssignments, newTagAssignment)
+			}
+		}
+
+		for _, removeAssignment := range removeAssignments {
+			tagId, err := uuid.Parse(removeAssignment.Id)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to parse tag id for image update")
+				log.Err(err).Msg("failed to parse tag id for image update")
 				api_error.BAD_REQUEST.Send(c)
 				return
 			}
-			tags = append(tags, tagId)
+			_, err = repository.GetDatabaseClient().ImageTagAssignment.Delete().Where(
+				imagetagassignment.HasImageWith(image.ID(id)),
+				imagetagassignment.HasImageTagWith(imagetag.ID(tagId)),
+			).Exec(ctx)
+			if err != nil {
+				log.Err(err).Msg("failed to remove tag assignment for image update")
+			}
 		}
-		itemUpdate.ClearTags().AddTagIDs(tags...)
+		for _, addAssignment := range addAssignments {
+			tagId, err := uuid.Parse(addAssignment.Id)
+			if err != nil {
+				log.Err(err).Msg("failed to parse tag id for image update")
+				api_error.BAD_REQUEST.Send(c)
+				return
+			}
+			_, err = repository.GetDatabaseClient().ImageTagAssignment.Create().
+				SetImage(item).
+				SetImageTagID(tagId).
+				SetType(getImageTagAssignmentType(addAssignment.Type)).
+				SetCreatedBy(userContext.User).
+				SetUpdatedBy(userContext.User).
+				Save(ctx)
+			if err != nil {
+				log.Err(err).Msg("failed to add tag assignment for image update")
+			}
+		}
 	}
 
 	item, err = itemUpdate.SetUpdatedBy(userContext.User).Save(ctx)
@@ -403,22 +473,37 @@ func getImageFileController(c *gin.Context) {
 		size = parsedSize
 	}
 
-	item, err := repository.GetImage(ctx, id)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			api_error.NOT_FOUND.Send(c)
-		} else {
-			log.Error().Err(err).Msg("failed to get image for image file")
-			api_error.INTERNAL.Send(c)
+	rawCacheItem, ok := repository.GetCacheItem("imageCache", id)
+	var data *[]byte
+	var item *ent.Image
+	if ok && rawCacheItem != nil {
+		cacheItem := rawCacheItem.(ImageCacheEntry)
+		data = &cacheItem.Data
+		item = cacheItem.Image
+	} else {
+		item, err = repository.GetImage(ctx, id)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				api_error.NOT_FOUND.Send(c)
+			} else {
+				log.Error().Err(err).Msg("failed to get image for image file")
+				api_error.INTERNAL.Send(c)
+			}
+			return
 		}
-		return
-	}
 
-	data, err := storage.GetFile(ctx, id)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get image file")
-		api_error.INTERNAL.Send(c)
-		return
+		data, err = storage.GetFile(ctx, id)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get image file")
+			api_error.INTERNAL.Send(c)
+			return
+		}
+
+		cacheItem := ImageCacheEntry{
+			Data:  *data,
+			Image: item,
+		}
+		repository.SetCacheItem("imageCache", id, cacheItem)
 	}
 
 	if size != 0 {
@@ -446,6 +531,13 @@ func getImageThumbController(c *gin.Context) {
 		return
 	}
 
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to image denied")
+		api_error.FORBIDDEN.Send(c)
+		return
+	}
+
 	size := 0
 	sizeString := c.Query("size")
 	if sizeString != "" {
@@ -457,29 +549,37 @@ func getImageThumbController(c *gin.Context) {
 		size = parsedSize
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
-	if err != nil || !allowed {
-		log.Warn().Err(err).Msg("unauthorized access to image denied")
-		api_error.FORBIDDEN.Send(c)
-		return
-	}
-
-	item, err := repository.GetImage(ctx, id)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			api_error.NOT_FOUND.Send(c)
-		} else {
-			log.Error().Err(err).Msg("failed to get image for image file")
-			api_error.INTERNAL.Send(c)
+	rawCacheItem, ok := repository.GetCacheItem("thumbnailCache", id)
+	var data *[]byte
+	var item *ent.Image
+	if ok && rawCacheItem != nil {
+		cacheItem := rawCacheItem.(ImageCacheEntry)
+		data = &cacheItem.Data
+		item = cacheItem.Image
+	} else {
+		item, err = repository.GetImage(ctx, id)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				api_error.NOT_FOUND.Send(c)
+			} else {
+				log.Error().Err(err).Msg("failed to get image for image file")
+				api_error.INTERNAL.Send(c)
+			}
+			return
 		}
-		return
-	}
 
-	data, err := storage.GetFile(ctx, item.ThumbnailID)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get image file")
-		api_error.INTERNAL.Send(c)
-		return
+		data, err = storage.GetFile(ctx, item.ThumbnailID)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get image thumbnail file")
+			api_error.INTERNAL.Send(c)
+			return
+		}
+
+		cacheItem := ImageCacheEntry{
+			Data:  *data,
+			Image: item,
+		}
+		repository.SetCacheItem("thumbnailCache", id, cacheItem)
 	}
 
 	if size != 0 {
@@ -498,7 +598,7 @@ func getImageThumbController(c *gin.Context) {
 }
 
 func scaleJpegImage(data []byte, width uint) ([]byte, error) {
-	image, _, err := image.Decode(bytes.NewReader(data))
+	image, _, err := img.Decode(bytes.NewReader(data))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to decode image for thumbnail creation")
 	}
@@ -511,5 +611,74 @@ func scaleJpegImage(data []byte, width uint) ([]byte, error) {
 		return nil, err
 	}
 	return thumbnailBuffer.Bytes(), nil
+}
 
+func applyDefaultTags(imageId uuid.UUID) error {
+	ctx := context.Background()
+	image, err := repository.GetImage(ctx, imageId)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image for default tag application")
+		return err
+	}
+
+	project, err := image.QueryProject().Only(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get project for default tag application")
+		return err
+	}
+
+	defaultTags, err := repository.GetDefaultTags(ctx, project.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get default tags for default tag application")
+		return err
+	}
+
+	tags := []*ent.ImageTag{}
+
+	for _, defaultTag := range defaultTags {
+		switch defaultTag.Name {
+		case "project_name":
+			projectTag, err := repository.GetProjectTag(ctx, project.ID)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to get project tag for default tag application")
+				return err
+			}
+			tags = append(tags, projectTag)
+		case "photographer_copyright":
+			photographerTag, err := repository.GetPhotographerTag(ctx, project.ID, image.Edges.User.ID)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to get photographer tag for default tag application")
+				return err
+			}
+			tags = append(tags, photographerTag)
+		case "date":
+			dateTag, err := repository.GetDateTag(ctx, project.ID, image.CapturedAtCorrected)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to get date tag for default tag application")
+				return err
+			}
+			tags = append(tags, dateTag)
+		case "weekday":
+			weekdayTag, err := repository.GetWeekdayTag(ctx, project.ID, image.CapturedAtCorrected)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to get date tag for default tag application")
+				return err
+			}
+			tags = append(tags, weekdayTag)
+		}
+	}
+
+	for _, tag := range tags {
+		_, err := repository.GetDatabaseClient().ImageTagAssignment.Create().
+			SetImage(image).
+			SetImageTag(tag).
+			SetType(imagetagassignment.TypeDefault).
+			Save(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to create tag assignment for default tag application")
+			return err
+		}
+	}
+
+	return nil
 }

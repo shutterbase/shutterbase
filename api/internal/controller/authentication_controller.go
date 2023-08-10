@@ -130,6 +130,7 @@ func registerNewUser(c *gin.Context) {
 	user, err := repository.GetDatabaseClient().User.Create().
 		SetFirstName(requestBody.FirstName).
 		SetLastName(requestBody.LastName).
+		SetCopyrightTag(getDefaultCopyrightTagFromName(requestBody.LastName)).
 		SetEmail(requestBody.Email).
 		SetValidationKey(uuid.New()).
 		SetPassword(hashedPassword).

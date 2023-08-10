@@ -7,6 +7,7 @@
           <tr>
             <th>Name</th>
             <th>Description</th>
+            <th>Type</th>
             <th>Album</th>
             <th>Actions</th>
           </tr>
@@ -15,6 +16,7 @@
           <tr v-for="item in data?.items || []" :key="item.id" class="hover click hover:cursor-pointer">
             <td>{{ item.name }}</td>
             <td>{{ item.description }}</td>
+            <td>{{ item.type }}</td>
             <td>{{ item.isAlbum }}</td>
             <td>
               <button class="btn btn-sm btn-error" @click="deleteTag(item.id)">Delete</button>
@@ -33,9 +35,12 @@
     <dialog id="addTagDialog" class="modal">
       <form method="dialog" class="modal-box">
         <h3 class="font-bold text-lg">Add a single tag</h3>
-        <input v-model="tagName" type="text" placeholder="Name" class="input input-bordered w-full max-w-xs" />
-        <input v-model="tagDescription" type="text" placeholder="Description" class="input input-bordered w-full max-w-xs" />
-        <div class="form-control">
+        <input v-model="tagName" type="text" placeholder="Name" class="input input-bordered w-full max-w-xs m-2" />
+        <input v-model="tagDescription" type="text" placeholder="Description" class="input input-bordered w-full max-w-xs m-2" />
+        <select v-model="tagType" class="select select-bordered w-full max-w-xs m-2">
+          <option v-for="option in tagTypeOptions">{{ option }}</option>
+        </select>
+        <div class="form-control m-2">
           <label class="label cursor-pointer">
             <span class="label-text">Is Album</span>
             <input type="checkbox" :checked="tagIsAlbum" class="checkbox" />
@@ -100,16 +105,19 @@ const addTagDialog = ref<HTMLDialogElement | null>(null);
 const tagName = ref("");
 const tagDescription = ref("");
 const tagIsAlbum = ref(false);
+const tagType = ref("manual");
+const tagTypeOptions = ref(["manual", "default"]);
 const tagsCsv = ref("");
 
 async function addTag() {
   const { data } = await useFetch(
     `/projects/${props.projectId}/tags`,
-    getFetchOptions(Method.POST, { name: tagName.value, description: tagDescription.value, isAlbum: tagIsAlbum.value })
+    getFetchOptions(Method.POST, { name: tagName.value, description: tagDescription.value, type: tagType.value, isAlbum: tagIsAlbum.value })
   );
   await refresh();
   tagName.value = "";
   tagDescription.value = "";
+  tagType.value = "manual";
   tagIsAlbum.value = false;
   addTagDialog.value?.close();
 }

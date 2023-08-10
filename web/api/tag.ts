@@ -4,6 +4,7 @@ export interface Tag {
   id: string;
   name: string;
   description: string;
+  type: string;
   isAlbum: boolean;
   edges: {
     // images: Image[];
@@ -17,12 +18,14 @@ export interface Tag {
 export interface UpdateTagInput {
   name?: string;
   description?: string;
+  type?: string;
   isAlbum?: boolean;
 }
 
 export interface CreateTagInput {
   name: string;
   description: string;
+  type: string;
   isAlbum: boolean;
 }
 

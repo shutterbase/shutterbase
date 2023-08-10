@@ -10,6 +10,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -134,6 +135,25 @@ func init() {
 	imagetagDescID := imagetagMixinFields0[0].Descriptor()
 	// imagetag.DefaultID holds the default value on creation for the id field.
 	imagetag.DefaultID = imagetagDescID.Default.(func() uuid.UUID)
+	imagetagassignmentMixin := schema.ImageTagAssignment{}.Mixin()
+	imagetagassignmentMixinFields0 := imagetagassignmentMixin[0].Fields()
+	_ = imagetagassignmentMixinFields0
+	imagetagassignmentFields := schema.ImageTagAssignment{}.Fields()
+	_ = imagetagassignmentFields
+	// imagetagassignmentDescCreatedAt is the schema descriptor for created_at field.
+	imagetagassignmentDescCreatedAt := imagetagassignmentMixinFields0[1].Descriptor()
+	// imagetagassignment.DefaultCreatedAt holds the default value on creation for the created_at field.
+	imagetagassignment.DefaultCreatedAt = imagetagassignmentDescCreatedAt.Default.(func() time.Time)
+	// imagetagassignmentDescUpdatedAt is the schema descriptor for updated_at field.
+	imagetagassignmentDescUpdatedAt := imagetagassignmentMixinFields0[2].Descriptor()
+	// imagetagassignment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	imagetagassignment.DefaultUpdatedAt = imagetagassignmentDescUpdatedAt.Default.(func() time.Time)
+	// imagetagassignment.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	imagetagassignment.UpdateDefaultUpdatedAt = imagetagassignmentDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// imagetagassignmentDescID is the schema descriptor for id field.
+	imagetagassignmentDescID := imagetagassignmentMixinFields0[0].Descriptor()
+	// imagetagassignment.DefaultID holds the default value on creation for the id field.
+	imagetagassignment.DefaultID = imagetagassignmentDescID.Default.(func() uuid.UUID)
 	projectMixin := schema.Project{}.Mixin()
 	projectMixinFields0 := projectMixin[0].Fields()
 	_ = projectMixinFields0

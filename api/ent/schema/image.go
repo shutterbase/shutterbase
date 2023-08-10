@@ -20,6 +20,7 @@ func (Image) Fields() []ent.Field {
 		field.JSON("exif_data", map[string]interface{}{}).StructTag(`json:"exifData"`).Default(map[string]interface{}{}),
 		field.Time("captured_at").Optional().StructTag(`json:"capturedAt"`),
 		field.Time("captured_at_corrected").Optional().StructTag(`json:"capturedAtCorrected"`),
+		field.Time("inferred_at").Optional().StructTag(`json:"inferredAt"`),
 	}
 }
 
@@ -31,7 +32,7 @@ func (Image) Mixin() []ent.Mixin {
 
 func (Image) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("tags", ImageTag.Type).Ref("images"),
+		edge.From("image_tag_assignments", ImageTagAssignment.Type).Ref("image").StructTag(`json:"tagAssignments"`),
 		edge.To("user", User.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("batch", Batch.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("project", Project.Type).Unique().Required().Annotations(entsql.OnDelete(entsql.Cascade)),

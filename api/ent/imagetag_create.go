@@ -11,8 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -78,6 +78,20 @@ func (itc *ImageTagCreate) SetNillableIsAlbum(b *bool) *ImageTagCreate {
 	return itc
 }
 
+// SetType sets the "type" field.
+func (itc *ImageTagCreate) SetType(i imagetag.Type) *ImageTagCreate {
+	itc.mutation.SetType(i)
+	return itc
+}
+
+// SetNillableType sets the "type" field if the given value is not nil.
+func (itc *ImageTagCreate) SetNillableType(i *imagetag.Type) *ImageTagCreate {
+	if i != nil {
+		itc.SetType(*i)
+	}
+	return itc
+}
+
 // SetID sets the "id" field.
 func (itc *ImageTagCreate) SetID(u uuid.UUID) *ImageTagCreate {
 	itc.mutation.SetID(u)
@@ -111,19 +125,19 @@ func (itc *ImageTagCreate) SetProject(p *Project) *ImageTagCreate {
 	return itc.SetProjectID(p.ID)
 }
 
-// AddImageIDs adds the "images" edge to the Image entity by IDs.
-func (itc *ImageTagCreate) AddImageIDs(ids ...uuid.UUID) *ImageTagCreate {
-	itc.mutation.AddImageIDs(ids...)
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (itc *ImageTagCreate) AddImageTagAssignmentIDs(ids ...uuid.UUID) *ImageTagCreate {
+	itc.mutation.AddImageTagAssignmentIDs(ids...)
 	return itc
 }
 
-// AddImages adds the "images" edges to the Image entity.
-func (itc *ImageTagCreate) AddImages(i ...*Image) *ImageTagCreate {
+// AddImageTagAssignments adds the "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (itc *ImageTagCreate) AddImageTagAssignments(i ...*ImageTagAssignment) *ImageTagCreate {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return itc.AddImageIDs(ids...)
+	return itc.AddImageTagAssignmentIDs(ids...)
 }
 
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
@@ -211,6 +225,10 @@ func (itc *ImageTagCreate) defaults() {
 		v := imagetag.DefaultIsAlbum
 		itc.mutation.SetIsAlbum(v)
 	}
+	if _, ok := itc.mutation.GetType(); !ok {
+		v := imagetag.DefaultType
+		itc.mutation.SetType(v)
+	}
 	if _, ok := itc.mutation.ID(); !ok {
 		v := imagetag.DefaultID()
 		itc.mutation.SetID(v)
@@ -243,6 +261,14 @@ func (itc *ImageTagCreate) check() error {
 	}
 	if _, ok := itc.mutation.IsAlbum(); !ok {
 		return &ValidationError{Name: "is_album", err: errors.New(`ent: missing required field "ImageTag.is_album"`)}
+	}
+	if _, ok := itc.mutation.GetType(); !ok {
+		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "ImageTag.type"`)}
+	}
+	if v, ok := itc.mutation.GetType(); ok {
+		if err := imagetag.TypeValidator(v); err != nil {
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "ImageTag.type": %w`, err)}
+		}
 	}
 	return nil
 }
@@ -299,6 +325,10 @@ func (itc *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
 		_node.IsAlbum = value
 	}
+	if value, ok := itc.mutation.GetType(); ok {
+		_spec.SetField(imagetag.FieldType, field.TypeEnum, value)
+		_node.Type = value
+	}
 	if nodes := itc.mutation.ProjectIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -316,15 +346,15 @@ func (itc *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 		_node.image_tag_project = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := itc.mutation.ImagesIDs(); len(nodes) > 0 {
+	if nodes := itc.mutation.ImageTagAssignmentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   imagetag.ImagesTable,
-			Columns: imagetag.ImagesPrimaryKey,
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   imagetag.ImageTagAssignmentsTable,
+			Columns: []string{imagetag.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

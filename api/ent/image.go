@@ -39,6 +39,8 @@ type Image struct {
 	CapturedAt time.Time `json:"capturedAt"`
 	// CapturedAtCorrected holds the value of the "captured_at_corrected" field.
 	CapturedAtCorrected time.Time `json:"capturedAtCorrected"`
+	// InferredAt holds the value of the "inferred_at" field.
+	InferredAt time.Time `json:"inferredAt"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ImageQuery when eager-loading is set.
 	Edges            ImageEdges `json:"edges"`
@@ -53,8 +55,8 @@ type Image struct {
 
 // ImageEdges holds the relations/edges for other nodes in the graph.
 type ImageEdges struct {
-	// Tags holds the value of the tags edge.
-	Tags []*ImageTag `json:"tags,omitempty"`
+	// ImageTagAssignments holds the value of the image_tag_assignments edge.
+	ImageTagAssignments []*ImageTagAssignment `json:"tagAssignments"`
 	// User holds the value of the user edge.
 	User *User `json:"user,omitempty"`
 	// Batch holds the value of the batch edge.
@@ -72,13 +74,13 @@ type ImageEdges struct {
 	loadedTypes [7]bool
 }
 
-// TagsOrErr returns the Tags value or an error if the edge
+// ImageTagAssignmentsOrErr returns the ImageTagAssignments value or an error if the edge
 // was not loaded in eager-loading.
-func (e ImageEdges) TagsOrErr() ([]*ImageTag, error) {
+func (e ImageEdges) ImageTagAssignmentsOrErr() ([]*ImageTagAssignment, error) {
 	if e.loadedTypes[0] {
-		return e.Tags, nil
+		return e.ImageTagAssignments, nil
 	}
-	return nil, &NotLoadedError{edge: "tags"}
+	return nil, &NotLoadedError{edge: "image_tag_assignments"}
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -168,7 +170,7 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case image.FieldFileName, image.FieldDescription:
 			values[i] = new(sql.NullString)
-		case image.FieldCreatedAt, image.FieldUpdatedAt, image.FieldCapturedAt, image.FieldCapturedAtCorrected:
+		case image.FieldCreatedAt, image.FieldUpdatedAt, image.FieldCapturedAt, image.FieldCapturedAtCorrected, image.FieldInferredAt:
 			values[i] = new(sql.NullTime)
 		case image.FieldID, image.FieldThumbnailID:
 			values[i] = new(uuid.UUID)
@@ -255,6 +257,12 @@ func (i *Image) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				i.CapturedAtCorrected = value.Time
 			}
+		case image.FieldInferredAt:
+			if value, ok := values[j].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field inferred_at", values[j])
+			} else if value.Valid {
+				i.InferredAt = value.Time
+			}
 		case image.ForeignKeys[0]:
 			if value, ok := values[j].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field image_user", values[j])
@@ -310,9 +318,9 @@ func (i *Image) Value(name string) (ent.Value, error) {
 	return i.selectValues.Get(name)
 }
 
-// QueryTags queries the "tags" edge of the Image entity.
-func (i *Image) QueryTags() *ImageTagQuery {
-	return NewImageClient(i.config).QueryTags(i)
+// QueryImageTagAssignments queries the "image_tag_assignments" edge of the Image entity.
+func (i *Image) QueryImageTagAssignments() *ImageTagAssignmentQuery {
+	return NewImageClient(i.config).QueryImageTagAssignments(i)
 }
 
 // QueryUser queries the "user" edge of the Image entity.
@@ -391,6 +399,9 @@ func (i *Image) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("captured_at_corrected=")
 	builder.WriteString(i.CapturedAtCorrected.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("inferred_at=")
+	builder.WriteString(i.InferredAt.Format(time.ANSIC))
 	builder.WriteByte(')')
 	return builder.String()
 }

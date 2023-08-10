@@ -12,8 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -22,15 +22,15 @@ import (
 // ImageTagQuery is the builder for querying ImageTag entities.
 type ImageTagQuery struct {
 	config
-	ctx           *QueryContext
-	order         []imagetag.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.ImageTag
-	withProject   *ProjectQuery
-	withImages    *ImageQuery
-	withCreatedBy *UserQuery
-	withUpdatedBy *UserQuery
-	withFKs       bool
+	ctx                     *QueryContext
+	order                   []imagetag.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.ImageTag
+	withProject             *ProjectQuery
+	withImageTagAssignments *ImageTagAssignmentQuery
+	withCreatedBy           *UserQuery
+	withUpdatedBy           *UserQuery
+	withFKs                 bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -89,9 +89,9 @@ func (itq *ImageTagQuery) QueryProject() *ProjectQuery {
 	return query
 }
 
-// QueryImages chains the current query on the "images" edge.
-func (itq *ImageTagQuery) QueryImages() *ImageQuery {
-	query := (&ImageClient{config: itq.config}).Query()
+// QueryImageTagAssignments chains the current query on the "image_tag_assignments" edge.
+func (itq *ImageTagQuery) QueryImageTagAssignments() *ImageTagAssignmentQuery {
+	query := (&ImageTagAssignmentClient{config: itq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := itq.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -102,8 +102,8 @@ func (itq *ImageTagQuery) QueryImages() *ImageQuery {
 		}
 		step := sqlgraph.NewStep(
 			sqlgraph.From(imagetag.Table, imagetag.FieldID, selector),
-			sqlgraph.To(image.Table, image.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, imagetag.ImagesTable, imagetag.ImagesPrimaryKey...),
+			sqlgraph.To(imagetagassignment.Table, imagetagassignment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, imagetag.ImageTagAssignmentsTable, imagetag.ImageTagAssignmentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(itq.driver.Dialect(), step)
 		return fromU, nil
@@ -342,15 +342,15 @@ func (itq *ImageTagQuery) Clone() *ImageTagQuery {
 		return nil
 	}
 	return &ImageTagQuery{
-		config:        itq.config,
-		ctx:           itq.ctx.Clone(),
-		order:         append([]imagetag.OrderOption{}, itq.order...),
-		inters:        append([]Interceptor{}, itq.inters...),
-		predicates:    append([]predicate.ImageTag{}, itq.predicates...),
-		withProject:   itq.withProject.Clone(),
-		withImages:    itq.withImages.Clone(),
-		withCreatedBy: itq.withCreatedBy.Clone(),
-		withUpdatedBy: itq.withUpdatedBy.Clone(),
+		config:                  itq.config,
+		ctx:                     itq.ctx.Clone(),
+		order:                   append([]imagetag.OrderOption{}, itq.order...),
+		inters:                  append([]Interceptor{}, itq.inters...),
+		predicates:              append([]predicate.ImageTag{}, itq.predicates...),
+		withProject:             itq.withProject.Clone(),
+		withImageTagAssignments: itq.withImageTagAssignments.Clone(),
+		withCreatedBy:           itq.withCreatedBy.Clone(),
+		withUpdatedBy:           itq.withUpdatedBy.Clone(),
 		// clone intermediate query.
 		sql:  itq.sql.Clone(),
 		path: itq.path,
@@ -368,14 +368,14 @@ func (itq *ImageTagQuery) WithProject(opts ...func(*ProjectQuery)) *ImageTagQuer
 	return itq
 }
 
-// WithImages tells the query-builder to eager-load the nodes that are connected to
-// the "images" edge. The optional arguments are used to configure the query builder of the edge.
-func (itq *ImageTagQuery) WithImages(opts ...func(*ImageQuery)) *ImageTagQuery {
-	query := (&ImageClient{config: itq.config}).Query()
+// WithImageTagAssignments tells the query-builder to eager-load the nodes that are connected to
+// the "image_tag_assignments" edge. The optional arguments are used to configure the query builder of the edge.
+func (itq *ImageTagQuery) WithImageTagAssignments(opts ...func(*ImageTagAssignmentQuery)) *ImageTagQuery {
+	query := (&ImageTagAssignmentClient{config: itq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	itq.withImages = query
+	itq.withImageTagAssignments = query
 	return itq
 }
 
@@ -482,7 +482,7 @@ func (itq *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Im
 		_spec       = itq.querySpec()
 		loadedTypes = [4]bool{
 			itq.withProject != nil,
-			itq.withImages != nil,
+			itq.withImageTagAssignments != nil,
 			itq.withCreatedBy != nil,
 			itq.withUpdatedBy != nil,
 		}
@@ -517,10 +517,12 @@ func (itq *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Im
 			return nil, err
 		}
 	}
-	if query := itq.withImages; query != nil {
-		if err := itq.loadImages(ctx, query, nodes,
-			func(n *ImageTag) { n.Edges.Images = []*Image{} },
-			func(n *ImageTag, e *Image) { n.Edges.Images = append(n.Edges.Images, e) }); err != nil {
+	if query := itq.withImageTagAssignments; query != nil {
+		if err := itq.loadImageTagAssignments(ctx, query, nodes,
+			func(n *ImageTag) { n.Edges.ImageTagAssignments = []*ImageTagAssignment{} },
+			func(n *ImageTag, e *ImageTagAssignment) {
+				n.Edges.ImageTagAssignments = append(n.Edges.ImageTagAssignments, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -571,64 +573,34 @@ func (itq *ImageTagQuery) loadProject(ctx context.Context, query *ProjectQuery, 
 	}
 	return nil
 }
-func (itq *ImageTagQuery) loadImages(ctx context.Context, query *ImageQuery, nodes []*ImageTag, init func(*ImageTag), assign func(*ImageTag, *Image)) error {
-	edgeIDs := make([]driver.Value, len(nodes))
-	byID := make(map[uuid.UUID]*ImageTag)
-	nids := make(map[uuid.UUID]map[*ImageTag]struct{})
-	for i, node := range nodes {
-		edgeIDs[i] = node.ID
-		byID[node.ID] = node
+func (itq *ImageTagQuery) loadImageTagAssignments(ctx context.Context, query *ImageTagAssignmentQuery, nodes []*ImageTag, init func(*ImageTag), assign func(*ImageTag, *ImageTagAssignment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*ImageTag)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
 		if init != nil {
-			init(node)
+			init(nodes[i])
 		}
 	}
-	query.Where(func(s *sql.Selector) {
-		joinT := sql.Table(imagetag.ImagesTable)
-		s.Join(joinT).On(s.C(image.FieldID), joinT.C(imagetag.ImagesPrimaryKey[1]))
-		s.Where(sql.InValues(joinT.C(imagetag.ImagesPrimaryKey[0]), edgeIDs...))
-		columns := s.SelectedColumns()
-		s.Select(joinT.C(imagetag.ImagesPrimaryKey[0]))
-		s.AppendSelect(columns...)
-		s.SetDistinct(false)
-	})
-	if err := query.prepareQuery(ctx); err != nil {
-		return err
-	}
-	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
-		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
-			assign := spec.Assign
-			values := spec.ScanValues
-			spec.ScanValues = func(columns []string) ([]any, error) {
-				values, err := values(columns[1:])
-				if err != nil {
-					return nil, err
-				}
-				return append([]any{new(uuid.UUID)}, values...), nil
-			}
-			spec.Assign = func(columns []string, values []any) error {
-				outValue := *values[0].(*uuid.UUID)
-				inValue := *values[1].(*uuid.UUID)
-				if nids[inValue] == nil {
-					nids[inValue] = map[*ImageTag]struct{}{byID[outValue]: {}}
-					return assign(columns[1:], values[1:])
-				}
-				nids[inValue][byID[outValue]] = struct{}{}
-				return nil
-			}
-		})
-	})
-	neighbors, err := withInterceptors[[]*Image](ctx, query, qr, query.inters)
+	query.withFKs = true
+	query.Where(predicate.ImageTagAssignment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(imagetag.ImageTagAssignmentsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		nodes, ok := nids[n.ID]
+		fk := n.image_tag_assignment_image_tag
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "image_tag_assignment_image_tag" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
 		if !ok {
-			return fmt.Errorf(`unexpected "images" node returned %v`, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "image_tag_assignment_image_tag" returned %v for node %v`, *fk, n.ID)
 		}
-		for kn := range nodes {
-			assign(kn, n)
-		}
+		assign(node, n)
 	}
 	return nil
 }

@@ -91,6 +91,11 @@ func CapturedAtCorrected(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldCapturedAtCorrected, v))
 }
 
+// InferredAt applies equality check predicate on the "inferred_at" field. It's identical to InferredAtEQ.
+func InferredAt(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldInferredAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldCreatedAt, v))
@@ -451,21 +456,71 @@ func CapturedAtCorrectedNotNil() predicate.Image {
 	return predicate.Image(sql.FieldNotNull(FieldCapturedAtCorrected))
 }
 
-// HasTags applies the HasEdge predicate on the "tags" edge.
-func HasTags() predicate.Image {
+// InferredAtEQ applies the EQ predicate on the "inferred_at" field.
+func InferredAtEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldInferredAt, v))
+}
+
+// InferredAtNEQ applies the NEQ predicate on the "inferred_at" field.
+func InferredAtNEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldInferredAt, v))
+}
+
+// InferredAtIn applies the In predicate on the "inferred_at" field.
+func InferredAtIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldInferredAt, vs...))
+}
+
+// InferredAtNotIn applies the NotIn predicate on the "inferred_at" field.
+func InferredAtNotIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldInferredAt, vs...))
+}
+
+// InferredAtGT applies the GT predicate on the "inferred_at" field.
+func InferredAtGT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldInferredAt, v))
+}
+
+// InferredAtGTE applies the GTE predicate on the "inferred_at" field.
+func InferredAtGTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldInferredAt, v))
+}
+
+// InferredAtLT applies the LT predicate on the "inferred_at" field.
+func InferredAtLT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldInferredAt, v))
+}
+
+// InferredAtLTE applies the LTE predicate on the "inferred_at" field.
+func InferredAtLTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldInferredAt, v))
+}
+
+// InferredAtIsNil applies the IsNil predicate on the "inferred_at" field.
+func InferredAtIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldInferredAt))
+}
+
+// InferredAtNotNil applies the NotNil predicate on the "inferred_at" field.
+func InferredAtNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldInferredAt))
+}
+
+// HasImageTagAssignments applies the HasEdge predicate on the "image_tag_assignments" edge.
+func HasImageTagAssignments() predicate.Image {
 	return predicate.Image(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, TagsTable, TagsPrimaryKey...),
+			sqlgraph.Edge(sqlgraph.O2M, true, ImageTagAssignmentsTable, ImageTagAssignmentsColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasTagsWith applies the HasEdge predicate on the "tags" edge with a given conditions (other predicates).
-func HasTagsWith(preds ...predicate.ImageTag) predicate.Image {
+// HasImageTagAssignmentsWith applies the HasEdge predicate on the "image_tag_assignments" edge with a given conditions (other predicates).
+func HasImageTagAssignmentsWith(preds ...predicate.ImageTagAssignment) predicate.Image {
 	return predicate.Image(func(s *sql.Selector) {
-		step := newTagsStep()
+		step := newImageTagAssignmentsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

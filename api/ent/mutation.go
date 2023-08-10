@@ -16,6 +16,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
@@ -33,15 +34,16 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeBatch             = "Batch"
-	TypeCamera            = "Camera"
-	TypeImage             = "Image"
-	TypeImageTag          = "ImageTag"
-	TypeProject           = "Project"
-	TypeProjectAssignment = "ProjectAssignment"
-	TypeRole              = "Role"
-	TypeTimeOffset        = "TimeOffset"
-	TypeUser              = "User"
+	TypeBatch              = "Batch"
+	TypeCamera             = "Camera"
+	TypeImage              = "Image"
+	TypeImageTag           = "ImageTag"
+	TypeImageTagAssignment = "ImageTagAssignment"
+	TypeProject            = "Project"
+	TypeProjectAssignment  = "ProjectAssignment"
+	TypeRole               = "Role"
+	TypeTimeOffset         = "TimeOffset"
+	TypeUser               = "User"
 )
 
 // BatchMutation represents an operation that mutates the Batch nodes in the graph.
@@ -1604,36 +1606,37 @@ func (m *CameraMutation) ResetEdge(name string) error {
 // ImageMutation represents an operation that mutates the Image nodes in the graph.
 type ImageMutation struct {
 	config
-	op                    Op
-	typ                   string
-	id                    *uuid.UUID
-	created_at            *time.Time
-	updated_at            *time.Time
-	thumbnail_id          *uuid.UUID
-	file_name             *string
-	description           *string
-	exif_data             *map[string]interface{}
-	captured_at           *time.Time
-	captured_at_corrected *time.Time
-	clearedFields         map[string]struct{}
-	tags                  map[uuid.UUID]struct{}
-	removedtags           map[uuid.UUID]struct{}
-	clearedtags           bool
-	user                  *uuid.UUID
-	cleareduser           bool
-	batch                 *uuid.UUID
-	clearedbatch          bool
-	project               *uuid.UUID
-	clearedproject        bool
-	camera                *uuid.UUID
-	clearedcamera         bool
-	created_by            *uuid.UUID
-	clearedcreated_by     bool
-	updated_by            *uuid.UUID
-	clearedupdated_by     bool
-	done                  bool
-	oldValue              func(context.Context) (*Image, error)
-	predicates            []predicate.Image
+	op                           Op
+	typ                          string
+	id                           *uuid.UUID
+	created_at                   *time.Time
+	updated_at                   *time.Time
+	thumbnail_id                 *uuid.UUID
+	file_name                    *string
+	description                  *string
+	exif_data                    *map[string]interface{}
+	captured_at                  *time.Time
+	captured_at_corrected        *time.Time
+	inferred_at                  *time.Time
+	clearedFields                map[string]struct{}
+	image_tag_assignments        map[uuid.UUID]struct{}
+	removedimage_tag_assignments map[uuid.UUID]struct{}
+	clearedimage_tag_assignments bool
+	user                         *uuid.UUID
+	cleareduser                  bool
+	batch                        *uuid.UUID
+	clearedbatch                 bool
+	project                      *uuid.UUID
+	clearedproject               bool
+	camera                       *uuid.UUID
+	clearedcamera                bool
+	created_by                   *uuid.UUID
+	clearedcreated_by            bool
+	updated_by                   *uuid.UUID
+	clearedupdated_by            bool
+	done                         bool
+	oldValue                     func(context.Context) (*Image, error)
+	predicates                   []predicate.Image
 }
 
 var _ ent.Mutation = (*ImageMutation)(nil)
@@ -2067,58 +2070,107 @@ func (m *ImageMutation) ResetCapturedAtCorrected() {
 	delete(m.clearedFields, image.FieldCapturedAtCorrected)
 }
 
-// AddTagIDs adds the "tags" edge to the ImageTag entity by ids.
-func (m *ImageMutation) AddTagIDs(ids ...uuid.UUID) {
-	if m.tags == nil {
-		m.tags = make(map[uuid.UUID]struct{})
+// SetInferredAt sets the "inferred_at" field.
+func (m *ImageMutation) SetInferredAt(t time.Time) {
+	m.inferred_at = &t
+}
+
+// InferredAt returns the value of the "inferred_at" field in the mutation.
+func (m *ImageMutation) InferredAt() (r time.Time, exists bool) {
+	v := m.inferred_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInferredAt returns the old "inferred_at" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldInferredAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInferredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInferredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInferredAt: %w", err)
+	}
+	return oldValue.InferredAt, nil
+}
+
+// ClearInferredAt clears the value of the "inferred_at" field.
+func (m *ImageMutation) ClearInferredAt() {
+	m.inferred_at = nil
+	m.clearedFields[image.FieldInferredAt] = struct{}{}
+}
+
+// InferredAtCleared returns if the "inferred_at" field was cleared in this mutation.
+func (m *ImageMutation) InferredAtCleared() bool {
+	_, ok := m.clearedFields[image.FieldInferredAt]
+	return ok
+}
+
+// ResetInferredAt resets all changes to the "inferred_at" field.
+func (m *ImageMutation) ResetInferredAt() {
+	m.inferred_at = nil
+	delete(m.clearedFields, image.FieldInferredAt)
+}
+
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by ids.
+func (m *ImageMutation) AddImageTagAssignmentIDs(ids ...uuid.UUID) {
+	if m.image_tag_assignments == nil {
+		m.image_tag_assignments = make(map[uuid.UUID]struct{})
 	}
 	for i := range ids {
-		m.tags[ids[i]] = struct{}{}
+		m.image_tag_assignments[ids[i]] = struct{}{}
 	}
 }
 
-// ClearTags clears the "tags" edge to the ImageTag entity.
-func (m *ImageMutation) ClearTags() {
-	m.clearedtags = true
+// ClearImageTagAssignments clears the "image_tag_assignments" edge to the ImageTagAssignment entity.
+func (m *ImageMutation) ClearImageTagAssignments() {
+	m.clearedimage_tag_assignments = true
 }
 
-// TagsCleared reports if the "tags" edge to the ImageTag entity was cleared.
-func (m *ImageMutation) TagsCleared() bool {
-	return m.clearedtags
+// ImageTagAssignmentsCleared reports if the "image_tag_assignments" edge to the ImageTagAssignment entity was cleared.
+func (m *ImageMutation) ImageTagAssignmentsCleared() bool {
+	return m.clearedimage_tag_assignments
 }
 
-// RemoveTagIDs removes the "tags" edge to the ImageTag entity by IDs.
-func (m *ImageMutation) RemoveTagIDs(ids ...uuid.UUID) {
-	if m.removedtags == nil {
-		m.removedtags = make(map[uuid.UUID]struct{})
+// RemoveImageTagAssignmentIDs removes the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (m *ImageMutation) RemoveImageTagAssignmentIDs(ids ...uuid.UUID) {
+	if m.removedimage_tag_assignments == nil {
+		m.removedimage_tag_assignments = make(map[uuid.UUID]struct{})
 	}
 	for i := range ids {
-		delete(m.tags, ids[i])
-		m.removedtags[ids[i]] = struct{}{}
+		delete(m.image_tag_assignments, ids[i])
+		m.removedimage_tag_assignments[ids[i]] = struct{}{}
 	}
 }
 
-// RemovedTags returns the removed IDs of the "tags" edge to the ImageTag entity.
-func (m *ImageMutation) RemovedTagsIDs() (ids []uuid.UUID) {
-	for id := range m.removedtags {
+// RemovedImageTagAssignments returns the removed IDs of the "image_tag_assignments" edge to the ImageTagAssignment entity.
+func (m *ImageMutation) RemovedImageTagAssignmentsIDs() (ids []uuid.UUID) {
+	for id := range m.removedimage_tag_assignments {
 		ids = append(ids, id)
 	}
 	return
 }
 
-// TagsIDs returns the "tags" edge IDs in the mutation.
-func (m *ImageMutation) TagsIDs() (ids []uuid.UUID) {
-	for id := range m.tags {
+// ImageTagAssignmentsIDs returns the "image_tag_assignments" edge IDs in the mutation.
+func (m *ImageMutation) ImageTagAssignmentsIDs() (ids []uuid.UUID) {
+	for id := range m.image_tag_assignments {
 		ids = append(ids, id)
 	}
 	return
 }
 
-// ResetTags resets all changes to the "tags" edge.
-func (m *ImageMutation) ResetTags() {
-	m.tags = nil
-	m.clearedtags = false
-	m.removedtags = nil
+// ResetImageTagAssignments resets all changes to the "image_tag_assignments" edge.
+func (m *ImageMutation) ResetImageTagAssignments() {
+	m.image_tag_assignments = nil
+	m.clearedimage_tag_assignments = false
+	m.removedimage_tag_assignments = nil
 }
 
 // SetUserID sets the "user" edge to the User entity by id.
@@ -2389,7 +2441,7 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 9)
 	if m.created_at != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
@@ -2413,6 +2465,9 @@ func (m *ImageMutation) Fields() []string {
 	}
 	if m.captured_at_corrected != nil {
 		fields = append(fields, image.FieldCapturedAtCorrected)
+	}
+	if m.inferred_at != nil {
+		fields = append(fields, image.FieldInferredAt)
 	}
 	return fields
 }
@@ -2438,6 +2493,8 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.CapturedAt()
 	case image.FieldCapturedAtCorrected:
 		return m.CapturedAtCorrected()
+	case image.FieldInferredAt:
+		return m.InferredAt()
 	}
 	return nil, false
 }
@@ -2463,6 +2520,8 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldCapturedAt(ctx)
 	case image.FieldCapturedAtCorrected:
 		return m.OldCapturedAtCorrected(ctx)
+	case image.FieldInferredAt:
+		return m.OldInferredAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Image field %s", name)
 }
@@ -2528,6 +2587,13 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCapturedAtCorrected(v)
 		return nil
+	case image.FieldInferredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInferredAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Image field %s", name)
 }
@@ -2567,6 +2633,9 @@ func (m *ImageMutation) ClearedFields() []string {
 	if m.FieldCleared(image.FieldCapturedAtCorrected) {
 		fields = append(fields, image.FieldCapturedAtCorrected)
 	}
+	if m.FieldCleared(image.FieldInferredAt) {
+		fields = append(fields, image.FieldInferredAt)
+	}
 	return fields
 }
 
@@ -2589,6 +2658,9 @@ func (m *ImageMutation) ClearField(name string) error {
 		return nil
 	case image.FieldCapturedAtCorrected:
 		m.ClearCapturedAtCorrected()
+		return nil
+	case image.FieldInferredAt:
+		m.ClearInferredAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Image nullable field %s", name)
@@ -2622,6 +2694,9 @@ func (m *ImageMutation) ResetField(name string) error {
 	case image.FieldCapturedAtCorrected:
 		m.ResetCapturedAtCorrected()
 		return nil
+	case image.FieldInferredAt:
+		m.ResetInferredAt()
+		return nil
 	}
 	return fmt.Errorf("unknown Image field %s", name)
 }
@@ -2629,8 +2704,8 @@ func (m *ImageMutation) ResetField(name string) error {
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ImageMutation) AddedEdges() []string {
 	edges := make([]string, 0, 7)
-	if m.tags != nil {
-		edges = append(edges, image.EdgeTags)
+	if m.image_tag_assignments != nil {
+		edges = append(edges, image.EdgeImageTagAssignments)
 	}
 	if m.user != nil {
 		edges = append(edges, image.EdgeUser)
@@ -2657,9 +2732,9 @@ func (m *ImageMutation) AddedEdges() []string {
 // name in this mutation.
 func (m *ImageMutation) AddedIDs(name string) []ent.Value {
 	switch name {
-	case image.EdgeTags:
-		ids := make([]ent.Value, 0, len(m.tags))
-		for id := range m.tags {
+	case image.EdgeImageTagAssignments:
+		ids := make([]ent.Value, 0, len(m.image_tag_assignments))
+		for id := range m.image_tag_assignments {
 			ids = append(ids, id)
 		}
 		return ids
@@ -2694,8 +2769,8 @@ func (m *ImageMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ImageMutation) RemovedEdges() []string {
 	edges := make([]string, 0, 7)
-	if m.removedtags != nil {
-		edges = append(edges, image.EdgeTags)
+	if m.removedimage_tag_assignments != nil {
+		edges = append(edges, image.EdgeImageTagAssignments)
 	}
 	return edges
 }
@@ -2704,9 +2779,9 @@ func (m *ImageMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *ImageMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
-	case image.EdgeTags:
-		ids := make([]ent.Value, 0, len(m.removedtags))
-		for id := range m.removedtags {
+	case image.EdgeImageTagAssignments:
+		ids := make([]ent.Value, 0, len(m.removedimage_tag_assignments))
+		for id := range m.removedimage_tag_assignments {
 			ids = append(ids, id)
 		}
 		return ids
@@ -2717,8 +2792,8 @@ func (m *ImageMutation) RemovedIDs(name string) []ent.Value {
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ImageMutation) ClearedEdges() []string {
 	edges := make([]string, 0, 7)
-	if m.clearedtags {
-		edges = append(edges, image.EdgeTags)
+	if m.clearedimage_tag_assignments {
+		edges = append(edges, image.EdgeImageTagAssignments)
 	}
 	if m.cleareduser {
 		edges = append(edges, image.EdgeUser)
@@ -2745,8 +2820,8 @@ func (m *ImageMutation) ClearedEdges() []string {
 // was cleared in this mutation.
 func (m *ImageMutation) EdgeCleared(name string) bool {
 	switch name {
-	case image.EdgeTags:
-		return m.clearedtags
+	case image.EdgeImageTagAssignments:
+		return m.clearedimage_tag_assignments
 	case image.EdgeUser:
 		return m.cleareduser
 	case image.EdgeBatch:
@@ -2793,8 +2868,8 @@ func (m *ImageMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *ImageMutation) ResetEdge(name string) error {
 	switch name {
-	case image.EdgeTags:
-		m.ResetTags()
+	case image.EdgeImageTagAssignments:
+		m.ResetImageTagAssignments()
 		return nil
 	case image.EdgeUser:
 		m.ResetUser()
@@ -2821,27 +2896,28 @@ func (m *ImageMutation) ResetEdge(name string) error {
 // ImageTagMutation represents an operation that mutates the ImageTag nodes in the graph.
 type ImageTagMutation struct {
 	config
-	op                Op
-	typ               string
-	id                *uuid.UUID
-	created_at        *time.Time
-	updated_at        *time.Time
-	name              *string
-	description       *string
-	is_album          *bool
-	clearedFields     map[string]struct{}
-	project           *uuid.UUID
-	clearedproject    bool
-	images            map[uuid.UUID]struct{}
-	removedimages     map[uuid.UUID]struct{}
-	clearedimages     bool
-	created_by        *uuid.UUID
-	clearedcreated_by bool
-	updated_by        *uuid.UUID
-	clearedupdated_by bool
-	done              bool
-	oldValue          func(context.Context) (*ImageTag, error)
-	predicates        []predicate.ImageTag
+	op                           Op
+	typ                          string
+	id                           *uuid.UUID
+	created_at                   *time.Time
+	updated_at                   *time.Time
+	name                         *string
+	description                  *string
+	is_album                     *bool
+	_type                        *imagetag.Type
+	clearedFields                map[string]struct{}
+	project                      *uuid.UUID
+	clearedproject               bool
+	image_tag_assignments        map[uuid.UUID]struct{}
+	removedimage_tag_assignments map[uuid.UUID]struct{}
+	clearedimage_tag_assignments bool
+	created_by                   *uuid.UUID
+	clearedcreated_by            bool
+	updated_by                   *uuid.UUID
+	clearedupdated_by            bool
+	done                         bool
+	oldValue                     func(context.Context) (*ImageTag, error)
+	predicates                   []predicate.ImageTag
 }
 
 var _ ent.Mutation = (*ImageTagMutation)(nil)
@@ -3128,6 +3204,42 @@ func (m *ImageTagMutation) ResetIsAlbum() {
 	m.is_album = nil
 }
 
+// SetType sets the "type" field.
+func (m *ImageTagMutation) SetType(i imagetag.Type) {
+	m._type = &i
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *ImageTagMutation) GetType() (r imagetag.Type, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the ImageTag entity.
+// If the ImageTag object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageTagMutation) OldType(ctx context.Context) (v imagetag.Type, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *ImageTagMutation) ResetType() {
+	m._type = nil
+}
+
 // SetProjectID sets the "project" edge to the Project entity by id.
 func (m *ImageTagMutation) SetProjectID(id uuid.UUID) {
 	m.project = &id
@@ -3167,58 +3279,58 @@ func (m *ImageTagMutation) ResetProject() {
 	m.clearedproject = false
 }
 
-// AddImageIDs adds the "images" edge to the Image entity by ids.
-func (m *ImageTagMutation) AddImageIDs(ids ...uuid.UUID) {
-	if m.images == nil {
-		m.images = make(map[uuid.UUID]struct{})
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by ids.
+func (m *ImageTagMutation) AddImageTagAssignmentIDs(ids ...uuid.UUID) {
+	if m.image_tag_assignments == nil {
+		m.image_tag_assignments = make(map[uuid.UUID]struct{})
 	}
 	for i := range ids {
-		m.images[ids[i]] = struct{}{}
+		m.image_tag_assignments[ids[i]] = struct{}{}
 	}
 }
 
-// ClearImages clears the "images" edge to the Image entity.
-func (m *ImageTagMutation) ClearImages() {
-	m.clearedimages = true
+// ClearImageTagAssignments clears the "image_tag_assignments" edge to the ImageTagAssignment entity.
+func (m *ImageTagMutation) ClearImageTagAssignments() {
+	m.clearedimage_tag_assignments = true
 }
 
-// ImagesCleared reports if the "images" edge to the Image entity was cleared.
-func (m *ImageTagMutation) ImagesCleared() bool {
-	return m.clearedimages
+// ImageTagAssignmentsCleared reports if the "image_tag_assignments" edge to the ImageTagAssignment entity was cleared.
+func (m *ImageTagMutation) ImageTagAssignmentsCleared() bool {
+	return m.clearedimage_tag_assignments
 }
 
-// RemoveImageIDs removes the "images" edge to the Image entity by IDs.
-func (m *ImageTagMutation) RemoveImageIDs(ids ...uuid.UUID) {
-	if m.removedimages == nil {
-		m.removedimages = make(map[uuid.UUID]struct{})
+// RemoveImageTagAssignmentIDs removes the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (m *ImageTagMutation) RemoveImageTagAssignmentIDs(ids ...uuid.UUID) {
+	if m.removedimage_tag_assignments == nil {
+		m.removedimage_tag_assignments = make(map[uuid.UUID]struct{})
 	}
 	for i := range ids {
-		delete(m.images, ids[i])
-		m.removedimages[ids[i]] = struct{}{}
+		delete(m.image_tag_assignments, ids[i])
+		m.removedimage_tag_assignments[ids[i]] = struct{}{}
 	}
 }
 
-// RemovedImages returns the removed IDs of the "images" edge to the Image entity.
-func (m *ImageTagMutation) RemovedImagesIDs() (ids []uuid.UUID) {
-	for id := range m.removedimages {
+// RemovedImageTagAssignments returns the removed IDs of the "image_tag_assignments" edge to the ImageTagAssignment entity.
+func (m *ImageTagMutation) RemovedImageTagAssignmentsIDs() (ids []uuid.UUID) {
+	for id := range m.removedimage_tag_assignments {
 		ids = append(ids, id)
 	}
 	return
 }
 
-// ImagesIDs returns the "images" edge IDs in the mutation.
-func (m *ImageTagMutation) ImagesIDs() (ids []uuid.UUID) {
-	for id := range m.images {
+// ImageTagAssignmentsIDs returns the "image_tag_assignments" edge IDs in the mutation.
+func (m *ImageTagMutation) ImageTagAssignmentsIDs() (ids []uuid.UUID) {
+	for id := range m.image_tag_assignments {
 		ids = append(ids, id)
 	}
 	return
 }
 
-// ResetImages resets all changes to the "images" edge.
-func (m *ImageTagMutation) ResetImages() {
-	m.images = nil
-	m.clearedimages = false
-	m.removedimages = nil
+// ResetImageTagAssignments resets all changes to the "image_tag_assignments" edge.
+func (m *ImageTagMutation) ResetImageTagAssignments() {
+	m.image_tag_assignments = nil
+	m.clearedimage_tag_assignments = false
+	m.removedimage_tag_assignments = nil
 }
 
 // SetCreatedByID sets the "created_by" edge to the User entity by id.
@@ -3333,7 +3445,7 @@ func (m *ImageTagMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageTagMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 6)
 	if m.created_at != nil {
 		fields = append(fields, imagetag.FieldCreatedAt)
 	}
@@ -3348,6 +3460,9 @@ func (m *ImageTagMutation) Fields() []string {
 	}
 	if m.is_album != nil {
 		fields = append(fields, imagetag.FieldIsAlbum)
+	}
+	if m._type != nil {
+		fields = append(fields, imagetag.FieldType)
 	}
 	return fields
 }
@@ -3367,6 +3482,8 @@ func (m *ImageTagMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case imagetag.FieldIsAlbum:
 		return m.IsAlbum()
+	case imagetag.FieldType:
+		return m.GetType()
 	}
 	return nil, false
 }
@@ -3386,6 +3503,8 @@ func (m *ImageTagMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldDescription(ctx)
 	case imagetag.FieldIsAlbum:
 		return m.OldIsAlbum(ctx)
+	case imagetag.FieldType:
+		return m.OldType(ctx)
 	}
 	return nil, fmt.Errorf("unknown ImageTag field %s", name)
 }
@@ -3429,6 +3548,13 @@ func (m *ImageTagMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetIsAlbum(v)
+		return nil
+	case imagetag.FieldType:
+		v, ok := value.(imagetag.Type)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
 		return nil
 	}
 	return fmt.Errorf("unknown ImageTag field %s", name)
@@ -3494,6 +3620,9 @@ func (m *ImageTagMutation) ResetField(name string) error {
 	case imagetag.FieldIsAlbum:
 		m.ResetIsAlbum()
 		return nil
+	case imagetag.FieldType:
+		m.ResetType()
+		return nil
 	}
 	return fmt.Errorf("unknown ImageTag field %s", name)
 }
@@ -3504,8 +3633,8 @@ func (m *ImageTagMutation) AddedEdges() []string {
 	if m.project != nil {
 		edges = append(edges, imagetag.EdgeProject)
 	}
-	if m.images != nil {
-		edges = append(edges, imagetag.EdgeImages)
+	if m.image_tag_assignments != nil {
+		edges = append(edges, imagetag.EdgeImageTagAssignments)
 	}
 	if m.created_by != nil {
 		edges = append(edges, imagetag.EdgeCreatedBy)
@@ -3524,9 +3653,9 @@ func (m *ImageTagMutation) AddedIDs(name string) []ent.Value {
 		if id := m.project; id != nil {
 			return []ent.Value{*id}
 		}
-	case imagetag.EdgeImages:
-		ids := make([]ent.Value, 0, len(m.images))
-		for id := range m.images {
+	case imagetag.EdgeImageTagAssignments:
+		ids := make([]ent.Value, 0, len(m.image_tag_assignments))
+		for id := range m.image_tag_assignments {
 			ids = append(ids, id)
 		}
 		return ids
@@ -3545,8 +3674,8 @@ func (m *ImageTagMutation) AddedIDs(name string) []ent.Value {
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ImageTagMutation) RemovedEdges() []string {
 	edges := make([]string, 0, 4)
-	if m.removedimages != nil {
-		edges = append(edges, imagetag.EdgeImages)
+	if m.removedimage_tag_assignments != nil {
+		edges = append(edges, imagetag.EdgeImageTagAssignments)
 	}
 	return edges
 }
@@ -3555,9 +3684,9 @@ func (m *ImageTagMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *ImageTagMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
-	case imagetag.EdgeImages:
-		ids := make([]ent.Value, 0, len(m.removedimages))
-		for id := range m.removedimages {
+	case imagetag.EdgeImageTagAssignments:
+		ids := make([]ent.Value, 0, len(m.removedimage_tag_assignments))
+		for id := range m.removedimage_tag_assignments {
 			ids = append(ids, id)
 		}
 		return ids
@@ -3571,8 +3700,8 @@ func (m *ImageTagMutation) ClearedEdges() []string {
 	if m.clearedproject {
 		edges = append(edges, imagetag.EdgeProject)
 	}
-	if m.clearedimages {
-		edges = append(edges, imagetag.EdgeImages)
+	if m.clearedimage_tag_assignments {
+		edges = append(edges, imagetag.EdgeImageTagAssignments)
 	}
 	if m.clearedcreated_by {
 		edges = append(edges, imagetag.EdgeCreatedBy)
@@ -3589,8 +3718,8 @@ func (m *ImageTagMutation) EdgeCleared(name string) bool {
 	switch name {
 	case imagetag.EdgeProject:
 		return m.clearedproject
-	case imagetag.EdgeImages:
-		return m.clearedimages
+	case imagetag.EdgeImageTagAssignments:
+		return m.clearedimage_tag_assignments
 	case imagetag.EdgeCreatedBy:
 		return m.clearedcreated_by
 	case imagetag.EdgeUpdatedBy:
@@ -3623,8 +3752,8 @@ func (m *ImageTagMutation) ResetEdge(name string) error {
 	case imagetag.EdgeProject:
 		m.ResetProject()
 		return nil
-	case imagetag.EdgeImages:
-		m.ResetImages()
+	case imagetag.EdgeImageTagAssignments:
+		m.ResetImageTagAssignments()
 		return nil
 	case imagetag.EdgeCreatedBy:
 		m.ResetCreatedBy()
@@ -3634,6 +3763,690 @@ func (m *ImageTagMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ImageTag edge %s", name)
+}
+
+// ImageTagAssignmentMutation represents an operation that mutates the ImageTagAssignment nodes in the graph.
+type ImageTagAssignmentMutation struct {
+	config
+	op                Op
+	typ               string
+	id                *uuid.UUID
+	created_at        *time.Time
+	updated_at        *time.Time
+	_type             *imagetagassignment.Type
+	clearedFields     map[string]struct{}
+	image             *uuid.UUID
+	clearedimage      bool
+	image_tag         *uuid.UUID
+	clearedimage_tag  bool
+	created_by        *uuid.UUID
+	clearedcreated_by bool
+	updated_by        *uuid.UUID
+	clearedupdated_by bool
+	done              bool
+	oldValue          func(context.Context) (*ImageTagAssignment, error)
+	predicates        []predicate.ImageTagAssignment
+}
+
+var _ ent.Mutation = (*ImageTagAssignmentMutation)(nil)
+
+// imagetagassignmentOption allows management of the mutation configuration using functional options.
+type imagetagassignmentOption func(*ImageTagAssignmentMutation)
+
+// newImageTagAssignmentMutation creates new mutation for the ImageTagAssignment entity.
+func newImageTagAssignmentMutation(c config, op Op, opts ...imagetagassignmentOption) *ImageTagAssignmentMutation {
+	m := &ImageTagAssignmentMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeImageTagAssignment,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withImageTagAssignmentID sets the ID field of the mutation.
+func withImageTagAssignmentID(id uuid.UUID) imagetagassignmentOption {
+	return func(m *ImageTagAssignmentMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ImageTagAssignment
+		)
+		m.oldValue = func(ctx context.Context) (*ImageTagAssignment, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ImageTagAssignment.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withImageTagAssignment sets the old ImageTagAssignment of the mutation.
+func withImageTagAssignment(node *ImageTagAssignment) imagetagassignmentOption {
+	return func(m *ImageTagAssignmentMutation) {
+		m.oldValue = func(context.Context) (*ImageTagAssignment, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ImageTagAssignmentMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ImageTagAssignmentMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ImageTagAssignment entities.
+func (m *ImageTagAssignmentMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ImageTagAssignmentMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ImageTagAssignmentMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ImageTagAssignment.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ImageTagAssignmentMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ImageTagAssignmentMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ImageTagAssignment entity.
+// If the ImageTagAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageTagAssignmentMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ImageTagAssignmentMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ImageTagAssignmentMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ImageTagAssignmentMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ImageTagAssignment entity.
+// If the ImageTagAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageTagAssignmentMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ImageTagAssignmentMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetType sets the "type" field.
+func (m *ImageTagAssignmentMutation) SetType(i imagetagassignment.Type) {
+	m._type = &i
+}
+
+// GetType returns the value of the "type" field in the mutation.
+func (m *ImageTagAssignmentMutation) GetType() (r imagetagassignment.Type, exists bool) {
+	v := m._type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldType returns the old "type" field's value of the ImageTagAssignment entity.
+// If the ImageTagAssignment object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageTagAssignmentMutation) OldType(ctx context.Context) (v imagetagassignment.Type, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldType: %w", err)
+	}
+	return oldValue.Type, nil
+}
+
+// ResetType resets all changes to the "type" field.
+func (m *ImageTagAssignmentMutation) ResetType() {
+	m._type = nil
+}
+
+// SetImageID sets the "image" edge to the Image entity by id.
+func (m *ImageTagAssignmentMutation) SetImageID(id uuid.UUID) {
+	m.image = &id
+}
+
+// ClearImage clears the "image" edge to the Image entity.
+func (m *ImageTagAssignmentMutation) ClearImage() {
+	m.clearedimage = true
+}
+
+// ImageCleared reports if the "image" edge to the Image entity was cleared.
+func (m *ImageTagAssignmentMutation) ImageCleared() bool {
+	return m.clearedimage
+}
+
+// ImageID returns the "image" edge ID in the mutation.
+func (m *ImageTagAssignmentMutation) ImageID() (id uuid.UUID, exists bool) {
+	if m.image != nil {
+		return *m.image, true
+	}
+	return
+}
+
+// ImageIDs returns the "image" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ImageID instead. It exists only for internal usage by the builders.
+func (m *ImageTagAssignmentMutation) ImageIDs() (ids []uuid.UUID) {
+	if id := m.image; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetImage resets all changes to the "image" edge.
+func (m *ImageTagAssignmentMutation) ResetImage() {
+	m.image = nil
+	m.clearedimage = false
+}
+
+// SetImageTagID sets the "image_tag" edge to the ImageTag entity by id.
+func (m *ImageTagAssignmentMutation) SetImageTagID(id uuid.UUID) {
+	m.image_tag = &id
+}
+
+// ClearImageTag clears the "image_tag" edge to the ImageTag entity.
+func (m *ImageTagAssignmentMutation) ClearImageTag() {
+	m.clearedimage_tag = true
+}
+
+// ImageTagCleared reports if the "image_tag" edge to the ImageTag entity was cleared.
+func (m *ImageTagAssignmentMutation) ImageTagCleared() bool {
+	return m.clearedimage_tag
+}
+
+// ImageTagID returns the "image_tag" edge ID in the mutation.
+func (m *ImageTagAssignmentMutation) ImageTagID() (id uuid.UUID, exists bool) {
+	if m.image_tag != nil {
+		return *m.image_tag, true
+	}
+	return
+}
+
+// ImageTagIDs returns the "image_tag" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ImageTagID instead. It exists only for internal usage by the builders.
+func (m *ImageTagAssignmentMutation) ImageTagIDs() (ids []uuid.UUID) {
+	if id := m.image_tag; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetImageTag resets all changes to the "image_tag" edge.
+func (m *ImageTagAssignmentMutation) ResetImageTag() {
+	m.image_tag = nil
+	m.clearedimage_tag = false
+}
+
+// SetCreatedByID sets the "created_by" edge to the User entity by id.
+func (m *ImageTagAssignmentMutation) SetCreatedByID(id uuid.UUID) {
+	m.created_by = &id
+}
+
+// ClearCreatedBy clears the "created_by" edge to the User entity.
+func (m *ImageTagAssignmentMutation) ClearCreatedBy() {
+	m.clearedcreated_by = true
+}
+
+// CreatedByCleared reports if the "created_by" edge to the User entity was cleared.
+func (m *ImageTagAssignmentMutation) CreatedByCleared() bool {
+	return m.clearedcreated_by
+}
+
+// CreatedByID returns the "created_by" edge ID in the mutation.
+func (m *ImageTagAssignmentMutation) CreatedByID() (id uuid.UUID, exists bool) {
+	if m.created_by != nil {
+		return *m.created_by, true
+	}
+	return
+}
+
+// CreatedByIDs returns the "created_by" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CreatedByID instead. It exists only for internal usage by the builders.
+func (m *ImageTagAssignmentMutation) CreatedByIDs() (ids []uuid.UUID) {
+	if id := m.created_by; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCreatedBy resets all changes to the "created_by" edge.
+func (m *ImageTagAssignmentMutation) ResetCreatedBy() {
+	m.created_by = nil
+	m.clearedcreated_by = false
+}
+
+// SetUpdatedByID sets the "updated_by" edge to the User entity by id.
+func (m *ImageTagAssignmentMutation) SetUpdatedByID(id uuid.UUID) {
+	m.updated_by = &id
+}
+
+// ClearUpdatedBy clears the "updated_by" edge to the User entity.
+func (m *ImageTagAssignmentMutation) ClearUpdatedBy() {
+	m.clearedupdated_by = true
+}
+
+// UpdatedByCleared reports if the "updated_by" edge to the User entity was cleared.
+func (m *ImageTagAssignmentMutation) UpdatedByCleared() bool {
+	return m.clearedupdated_by
+}
+
+// UpdatedByID returns the "updated_by" edge ID in the mutation.
+func (m *ImageTagAssignmentMutation) UpdatedByID() (id uuid.UUID, exists bool) {
+	if m.updated_by != nil {
+		return *m.updated_by, true
+	}
+	return
+}
+
+// UpdatedByIDs returns the "updated_by" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UpdatedByID instead. It exists only for internal usage by the builders.
+func (m *ImageTagAssignmentMutation) UpdatedByIDs() (ids []uuid.UUID) {
+	if id := m.updated_by; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUpdatedBy resets all changes to the "updated_by" edge.
+func (m *ImageTagAssignmentMutation) ResetUpdatedBy() {
+	m.updated_by = nil
+	m.clearedupdated_by = false
+}
+
+// Where appends a list predicates to the ImageTagAssignmentMutation builder.
+func (m *ImageTagAssignmentMutation) Where(ps ...predicate.ImageTagAssignment) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ImageTagAssignmentMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ImageTagAssignmentMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ImageTagAssignment, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ImageTagAssignmentMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ImageTagAssignmentMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ImageTagAssignment).
+func (m *ImageTagAssignmentMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ImageTagAssignmentMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.created_at != nil {
+		fields = append(fields, imagetagassignment.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, imagetagassignment.FieldUpdatedAt)
+	}
+	if m._type != nil {
+		fields = append(fields, imagetagassignment.FieldType)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ImageTagAssignmentMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case imagetagassignment.FieldCreatedAt:
+		return m.CreatedAt()
+	case imagetagassignment.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case imagetagassignment.FieldType:
+		return m.GetType()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ImageTagAssignmentMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case imagetagassignment.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case imagetagassignment.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case imagetagassignment.FieldType:
+		return m.OldType(ctx)
+	}
+	return nil, fmt.Errorf("unknown ImageTagAssignment field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImageTagAssignmentMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case imagetagassignment.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case imagetagassignment.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case imagetagassignment.FieldType:
+		v, ok := value.(imagetagassignment.Type)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetType(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ImageTagAssignment field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ImageTagAssignmentMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ImageTagAssignmentMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ImageTagAssignmentMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ImageTagAssignment numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ImageTagAssignmentMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ImageTagAssignmentMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ImageTagAssignmentMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown ImageTagAssignment nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ImageTagAssignmentMutation) ResetField(name string) error {
+	switch name {
+	case imagetagassignment.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case imagetagassignment.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case imagetagassignment.FieldType:
+		m.ResetType()
+		return nil
+	}
+	return fmt.Errorf("unknown ImageTagAssignment field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ImageTagAssignmentMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.image != nil {
+		edges = append(edges, imagetagassignment.EdgeImage)
+	}
+	if m.image_tag != nil {
+		edges = append(edges, imagetagassignment.EdgeImageTag)
+	}
+	if m.created_by != nil {
+		edges = append(edges, imagetagassignment.EdgeCreatedBy)
+	}
+	if m.updated_by != nil {
+		edges = append(edges, imagetagassignment.EdgeUpdatedBy)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ImageTagAssignmentMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case imagetagassignment.EdgeImage:
+		if id := m.image; id != nil {
+			return []ent.Value{*id}
+		}
+	case imagetagassignment.EdgeImageTag:
+		if id := m.image_tag; id != nil {
+			return []ent.Value{*id}
+		}
+	case imagetagassignment.EdgeCreatedBy:
+		if id := m.created_by; id != nil {
+			return []ent.Value{*id}
+		}
+	case imagetagassignment.EdgeUpdatedBy:
+		if id := m.updated_by; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ImageTagAssignmentMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ImageTagAssignmentMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ImageTagAssignmentMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedimage {
+		edges = append(edges, imagetagassignment.EdgeImage)
+	}
+	if m.clearedimage_tag {
+		edges = append(edges, imagetagassignment.EdgeImageTag)
+	}
+	if m.clearedcreated_by {
+		edges = append(edges, imagetagassignment.EdgeCreatedBy)
+	}
+	if m.clearedupdated_by {
+		edges = append(edges, imagetagassignment.EdgeUpdatedBy)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ImageTagAssignmentMutation) EdgeCleared(name string) bool {
+	switch name {
+	case imagetagassignment.EdgeImage:
+		return m.clearedimage
+	case imagetagassignment.EdgeImageTag:
+		return m.clearedimage_tag
+	case imagetagassignment.EdgeCreatedBy:
+		return m.clearedcreated_by
+	case imagetagassignment.EdgeUpdatedBy:
+		return m.clearedupdated_by
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ImageTagAssignmentMutation) ClearEdge(name string) error {
+	switch name {
+	case imagetagassignment.EdgeImage:
+		m.ClearImage()
+		return nil
+	case imagetagassignment.EdgeImageTag:
+		m.ClearImageTag()
+		return nil
+	case imagetagassignment.EdgeCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	case imagetagassignment.EdgeUpdatedBy:
+		m.ClearUpdatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ImageTagAssignment unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ImageTagAssignmentMutation) ResetEdge(name string) error {
+	switch name {
+	case imagetagassignment.EdgeImage:
+		m.ResetImage()
+		return nil
+	case imagetagassignment.EdgeImageTag:
+		m.ResetImageTag()
+		return nil
+	case imagetagassignment.EdgeCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case imagetagassignment.EdgeUpdatedBy:
+		m.ResetUpdatedBy()
+		return nil
+	}
+	return fmt.Errorf("unknown ImageTagAssignment edge %s", name)
 }
 
 // ProjectMutation represents an operation that mutates the Project nodes in the graph.

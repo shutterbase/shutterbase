@@ -11,7 +11,7 @@ export interface Image {
   description: string;
   exifData: object;
   edges: {
-    tags: Tag[];
+    tagAssignments: TagAssignment[];
     user: User;
     batch: Batch;
     project: Project;
@@ -26,4 +26,17 @@ export interface Image {
 export interface UpdateImageInput {
   name?: string;
   description?: string;
+}
+
+export interface TagAssignment {
+  id: string;
+  type: string;
+  edges: {
+    tag: Tag;
+    image: Image;
+    createdBy: User;
+    updatedBy: User;
+  };
+  createdAt: string;
+  updatedAt: string;
 }

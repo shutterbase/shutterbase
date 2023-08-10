@@ -2,13 +2,16 @@ package controller
 
 import (
 	"context"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/camera"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
@@ -47,8 +50,10 @@ func getPaginationParameters(c *gin.Context) repository.PaginationParameters {
 }
 
 func getBestTimeOffset(ctx context.Context, cameraId uuid.UUID, t time.Time) (*ent.TimeOffset, error) {
-	timeOffsetCacheEntry, ok := timeOffsetCache.Get(cameraId)
-	if ok {
+	rawCacheItem, ok := repository.GetCacheItem("timeOffsetCache", cameraId)
+	var timeOffsetCacheEntry TimeOffsetCacheEntry
+	if ok && rawCacheItem != nil {
+		timeOffsetCacheEntry := rawCacheItem.(TimeOffsetCacheEntry)
 		if time.Since(timeOffsetCacheEntry.Time) < TIME_OFFSET_CACHE_TTL {
 			return findBestTimeOffsetMatch(timeOffsetCacheEntry.TimeOffsets, t), nil
 		}
@@ -62,7 +67,7 @@ func getBestTimeOffset(ctx context.Context, cameraId uuid.UUID, t time.Time) (*e
 		Time:        time.Now(),
 		TimeOffsets: timeOffsets,
 	}
-	timeOffsetCache.Add(cameraId, timeOffsetCacheEntry)
+	repository.SetCacheItem("timeOffsetCache", cameraId, timeOffsetCacheEntry)
 
 	return findBestTimeOffsetMatch(timeOffsets, t), nil
 }
@@ -79,4 +84,24 @@ func findBestTimeOffsetMatch(timeOffsets []*ent.TimeOffset, t time.Time) *ent.Ti
 		}
 	}
 	return closestTimeOffset
+}
+
+func getDefaultCopyrightTagFromName(name string) string {
+	re := regexp.MustCompile("\\W")
+	name = re.ReplaceAllString(name, "_")
+	name = strings.ToLower(name)
+	return name
+}
+
+func getImageTagAssignmentType(name string) imagetagassignment.Type {
+	switch name {
+	case "manual":
+		return imagetagassignment.TypeManual
+	case "inferred":
+		return imagetagassignment.TypeInferred
+	case "default":
+		return imagetagassignment.TypeDefault
+	default:
+		return imagetagassignment.TypeManual
+	}
 }

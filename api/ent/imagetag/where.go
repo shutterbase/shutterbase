@@ -301,6 +301,26 @@ func IsAlbumNEQ(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldNEQ(FieldIsAlbum, v))
 }
 
+// TypeEQ applies the EQ predicate on the "type" field.
+func TypeEQ(v Type) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEQ(FieldType, v))
+}
+
+// TypeNEQ applies the NEQ predicate on the "type" field.
+func TypeNEQ(v Type) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNEQ(FieldType, v))
+}
+
+// TypeIn applies the In predicate on the "type" field.
+func TypeIn(vs ...Type) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldIn(FieldType, vs...))
+}
+
+// TypeNotIn applies the NotIn predicate on the "type" field.
+func TypeNotIn(vs ...Type) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNotIn(FieldType, vs...))
+}
+
 // HasProject applies the HasEdge predicate on the "project" edge.
 func HasProject() predicate.ImageTag {
 	return predicate.ImageTag(func(s *sql.Selector) {
@@ -324,21 +344,21 @@ func HasProjectWith(preds ...predicate.Project) predicate.ImageTag {
 	})
 }
 
-// HasImages applies the HasEdge predicate on the "images" edge.
-func HasImages() predicate.ImageTag {
+// HasImageTagAssignments applies the HasEdge predicate on the "image_tag_assignments" edge.
+func HasImageTagAssignments() predicate.ImageTag {
 	return predicate.ImageTag(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, ImagesTable, ImagesPrimaryKey...),
+			sqlgraph.Edge(sqlgraph.O2M, true, ImageTagAssignmentsTable, ImageTagAssignmentsColumn),
 		)
 		sqlgraph.HasNeighbors(s, step)
 	})
 }
 
-// HasImagesWith applies the HasEdge predicate on the "images" edge with a given conditions (other predicates).
-func HasImagesWith(preds ...predicate.Image) predicate.ImageTag {
+// HasImageTagAssignmentsWith applies the HasEdge predicate on the "image_tag_assignments" edge with a given conditions (other predicates).
+func HasImageTagAssignmentsWith(preds ...predicate.ImageTagAssignment) predicate.ImageTag {
 	return predicate.ImageTag(func(s *sql.Selector) {
-		step := newImagesStep()
+		step := newImageTagAssignmentsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -15,7 +15,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
-	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -126,19 +126,39 @@ func (iu *ImageUpdate) ClearCapturedAtCorrected() *ImageUpdate {
 	return iu
 }
 
-// AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
-func (iu *ImageUpdate) AddTagIDs(ids ...uuid.UUID) *ImageUpdate {
-	iu.mutation.AddTagIDs(ids...)
+// SetInferredAt sets the "inferred_at" field.
+func (iu *ImageUpdate) SetInferredAt(t time.Time) *ImageUpdate {
+	iu.mutation.SetInferredAt(t)
 	return iu
 }
 
-// AddTags adds the "tags" edges to the ImageTag entity.
-func (iu *ImageUpdate) AddTags(i ...*ImageTag) *ImageUpdate {
+// SetNillableInferredAt sets the "inferred_at" field if the given value is not nil.
+func (iu *ImageUpdate) SetNillableInferredAt(t *time.Time) *ImageUpdate {
+	if t != nil {
+		iu.SetInferredAt(*t)
+	}
+	return iu
+}
+
+// ClearInferredAt clears the value of the "inferred_at" field.
+func (iu *ImageUpdate) ClearInferredAt() *ImageUpdate {
+	iu.mutation.ClearInferredAt()
+	return iu
+}
+
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (iu *ImageUpdate) AddImageTagAssignmentIDs(ids ...uuid.UUID) *ImageUpdate {
+	iu.mutation.AddImageTagAssignmentIDs(ids...)
+	return iu
+}
+
+// AddImageTagAssignments adds the "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (iu *ImageUpdate) AddImageTagAssignments(i ...*ImageTagAssignment) *ImageUpdate {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return iu.AddTagIDs(ids...)
+	return iu.AddImageTagAssignmentIDs(ids...)
 }
 
 // SetUserID sets the "user" edge to the User entity by ID.
@@ -228,25 +248,25 @@ func (iu *ImageUpdate) Mutation() *ImageMutation {
 	return iu.mutation
 }
 
-// ClearTags clears all "tags" edges to the ImageTag entity.
-func (iu *ImageUpdate) ClearTags() *ImageUpdate {
-	iu.mutation.ClearTags()
+// ClearImageTagAssignments clears all "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (iu *ImageUpdate) ClearImageTagAssignments() *ImageUpdate {
+	iu.mutation.ClearImageTagAssignments()
 	return iu
 }
 
-// RemoveTagIDs removes the "tags" edge to ImageTag entities by IDs.
-func (iu *ImageUpdate) RemoveTagIDs(ids ...uuid.UUID) *ImageUpdate {
-	iu.mutation.RemoveTagIDs(ids...)
+// RemoveImageTagAssignmentIDs removes the "image_tag_assignments" edge to ImageTagAssignment entities by IDs.
+func (iu *ImageUpdate) RemoveImageTagAssignmentIDs(ids ...uuid.UUID) *ImageUpdate {
+	iu.mutation.RemoveImageTagAssignmentIDs(ids...)
 	return iu
 }
 
-// RemoveTags removes "tags" edges to ImageTag entities.
-func (iu *ImageUpdate) RemoveTags(i ...*ImageTag) *ImageUpdate {
+// RemoveImageTagAssignments removes "image_tag_assignments" edges to ImageTagAssignment entities.
+func (iu *ImageUpdate) RemoveImageTagAssignments(i ...*ImageTagAssignment) *ImageUpdate {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return iu.RemoveTagIDs(ids...)
+	return iu.RemoveImageTagAssignmentIDs(ids...)
 }
 
 // ClearUser clears the "user" edge to the User entity.
@@ -385,28 +405,34 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if iu.mutation.CapturedAtCorrectedCleared() {
 		_spec.ClearField(image.FieldCapturedAtCorrected, field.TypeTime)
 	}
-	if iu.mutation.TagsCleared() {
+	if value, ok := iu.mutation.InferredAt(); ok {
+		_spec.SetField(image.FieldInferredAt, field.TypeTime, value)
+	}
+	if iu.mutation.InferredAtCleared() {
+		_spec.ClearField(image.FieldInferredAt, field.TypeTime)
+	}
+	if iu.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: true,
-			Table:   image.TagsTable,
-			Columns: image.TagsPrimaryKey,
+			Table:   image.ImageTagAssignmentsTable,
+			Columns: []string{image.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := iu.mutation.RemovedTagsIDs(); len(nodes) > 0 && !iu.mutation.TagsCleared() {
+	if nodes := iu.mutation.RemovedImageTagAssignmentsIDs(); len(nodes) > 0 && !iu.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: true,
-			Table:   image.TagsTable,
-			Columns: image.TagsPrimaryKey,
+			Table:   image.ImageTagAssignmentsTable,
+			Columns: []string{image.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -414,15 +440,15 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := iu.mutation.TagsIDs(); len(nodes) > 0 {
+	if nodes := iu.mutation.ImageTagAssignmentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: true,
-			Table:   image.TagsTable,
-			Columns: image.TagsPrimaryKey,
+			Table:   image.ImageTagAssignmentsTable,
+			Columns: []string{image.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -716,19 +742,39 @@ func (iuo *ImageUpdateOne) ClearCapturedAtCorrected() *ImageUpdateOne {
 	return iuo
 }
 
-// AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
-func (iuo *ImageUpdateOne) AddTagIDs(ids ...uuid.UUID) *ImageUpdateOne {
-	iuo.mutation.AddTagIDs(ids...)
+// SetInferredAt sets the "inferred_at" field.
+func (iuo *ImageUpdateOne) SetInferredAt(t time.Time) *ImageUpdateOne {
+	iuo.mutation.SetInferredAt(t)
 	return iuo
 }
 
-// AddTags adds the "tags" edges to the ImageTag entity.
-func (iuo *ImageUpdateOne) AddTags(i ...*ImageTag) *ImageUpdateOne {
+// SetNillableInferredAt sets the "inferred_at" field if the given value is not nil.
+func (iuo *ImageUpdateOne) SetNillableInferredAt(t *time.Time) *ImageUpdateOne {
+	if t != nil {
+		iuo.SetInferredAt(*t)
+	}
+	return iuo
+}
+
+// ClearInferredAt clears the value of the "inferred_at" field.
+func (iuo *ImageUpdateOne) ClearInferredAt() *ImageUpdateOne {
+	iuo.mutation.ClearInferredAt()
+	return iuo
+}
+
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (iuo *ImageUpdateOne) AddImageTagAssignmentIDs(ids ...uuid.UUID) *ImageUpdateOne {
+	iuo.mutation.AddImageTagAssignmentIDs(ids...)
+	return iuo
+}
+
+// AddImageTagAssignments adds the "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (iuo *ImageUpdateOne) AddImageTagAssignments(i ...*ImageTagAssignment) *ImageUpdateOne {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return iuo.AddTagIDs(ids...)
+	return iuo.AddImageTagAssignmentIDs(ids...)
 }
 
 // SetUserID sets the "user" edge to the User entity by ID.
@@ -818,25 +864,25 @@ func (iuo *ImageUpdateOne) Mutation() *ImageMutation {
 	return iuo.mutation
 }
 
-// ClearTags clears all "tags" edges to the ImageTag entity.
-func (iuo *ImageUpdateOne) ClearTags() *ImageUpdateOne {
-	iuo.mutation.ClearTags()
+// ClearImageTagAssignments clears all "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (iuo *ImageUpdateOne) ClearImageTagAssignments() *ImageUpdateOne {
+	iuo.mutation.ClearImageTagAssignments()
 	return iuo
 }
 
-// RemoveTagIDs removes the "tags" edge to ImageTag entities by IDs.
-func (iuo *ImageUpdateOne) RemoveTagIDs(ids ...uuid.UUID) *ImageUpdateOne {
-	iuo.mutation.RemoveTagIDs(ids...)
+// RemoveImageTagAssignmentIDs removes the "image_tag_assignments" edge to ImageTagAssignment entities by IDs.
+func (iuo *ImageUpdateOne) RemoveImageTagAssignmentIDs(ids ...uuid.UUID) *ImageUpdateOne {
+	iuo.mutation.RemoveImageTagAssignmentIDs(ids...)
 	return iuo
 }
 
-// RemoveTags removes "tags" edges to ImageTag entities.
-func (iuo *ImageUpdateOne) RemoveTags(i ...*ImageTag) *ImageUpdateOne {
+// RemoveImageTagAssignments removes "image_tag_assignments" edges to ImageTagAssignment entities.
+func (iuo *ImageUpdateOne) RemoveImageTagAssignments(i ...*ImageTagAssignment) *ImageUpdateOne {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return iuo.RemoveTagIDs(ids...)
+	return iuo.RemoveImageTagAssignmentIDs(ids...)
 }
 
 // ClearUser clears the "user" edge to the User entity.
@@ -1005,28 +1051,34 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 	if iuo.mutation.CapturedAtCorrectedCleared() {
 		_spec.ClearField(image.FieldCapturedAtCorrected, field.TypeTime)
 	}
-	if iuo.mutation.TagsCleared() {
+	if value, ok := iuo.mutation.InferredAt(); ok {
+		_spec.SetField(image.FieldInferredAt, field.TypeTime, value)
+	}
+	if iuo.mutation.InferredAtCleared() {
+		_spec.ClearField(image.FieldInferredAt, field.TypeTime)
+	}
+	if iuo.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: true,
-			Table:   image.TagsTable,
-			Columns: image.TagsPrimaryKey,
+			Table:   image.ImageTagAssignmentsTable,
+			Columns: []string{image.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := iuo.mutation.RemovedTagsIDs(); len(nodes) > 0 && !iuo.mutation.TagsCleared() {
+	if nodes := iuo.mutation.RemovedImageTagAssignmentsIDs(); len(nodes) > 0 && !iuo.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: true,
-			Table:   image.TagsTable,
-			Columns: image.TagsPrimaryKey,
+			Table:   image.ImageTagAssignmentsTable,
+			Columns: []string{image.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1034,15 +1086,15 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := iuo.mutation.TagsIDs(); len(nodes) > 0 {
+	if nodes := iuo.mutation.ImageTagAssignmentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: true,
-			Table:   image.TagsTable,
-			Columns: image.TagsPrimaryKey,
+			Table:   image.ImageTagAssignmentsTable,
+			Columns: []string{image.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

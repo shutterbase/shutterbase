@@ -20,6 +20,8 @@ type Tx struct {
 	Image *ImageClient
 	// ImageTag is the client for interacting with the ImageTag builders.
 	ImageTag *ImageTagClient
+	// ImageTagAssignment is the client for interacting with the ImageTagAssignment builders.
+	ImageTagAssignment *ImageTagAssignmentClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectAssignment is the client for interacting with the ProjectAssignment builders.
@@ -165,6 +167,7 @@ func (tx *Tx) init() {
 	tx.Camera = NewCameraClient(tx.config)
 	tx.Image = NewImageClient(tx.config)
 	tx.ImageTag = NewImageTagClient(tx.config)
+	tx.ImageTagAssignment = NewImageTagAssignmentClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectAssignment = NewProjectAssignmentClient(tx.config)
 	tx.Role = NewRoleClient(tx.config)

@@ -12,8 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -58,6 +58,20 @@ func (itu *ImageTagUpdate) SetNillableIsAlbum(b *bool) *ImageTagUpdate {
 	return itu
 }
 
+// SetType sets the "type" field.
+func (itu *ImageTagUpdate) SetType(i imagetag.Type) *ImageTagUpdate {
+	itu.mutation.SetType(i)
+	return itu
+}
+
+// SetNillableType sets the "type" field if the given value is not nil.
+func (itu *ImageTagUpdate) SetNillableType(i *imagetag.Type) *ImageTagUpdate {
+	if i != nil {
+		itu.SetType(*i)
+	}
+	return itu
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (itu *ImageTagUpdate) SetProjectID(id uuid.UUID) *ImageTagUpdate {
 	itu.mutation.SetProjectID(id)
@@ -77,19 +91,19 @@ func (itu *ImageTagUpdate) SetProject(p *Project) *ImageTagUpdate {
 	return itu.SetProjectID(p.ID)
 }
 
-// AddImageIDs adds the "images" edge to the Image entity by IDs.
-func (itu *ImageTagUpdate) AddImageIDs(ids ...uuid.UUID) *ImageTagUpdate {
-	itu.mutation.AddImageIDs(ids...)
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (itu *ImageTagUpdate) AddImageTagAssignmentIDs(ids ...uuid.UUID) *ImageTagUpdate {
+	itu.mutation.AddImageTagAssignmentIDs(ids...)
 	return itu
 }
 
-// AddImages adds the "images" edges to the Image entity.
-func (itu *ImageTagUpdate) AddImages(i ...*Image) *ImageTagUpdate {
+// AddImageTagAssignments adds the "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (itu *ImageTagUpdate) AddImageTagAssignments(i ...*ImageTagAssignment) *ImageTagUpdate {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return itu.AddImageIDs(ids...)
+	return itu.AddImageTagAssignmentIDs(ids...)
 }
 
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
@@ -141,25 +155,25 @@ func (itu *ImageTagUpdate) ClearProject() *ImageTagUpdate {
 	return itu
 }
 
-// ClearImages clears all "images" edges to the Image entity.
-func (itu *ImageTagUpdate) ClearImages() *ImageTagUpdate {
-	itu.mutation.ClearImages()
+// ClearImageTagAssignments clears all "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (itu *ImageTagUpdate) ClearImageTagAssignments() *ImageTagUpdate {
+	itu.mutation.ClearImageTagAssignments()
 	return itu
 }
 
-// RemoveImageIDs removes the "images" edge to Image entities by IDs.
-func (itu *ImageTagUpdate) RemoveImageIDs(ids ...uuid.UUID) *ImageTagUpdate {
-	itu.mutation.RemoveImageIDs(ids...)
+// RemoveImageTagAssignmentIDs removes the "image_tag_assignments" edge to ImageTagAssignment entities by IDs.
+func (itu *ImageTagUpdate) RemoveImageTagAssignmentIDs(ids ...uuid.UUID) *ImageTagUpdate {
+	itu.mutation.RemoveImageTagAssignmentIDs(ids...)
 	return itu
 }
 
-// RemoveImages removes "images" edges to Image entities.
-func (itu *ImageTagUpdate) RemoveImages(i ...*Image) *ImageTagUpdate {
+// RemoveImageTagAssignments removes "image_tag_assignments" edges to ImageTagAssignment entities.
+func (itu *ImageTagUpdate) RemoveImageTagAssignments(i ...*ImageTagAssignment) *ImageTagUpdate {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return itu.RemoveImageIDs(ids...)
+	return itu.RemoveImageTagAssignmentIDs(ids...)
 }
 
 // ClearCreatedBy clears the "created_by" edge to the User entity.
@@ -217,6 +231,11 @@ func (itu *ImageTagUpdate) check() error {
 			return &ValidationError{Name: "description", err: fmt.Errorf(`ent: validator failed for field "ImageTag.description": %w`, err)}
 		}
 	}
+	if v, ok := itu.mutation.GetType(); ok {
+		if err := imagetag.TypeValidator(v); err != nil {
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "ImageTag.type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -240,6 +259,9 @@ func (itu *ImageTagUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := itu.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
+	}
+	if value, ok := itu.mutation.GetType(); ok {
+		_spec.SetField(imagetag.FieldType, field.TypeEnum, value)
 	}
 	if itu.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -270,28 +292,28 @@ func (itu *ImageTagUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if itu.mutation.ImagesCleared() {
+	if itu.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   imagetag.ImagesTable,
-			Columns: imagetag.ImagesPrimaryKey,
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   imagetag.ImageTagAssignmentsTable,
+			Columns: []string{imagetag.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := itu.mutation.RemovedImagesIDs(); len(nodes) > 0 && !itu.mutation.ImagesCleared() {
+	if nodes := itu.mutation.RemovedImageTagAssignmentsIDs(); len(nodes) > 0 && !itu.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   imagetag.ImagesTable,
-			Columns: imagetag.ImagesPrimaryKey,
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   imagetag.ImageTagAssignmentsTable,
+			Columns: []string{imagetag.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -299,15 +321,15 @@ func (itu *ImageTagUpdate) sqlSave(ctx context.Context) (n int, err error) {
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := itu.mutation.ImagesIDs(); len(nodes) > 0 {
+	if nodes := itu.mutation.ImageTagAssignmentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   imagetag.ImagesTable,
-			Columns: imagetag.ImagesPrimaryKey,
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   imagetag.ImageTagAssignmentsTable,
+			Columns: []string{imagetag.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -419,6 +441,20 @@ func (ituo *ImageTagUpdateOne) SetNillableIsAlbum(b *bool) *ImageTagUpdateOne {
 	return ituo
 }
 
+// SetType sets the "type" field.
+func (ituo *ImageTagUpdateOne) SetType(i imagetag.Type) *ImageTagUpdateOne {
+	ituo.mutation.SetType(i)
+	return ituo
+}
+
+// SetNillableType sets the "type" field if the given value is not nil.
+func (ituo *ImageTagUpdateOne) SetNillableType(i *imagetag.Type) *ImageTagUpdateOne {
+	if i != nil {
+		ituo.SetType(*i)
+	}
+	return ituo
+}
+
 // SetProjectID sets the "project" edge to the Project entity by ID.
 func (ituo *ImageTagUpdateOne) SetProjectID(id uuid.UUID) *ImageTagUpdateOne {
 	ituo.mutation.SetProjectID(id)
@@ -438,19 +474,19 @@ func (ituo *ImageTagUpdateOne) SetProject(p *Project) *ImageTagUpdateOne {
 	return ituo.SetProjectID(p.ID)
 }
 
-// AddImageIDs adds the "images" edge to the Image entity by IDs.
-func (ituo *ImageTagUpdateOne) AddImageIDs(ids ...uuid.UUID) *ImageTagUpdateOne {
-	ituo.mutation.AddImageIDs(ids...)
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (ituo *ImageTagUpdateOne) AddImageTagAssignmentIDs(ids ...uuid.UUID) *ImageTagUpdateOne {
+	ituo.mutation.AddImageTagAssignmentIDs(ids...)
 	return ituo
 }
 
-// AddImages adds the "images" edges to the Image entity.
-func (ituo *ImageTagUpdateOne) AddImages(i ...*Image) *ImageTagUpdateOne {
+// AddImageTagAssignments adds the "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (ituo *ImageTagUpdateOne) AddImageTagAssignments(i ...*ImageTagAssignment) *ImageTagUpdateOne {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return ituo.AddImageIDs(ids...)
+	return ituo.AddImageTagAssignmentIDs(ids...)
 }
 
 // SetCreatedByID sets the "created_by" edge to the User entity by ID.
@@ -502,25 +538,25 @@ func (ituo *ImageTagUpdateOne) ClearProject() *ImageTagUpdateOne {
 	return ituo
 }
 
-// ClearImages clears all "images" edges to the Image entity.
-func (ituo *ImageTagUpdateOne) ClearImages() *ImageTagUpdateOne {
-	ituo.mutation.ClearImages()
+// ClearImageTagAssignments clears all "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (ituo *ImageTagUpdateOne) ClearImageTagAssignments() *ImageTagUpdateOne {
+	ituo.mutation.ClearImageTagAssignments()
 	return ituo
 }
 
-// RemoveImageIDs removes the "images" edge to Image entities by IDs.
-func (ituo *ImageTagUpdateOne) RemoveImageIDs(ids ...uuid.UUID) *ImageTagUpdateOne {
-	ituo.mutation.RemoveImageIDs(ids...)
+// RemoveImageTagAssignmentIDs removes the "image_tag_assignments" edge to ImageTagAssignment entities by IDs.
+func (ituo *ImageTagUpdateOne) RemoveImageTagAssignmentIDs(ids ...uuid.UUID) *ImageTagUpdateOne {
+	ituo.mutation.RemoveImageTagAssignmentIDs(ids...)
 	return ituo
 }
 
-// RemoveImages removes "images" edges to Image entities.
-func (ituo *ImageTagUpdateOne) RemoveImages(i ...*Image) *ImageTagUpdateOne {
+// RemoveImageTagAssignments removes "image_tag_assignments" edges to ImageTagAssignment entities.
+func (ituo *ImageTagUpdateOne) RemoveImageTagAssignments(i ...*ImageTagAssignment) *ImageTagUpdateOne {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return ituo.RemoveImageIDs(ids...)
+	return ituo.RemoveImageTagAssignmentIDs(ids...)
 }
 
 // ClearCreatedBy clears the "created_by" edge to the User entity.
@@ -591,6 +627,11 @@ func (ituo *ImageTagUpdateOne) check() error {
 			return &ValidationError{Name: "description", err: fmt.Errorf(`ent: validator failed for field "ImageTag.description": %w`, err)}
 		}
 	}
+	if v, ok := ituo.mutation.GetType(); ok {
+		if err := imagetag.TypeValidator(v); err != nil {
+			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "ImageTag.type": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -632,6 +673,9 @@ func (ituo *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, er
 	if value, ok := ituo.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
 	}
+	if value, ok := ituo.mutation.GetType(); ok {
+		_spec.SetField(imagetag.FieldType, field.TypeEnum, value)
+	}
 	if ituo.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -661,28 +705,28 @@ func (ituo *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, er
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
-	if ituo.mutation.ImagesCleared() {
+	if ituo.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   imagetag.ImagesTable,
-			Columns: imagetag.ImagesPrimaryKey,
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   imagetag.ImageTagAssignmentsTable,
+			Columns: []string{imagetag.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := ituo.mutation.RemovedImagesIDs(); len(nodes) > 0 && !ituo.mutation.ImagesCleared() {
+	if nodes := ituo.mutation.RemovedImageTagAssignmentsIDs(); len(nodes) > 0 && !ituo.mutation.ImageTagAssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   imagetag.ImagesTable,
-			Columns: imagetag.ImagesPrimaryKey,
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   imagetag.ImageTagAssignmentsTable,
+			Columns: []string{imagetag.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -690,15 +734,15 @@ func (ituo *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, er
 		}
 		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
 	}
-	if nodes := ituo.mutation.ImagesIDs(); len(nodes) > 0 {
+	if nodes := ituo.mutation.ImageTagAssignmentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   imagetag.ImagesTable,
-			Columns: imagetag.ImagesPrimaryKey,
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   imagetag.ImageTagAssignmentsTable,
+			Columns: []string{imagetag.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(image.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

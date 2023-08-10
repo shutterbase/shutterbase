@@ -19,6 +19,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -39,6 +40,8 @@ type Client struct {
 	Image *ImageClient
 	// ImageTag is the client for interacting with the ImageTag builders.
 	ImageTag *ImageTagClient
+	// ImageTagAssignment is the client for interacting with the ImageTagAssignment builders.
+	ImageTagAssignment *ImageTagAssignmentClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectAssignment is the client for interacting with the ProjectAssignment builders.
@@ -66,6 +69,7 @@ func (c *Client) init() {
 	c.Camera = NewCameraClient(c.config)
 	c.Image = NewImageClient(c.config)
 	c.ImageTag = NewImageTagClient(c.config)
+	c.ImageTagAssignment = NewImageTagAssignmentClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectAssignment = NewProjectAssignmentClient(c.config)
 	c.Role = NewRoleClient(c.config)
@@ -151,17 +155,18 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:               ctx,
-		config:            cfg,
-		Batch:             NewBatchClient(cfg),
-		Camera:            NewCameraClient(cfg),
-		Image:             NewImageClient(cfg),
-		ImageTag:          NewImageTagClient(cfg),
-		Project:           NewProjectClient(cfg),
-		ProjectAssignment: NewProjectAssignmentClient(cfg),
-		Role:              NewRoleClient(cfg),
-		TimeOffset:        NewTimeOffsetClient(cfg),
-		User:              NewUserClient(cfg),
+		ctx:                ctx,
+		config:             cfg,
+		Batch:              NewBatchClient(cfg),
+		Camera:             NewCameraClient(cfg),
+		Image:              NewImageClient(cfg),
+		ImageTag:           NewImageTagClient(cfg),
+		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
+		Project:            NewProjectClient(cfg),
+		ProjectAssignment:  NewProjectAssignmentClient(cfg),
+		Role:               NewRoleClient(cfg),
+		TimeOffset:         NewTimeOffsetClient(cfg),
+		User:               NewUserClient(cfg),
 	}, nil
 }
 
@@ -179,17 +184,18 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:               ctx,
-		config:            cfg,
-		Batch:             NewBatchClient(cfg),
-		Camera:            NewCameraClient(cfg),
-		Image:             NewImageClient(cfg),
-		ImageTag:          NewImageTagClient(cfg),
-		Project:           NewProjectClient(cfg),
-		ProjectAssignment: NewProjectAssignmentClient(cfg),
-		Role:              NewRoleClient(cfg),
-		TimeOffset:        NewTimeOffsetClient(cfg),
-		User:              NewUserClient(cfg),
+		ctx:                ctx,
+		config:             cfg,
+		Batch:              NewBatchClient(cfg),
+		Camera:             NewCameraClient(cfg),
+		Image:              NewImageClient(cfg),
+		ImageTag:           NewImageTagClient(cfg),
+		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
+		Project:            NewProjectClient(cfg),
+		ProjectAssignment:  NewProjectAssignmentClient(cfg),
+		Role:               NewRoleClient(cfg),
+		TimeOffset:         NewTimeOffsetClient(cfg),
+		User:               NewUserClient(cfg),
 	}, nil
 }
 
@@ -219,8 +225,8 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Batch, c.Camera, c.Image, c.ImageTag, c.Project, c.ProjectAssignment, c.Role,
-		c.TimeOffset, c.User,
+		c.Batch, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment, c.Project,
+		c.ProjectAssignment, c.Role, c.TimeOffset, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -230,8 +236,8 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Batch, c.Camera, c.Image, c.ImageTag, c.Project, c.ProjectAssignment, c.Role,
-		c.TimeOffset, c.User,
+		c.Batch, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment, c.Project,
+		c.ProjectAssignment, c.Role, c.TimeOffset, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -248,6 +254,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Image.mutate(ctx, m)
 	case *ImageTagMutation:
 		return c.ImageTag.mutate(ctx, m)
+	case *ImageTagAssignmentMutation:
+		return c.ImageTagAssignment.mutate(ctx, m)
 	case *ProjectMutation:
 		return c.Project.mutate(ctx, m)
 	case *ProjectAssignmentMutation:
@@ -736,15 +744,15 @@ func (c *ImageClient) GetX(ctx context.Context, id uuid.UUID) *Image {
 	return obj
 }
 
-// QueryTags queries the tags edge of a Image.
-func (c *ImageClient) QueryTags(i *Image) *ImageTagQuery {
-	query := (&ImageTagClient{config: c.config}).Query()
+// QueryImageTagAssignments queries the image_tag_assignments edge of a Image.
+func (c *ImageClient) QueryImageTagAssignments(i *Image) *ImageTagAssignmentQuery {
+	query := (&ImageTagAssignmentClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := i.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(image.Table, image.FieldID, id),
-			sqlgraph.To(imagetag.Table, imagetag.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, true, image.TagsTable, image.TagsPrimaryKey...),
+			sqlgraph.To(imagetagassignment.Table, imagetagassignment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, image.ImageTagAssignmentsTable, image.ImageTagAssignmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(i.driver.Dialect(), step)
 		return fromV, nil
@@ -982,15 +990,15 @@ func (c *ImageTagClient) QueryProject(it *ImageTag) *ProjectQuery {
 	return query
 }
 
-// QueryImages queries the images edge of a ImageTag.
-func (c *ImageTagClient) QueryImages(it *ImageTag) *ImageQuery {
-	query := (&ImageClient{config: c.config}).Query()
+// QueryImageTagAssignments queries the image_tag_assignments edge of a ImageTag.
+func (c *ImageTagClient) QueryImageTagAssignments(it *ImageTag) *ImageTagAssignmentQuery {
+	query := (&ImageTagAssignmentClient{config: c.config}).Query()
 	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
 		id := it.ID
 		step := sqlgraph.NewStep(
 			sqlgraph.From(imagetag.Table, imagetag.FieldID, id),
-			sqlgraph.To(image.Table, image.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, imagetag.ImagesTable, imagetag.ImagesPrimaryKey...),
+			sqlgraph.To(imagetagassignment.Table, imagetagassignment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, imagetag.ImageTagAssignmentsTable, imagetag.ImageTagAssignmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(it.driver.Dialect(), step)
 		return fromV, nil
@@ -1052,6 +1060,188 @@ func (c *ImageTagClient) mutate(ctx context.Context, m *ImageTagMutation) (Value
 		return (&ImageTagDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ImageTag mutation op: %q", m.Op())
+	}
+}
+
+// ImageTagAssignmentClient is a client for the ImageTagAssignment schema.
+type ImageTagAssignmentClient struct {
+	config
+}
+
+// NewImageTagAssignmentClient returns a client for the ImageTagAssignment from the given config.
+func NewImageTagAssignmentClient(c config) *ImageTagAssignmentClient {
+	return &ImageTagAssignmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `imagetagassignment.Hooks(f(g(h())))`.
+func (c *ImageTagAssignmentClient) Use(hooks ...Hook) {
+	c.hooks.ImageTagAssignment = append(c.hooks.ImageTagAssignment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `imagetagassignment.Intercept(f(g(h())))`.
+func (c *ImageTagAssignmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ImageTagAssignment = append(c.inters.ImageTagAssignment, interceptors...)
+}
+
+// Create returns a builder for creating a ImageTagAssignment entity.
+func (c *ImageTagAssignmentClient) Create() *ImageTagAssignmentCreate {
+	mutation := newImageTagAssignmentMutation(c.config, OpCreate)
+	return &ImageTagAssignmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ImageTagAssignment entities.
+func (c *ImageTagAssignmentClient) CreateBulk(builders ...*ImageTagAssignmentCreate) *ImageTagAssignmentCreateBulk {
+	return &ImageTagAssignmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ImageTagAssignment.
+func (c *ImageTagAssignmentClient) Update() *ImageTagAssignmentUpdate {
+	mutation := newImageTagAssignmentMutation(c.config, OpUpdate)
+	return &ImageTagAssignmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ImageTagAssignmentClient) UpdateOne(ita *ImageTagAssignment) *ImageTagAssignmentUpdateOne {
+	mutation := newImageTagAssignmentMutation(c.config, OpUpdateOne, withImageTagAssignment(ita))
+	return &ImageTagAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ImageTagAssignmentClient) UpdateOneID(id uuid.UUID) *ImageTagAssignmentUpdateOne {
+	mutation := newImageTagAssignmentMutation(c.config, OpUpdateOne, withImageTagAssignmentID(id))
+	return &ImageTagAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ImageTagAssignment.
+func (c *ImageTagAssignmentClient) Delete() *ImageTagAssignmentDelete {
+	mutation := newImageTagAssignmentMutation(c.config, OpDelete)
+	return &ImageTagAssignmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ImageTagAssignmentClient) DeleteOne(ita *ImageTagAssignment) *ImageTagAssignmentDeleteOne {
+	return c.DeleteOneID(ita.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ImageTagAssignmentClient) DeleteOneID(id uuid.UUID) *ImageTagAssignmentDeleteOne {
+	builder := c.Delete().Where(imagetagassignment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ImageTagAssignmentDeleteOne{builder}
+}
+
+// Query returns a query builder for ImageTagAssignment.
+func (c *ImageTagAssignmentClient) Query() *ImageTagAssignmentQuery {
+	return &ImageTagAssignmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeImageTagAssignment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ImageTagAssignment entity by its id.
+func (c *ImageTagAssignmentClient) Get(ctx context.Context, id uuid.UUID) (*ImageTagAssignment, error) {
+	return c.Query().Where(imagetagassignment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ImageTagAssignmentClient) GetX(ctx context.Context, id uuid.UUID) *ImageTagAssignment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryImage queries the image edge of a ImageTagAssignment.
+func (c *ImageTagAssignmentClient) QueryImage(ita *ImageTagAssignment) *ImageQuery {
+	query := (&ImageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ita.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(imagetagassignment.Table, imagetagassignment.FieldID, id),
+			sqlgraph.To(image.Table, image.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, imagetagassignment.ImageTable, imagetagassignment.ImageColumn),
+		)
+		fromV = sqlgraph.Neighbors(ita.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryImageTag queries the image_tag edge of a ImageTagAssignment.
+func (c *ImageTagAssignmentClient) QueryImageTag(ita *ImageTagAssignment) *ImageTagQuery {
+	query := (&ImageTagClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ita.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(imagetagassignment.Table, imagetagassignment.FieldID, id),
+			sqlgraph.To(imagetag.Table, imagetag.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, imagetagassignment.ImageTagTable, imagetagassignment.ImageTagColumn),
+		)
+		fromV = sqlgraph.Neighbors(ita.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCreatedBy queries the created_by edge of a ImageTagAssignment.
+func (c *ImageTagAssignmentClient) QueryCreatedBy(ita *ImageTagAssignment) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ita.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(imagetagassignment.Table, imagetagassignment.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, imagetagassignment.CreatedByTable, imagetagassignment.CreatedByColumn),
+		)
+		fromV = sqlgraph.Neighbors(ita.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUpdatedBy queries the updated_by edge of a ImageTagAssignment.
+func (c *ImageTagAssignmentClient) QueryUpdatedBy(ita *ImageTagAssignment) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := ita.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(imagetagassignment.Table, imagetagassignment.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, imagetagassignment.UpdatedByTable, imagetagassignment.UpdatedByColumn),
+		)
+		fromV = sqlgraph.Neighbors(ita.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ImageTagAssignmentClient) Hooks() []Hook {
+	return c.hooks.ImageTagAssignment
+}
+
+// Interceptors returns the client interceptors.
+func (c *ImageTagAssignmentClient) Interceptors() []Interceptor {
+	return c.inters.ImageTagAssignment
+}
+
+func (c *ImageTagAssignmentClient) mutate(ctx context.Context, m *ImageTagAssignmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ImageTagAssignmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ImageTagAssignmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ImageTagAssignmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ImageTagAssignmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ImageTagAssignment mutation op: %q", m.Op())
 	}
 }
 
@@ -2032,11 +2222,11 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Batch, Camera, Image, ImageTag, Project, ProjectAssignment, Role, TimeOffset,
-		User []ent.Hook
+		Batch, Camera, Image, ImageTag, ImageTagAssignment, Project, ProjectAssignment,
+		Role, TimeOffset, User []ent.Hook
 	}
 	inters struct {
-		Batch, Camera, Image, ImageTag, Project, ProjectAssignment, Role, TimeOffset,
-		User []ent.Interceptor
+		Batch, Camera, Image, ImageTag, ImageTagAssignment, Project, ProjectAssignment,
+		Role, TimeOffset, User []ent.Interceptor
 	}
 )

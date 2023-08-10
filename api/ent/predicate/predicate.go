@@ -18,6 +18,9 @@ type Image func(*sql.Selector)
 // ImageTag is the predicate function for imagetag builders.
 type ImageTag func(*sql.Selector)
 
+// ImageTagAssignment is the predicate function for imagetagassignment builders.
+type ImageTagAssignment func(*sql.Selector)
+
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
 

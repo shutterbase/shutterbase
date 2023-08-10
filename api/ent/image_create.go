@@ -14,7 +14,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
-	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -122,6 +122,20 @@ func (ic *ImageCreate) SetNillableCapturedAtCorrected(t *time.Time) *ImageCreate
 	return ic
 }
 
+// SetInferredAt sets the "inferred_at" field.
+func (ic *ImageCreate) SetInferredAt(t time.Time) *ImageCreate {
+	ic.mutation.SetInferredAt(t)
+	return ic
+}
+
+// SetNillableInferredAt sets the "inferred_at" field if the given value is not nil.
+func (ic *ImageCreate) SetNillableInferredAt(t *time.Time) *ImageCreate {
+	if t != nil {
+		ic.SetInferredAt(*t)
+	}
+	return ic
+}
+
 // SetID sets the "id" field.
 func (ic *ImageCreate) SetID(u uuid.UUID) *ImageCreate {
 	ic.mutation.SetID(u)
@@ -136,19 +150,19 @@ func (ic *ImageCreate) SetNillableID(u *uuid.UUID) *ImageCreate {
 	return ic
 }
 
-// AddTagIDs adds the "tags" edge to the ImageTag entity by IDs.
-func (ic *ImageCreate) AddTagIDs(ids ...uuid.UUID) *ImageCreate {
-	ic.mutation.AddTagIDs(ids...)
+// AddImageTagAssignmentIDs adds the "image_tag_assignments" edge to the ImageTagAssignment entity by IDs.
+func (ic *ImageCreate) AddImageTagAssignmentIDs(ids ...uuid.UUID) *ImageCreate {
+	ic.mutation.AddImageTagAssignmentIDs(ids...)
 	return ic
 }
 
-// AddTags adds the "tags" edges to the ImageTag entity.
-func (ic *ImageCreate) AddTags(i ...*ImageTag) *ImageCreate {
+// AddImageTagAssignments adds the "image_tag_assignments" edges to the ImageTagAssignment entity.
+func (ic *ImageCreate) AddImageTagAssignments(i ...*ImageTagAssignment) *ImageCreate {
 	ids := make([]uuid.UUID, len(i))
 	for j := range i {
 		ids[j] = i[j].ID
 	}
-	return ic.AddTagIDs(ids...)
+	return ic.AddImageTagAssignmentIDs(ids...)
 }
 
 // SetUserID sets the "user" edge to the User entity by ID.
@@ -391,15 +405,19 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 		_spec.SetField(image.FieldCapturedAtCorrected, field.TypeTime, value)
 		_node.CapturedAtCorrected = value
 	}
-	if nodes := ic.mutation.TagsIDs(); len(nodes) > 0 {
+	if value, ok := ic.mutation.InferredAt(); ok {
+		_spec.SetField(image.FieldInferredAt, field.TypeTime, value)
+		_node.InferredAt = value
+	}
+	if nodes := ic.mutation.ImageTagAssignmentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
+			Rel:     sqlgraph.O2M,
 			Inverse: true,
-			Table:   image.TagsTable,
-			Columns: image.TagsPrimaryKey,
+			Table:   image.ImageTagAssignmentsTable,
+			Columns: []string{image.ImageTagAssignmentsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeUUID),
+				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

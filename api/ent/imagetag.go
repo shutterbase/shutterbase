@@ -30,6 +30,8 @@ type ImageTag struct {
 	Description string `json:"description,omitempty"`
 	// IsAlbum holds the value of the "is_album" field.
 	IsAlbum bool `json:"isAlbum"`
+	// Type holds the value of the "type" field.
+	Type imagetag.Type `json:"type,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ImageTagQuery when eager-loading is set.
 	Edges                ImageTagEdges `json:"edges"`
@@ -43,8 +45,8 @@ type ImageTag struct {
 type ImageTagEdges struct {
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
-	// Images holds the value of the images edge.
-	Images []*Image `json:"images,omitempty"`
+	// ImageTagAssignments holds the value of the image_tag_assignments edge.
+	ImageTagAssignments []*ImageTagAssignment `json:"tagAssignments"`
 	// CreatedBy holds the value of the created_by edge.
 	CreatedBy *User `json:"createdBy"`
 	// UpdatedBy holds the value of the updated_by edge.
@@ -67,13 +69,13 @@ func (e ImageTagEdges) ProjectOrErr() (*Project, error) {
 	return nil, &NotLoadedError{edge: "project"}
 }
 
-// ImagesOrErr returns the Images value or an error if the edge
+// ImageTagAssignmentsOrErr returns the ImageTagAssignments value or an error if the edge
 // was not loaded in eager-loading.
-func (e ImageTagEdges) ImagesOrErr() ([]*Image, error) {
+func (e ImageTagEdges) ImageTagAssignmentsOrErr() ([]*ImageTagAssignment, error) {
 	if e.loadedTypes[1] {
-		return e.Images, nil
+		return e.ImageTagAssignments, nil
 	}
-	return nil, &NotLoadedError{edge: "images"}
+	return nil, &NotLoadedError{edge: "image_tag_assignments"}
 }
 
 // CreatedByOrErr returns the CreatedBy value or an error if the edge
@@ -109,7 +111,7 @@ func (*ImageTag) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case imagetag.FieldIsAlbum:
 			values[i] = new(sql.NullBool)
-		case imagetag.FieldName, imagetag.FieldDescription:
+		case imagetag.FieldName, imagetag.FieldDescription, imagetag.FieldType:
 			values[i] = new(sql.NullString)
 		case imagetag.FieldCreatedAt, imagetag.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -172,6 +174,12 @@ func (it *ImageTag) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				it.IsAlbum = value.Bool
 			}
+		case imagetag.FieldType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field type", values[i])
+			} else if value.Valid {
+				it.Type = imagetag.Type(value.String)
+			}
 		case imagetag.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field image_tag_project", values[i])
@@ -211,9 +219,9 @@ func (it *ImageTag) QueryProject() *ProjectQuery {
 	return NewImageTagClient(it.config).QueryProject(it)
 }
 
-// QueryImages queries the "images" edge of the ImageTag entity.
-func (it *ImageTag) QueryImages() *ImageQuery {
-	return NewImageTagClient(it.config).QueryImages(it)
+// QueryImageTagAssignments queries the "image_tag_assignments" edge of the ImageTag entity.
+func (it *ImageTag) QueryImageTagAssignments() *ImageTagAssignmentQuery {
+	return NewImageTagClient(it.config).QueryImageTagAssignments(it)
 }
 
 // QueryCreatedBy queries the "created_by" edge of the ImageTag entity.
@@ -263,6 +271,9 @@ func (it *ImageTag) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("is_album=")
 	builder.WriteString(fmt.Sprintf("%v", it.IsAlbum))
+	builder.WriteString(", ")
+	builder.WriteString("type=")
+	builder.WriteString(fmt.Sprintf("%v", it.Type))
 	builder.WriteByte(')')
 	return builder.String()
 }

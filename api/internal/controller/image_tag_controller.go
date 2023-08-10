@@ -8,6 +8,7 @@ import (
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/internal/api_error"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
@@ -27,14 +28,16 @@ func registerImageTagsController(router *gin.Engine) {
 }
 
 type EditImageTagBody struct {
-	Description *string `json:"description"`
-	IsAlbum     *bool   `json:"isAlbum"`
+	Description *string        `json:"description"`
+	Type        *imagetag.Type `json:"type"`
+	IsAlbum     *bool          `json:"isAlbum"`
 }
 
 type CreateImageTagBody struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	IsAlbum     bool   `json:"isAlbum"`
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Type        imagetag.Type `json:"type"`
+	IsAlbum     bool          `json:"isAlbum"`
 }
 
 type CreateImageTagsBody struct {
@@ -90,6 +93,7 @@ func createImageTagController(c *gin.Context) {
 		SetName(body.Name).
 		SetDescription(body.Description).
 		SetIsAlbum(body.IsAlbum).
+		SetType(body.Type).
 		SetProject(project).
 		SetCreatedBy(userContext.User).
 		SetUpdatedBy(userContext.User)
@@ -269,6 +273,10 @@ func updateImageTagController(c *gin.Context) {
 
 	if body.IsAlbum != nil {
 		itemUpdate.SetIsAlbum(*body.IsAlbum)
+	}
+
+	if body.Type != nil {
+		itemUpdate.SetType(*body.Type)
 	}
 
 	item, err = itemUpdate.SetUpdatedBy(userContext.User).Save(ctx)
