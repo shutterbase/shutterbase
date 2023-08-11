@@ -1,12 +1,14 @@
 package mail
 
 import (
+	"context"
 	"html/template"
 	"path/filepath"
 	"strings"
 
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
+	"github.com/shutterbase/shutterbase/internal/tracing"
 
 	gomail "gopkg.in/gomail.v2"
 )
@@ -22,6 +24,9 @@ var templatePaths = []string{
 }
 
 func InitMailer() error {
+	ctx := context.Background()
+	_, tracer := tracing.GetTracer().Start(ctx, "init_mailer")
+	defer tracer.End()
 	mailer = gomail.NewDialer(
 		config.Get().String("SMTP_HOST"),
 		config.Get().Int("SMTP_PORT"),

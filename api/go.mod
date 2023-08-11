@@ -11,7 +11,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.3.0
-	github.com/hashicorp/golang-lru v0.5.0
+	github.com/hashicorp/golang-lru v0.5.1
 	github.com/hashicorp/golang-lru/v2 v2.0.4
 	github.com/lib/pq v1.10.9
 	github.com/makiuchi-d/gozxing v0.1.1
@@ -20,6 +20,7 @@ require (
 	github.com/ory/ladon v1.2.0
 	github.com/rs/zerolog v1.29.1
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.2.2
+	github.com/uptrace/uptrace-go v1.16.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.42.0
 	go.opentelemetry.io/otel v1.16.0
 	go.opentelemetry.io/otel/trace v1.16.0
@@ -28,6 +29,7 @@ require (
 
 require (
 	github.com/bytedance/sonic v1.9.1 // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.2.0 // indirect
@@ -47,6 +49,8 @@ require (
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.4.6 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -67,10 +71,22 @@ require (
 	github.com/stretchr/testify v1.8.3 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
+	go.opentelemetry.io/contrib/instrumentation/runtime v0.42.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.16.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.16.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.16.0 // indirect
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.16.0 // indirect
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.16.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v0.39.0 // indirect
+	go.opentelemetry.io/proto/otlp v0.19.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
+	google.golang.org/grpc v1.55.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

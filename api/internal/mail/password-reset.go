@@ -2,9 +2,11 @@ package mail
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/tracing"
 
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
@@ -13,6 +15,9 @@ import (
 )
 
 func SendPasswordResetEmail(user *ent.User) error {
+	ctx := context.Background()
+	_, tracer := tracing.GetTracer().Start(ctx, "send_password_reset_email")
+	defer tracer.End()
 	log.Trace().Str("email", user.Email).Msg("Sending password reset email for user")
 	FROM_MAIL := config.Get().String("MAIL_FROM_MAIL")
 	SUBJECT_LINE := config.Get().String("MAIL_PASSWORD_RESET_SUBJECT")

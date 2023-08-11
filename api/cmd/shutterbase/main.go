@@ -12,6 +12,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/storage"
 	"github.com/shutterbase/shutterbase/internal/util"
+	"github.com/uptrace/uptrace-go/uptrace"
 )
 
 func main() {
@@ -24,6 +25,21 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to initialize logger")
 	}
 	log.Info().Msg("")
+
+	log.Info().Msg("Initializing tracing")
+	UPTRACE_DSN := config.Get().String("UPTRACE_DSN")
+	if UPTRACE_DSN == "" {
+		log.Warn().Msg("UPTRACE_DSN is not set. Tracing will not be enabled.")
+	} else {
+		SERVICE_VERSION := config.Get().String("SERVICE_VERSION")
+		SERVICE_NAME := config.Get().String("SERVICE_NAME")
+		uptrace.ConfigureOpentelemetry(
+			uptrace.WithDSN(UPTRACE_DSN),
+			uptrace.WithServiceName(SERVICE_NAME),
+			uptrace.WithServiceVersion(SERVICE_VERSION),
+		)
+		defer uptrace.Shutdown(ctx)
+	}
 
 	log.Info().Msg("---")
 	log.Info().Msg("initializing database connection")
@@ -67,6 +83,8 @@ func initConfig() {
 		config.String("LOG_LEVEL").NotEmpty().Default("info"),
 		config.Bool("DEV_MODE").Default(false),
 		config.Bool("UI_HOSTING").Default(true),
+
+		config.String("UPTRACE_DSN"),
 
 		config.String("DB_HOST").NotEmpty().Default("localhost"),
 		config.String("DB_NAME").NotEmpty().Default("shutterbase"),

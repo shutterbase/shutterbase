@@ -13,6 +13,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
+	"github.com/shutterbase/shutterbase/internal/tracing"
 )
 
 var S3_BUCKET string
@@ -51,7 +52,8 @@ func Init() error {
 }
 
 func GetFile(ctx context.Context, id uuid.UUID) (*[]byte, error) {
-
+	ctx, tracer := tracing.GetTracer().Start(ctx, "download_file")
+	defer tracer.End()
 	data, ok := fileCache.Get(id.String())
 	if ok {
 		log.Debug().Str("id", id.String()).Msg("file cache hit")
@@ -94,6 +96,8 @@ func cacheFile(id uuid.UUID, data *[]byte) {
 }
 
 func PutFile(ctx context.Context, id uuid.UUID, data []byte) error {
+	ctx, tracer := tracing.GetTracer().Start(ctx, "upload_file")
+	defer tracer.End()
 	log.Debug().Str("id", id.String()).Msgf("putting file with %s to s3", getHumanReadableSize(int64(len(data))))
 	reader := bytes.NewReader(data)
 	_, err := s3Client.PutObject(ctx, S3_BUCKET, id.String(), reader, int64(len(data)), minio.PutObjectOptions{})

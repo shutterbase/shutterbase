@@ -2,9 +2,11 @@ package mail
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/tracing"
 
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
@@ -13,6 +15,9 @@ import (
 )
 
 func SendEmailConfirmation(user *ent.User) error {
+	ctx := context.Background()
+	_, tracer := tracing.GetTracer().Start(ctx, "send_email_confirmation")
+	defer tracer.End()
 	FROM_MAIL := config.Get().String("MAIL_FROM_MAIL")
 	SUBJECT_LINE := config.Get().String("MAIL_EMAIL_CONFIRMATION_SUBJECT")
 	API_BASE_URL := config.Get().String("API_BASE_URL")
