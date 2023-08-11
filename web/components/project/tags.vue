@@ -69,7 +69,7 @@
 import { ref } from "vue";
 import { Method, ListResult, API_BASE_URL, getFetchOptions } from "~/api/common";
 import { Tag } from "~/api/tag";
-const limit = ref(100);
+const limit = ref(1000);
 const page = ref(1);
 const offset = computed(() => {
   return (page.value - 1) * limit.value;

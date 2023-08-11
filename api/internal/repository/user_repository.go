@@ -20,7 +20,7 @@ func InitUserRepository(ctx context.Context) error {
 
 func initAdminUser(ctx context.Context) error {
 	initialAdminPassword := config.Get().String("INITIAL_ADMIN_PASSWORD")
-	adminEmail := "admin@localhost.local"
+	adminEmail := config.Get().String("ADMIN_EMAIL")
 
 	if initialAdminPassword != "" {
 		count, err := databaseClient.User.Query().Where(user.Email(adminEmail)).Count(ctx)

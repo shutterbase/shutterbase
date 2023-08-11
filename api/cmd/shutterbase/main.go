@@ -100,6 +100,7 @@ func initConfig() {
 		config.String("JWT_KEY").NotEmpty().Sensitive(),
 
 		config.Bool("USER_DEFAULT_ACTIVE").Default(false),
+		config.String("ADMIN_EMAIL").Default("admin@localhost.local"),
 		config.String("INITIAL_ADMIN_PASSWORD").NotEmpty().Sensitive(),
 
 		config.Int("LRU_CACHE_SIZE").Default(1000),
