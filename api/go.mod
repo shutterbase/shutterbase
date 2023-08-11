@@ -11,10 +11,12 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.3.0
+	github.com/hashicorp/golang-lru v0.5.0
 	github.com/hashicorp/golang-lru/v2 v2.0.4
 	github.com/lib/pq v1.10.9
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/minio/minio-go/v7 v7.0.60
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/ory/ladon v1.2.0
 	github.com/rs/zerolog v1.29.1
 	github.com/uptrace/opentelemetry-go-extra/otelsql v0.2.2
@@ -45,7 +47,6 @@ require (
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
-	github.com/hashicorp/golang-lru v0.5.0 // indirect
 	github.com/jedib0t/go-pretty/v6 v6.4.6 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -56,7 +57,6 @@ require (
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/ory/pagination v0.0.1 // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
@@ -90,7 +90,7 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/go-wordwrap v0.0.0-20150314170334-ad45545899c7 // indirect
-	github.com/mxcd/go-config v0.0.0-20230624230512-706d908ce0f3
+	github.com/mxcd/go-config v0.0.0-20230811195356-8c390c44a35f
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/zclconf/go-cty v1.8.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
