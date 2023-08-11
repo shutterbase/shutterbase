@@ -22,6 +22,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/storage"
+	"github.com/shutterbase/shutterbase/internal/tracing"
 	"github.com/shutterbase/shutterbase/internal/util"
 
 	img "image"
@@ -47,6 +48,7 @@ func registerImagesController(router *gin.Engine) {
 
 	repository.DefineCache("thumbnailCache", 2500)
 	repository.DefineCache("imageCache", 250)
+	repository.DefineCache("scaledImageCache", 1000)
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), createImageController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), getImagesController)
@@ -216,7 +218,7 @@ func createImageController(c *gin.Context) {
 		go applyDefaultTags(item.ID)
 
 		go func() {
-			thumbnailData, err := scaleJpegImage(data, THUMBNAIL_SIZE)
+			thumbnailData, err := scaleJpegImage(item.ID, data, THUMBNAIL_SIZE, false)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to scaled image for thumbnail creation")
 				return
@@ -518,7 +520,7 @@ func getImageFileController(c *gin.Context) {
 	}
 
 	if size != 0 {
-		resizedData, err := scaleJpegImage(*data, uint(size))
+		resizedData, err := scaleJpegImage(id, *data, uint(size), true)
 		log.Debug().Msgf("resized image from %d to %d", len(*data), len(resizedData))
 		if err != nil {
 			log.Error().Err(err).Msg("failed to resize image")
@@ -594,7 +596,7 @@ func getImageThumbController(c *gin.Context) {
 	}
 
 	if size != 0 {
-		resizedData, err := scaleJpegImage(*data, uint(size))
+		resizedData, err := scaleJpegImage(id, *data, uint(size), true)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to resize image")
 			api_error.INTERNAL.Send(c)
@@ -608,7 +610,18 @@ func getImageThumbController(c *gin.Context) {
 	c.Data(200, "image/jpeg", *data)
 }
 
-func scaleJpegImage(data []byte, width uint) ([]byte, error) {
+func scaleJpegImage(id uuid.UUID, data []byte, width uint, cache bool) ([]byte, error) {
+	ctx := context.Background()
+	_, tracer := tracing.GetTracer().Start(ctx, "scale_image")
+	defer tracer.End()
+
+	cacheKey := fmt.Sprintf("%s-%d", id.String(), width)
+	rawCacheItem, ok := repository.GetCacheItem("scaledImageCache", cacheKey)
+	if ok && rawCacheItem != nil {
+		cacheItem := rawCacheItem.([]byte)
+		return cacheItem, nil
+	}
+
 	image, _, err := img.Decode(bytes.NewReader(data))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to decode image for thumbnail creation")
@@ -621,6 +634,11 @@ func scaleJpegImage(data []byte, width uint) ([]byte, error) {
 		log.Error().Err(err).Msg("failed to encode image for thumbnail creation")
 		return nil, err
 	}
+
+	if cache {
+		repository.SetCacheItem("scaledImageCache", cacheKey, thumbnailBuffer.Bytes())
+	}
+
 	return thumbnailBuffer.Bytes(), nil
 }
 
