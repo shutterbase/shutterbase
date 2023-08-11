@@ -87,6 +87,7 @@ func createProjectController(c *gin.Context) {
 
 func getProjectsController(c *gin.Context) {
 	ctx := c.Request.Context()
+	userContext := authorization.GetUserContextFromGinContext(c)
 
 	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
 	if err != nil || !allowed {
@@ -97,7 +98,7 @@ func getProjectsController(c *gin.Context) {
 
 	paginationParameters := getPaginationParameters(c)
 
-	items, total, err := repository.GetProjects(ctx, &paginationParameters)
+	items, total, err := repository.GetProjects(ctx, &paginationParameters, userContext)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get projects list")
 		api_error.INTERNAL.Send(c)

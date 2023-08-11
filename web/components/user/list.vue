@@ -17,7 +17,7 @@
             <td>{{ user.firstName }}</td>
             <td>{{ user.lastName }}</td>
             <td>{{ user.email }}</td>
-            <td>{{ user.edges.role.description }}</td>
+            <td>{{ user.edges.role?.description }}</td>
             <td>{{ user.active }}</td>
           </tr>
         </tbody>

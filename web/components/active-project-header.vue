@@ -1,5 +1,7 @@
 <template>
-  <div v-if="project" class="btn btn-ghost normal-case text-xl" @click="navigateToProject">{{ project.name }}</div>
+  <ClientOnly>
+    <div v-if="project" class="btn btn-ghost normal-case text-xl" @click="navigateToProject">{{ project.name }}</div>
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
@@ -11,9 +13,7 @@ const { activeProjectId } = storeToRefs(store);
 
 const project = ref<Project | null>(null);
 
-watch(activeProjectId, () => {
-  loadActiveProject();
-});
+watch(activeProjectId, loadActiveProject, { immediate: true });
 
 async function loadActiveProject() {
   if (activeProjectId.value && activeProjectId.value !== "") {
@@ -24,10 +24,6 @@ async function loadActiveProject() {
     }
   }
 }
-
-onMounted(() => {
-  loadActiveProject();
-});
 
 function navigateToProject() {
   navigateTo(`/dashboard/projects/${activeProjectId.value}`);

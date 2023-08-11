@@ -18,7 +18,7 @@ var policies = []*ladon.DefaultPolicy{
 		ID:          "b7c92c8a-38dc-4f0d-9f19-cf9e0bd93f73",
 		Description: "Allow unauthenticated request access",
 		Subjects:    []string{"anonymous"},
-		Resources:   []string{"/register", "/confirm", "/login", "/logout", "/refresh", "request-password-reset", "/password-reset"},
+		Resources:   []string{"/register", "/confirm", "/login", "/logout", "/refresh", "/request-password-reset", "/password-reset"},
 		Actions:     []string{REQUEST.String()},
 		Conditions:  ladon.Conditions{},
 		Effect:      ladon.AllowAccess,
@@ -135,6 +135,38 @@ var policies = []*ladon.DefaultPolicy{
 		},
 		Effect: ladon.AllowAccess,
 	},
+	// TODO: batch create, delete for editor
+	{
+		ID:          "54fa564c-78ac-4152-99c3-fe57f5918683",
+		Description: "Allow batch create action for project editors",
+		Subjects:    []string{"role:user"},
+		Resources: []string{
+			"/projects/" + UUID_REGEX + "/batches",
+		},
+		Actions: C.GetItems(),
+		Conditions: ladon.Conditions{
+			"project": &ProjectRoleCondition{
+				Roles: []string{"role:project_editor"},
+			},
+		},
+		Effect: ladon.AllowAccess,
+	},
+	{
+		ID:          "07f10cc0-0db4-4e50-bfde-9bd30ef0bd4e",
+		Description: "Allow batch edit, delete action for (project editors && batch owner)",
+		Subjects:    []string{"role:user"},
+		Resources: []string{
+			"/projects/" + UUID_REGEX + "/batches/" + UUID_REGEX,
+		},
+		Actions: C.GetItems(),
+		Conditions: ladon.Conditions{
+			"project": &ProjectRoleCondition{
+				Roles: []string{"role:project_editor"},
+			},
+			"ownerId": &OwnerIdCondition{},
+		},
+		Effect: ladon.AllowAccess,
+	},
 	{
 		ID:          "d4c2210a-9151-4b04-a8e7-3de06dd4f2a9",
 		Description: "Allow update/delete image actions for image owner",
@@ -144,6 +176,9 @@ var policies = []*ladon.DefaultPolicy{
 		},
 		Actions: UD.GetItems(),
 		Conditions: ladon.Conditions{
+			"project": &ProjectRoleCondition{
+				Roles: []string{"role:project_editor"},
+			},
 			"ownerId": &OwnerIdCondition{},
 		},
 		Effect: ladon.AllowAccess,

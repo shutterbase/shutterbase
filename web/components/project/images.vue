@@ -6,13 +6,13 @@
           <img :src="getImageThumbnailUrl(image)" class="w-full rounded-md" />
           <div class="absolute inset-0 p-8 text-white flex flex-col">
             <div class="relative">
-              <a class="absolute inset-0" :href="`/dashboard/projects/${projectId}/image-detail`"></a>
+              <a class="absolute inset-0" :href="`/dashboard/projects/${projectId}/image-detail?image=${image.id}`"></a>
               <h1 class="text-md font-bold mb-3">{{ image.fileName }}</h1>
               <p class="font-sm font-light">{{ image.edges.createdBy.firstName }} {{ image.edges.createdBy.lastName }}</p>
             </div>
-            <div class="mt-auto">
+            <!--<div class="mt-auto flex flex-row">
               <span class="bg-white bg-opacity-60 py-1 px-4 rounded-md text-black">#tag</span>
-            </div>
+            </div>-->
           </div>
         </div>
       </div>
@@ -23,7 +23,24 @@
 <script setup lang="ts">
 import { ref, Ref } from "vue";
 import { Image } from "~/api/image";
-import { Method, getFetchOptions, getDateTimeString, requestList, API_BASE_URL } from "~/api/common";
+import { Method, getDateTimeString, requestList, API_BASE_URL } from "~/api/common";
+
+function getFetchOptions(method: Method, body?: any, watch?: any[]) {
+  const headers = useRequestHeaders(["cookie"]);
+  const options: any = {
+    method,
+    headers,
+    baseURL: API_BASE_URL,
+    credentials: "include",
+  };
+  if (body) {
+    options.body = body;
+  }
+  if (watch) {
+    options.watch = watch;
+  }
+  return options;
+}
 
 const props = defineProps({
   projectId: {

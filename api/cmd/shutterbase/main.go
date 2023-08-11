@@ -8,6 +8,7 @@ import (
 	"github.com/mxcd/go-config/config"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/controller"
+	"github.com/shutterbase/shutterbase/internal/mail"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/storage"
 	"github.com/shutterbase/shutterbase/internal/util"
@@ -49,6 +50,14 @@ func main() {
 	log.Info().Msg("")
 
 	log.Info().Msg("---")
+	log.Info().Msg("initializing mailer")
+	err = mail.InitMailer()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize mailer")
+	}
+	log.Info().Msg("")
+
+	log.Info().Msg("---")
 	log.Info().Msg("starting server")
 	controller.StartServer()
 }
@@ -79,6 +88,7 @@ func initConfig() {
 
 		config.String("APPLICATION_DOMAIN").NotEmpty(),
 		config.String("APPLICATION_BASE_URL").NotEmpty(),
+		config.String("API_BASE_URL").NotEmpty(),
 		config.String("API_CONTEXT_PATH").Default("/api/v1"),
 
 		config.String("MAIL_FROM_MAIL").NotEmpty(),

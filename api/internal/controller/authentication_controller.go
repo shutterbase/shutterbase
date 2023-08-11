@@ -71,7 +71,7 @@ func registerAuthenticationController(router *gin.Engine) {
 	// register a new user
 	router.POST(fmt.Sprintf("%s/register", CONTEXT_PATH), registerNewUser)
 	// confirm user email
-	router.POST(fmt.Sprintf("%s/confirm", CONTEXT_PATH), confirmUserEmail)
+	router.GET(fmt.Sprintf("%s/confirm", CONTEXT_PATH), confirmUserEmail)
 	// login
 	router.POST(fmt.Sprintf("%s/login", CONTEXT_PATH), loginUsernamePassword)
 	// logout
@@ -229,20 +229,12 @@ func requestConfirmationEmail(c *gin.Context) {
 func confirmUserEmail(c *gin.Context) {
 	ctx := c.Request.Context()
 	log.Trace().Msg("Confirming user's email address")
-	var requestBody ConfirmRequestBody
-	err := c.ShouldBindJSON(&requestBody)
-	if err != nil {
-		log.Warn().Err(err).Msg("Failed to parse JSON body for user email confirmation request")
-		log.Trace().Msg("Returning 'bad_request' code")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad_request"})
-		return
-	}
 
-	email := requestBody.Email
-	key := requestBody.Key
+	email := c.Query("email")
+	key := c.Query("key")
 
 	log.Trace().Str("email", email).Msg("Retrieving user by email for email confirmation")
-	user, err := repository.GetUserByEmail(ctx, requestBody.Email)
+	user, err := repository.GetUserByEmail(ctx, email)
 	if err != nil {
 		log.Error().Str("email", email).Err(err).Msg("Error retrieving user by email for email confirmation request")
 		log.Trace().Str("email", email).Msg("Returning 'bad_request' code")
@@ -254,7 +246,8 @@ func confirmUserEmail(c *gin.Context) {
 	if user.EmailValidated {
 		log.Trace().Str("email", email).Msg("User's email is already validated")
 		log.Trace().Str("email", email).Msg("Returning 'email_already_validated' code")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "email_already_validated"})
+		confirmEmailUrl := fmt.Sprintf("%s/confirm-email/email_already_validated", APPLICATION_BASE_URL)
+		c.Redirect(http.StatusTemporaryRedirect, confirmEmailUrl)
 		return
 	}
 
@@ -280,7 +273,8 @@ func confirmUserEmail(c *gin.Context) {
 	}
 
 	log.Trace().Str("email", email).Msg("User email validation process successful")
-	c.JSON(http.StatusOK, gin.H{"message": "user confirmed"})
+	confirmEmailUrl := fmt.Sprintf("%s/confirm-email/ok", APPLICATION_BASE_URL)
+	c.Redirect(http.StatusTemporaryRedirect, confirmEmailUrl)
 }
 
 func loginUsernamePassword(c *gin.Context) {

@@ -42,13 +42,13 @@
           <label class="label">
             <span class="label-text">Account active</span>
           </label>
-          <input type="checkbox" class="toggle toggle-success" v-model="accountActive" />
+          <input type="checkbox" :disabled="!store.isAdmin()" class="toggle toggle-success" v-model="accountActive" />
         </div>
         <div class="basis-1/4">
           <label class="label">
             <span class="label-text">Email validated</span>
           </label>
-          <input type="checkbox" class="toggle toggle-success" v-model="emailValidated" />
+          <input type="checkbox" :disabled="!store.isAdmin()" class="toggle toggle-success" v-model="emailValidated" />
         </div>
       </div>
     </div>
@@ -74,6 +74,9 @@ const props = defineProps({
   },
 });
 
+console.log("props", props);
+console.log("props.id", props.id);
+
 const { data: item } = await useFetch(`/users/${props.id}`, getFetchOptions(Method.GET));
 const initialItem = item as Ref<User>;
 
@@ -86,11 +89,14 @@ const accountActive = ref(false);
 const emailValidated = ref(false);
 
 function updateEditValues(editItem: Ref<User>) {
+  if (!editItem.value) {
+    return;
+  }
   firstName.value = editItem.value.firstName;
   lastName.value = editItem.value.lastName;
   copyrightTag.value = editItem.value.copyrightTag;
   email.value = editItem.value.email;
-  globalRole.value = editItem.value.edges.role.key;
+  globalRole.value = editItem.value.edges.role?.key;
   accountActive.value = editItem.value.active;
   emailValidated.value = editItem.value.emailValidated;
 }
@@ -98,11 +104,14 @@ function updateEditValues(editItem: Ref<User>) {
 updateEditValues(item as Ref<User>);
 
 const modified = computed(() => {
+  if (!initialItem.value) {
+    return false;
+  }
   return (
     firstName.value !== initialItem.value.firstName ||
     lastName.value !== initialItem.value.lastName ||
     copyrightTag.value !== initialItem.value.copyrightTag ||
-    globalRole.value !== initialItem.value.edges.role.key ||
+    globalRole.value !== initialItem.value.edges.role?.key ||
     accountActive.value !== initialItem.value.active ||
     emailValidated.value !== initialItem.value.emailValidated
   );
@@ -119,7 +128,7 @@ async function update() {
   if (copyrightTag.value !== initialItem.value.copyrightTag) {
     updateData.copyrightTag = copyrightTag.value;
   }
-  if (globalRole.value !== initialItem.value.edges.role.key) {
+  if (globalRole.value !== initialItem.value.edges.role?.key) {
     updateData.role = globalRole.value;
   }
   if (accountActive.value !== initialItem.value.active) {
@@ -137,7 +146,7 @@ async function update() {
     initialItem.value.copyrightTag = updatedItem.value.copyrightTag;
     initialItem.value.active = updatedItem.value.active;
     initialItem.value.emailValidated = updatedItem.value.emailValidated;
-    initialItem.value.edges.role.key = updatedItem.value.edges.role.key;
+    initialItem.value.edges.role.key = updatedItem.value.edges.role?.key;
 
     initialItem.value.updatedAt = updatedItem.value.updatedAt;
     initialItem.value.edges.updatedBy = store.getOwnUser() || ({} as User);

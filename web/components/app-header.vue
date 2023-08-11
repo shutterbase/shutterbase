@@ -9,8 +9,10 @@
         </label>
         <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
           <li><a :href="`/dashboard/projects/${activeProjectId}/images`">Project Images</a></li>
-          <li><a href="/dashboard/users">Manage Users</a></li>
-          <li><a href="/dashboard/projects">Manage Projects</a></li>
+          <li><a :href="`/dashboard/users/${ownUserId}`">My User</a></li>
+          <li v-if="isAdmin"><a href="/dashboard/users">Manage Users</a></li>
+          <li v-if="isAdmin"><a href="/dashboard/projects">Manage Projects</a></li>
+          <li v-else><a href="/dashboard/projects">My Projects</a></li>
           <li><a href="/logout">Logout</a></li>
         </ul>
       </div>
@@ -30,6 +32,9 @@ import { storeToRefs } from "pinia";
 import { useStore } from "~/stores/store";
 const store = useStore();
 const { activeProjectId } = storeToRefs(store);
+
+const isAdmin = store.isAdmin();
+const ownUserId = store.getOwnUser()?.id;
 
 function doHeaderButtonNavigation() {
   if (store.isLoggedIn()) {

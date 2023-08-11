@@ -1,12 +1,8 @@
 <template>
   <div>
     <div v-if="image.edges.tagAssignments && image.edges.tagAssignments.length !== 0" class="flex flex-row">
-      <div class="btn btn-xs" @click="openTagPicker">Add Tags</div>
-      <div
-        v-for="tagAssignment in tags"
-        :class="`badge ${getTagTypeStyle(tagAssignment.edges.tag)} object-center p-3 ml-2 hover click hover:cursor-pointer`"
-        @click="requestRemoveTag(tagAssignment.edges.tag)"
-      >
+      <div :class="`btn btn-xs ${getAddTagsBtnClasses()}`" @click="openTagPicker">Add Tags</div>
+      <div v-for="tagAssignment in tags" :class="`badge ${getTagTypeClasses(tagAssignment.edges.tag)} object-center p-3 ml-2`" @click="requestRemoveTag(tagAssignment.edges.tag)">
         {{ tagAssignment.edges.tag.name }}
       </div>
     </div>
@@ -18,11 +14,8 @@
     <div class="modal">
       <form method="dialog" class="modal-box w-11/12 max-w-5xl">
         <h3 class="font-bold text-lg">Pick a tag to add</h3>
+        <label class="btn btn-xs" @click="closeTagPicker">Close</label>
         <TagPicker :projectId="props.projectId" :active="showTagPicker" @selected="tagSelected" />
-        <div class="modal-action">
-          <!-- if there is a button, it will close the modal -->
-          <button class="btn">Close</button>
-        </div>
       </form>
     </div>
     <input type="checkbox" id="removeTagDialog" :checked="showRemoveTagDialog" class="modal-toggle" />
@@ -45,9 +38,13 @@ import { Image, TagAssignment } from "~/api/image";
 import { emitter } from "~/boot/mitt";
 import { Method, getFetchOptions } from "~/api/common";
 import { useStore } from "~/stores/store";
+import { ProjectAssignment } from "~/api/projectAssignment";
+import ImageDetail from "components/project/image-detail.vue";
 
 const store = useStore();
 const emit = defineEmits(["tag-picker-state", "image-update"]);
+
+const ownUser = store.getOwnUser();
 
 const props = defineProps({
   image: {
@@ -60,9 +57,16 @@ const props = defineProps({
   },
 });
 
+const editAllowed = computed(() => {
+  return (
+    store.isAdmin() ||
+    ownUser?.edges.projectAssignments.some((pa: ProjectAssignment) => pa.edges.project.id === props.projectId && pa.edges.role.key === "project_admin") ||
+    props.image.edges.createdBy.id === ownUser?.id
+  );
+});
+
 const tags = ref<Array<TagAssignment>>([]);
 watchEffect(() => {
-  console.log(`computing tags`);
   if (props.image.edges && props.image.edges.tagAssignments) {
     tags.value = props.image.edges.tagAssignments.sort((a, b) => {
       // sort by type first: default, manual, suggested
@@ -99,10 +103,12 @@ emitter.on("key-t", (event: any) => {
   openTagPickerWithHotkey(event);
 });
 
-emitter.on("key-Escape", () => {
+emitter.on("key-Escape", closeTagPicker);
+
+function closeTagPicker() {
   showTagPicker.value = false;
   emit("tag-picker-state", false);
-});
+}
 
 function openTagPickerWithHotkey(event: any) {
   if (showTagPicker.value) return;
@@ -113,6 +119,7 @@ function openTagPickerWithHotkey(event: any) {
 }
 
 function openTagPicker() {
+  if (!editAllowed.value) return;
   if (showTagPicker.value) return;
   emitter.emit("display-tag-picker");
   showTagPicker.value = true;
@@ -173,6 +180,7 @@ async function tagSelected(tag: Tag) {
 
 const removeTagCandidate = ref<Tag | null>(null);
 function requestRemoveTag(tag: Tag) {
+  if (!editAllowed.value) return;
   if (tag.type === "default") return;
   removeTagCandidate.value = tag;
   showRemoveTagDialog.value = true;
@@ -217,16 +225,26 @@ async function removeTag() {
   }
 }
 
-function getTagTypeStyle(tag: Tag): string {
+function getTagTypeClasses(tag: Tag): string {
   switch (tag.type) {
     case "default":
-      return "badge-ghost";
+      return "badge-ghost hover:cursor-not-allowed";
     case "manual":
-      return "badge-primary";
+      if (editAllowed.value) return "badge-primary hover click hover:cursor-pointer";
+      else return "badge-primary badge-outline hover:cursor-not-allowed";
     case "suggested":
-      return "badge-primary badge-outline";
+      if (editAllowed.value) return "badge-success badge-outline hover click hover:cursor-copy";
+      else return "badge-success badge-outline hover:cursor-not-allowed";
     default:
       return "badge-ghost";
+  }
+}
+
+function getAddTagsBtnClasses(): string {
+  if (editAllowed.value) {
+    return "btn-primary hover click hover:cursor-pointer";
+  } else {
+    return "btn-ghost hover:cursor-not-allowed";
   }
 }
 </script>

@@ -31,11 +31,21 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 		)
 	}
 
+	order := ent.Desc("captured_at_corrected")
+
+	if paginationParameters.Sort != "" {
+		if paginationParameters.OrderDirection == "asc" {
+			order = ent.Asc(paginationParameters.Sort)
+		} else {
+			order = ent.Desc(paginationParameters.Sort)
+		}
+	}
+
 	items, err := databaseClient.Image.Query().
 		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithCreatedBy().WithUpdatedBy().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
-		Where(conditions).Order(ent.Asc("captured_at_corrected"), ent.Asc("captured_at")).
+		Where(conditions).Order(order).
 		All(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting images")

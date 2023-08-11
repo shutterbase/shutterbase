@@ -151,13 +151,6 @@ func updateBatchController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.UPDATE))
-	if err != nil || !allowed {
-		log.Warn().Err(err).Msg("unauthorized access to batch denied")
-		api_error.FORBIDDEN.Send(c)
-		return
-	}
-
 	var body EditBatchBody
 	if err := c.Bind(&body); err != nil {
 		api_error.BAD_REQUEST.Send(c)
@@ -172,6 +165,13 @@ func updateBatchController(c *gin.Context) {
 			log.Error().Err(err).Msg("failed to get batch for batch update")
 			api_error.INTERNAL.Send(c)
 		}
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.UPDATE).OwnerId(item.Edges.CreatedBy.ID))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to batch denied")
+		api_error.FORBIDDEN.Send(c)
 		return
 	}
 
@@ -200,7 +200,18 @@ func deleteBatchController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.DELETE))
+	item, err := repository.GetBatch(ctx, id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			api_error.NOT_FOUND.Send(c)
+		} else {
+			log.Error().Err(err).Msg("failed to get batch for batch deletion")
+			api_error.INTERNAL.Send(c)
+		}
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.DELETE).OwnerId(item.Edges.CreatedBy.ID))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to batch denied")
 		api_error.FORBIDDEN.Send(c)

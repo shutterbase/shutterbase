@@ -312,7 +312,18 @@ func updateImageController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.UPDATE))
+	item, err := repository.GetImage(ctx, id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			api_error.NOT_FOUND.Send(c)
+		} else {
+			log.Error().Err(err).Msg("failed to get image for image update")
+			api_error.INTERNAL.Send(c)
+		}
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.UPDATE).OwnerId(item.Edges.CreatedBy.ID))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to image denied")
 		api_error.FORBIDDEN.Send(c)
@@ -322,17 +333,6 @@ func updateImageController(c *gin.Context) {
 	var body EditImageBody
 	if err := c.Bind(&body); err != nil {
 		api_error.BAD_REQUEST.Send(c)
-		return
-	}
-
-	item, err := repository.GetImage(ctx, id)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			api_error.NOT_FOUND.Send(c)
-		} else {
-			log.Error().Err(err).Msg("failed to get image for image update")
-			api_error.INTERNAL.Send(c)
-		}
 		return
 	}
 
@@ -429,7 +429,18 @@ func deleteImageController(c *gin.Context) {
 		return
 	}
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.DELETE))
+	item, err := repository.GetImage(ctx, id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			api_error.NOT_FOUND.Send(c)
+		} else {
+			log.Error().Err(err).Msg("failed to get image for image deletion")
+			api_error.INTERNAL.Send(c)
+		}
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.DELETE).OwnerId(item.Edges.CreatedBy.ID))
 	if err != nil || !allowed {
 		log.Warn().Err(err).Msg("unauthorized access to image denied")
 		api_error.FORBIDDEN.Send(c)

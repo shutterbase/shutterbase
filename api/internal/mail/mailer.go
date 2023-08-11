@@ -32,9 +32,9 @@ func InitMailer() error {
 	sendCloser, dialError := mailer.Dial()
 	if dialError != nil {
 		if config.Get().Bool("DEV_MODE") {
-			log.Warn().Msg("Error connecting to SMTP server, continuing in dev mode")
+			log.Warn().Err(dialError).Msg("Error connecting to SMTP server, continuing in dev mode")
 		} else {
-			log.Fatal().Msg("Error connecting to SMTP server")
+			log.Fatal().Err(dialError).Msg("Error connecting to SMTP server")
 		}
 	} else {
 		mailerInitOk = true

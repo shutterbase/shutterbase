@@ -1,0 +1,41 @@
+<template>
+  <client-only>
+    
+  </client-only>
+</template>
+
+<script setup lang="ts">
+import { ref, Ref } from "vue";
+import { Image } from "~/api/image";
+import { Method, getDateTimeString, requestList, API_BASE_URL } from "~/api/common";
+
+function getFetchOptions(method: Method, body?: any, watch?: any[]) {
+  const headers = useRequestHeaders(["cookie"]);
+  const options: any = {
+    method,
+    headers,
+    baseURL: API_BASE_URL,
+    credentials: "include",
+  };
+  if (body) {
+    options.body = body;
+  }
+  if (watch) {
+    options.watch = watch;
+  }
+  return options;
+}
+
+const props = defineProps({
+  projectId: {
+    type: String,
+    required: true,
+  },
+});
+
+function getImageThumbnailUrl(image: Image): string {
+  return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/thumb`;
+}
+
+const { items: images } = await requestList<Image>(`/projects/${props.projectId}/images`, getFetchOptions(Method.GET));
+</script>

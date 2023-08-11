@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
+var APPLICATION_BASE_URL string
+
 func StartServer() {
 	router := gin.Default()
 
@@ -22,6 +24,7 @@ func StartServer() {
 	router.Use(anonymousUserBlockerMiddleware)
 
 	DEV_MODE = config.Get().Bool("DEV_MODE")
+	APPLICATION_BASE_URL = config.Get().String("APPLICATION_BASE_URL")
 
 	if DEV_MODE {
 		log.Info().Msg("Running Gin in development mode")

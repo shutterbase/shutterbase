@@ -41,6 +41,10 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
+  showDefaultTags: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const tagSearchTerm = ref("");
@@ -53,7 +57,11 @@ const selectedIndex = ref(-1);
 async function loadTags() {
   const result = await requestList<Tag>(`/projects/${props.projectId}/tags`, { limit: 1000, search: tagSearchTerm.value });
   if (result.items && result.total !== undefined) {
-    tags.value = result.items;
+    if (!props.showDefaultTags) {
+      tags.value = result.items.filter((t) => t.type !== "default");
+    } else {
+      tags.value = result.items;
+    }
     total.value = result.total;
   }
 }

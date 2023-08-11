@@ -1,3 +1,4 @@
+import { ProjectAssignment } from "~/api/projectAssignment";
 import { ListRequestOptions, ListResult, SingleResult, requestList, requestSingle, requestUpdate } from "./common";
 
 export interface User {
@@ -9,6 +10,7 @@ export interface User {
   emailValidated: boolean;
   active: boolean;
   edges: {
+    projectAssignments: ProjectAssignment[];
     role: Role;
     createdBy: User;
     updatedBy: User;

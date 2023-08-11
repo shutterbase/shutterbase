@@ -26,7 +26,7 @@ func SendPasswordResetEmail(user *ent.User) error {
 	}{
 		User:              user,
 		Subject:           SUBJECT_LINE,
-		PasswordResetLink: fmt.Sprintf("%s/#/password-reset/?email=%s&key=%s", APPLICATION_BASE_URL, user.Email, user.PasswordResetKey),
+		PasswordResetLink: fmt.Sprintf("%s/password-reset/?email=%s&key=%s", APPLICATION_BASE_URL, user.Email, user.PasswordResetKey),
 	}
 
 	var tpl bytes.Buffer

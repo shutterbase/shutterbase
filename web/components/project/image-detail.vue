@@ -14,7 +14,7 @@
         <div class="text-center">No images available</div>
       </div>
       <div class="hidden lg:block">
-        <div class="flex overflow-x-scroll scroll-smooth scrollbar-hide" ref="filmstrip" v-if="images">
+        <div class="flex overflow-x-scroll scrollbar-hide" ref="filmstrip" v-if="images">
           <div v-for="(image, index) in images" :key="image.id" :class="`${currentImageOffset - offset === index ? 'selectedFilmstripItem' : ''} flex-shrink-0`">
             <img :src="getImageThumbnailUrl(image)" class="filmstrip h-40 w-40 object-cover object-center rounded-sm m-1" @click="selectImage(image)" />
           </div>
@@ -32,9 +32,9 @@ import { ref, Ref } from "vue";
 import { Image } from "~/api/image";
 import { Method, getFetchOptions, API_BASE_URL, ListResponse } from "~/api/common";
 import { emitter } from "~/boot/mitt";
-import { useStore } from "~/stores/store";
 
-const store = useStore();
+const router = useRouter();
+const route = useRoute();
 
 const props = defineProps({
   projectId: {
@@ -103,7 +103,8 @@ async function fetchCurrentImage() {
     const response = await useFetch(url, getFetchOptions(Method.GET));
     if (response.data.value) {
       const data = response.data.value as Image;
-      images.value[currentImageOffset.value] = data;
+      const index = getImageIndex(data);
+      images.value[index] = data;
     }
   }
 }
@@ -113,13 +114,12 @@ function selectImage(image: Image) {
 }
 
 function getImageIndex(image: Image): number {
-  return images.value.indexOf(image);
+  const index = images.value.findIndex((i) => i.id === image.id);
+  return index;
 }
 
 function updateImage(updatedImage: Image) {
   const imageIndex = getImageIndex(updatedImage);
-  console.log("updateImage", updatedImage);
-  console.log(`image index: ${imageIndex} | currentImageOffset: ${currentImageOffset.value}`);
   images.value[imageIndex] = updatedImage;
 }
 
@@ -129,25 +129,57 @@ function calculatePrefetchImages() {
   prefetchImages.value = images.value.slice(prefetchStart, prefetchEnd);
 }
 
-function calculateFilmstripScroll() {
-  if (filmstrip.value) {
-    if (currentImageOffset.value > 4) {
-      filmstrip.value.scrollLeft = (currentImageOffset.value - 4) * 168;
-    } else {
-      filmstrip.value.scrollLeft = 0;
+let filmstripScrollDebounceTimeout: any = null;
+const initialFilmStripUpdate = ref(true);
+function updateFilmstripScroll() {
+  const getTargetOffset = () => {
+    if (filmstrip.value) {
+      if (currentImageOffset.value > 4) {
+        return (currentImageOffset.value - 4) * 168;
+      } else {
+        return 0;
+      }
+    }
+  };
+  if (filmstripScrollDebounceTimeout) {
+    clearTimeout(filmstripScrollDebounceTimeout);
+  }
+  filmstripScrollDebounceTimeout = setTimeout(() => {
+    if (filmstrip.value) {
+      filmstrip.value.scrollTo({ left: getTargetOffset(), behavior: initialFilmStripUpdate.value ? "auto" : "smooth" });
+    }
+    initialFilmStripUpdate.value = false;
+  }, 100);
+}
+
+function updateUrl() {
+  if (typeof currentImageOffset.value !== "undefined" && currentImageOffset.value !== null && images.value[currentImageOffset.value]) {
+    const newImageId = images.value[currentImageOffset.value].id;
+    router.push({ query: { image: newImageId } });
+  }
+}
+
+function updateImageFromUrl() {
+  if (router.currentRoute.value.query.image) {
+    const imageId = router.currentRoute.value.query.image as string;
+    const image = images.value.find((image) => image.id === imageId);
+    if (image) {
+      currentImageOffset.value = images.value.indexOf(image);
+      updateDisplayedImage();
     }
   }
 }
 
 async function updateDisplayedImage() {
   fetchCurrentImage();
-  calculateFilmstripScroll();
+  updateFilmstripScroll();
   calculatePrefetchImages();
-  emitter.emit("update-tags");
 }
-watch(currentImageOffset, updateDisplayedImage, { immediate: true });
 
 await fetchImageList();
+
+watch(currentImageOffset, updateUrl, { immediate: true });
+watch(() => route.fullPath, updateImageFromUrl, { immediate: true });
 </script>
 <style scoped>
 .centerImage {

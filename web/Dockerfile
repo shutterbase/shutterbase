@@ -21,4 +21,4 @@ COPY --chown=1000:1000 --from=build /usr/src/.output ./
 
 EXPOSE 8080
 ENV HOST=0.0.0.0 PORT=8080 NODE_ENV=production
-CMD ["dumb-init","node","/usr/app/server/index.mjs"]
+CMD ["dumb-init","node", "--trace-warnings","/usr/app/server/index.mjs"]

@@ -4,15 +4,16 @@ import (
 	"context"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
-func GetProjects(ctx context.Context, paginationParameters *PaginationParameters) ([]*ent.Project, int, error) {
+func GetProjects(ctx context.Context, paginationParameters *PaginationParameters, userContext *authorization.UserContext) ([]*ent.Project, int, error) {
 	sortFunction := func() project.OrderOption {
-
 		orderFunction := func(field string) project.OrderOption {
 			if paginationParameters.OrderDirection == "desc" {
 				return ent.Desc(field)
@@ -33,10 +34,29 @@ func GetProjects(ctx context.Context, paginationParameters *PaginationParameters
 		}
 	}
 
-	conditions := project.Or(
+	searchConditions := project.Or(
 		project.NameContains(paginationParameters.Search),
 		project.DescriptionContainsFold(paginationParameters.Search),
 	)
+
+	var conditions predicate.Project
+	if userContext.Role.Key == "admin" {
+		conditions = searchConditions
+	} else {
+		userProjectIDs := make([]uuid.UUID, len(userContext.ProjectRoles))
+		for projectId := range userContext.ProjectRoles {
+			projectUuid, err := uuid.Parse(projectId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error parsing project id %s", projectId)
+				continue
+			}
+			userProjectIDs = append(userProjectIDs, projectUuid)
+		}
+		conditions = project.And(
+			searchConditions,
+			project.IDIn(userProjectIDs...),
+		)
+	}
 
 	items, err := databaseClient.Project.Query().
 		Limit(paginationParameters.Limit).

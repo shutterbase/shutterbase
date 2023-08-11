@@ -31,6 +31,7 @@
           <div class="form-control mt-6">
             <button class="btn btn-secondary" @click="doLogin">Login</button>
           </div>
+          <nuxt-link class="label-text-alt link link-hover" to="/register">Create new account</nuxt-link>
         </div>
       </div>
     </div>

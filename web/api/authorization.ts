@@ -61,6 +61,10 @@ export enum ResponseCode {
   MISSING_TOKEN = "missing_token",
 }
 
+function getResponseCode(s: string): ResponseCode {
+  return ResponseCode[s as keyof typeof ResponseCode];
+}
+
 export interface RegistrationResponse {
   code: ResponseCode;
 }
@@ -78,8 +82,12 @@ function getErrorCode(error: any): ResponseCode {
 export async function register(data: RegistrationRequest): Promise<RegistrationResponse> {
   console.log(`Registering user ${data.email}...`);
   try {
-    await requestCreate("/register", data);
-    return { code: ResponseCode.OK };
+    const response = await requestCreate("/register", data);
+    if (response.response.ok) {
+      return { code: ResponseCode.OK };
+    } else {
+      return { code: getResponseCode(response.response.code) };
+    }
   } catch (error: any) {
     return { code: getErrorCode(error) };
   }

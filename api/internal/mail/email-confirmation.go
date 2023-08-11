@@ -15,7 +15,7 @@ import (
 func SendEmailConfirmation(user *ent.User) error {
 	FROM_MAIL := config.Get().String("MAIL_FROM_MAIL")
 	SUBJECT_LINE := config.Get().String("MAIL_EMAIL_CONFIRMATION_SUBJECT")
-	APPLICATION_BASE_URL := config.Get().String("APPLICATION_BASE_URL")
+	API_BASE_URL := config.Get().String("API_BASE_URL")
 
 	data := struct {
 		User             *ent.User
@@ -25,7 +25,7 @@ func SendEmailConfirmation(user *ent.User) error {
 	}{
 		User:             user,
 		Subject:          SUBJECT_LINE,
-		ConfirmationLink: fmt.Sprintf("%s/#/confirm-email/?email=%s&key=%s", APPLICATION_BASE_URL, user.Email, user.ValidationKey),
+		ConfirmationLink: fmt.Sprintf("%s/confirm/?email=%s&key=%s", API_BASE_URL, user.Email, user.ValidationKey),
 	}
 
 	var tpl bytes.Buffer

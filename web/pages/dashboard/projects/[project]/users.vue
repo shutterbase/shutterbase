@@ -1,6 +1,6 @@
 <template>
   <NuxtLayout name="logged-in">
-    <UserDetail :id="userId"></UserDetail>
+    <ProjectUsers :projectId="projectId"></ProjectUsers>
   </NuxtLayout>
 </template>
 
@@ -9,8 +9,7 @@ import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-const userId = `${router.currentRoute.value.params.user}`;
-console.log(userId);
+const projectId = router.currentRoute.value.params.project;
 </script>
 
 <style scoped></style>
