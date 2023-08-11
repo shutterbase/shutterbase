@@ -31,7 +31,7 @@ jobs:
         with:
           context: api
           push: false
-          tags: ${{ github.repository }}-api:${GITHUB_SHA:7}
+          tags: ${{ github.repository }}-api:${{ github.sha }}
   build:
     name: Docker build
     runs-on: ubuntu-latest
@@ -48,7 +48,7 @@ jobs:
         with:
           context: api
           push: true
-          tags: ${{ github.repository }}-api:${GITHUB_SHA:7}
+          tags: ${{ github.repository }}-api:${{ github.sha }}
 
   push:
     name: Docker build release
