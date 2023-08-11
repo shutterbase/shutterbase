@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/mxcd/go-config/config"
 	"github.com/shutterbase/shutterbase/ent"
@@ -11,10 +12,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"golang.org/x/crypto/bcrypt"
 )
 
+var userContextCache *expirable.LRU[string, *ent.User]
+
 func InitUserRepository(ctx context.Context) error {
+	userContextCache = expirable.NewLRU[string, *ent.User](100, nil, time.Second*10)
 	return initAdminUser(ctx)
 }
 
@@ -182,6 +187,13 @@ func GetUser(ctx context.Context, id uuid.UUID) (*ent.User, error) {
 }
 
 func GetUserContext(ctx context.Context, id uuid.UUID) (*ent.User, error) {
+
+	item, ok := userContextCache.Get(id.String())
+	if ok && item != nil {
+		log.Debug().Str("id", id.String()).Msg("user context cache hit")
+		return item, nil
+	}
+
 	item, err := databaseClient.User.Query().
 		Where(user.ID(id)).
 		WithRole().
@@ -192,6 +204,9 @@ func GetUserContext(ctx context.Context, id uuid.UUID) (*ent.User, error) {
 	if err != nil {
 		log.Info().Err(err).Msg("Error loading user context")
 	}
+
+	userContextCache.Add(id.String(), item)
+
 	return item, err
 }
 

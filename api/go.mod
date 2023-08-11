@@ -12,7 +12,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/golang-lru v0.5.1
-	github.com/hashicorp/golang-lru/v2 v2.0.4
+	github.com/hashicorp/golang-lru/v2 v2.0.5
 	github.com/lib/pq v1.10.9
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/minio/minio-go/v7 v7.0.60
