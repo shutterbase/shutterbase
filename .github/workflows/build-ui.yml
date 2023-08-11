@@ -31,7 +31,7 @@ jobs:
         with:
           context: web
           push: false
-          tags: ${{ github.repository }}-ui:${{ github.sha }}
+          tags: ${{ github.repository_owner }}/ui:${{ github.sha }}
   build:
     name: Docker build
     runs-on: ubuntu-latest
@@ -48,7 +48,7 @@ jobs:
         with:
           context: web
           push: true
-          tags: ${{ github.repository }}-ui:${{ github.sha }}
+          tags: ${{ github.repository_owner }}/ui:${{ github.sha }}
 
   push:
     name: Docker build release
@@ -73,4 +73,4 @@ jobs:
           build-args: |
             RELEASE_VERSION=@${{ github.event.release.tag_name }}
           push: true
-          tags: ${{ github.repository }}-ui:latest, ${{ github.repository }}-ui:${{ github.event.release.tag_name }}
+          tags: ${{ github.repository_owner }}/ui:latest, ${{ github.repository_owner }}/ui:${{ github.event.release.tag_name }}
