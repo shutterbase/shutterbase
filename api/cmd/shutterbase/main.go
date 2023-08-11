@@ -85,6 +85,8 @@ func initConfig() {
 		config.Bool("UI_HOSTING").Default(true),
 
 		config.String("UPTRACE_DSN"),
+		config.String("SERVICE_NAME").Default("shutterbase"),
+		config.String("SERVICE_VERSION").Default("0.0.0"),
 
 		config.String("DB_HOST").NotEmpty().Default("localhost"),
 		config.String("DB_NAME").NotEmpty().Default("shutterbase"),
