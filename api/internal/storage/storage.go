@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -58,6 +59,7 @@ func GetFile(ctx context.Context, id uuid.UUID) (*[]byte, error) {
 	}
 	log.Debug().Str("id", id.String()).Msg("lru cache miss")
 
+	startTime := time.Now()
 	object, err := s3Client.GetObject(ctx, S3_BUCKET, id.String(), minio.GetObjectOptions{})
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get object from s3")
@@ -77,6 +79,8 @@ func GetFile(ctx context.Context, id uuid.UUID) (*[]byte, error) {
 		log.Error().Err(err).Msg("failed to read object from s3")
 		return nil, err
 	}
+
+	log.Debug().Str("id", id.String()).Msgf("downloaded file with %.2fMB in %.2fs", float64(len(buf))/(1024*1024), time.Since(startTime).Seconds())
 
 	go cacheFile(id, &buf)
 
