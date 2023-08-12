@@ -4,32 +4,38 @@ import (
 	"context"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
+	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
-func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParameters *PaginationParameters, tags []string) ([]*ent.Image, int, error) {
+func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParameters *PaginationParameters, tags []string, batchId *uuid.UUID) ([]*ent.Image, int, error) {
+
+	andConditions := []predicate.Image{}
+	andConditions = append(andConditions, image.HasProjectWith(project.ID(projectId)))
+
+	if batchId != nil {
+		andConditions = append(andConditions, image.HasBatchWith(batch.ID(*batchId)))
+	}
+
+	if len(tags) != 0 {
+		andConditions = append(andConditions, image.HasImageTagAssignmentsWith(imagetagassignment.HasImageTagWith(imagetag.NameIn(tags...))))
+	}
 
 	conditions :=
 		image.And(
-			image.HasProjectWith(project.ID(projectId)),
+			image.And(andConditions...),
 			image.Or(
 				image.DescriptionContains(paginationParameters.Search),
 				image.FileNameContains(paginationParameters.Search),
 			),
 		)
-
-	if len(tags) != 0 {
-		conditions = image.And(
-			conditions,
-			image.HasImageTagAssignmentsWith(imagetagassignment.HasImageTagWith(imagetag.NameIn(tags...))),
-		)
-	}
 
 	order := ent.Desc("captured_at_corrected")
 

@@ -100,9 +100,20 @@ func getBatchesController(c *gin.Context) {
 		return
 	}
 
+	userIdString := c.Query("userId")
+	var userId *uuid.UUID = nil
+	if userIdString != "" {
+		uid, err := uuid.Parse(userIdString)
+		if err != nil {
+			api_error.BAD_REQUEST.Send(c)
+			return
+		}
+		userId = &uid
+	}
+
 	paginationParameters := getPaginationParameters(c)
 
-	items, total, err := repository.GetProjectBatches(ctx, projectId, &paginationParameters)
+	items, total, err := repository.GetProjectBatches(ctx, projectId, userId, &paginationParameters)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get batches list")
 		api_error.INTERNAL.Send(c)

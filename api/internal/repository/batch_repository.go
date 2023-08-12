@@ -5,26 +5,44 @@ import (
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/batch"
+	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/user"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
-func GetProjectBatches(ctx context.Context, projectId uuid.UUID, paginationParameters *PaginationParameters) ([]*ent.Batch, int, error) {
+func GetProjectBatches(ctx context.Context, projectId uuid.UUID, userId *uuid.UUID, paginationParameters *PaginationParameters) ([]*ent.Batch, int, error) {
 
-	conditions :=
-		batch.And(
-			batch.HasProjectWith(project.ID(projectId)),
-			batch.Or(
-				batch.NameContains(paginationParameters.Search),
-			),
-		)
+	andConditions := []predicate.Batch{}
+	if userId != nil {
+		andConditions = append(andConditions, batch.HasCreatedByWith(user.ID(*userId)))
+	}
+
+	andConditions = append(andConditions, batch.HasProjectWith(project.ID(projectId)))
+	andConditions = append(andConditions, batch.Or(
+		batch.NameContains(paginationParameters.Search),
+	))
+
+	conditions := batch.And(andConditions...)
+
+	order := ent.Desc("created_at")
+
+	if paginationParameters.Sort != "" {
+		if paginationParameters.OrderDirection == "asc" {
+			order = ent.Asc(paginationParameters.Sort)
+		} else {
+			order = ent.Desc(paginationParameters.Sort)
+		}
+	}
 
 	items, err := databaseClient.Batch.Query().
+		WithCreatedBy().WithUpdatedBy().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
 		Where(conditions).
+		Order(order).
 		All(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting batches")

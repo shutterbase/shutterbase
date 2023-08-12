@@ -9,5 +9,5 @@ import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-const projectId = router.currentRoute.value.params.project;
+const projectId = `${router.currentRoute.value.params.project}`;
 </script>

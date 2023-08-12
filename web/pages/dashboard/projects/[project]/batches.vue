@@ -1,6 +1,6 @@
 <template>
   <NuxtLayout name="logged-in">
-    <ProjectUsers :projectId="projectId"></ProjectUsers>
+    <ProjectBatches :projectId="projectId"></ProjectBatches>
   </NuxtLayout>
 </template>
 

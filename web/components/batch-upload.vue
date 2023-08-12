@@ -32,7 +32,7 @@
     </div>
 
     <div v-if="doneUploading">
-      <div class="alert alert-success">Done</div>
+      <button class="btn btn-outline btn-primary w-64" @click="navigateToBatch">Go to batch</button>
     </div>
   </div>
 </template>
@@ -46,6 +46,7 @@ import Dropzone from "dropzone";
 
 const store = useStore();
 const { activeProjectId, activeProjectName } = storeToRefs(store);
+const router = useRouter();
 
 const cameraSelected = ref(false);
 const batchCreated = ref(false);
@@ -105,5 +106,9 @@ async function createBatch() {
 
 function finalizeUpload() {
   doneUploading.value = true;
+}
+
+function navigateToBatch() {
+  router.push(`/dashboard/projects/${activeProjectId.value}/images?batch=${batch.value.id}`);
 }
 </script>

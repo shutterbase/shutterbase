@@ -36,6 +36,8 @@ import { emitter } from "~/boot/mitt";
 const router = useRouter();
 const route = useRoute();
 
+const batchId = ref(router.currentRoute.value.query.batch as string);
+
 const props = defineProps({
   projectId: {
     type: String,
@@ -87,7 +89,10 @@ function getImageUrl(image: Image): string {
 }
 
 async function fetchImageList() {
-  const url = `/projects/${props.projectId}/images?limit=${limit.value}&offset=${offset.value}`;
+  let url = `/projects/${props.projectId}/images?limit=${limit.value}&offset=${offset.value}`;
+  if (batchId.value) {
+    url += `&batch=${batchId.value}`;
+  }
   const response = await useFetch(url, getFetchOptions(Method.GET));
   if (response.data.value) {
     const data = response.data.value as ListResponse<Image>;
@@ -152,10 +157,19 @@ function updateFilmstripScroll() {
   }, 100);
 }
 
+interface ImagesPageQuery {
+  image: string;
+  batch?: string;
+}
+
 function updateUrl() {
   if (typeof currentImageOffset.value !== "undefined" && currentImageOffset.value !== null && images.value[currentImageOffset.value]) {
     const newImageId = images.value[currentImageOffset.value].id;
-    router.push({ query: { image: newImageId } });
+    let query: any = { image: newImageId };
+    if (batchId.value) {
+      query.batch = batchId.value;
+    }
+    router.push({ query });
   }
 }
 

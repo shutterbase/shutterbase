@@ -3,8 +3,12 @@ export default defineNuxtConfig({
   devServer: {
     port: 8080,
   },
+  loadingIndicator: {
+    name: "circle",
+    color: "#3B8070",
+    background: "white",
+  },
   ssr: false,
-  debug: true,
   devtools: { enabled: true },
   modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt", "@pinia-plugin-persistedstate/nuxt", "nuxt-icon"],
   css: [`assets/dropzone.css`],

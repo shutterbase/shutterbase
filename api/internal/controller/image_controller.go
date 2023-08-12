@@ -265,7 +265,18 @@ func getImagesController(c *gin.Context) {
 		tags = strings.Split(tagsString, ",")
 	}
 
-	items, total, err := repository.GetProjectImages(ctx, projectId, &paginationParameters, tags)
+	batchString := c.Query("batch")
+	var batchId *uuid.UUID = nil
+	if len(batchString) > 0 {
+		uid, err := uuid.Parse(batchString)
+		if err != nil {
+			api_error.BAD_REQUEST.Send(c)
+			return
+		}
+		batchId = &uid
+	}
+
+	items, total, err := repository.GetProjectImages(ctx, projectId, &paginationParameters, tags, batchId)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get images list")
 		api_error.INTERNAL.Send(c)

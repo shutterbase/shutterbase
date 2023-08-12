@@ -6,7 +6,7 @@
           <img :src="getImageThumbnailUrl(image)" class="w-full rounded-md" />
           <div class="absolute inset-0 p-8 text-white flex flex-col">
             <div class="relative">
-              <a class="absolute inset-0" :href="`/dashboard/projects/${projectId}/image-detail?image=${image.id}`"></a>
+              <a class="absolute inset-0" :href="getDetailLink(image)"></a>
               <h1 class="text-md font-bold mb-3">{{ image.fileName }}</h1>
               <p class="font-sm font-light">{{ image.edges.createdBy.firstName }} {{ image.edges.createdBy.lastName }}</p>
             </div>
@@ -24,6 +24,17 @@
 import { ref, Ref } from "vue";
 import { Image } from "~/api/image";
 import { Method, getDateTimeString, requestList, API_BASE_URL } from "~/api/common";
+
+const router = useRouter();
+const batchId = ref(router.currentRoute.value.query.batch as string);
+
+const requestUrl = computed(() => {
+  const url = `/projects/${props.projectId}/images`;
+  if (batchId.value) {
+    return `${url}?batch=${batchId.value}`;
+  }
+  return url;
+});
 
 function getFetchOptions(method: Method, body?: any, watch?: any[]) {
   const headers = useRequestHeaders(["cookie"]);
@@ -53,5 +64,13 @@ function getImageThumbnailUrl(image: Image): string {
   return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/thumb`;
 }
 
-const { items: images } = await requestList<Image>(`/projects/${props.projectId}/images`, getFetchOptions(Method.GET));
+function getDetailLink(image: Image): string {
+  let url = `/dashboard/projects/${props.projectId}/image-detail?image=${image.id}`;
+  if (batchId.value) {
+    url += `&batch=${batchId.value}`;
+  }
+  return url;
+}
+
+const { items: images } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
 </script>
