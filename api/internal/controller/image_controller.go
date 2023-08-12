@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -35,20 +36,12 @@ import (
 const IMAGES_RESOURCE = "/projects/:pid/images"
 
 var THUMBNAIL_SIZE uint = 512
+var DISPLAY_SIZE uint = 1500
 
 func registerImagesController(router *gin.Engine) {
 	CONTEXT_PATH := config.Get().String("API_CONTEXT_PATH")
 	THUMBNAIL_SIZE = uint(config.Get().Int("THUMBNAIL_SIZE"))
-
-	repository.DefineCache("timeOffsetCache", 100)
-	repository.DefineCache("projectTagCache", 100)
-	repository.DefineCache("photographerTagCache", 100)
-	repository.DefineCache("dateTagCache", 100)
-	repository.DefineCache("weekdayTagCache", 100)
-
-	repository.DefineCache("thumbnailCache", 2500)
-	repository.DefineCache("imageCache", 250)
-	repository.DefineCache("scaledImageCache", 1000)
+	DISPLAY_SIZE = uint(config.Get().Int("DISPLAY_SIZE"))
 
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), createImageController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, IMAGES_RESOURCE), getImagesController)
@@ -217,8 +210,23 @@ func createImageController(c *gin.Context) {
 
 		go applyDefaultTags(item.ID)
 
+		// Render display size image and cache it
 		go func() {
-			thumbnailData, err := scaleJpegImage(item.ID, data, THUMBNAIL_SIZE, false)
+			ctx := context.Background()
+			displayData, err := scaleJpegImage(ctx, data, uint(DISPLAY_SIZE))
+			if err != nil {
+				log.Error().Err(err).Msg("failed to scaled image for display creation")
+				return
+			}
+			cacheKey := repository.GetImageCacheKey("scaledImageCache", itemId.String(), DISPLAY_SIZE)
+			cacheImage(ctx, cacheKey, &ImageCacheEntry{Data: displayData, Image: item})
+		}()
+
+		// Render thumbnail size image and cache it
+		// Also store the thumbnail in the datebase and S3
+		go func() {
+			ctx := context.Background()
+			thumbnailData, err := scaleJpegImage(ctx, data, uint(THUMBNAIL_SIZE))
 			if err != nil {
 				log.Error().Err(err).Msg("failed to scaled image for thumbnail creation")
 				return
@@ -234,6 +242,8 @@ func createImageController(c *gin.Context) {
 				log.Error().Err(err).Msg("failed to save thumbnail id for thumbnail creation")
 				return
 			}
+			cacheKey := repository.GetImageCacheKey("scaledThumbnailImageCache", itemId.String(), THUMBNAIL_SIZE)
+			cacheThumbnailImage(ctx, cacheKey, &ImageCacheEntry{Data: thumbnailData, Image: item})
 			log.Debug().Msgf("created thumbnail for image %s", itemId.String())
 		}()
 	}
@@ -497,53 +507,16 @@ func getImageFileController(c *gin.Context) {
 		size = parsedSize
 	}
 
-	rawCacheItem, ok := repository.GetCacheItem("imageCache", id)
-	var data *[]byte
-	var item *ent.Image
-	if ok && rawCacheItem != nil {
-		cacheItem := rawCacheItem.(ImageCacheEntry)
-		data = &cacheItem.Data
-		item = cacheItem.Image
-	} else {
-		item, err = repository.GetImage(ctx, id)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				api_error.NOT_FOUND.Send(c)
-			} else {
-				log.Error().Err(err).Msg("failed to get image for image file")
-				api_error.INTERNAL.Send(c)
-			}
-			return
-		}
-
-		data, err = storage.GetFile(ctx, id)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to get image file")
-			api_error.INTERNAL.Send(c)
-			return
-		}
-
-		cacheItem := ImageCacheEntry{
-			Data:  *data,
-			Image: item,
-		}
-		repository.SetCacheItem("imageCache", id, cacheItem)
-	}
-
-	if size != 0 {
-		resizedData, err := scaleJpegImage(id, *data, uint(size), true)
-		log.Debug().Msgf("resized image from %d to %d", len(*data), len(resizedData))
-		if err != nil {
-			log.Error().Err(err).Msg("failed to resize image")
-			api_error.INTERNAL.Send(c)
-			return
-		}
-		data = &resizedData
+	cacheEntry, err := getScaledImage(ctx, id, uint(size))
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get scaled image")
+		api_error.INTERNAL.Send(c)
+		return
 	}
 
 	c.Header("Cache-Control", "max-age=604800")
-	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
-	c.Data(200, "image/jpeg", *data)
+	c.Header("Content-Disposition", "filename=\""+cacheEntry.Image.FileName+"\"")
+	c.Data(200, "image/jpeg", cacheEntry.Data)
 }
 
 func getImageThumbController(c *gin.Context) {
@@ -573,70 +546,127 @@ func getImageThumbController(c *gin.Context) {
 		size = parsedSize
 	}
 
-	rawCacheItem, ok := repository.GetCacheItem("thumbnailCache", id)
-	var data *[]byte
-	var item *ent.Image
-	if ok && rawCacheItem != nil {
-		cacheItem := rawCacheItem.(ImageCacheEntry)
-		data = &cacheItem.Data
-		item = cacheItem.Image
-	} else {
-		item, err = repository.GetImage(ctx, id)
-		if err != nil {
-			if ent.IsNotFound(err) {
-				api_error.NOT_FOUND.Send(c)
-			} else {
-				log.Error().Err(err).Msg("failed to get image for image file")
-				api_error.INTERNAL.Send(c)
-			}
-			return
-		}
-
-		data, err = storage.GetFile(ctx, item.ThumbnailID)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to get image thumbnail file")
-			api_error.INTERNAL.Send(c)
-			return
-		}
-
-		cacheItem := ImageCacheEntry{
-			Data:  *data,
-			Image: item,
-		}
-		repository.SetCacheItem("thumbnailCache", id, cacheItem)
-	}
-
-	if size != 0 {
-		resizedData, err := scaleJpegImage(id, *data, uint(size), true)
-		if err != nil {
-			log.Error().Err(err).Msg("failed to resize image")
-			api_error.INTERNAL.Send(c)
-			return
-		}
-		data = &resizedData
+	cacheEntry, err := getScaledThumbnailImage(ctx, id, uint(size))
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get scaled image")
+		api_error.INTERNAL.Send(c)
+		return
 	}
 
 	c.Header("Cache-Control", "max-age=604800")
-	c.Header("Content-Disposition", "filename=\""+item.FileName+"\"")
-	c.Data(200, "image/jpeg", *data)
+	c.Header("Content-Disposition", "filename=\""+cacheEntry.Image.FileName+"\"")
+	c.Data(200, "image/jpeg", cacheEntry.Data)
 }
 
-func scaleJpegImage(id uuid.UUID, data []byte, width uint, cache bool) ([]byte, error) {
-	ctx := context.Background()
+func convertToImageCacheEntry(value interface{}) ImageCacheEntry {
+	if reflect.TypeOf(value) == reflect.TypeOf(ImageCacheEntry{}) {
+		return value.(ImageCacheEntry)
+	} else if reflect.TypeOf(value) == reflect.TypeOf(map[string]interface{}{}) {
+		return ImageCacheEntry{
+			Data:  value.(map[string]interface{})["Data"].([]byte),
+			Image: value.(map[string]interface{})["Image"].(*ent.Image),
+		}
+	}
+	return ImageCacheEntry{}
+}
+
+func getScaledImage(ctx context.Context, iamgeId uuid.UUID, width uint) (*ImageCacheEntry, error) {
+	cacheKey := repository.GetImageCacheKey("scaledImageCache", iamgeId.String(), width)
+	cacheItem := ImageCacheEntry{}
+	ok := repository.GetCacheItem[ImageCacheEntry](ctx, "scaledImageCache", cacheKey, &cacheItem)
+	if ok {
+		return &cacheItem, nil
+	}
+
+	item, err := repository.GetImage(ctx, iamgeId)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image for image file")
+		return nil, err
+	}
+
+	data, err := storage.GetFile(ctx, item.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image file")
+		return nil, err
+	}
+
+	resultImage := *data
+
+	if width != 0 {
+		resultImage, err = scaleJpegImage(ctx, resultImage, width)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to resize image")
+			return nil, err
+		}
+	}
+
+	cacheItem = ImageCacheEntry{
+		Data:  resultImage,
+		Image: item,
+	}
+
+	go cacheImage(context.Background(), cacheKey, &cacheItem)
+
+	return &cacheItem, nil
+}
+
+func getScaledThumbnailImage(ctx context.Context, imageId uuid.UUID, width uint) (*ImageCacheEntry, error) {
+	cacheKey := repository.GetImageCacheKey("scaledThumbnailImageCache", imageId.String(), width)
+	cacheItem := ImageCacheEntry{}
+	ok := repository.GetCacheItem[ImageCacheEntry](ctx, "scaledThumbnailImageCache", cacheKey, &cacheItem)
+	if ok {
+		return &cacheItem, nil
+	}
+
+	item, err := repository.GetImage(ctx, imageId)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image for thumbnail image file")
+		return nil, err
+	}
+
+	data, err := storage.GetFile(ctx, item.ThumbnailID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image file")
+		return nil, err
+	}
+
+	resultImage := *data
+
+	if width != 0 {
+		resultImage, err = scaleJpegImage(ctx, resultImage, width)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to resize thumbnail image")
+			return nil, err
+		}
+	}
+
+	cacheItem = ImageCacheEntry{
+		Data:  resultImage,
+		Image: item,
+	}
+
+	go cacheThumbnailImage(context.Background(), cacheKey, &cacheItem)
+
+	return &cacheItem, nil
+}
+
+func cacheThumbnailImage(ctx context.Context, key string, cacheItem *ImageCacheEntry) error {
+	return repository.SetCacheItem[ImageCacheEntry](ctx, "scaledThumbnailImageCache", key, cacheItem)
+}
+
+func cacheImage(ctx context.Context, key string, cacheItem *ImageCacheEntry) error {
+	return repository.SetCacheItem[ImageCacheEntry](ctx, "scaledImageCache", key, cacheItem)
+}
+
+func scaleJpegImage(ctx context.Context, data []byte, width uint) ([]byte, error) {
 	_, tracer := tracing.GetTracer().Start(ctx, "scale_image")
 	defer tracer.End()
-
-	cacheKey := fmt.Sprintf("%s-%d", id.String(), width)
-	rawCacheItem, ok := repository.GetCacheItem("scaledImageCache", cacheKey)
-	if ok && rawCacheItem != nil {
-		cacheItem := rawCacheItem.([]byte)
-		return cacheItem, nil
-	}
 
 	image, _, err := img.Decode(bytes.NewReader(data))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to decode image for thumbnail creation")
 	}
+
 	newImage := resize.Resize(width, 0, image, resize.Lanczos3)
 	thumbnailBuffer := bytes.Buffer{}
 	thumbnailWriter := bufio.NewWriter(&thumbnailBuffer)
@@ -644,10 +674,6 @@ func scaleJpegImage(id uuid.UUID, data []byte, width uint, cache bool) ([]byte, 
 	if err != nil {
 		log.Error().Err(err).Msg("failed to encode image for thumbnail creation")
 		return nil, err
-	}
-
-	if cache {
-		repository.SetCacheItem("scaledImageCache", cacheKey, thumbnailBuffer.Bytes())
 	}
 
 	return thumbnailBuffer.Bytes(), nil

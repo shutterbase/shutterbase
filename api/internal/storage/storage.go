@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/mxcd/go-config/config"
@@ -18,7 +17,6 @@ import (
 
 var S3_BUCKET string
 var s3Client *minio.Client
-var fileCache *lru.Cache[string, []byte]
 
 func Init() error {
 	S3_HOST := config.Get().String("S3_HOST")
@@ -41,25 +39,12 @@ func Init() error {
 
 	s3Client = client
 
-	LRU_CACHE_SIZE := config.Get().Int("LRU_CACHE_SIZE")
-	cache, err := lru.New[string, []byte](LRU_CACHE_SIZE)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Error creating file cache")
-	}
-	fileCache = cache
-
 	return nil
 }
 
 func GetFile(ctx context.Context, id uuid.UUID) (*[]byte, error) {
 	ctx, tracer := tracing.GetTracer().Start(ctx, "download_file")
 	defer tracer.End()
-	data, ok := fileCache.Get(id.String())
-	if ok {
-		log.Debug().Str("id", id.String()).Msg("file cache hit")
-		return &data, nil
-	}
-	log.Debug().Str("id", id.String()).Msg("lru cache miss")
 
 	startTime := time.Now()
 	object, err := s3Client.GetObject(ctx, S3_BUCKET, id.String(), minio.GetObjectOptions{})
@@ -84,15 +69,7 @@ func GetFile(ctx context.Context, id uuid.UUID) (*[]byte, error) {
 
 	log.Debug().Str("id", id.String()).Msgf("downloaded file with %.2fMB in %.2fs", float64(len(buf))/(1024*1024), time.Since(startTime).Seconds())
 
-	go cacheFile(id, &buf)
-
 	return &buf, nil
-}
-
-func cacheFile(id uuid.UUID, data *[]byte) {
-	megabyteSize := float64(len(*data)) / (1024 * 1024)
-	log.Debug().Str("id", id.String()).Msgf("caching file with %.2fMB", megabyteSize)
-	fileCache.Add(id.String(), *data)
 }
 
 func PutFile(ctx context.Context, id uuid.UUID, data []byte) error {
@@ -105,8 +82,6 @@ func PutFile(ctx context.Context, id uuid.UUID, data []byte) error {
 		log.Error().Err(err).Msg("failed to put object to s3")
 		return err
 	}
-
-	go cacheFile(id, &data)
 	return nil
 }
 

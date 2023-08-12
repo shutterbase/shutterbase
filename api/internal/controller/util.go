@@ -16,11 +16,8 @@ import (
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
 
-const TIME_OFFSET_CACHE_TTL = 30 * time.Second
-
 type TimeOffsetCacheEntry struct {
 	CameraId    uuid.UUID
-	Time        time.Time
 	TimeOffsets []*ent.TimeOffset
 }
 
@@ -50,13 +47,10 @@ func getPaginationParameters(c *gin.Context) repository.PaginationParameters {
 }
 
 func getBestTimeOffset(ctx context.Context, cameraId uuid.UUID, t time.Time) (*ent.TimeOffset, error) {
-	rawCacheItem, ok := repository.GetCacheItem("timeOffsetCache", cameraId)
-	var timeOffsetCacheEntry TimeOffsetCacheEntry
-	if ok && rawCacheItem != nil {
-		timeOffsetCacheEntry := rawCacheItem.(TimeOffsetCacheEntry)
-		if time.Since(timeOffsetCacheEntry.Time) < TIME_OFFSET_CACHE_TTL {
-			return findBestTimeOffsetMatch(timeOffsetCacheEntry.TimeOffsets, t), nil
-		}
+	timeOffsetCacheEntry := TimeOffsetCacheEntry{}
+	ok := repository.GetCacheItem[TimeOffsetCacheEntry](ctx, "timeOffsetCache", cameraId.String(), &timeOffsetCacheEntry)
+	if ok {
+		return findBestTimeOffsetMatch(timeOffsetCacheEntry.TimeOffsets, t), nil
 	}
 	timeOffsets, err := repository.GetDatabaseClient().TimeOffset.Query().Where(timeoffset.HasCameraWith(camera.ID(cameraId))).All(ctx)
 	if err != nil {
@@ -64,10 +58,9 @@ func getBestTimeOffset(ctx context.Context, cameraId uuid.UUID, t time.Time) (*e
 	}
 	timeOffsetCacheEntry = TimeOffsetCacheEntry{
 		CameraId:    cameraId,
-		Time:        time.Now(),
 		TimeOffsets: timeOffsets,
 	}
-	repository.SetCacheItem("timeOffsetCache", cameraId, timeOffsetCacheEntry)
+	repository.SetCacheItem[TimeOffsetCacheEntry](ctx, "timeOffsetCache", cameraId.String(), &timeOffsetCacheEntry)
 
 	return findBestTimeOffsetMatch(timeOffsets, t), nil
 }

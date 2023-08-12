@@ -94,6 +94,7 @@ emitter.on("key-shift-hotkey", (args: any) => {
   }
 });
 
+// TODO add SHIFT-Enter to select tag and keep tag picker open
 emitter.on("key-Enter", (event: any) => {
   event.preventDefault();
   if (tags.value.length === 1) {

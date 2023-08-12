@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shutterbase/shutterbase/ent"
@@ -13,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
+
+var defaultTagMutex = sync.Mutex{}
 
 func GetImageTags(ctx context.Context, projectId uuid.UUID, paginationParameters *PaginationParameters) ([]*ent.ImageTag, int, error) {
 
@@ -86,10 +89,15 @@ func GetDefaultTags(ctx context.Context, projectId uuid.UUID) ([]*ent.ImageTag, 
 }
 
 func GetProjectTag(ctx context.Context, projectId uuid.UUID) (*ent.ImageTag, error) {
+	defaultTagMutex.Lock()
+	defer defaultTagMutex.Unlock()
 
-	rawCacheItem, ok := GetCacheItem("projectTagCache", projectId)
-	if ok && rawCacheItem != nil {
-		return rawCacheItem.(*ent.ImageTag), nil
+	cacheKey := GetCacheKey("projectTagCache", projectId.String())
+
+	value := &ent.ImageTag{}
+	ok := GetCacheItem[ent.ImageTag](ctx, "projectTagCache", cacheKey, value)
+	if ok {
+		return value, nil
 	}
 
 	imageTagProject, err := GetProject(ctx, projectId)
@@ -124,16 +132,21 @@ func GetProjectTag(ctx context.Context, projectId uuid.UUID) (*ent.ImageTag, err
 		log.Info().Err(err).Msg("Error getting project tag")
 	}
 
-	SetCacheItem("projectTagCache", projectId, item)
+	SetCacheItem[ent.ImageTag](ctx, "projectTagCache", cacheKey, item)
 
 	return item, err
 }
 
 func GetPhotographerTag(ctx context.Context, projectId uuid.UUID, userId uuid.UUID) (*ent.ImageTag, error) {
-	cacheKey := projectId.String() + "_" + userId.String()
-	rawCacheItem, ok := GetCacheItem("photographerTagCache", cacheKey)
-	if ok && rawCacheItem != nil {
-		return rawCacheItem.(*ent.ImageTag), nil
+	defaultTagMutex.Lock()
+	defer defaultTagMutex.Unlock()
+
+	cacheKey := GetCacheKey("photographerTagCache", fmt.Sprintf("%s_%s", projectId.String(), userId.String()))
+
+	value := &ent.ImageTag{}
+	ok := GetCacheItem[ent.ImageTag](ctx, "photographerTagCache", cacheKey, value)
+	if ok {
+		return value, nil
 	}
 
 	imageTagProject, err := GetProject(ctx, projectId)
@@ -175,20 +188,24 @@ func GetPhotographerTag(ctx context.Context, projectId uuid.UUID, userId uuid.UU
 		log.Info().Err(err).Msg("Error getting or creating project tag")
 	}
 
-	SetCacheItem("photographerTagCache", cacheKey, item)
+	SetCacheItem[ent.ImageTag](ctx, "photographerTagCache", cacheKey, item)
 
 	return item, err
 }
 
 func GetDateTag(ctx context.Context, projectId uuid.UUID, date time.Time) (*ent.ImageTag, error) {
+	defaultTagMutex.Lock()
+	defer defaultTagMutex.Unlock()
+
 	// subtract 3 hours to get the previous date up to 3am
 	date = date.Add(-3 * time.Hour)
 	dateString := date.Format("20060102")
 
-	cacheKey := projectId.String() + "_" + dateString
-	rawCacheItem, ok := GetCacheItem("dateTagCache", cacheKey)
-	if ok && rawCacheItem != nil {
-		return rawCacheItem.(*ent.ImageTag), nil
+	cacheKey := GetCacheKey("dateTagCache", fmt.Sprintf("%s_%s", projectId.String(), dateString))
+	value := &ent.ImageTag{}
+	ok := GetCacheItem[ent.ImageTag](ctx, "dateTagCache", cacheKey, value)
+	if ok {
+		return value, nil
 	}
 
 	imageTagProject, err := GetProject(ctx, projectId)
@@ -224,20 +241,25 @@ func GetDateTag(ctx context.Context, projectId uuid.UUID, date time.Time) (*ent.
 		log.Info().Err(err).Msg("Error getting or creating date tag")
 	}
 
-	SetCacheItem("dateTagCache", cacheKey, item)
+	SetCacheItem[ent.ImageTag](ctx, "dateTagCache", cacheKey, item)
 
 	return item, err
 }
 
 func GetWeekdayTag(ctx context.Context, projectId uuid.UUID, date time.Time) (*ent.ImageTag, error) {
+	defaultTagMutex.Lock()
+	defer defaultTagMutex.Unlock()
+
 	// subtract 3 hours to get the previous date up to 3am
 	date = date.Add(-3 * time.Hour)
 	weekday := date.Weekday().String()
 
-	cacheKey := projectId.String() + "_" + weekday
-	rawCacheItem, ok := GetCacheItem("weekdayTagCache", cacheKey)
-	if ok && rawCacheItem != nil {
-		return rawCacheItem.(*ent.ImageTag), nil
+	cacheKey := GetCacheKey("weekdayTagCache", fmt.Sprintf("%s_%s", projectId.String(), weekday))
+
+	value := &ent.ImageTag{}
+	ok := GetCacheItem[ent.ImageTag](ctx, "weekdayTagCache", cacheKey, value)
+	if ok {
+		return value, nil
 	}
 
 	imageTagProject, err := GetProject(ctx, projectId)
@@ -273,7 +295,7 @@ func GetWeekdayTag(ctx context.Context, projectId uuid.UUID, date time.Time) (*e
 		log.Info().Err(err).Msg("Error getting or creating weekday tag")
 	}
 
-	SetCacheItem("weekdayTagCache", cacheKey, item)
+	SetCacheItem[ent.ImageTag](ctx, "weekdayTagCache", cacheKey, item)
 
 	return item, err
 }

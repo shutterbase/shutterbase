@@ -129,8 +129,8 @@ function updateImage(updatedImage: Image) {
 }
 
 function calculatePrefetchImages() {
-  const prefetchStart = Math.max(0, currentImageOffset.value - 10);
-  const prefetchEnd = Math.min(images.value.length, currentImageOffset.value + 10);
+  const prefetchStart = Math.max(0, currentImageOffset.value - 5);
+  const prefetchEnd = Math.min(images.value.length, currentImageOffset.value + 5);
   prefetchImages.value = images.value.slice(prefetchStart, prefetchEnd);
 }
 

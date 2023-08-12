@@ -61,7 +61,7 @@ const props = defineProps({
 });
 
 function getImageThumbnailUrl(image: Image): string {
-  return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/thumb`;
+  return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/thumb?size=512`;
 }
 
 function getDetailLink(image: Image): string {

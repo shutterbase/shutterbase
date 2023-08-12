@@ -50,6 +50,11 @@ func main() {
 	log.Info().Msg("")
 
 	log.Info().Msg("---")
+	log.Info().Msg("initializing memory caches")
+	repository.InitMemoryCaches()
+	log.Info().Msg("")
+
+	log.Info().Msg("---")
 	log.Info().Msg("initializing authorization system")
 	err = authorization.Init()
 	if err != nil {
@@ -101,6 +106,10 @@ func initConfig() {
 		config.String("S3_SECRET_KEY").NotEmpty().Sensitive(),
 		config.String("S3_BUCKET").NotEmpty(),
 
+		config.String("REDIS_HOST").NotEmpty().Default("localhost"),
+		config.Int("REDIS_PORT").Default(6379),
+		config.String("REDIS_PASSWORD").Sensitive().Default(""),
+
 		config.String("SMTP_HOST").NotEmpty().Default("localhost"),
 		config.Int("SMTP_PORT").Default(25),
 		config.String("SMTP_USERNAME").NotEmpty(),
@@ -123,8 +132,8 @@ func initConfig() {
 		config.String("ADMIN_EMAIL").Default("admin@localhost.local"),
 		config.String("INITIAL_ADMIN_PASSWORD").NotEmpty().Sensitive(),
 
-		config.Int("LRU_CACHE_SIZE").Default(1000),
 		config.Int("THUMBNAIL_SIZE").Default(512),
+		config.Int("DISPLAY_SIZE").Default(1500),
 	})
 	if err != nil {
 		panic(err)
