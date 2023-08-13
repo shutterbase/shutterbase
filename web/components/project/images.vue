@@ -1,18 +1,24 @@
 <template>
   <client-only>
-    <div class="columns-1 md:columns-2 lg:columns-3 2xl:columns-4">
-      <div v-for="image in images" :key="image.id">
-        <div class="relative mb-4 before:content-[''] before:rounded-md before:absolute before:inset-0 before:bg-black before:bg-opacity-20">
-          <img :src="getImageThumbnailUrl(image)" class="w-full rounded-md" />
-          <div class="absolute inset-0 p-8 text-white flex flex-col">
-            <div class="relative">
-              <a class="absolute inset-0" :href="getDetailLink(image)"></a>
-              <h1 class="text-md font-bold mb-3">{{ image.fileName }}</h1>
-              <p class="font-sm font-light">{{ image.edges.createdBy.firstName }} {{ image.edges.createdBy.lastName }}</p>
-            </div>
-            <!--<div class="mt-auto flex flex-row">
+    <div class="object-top">
+      <div class="my-2">
+        <input type="text" v-model="searchText" placeholder="Search" class="input input-bordered w-full max-w-xs" />
+        <div :class="`btn mx-2`" @click="loadImages">Search</div>
+      </div>
+      <div class="grid gap-2 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3">
+        <div v-for="image in images" :key="image.id" class="max-h-80" style="max-height: 20rem">
+          <div class="relative before:content-[''] before:rounded-md before:absolute before:inset-0 before:bg-black before:bg-opacity-20">
+            <img :src="getImageThumbnailUrl(image)" class="rounded-md" style="max-height: 20rem; margin: 0 auto" />
+            <div class="absolute inset-0 p-8 text-white flex flex-col">
+              <div class="relative">
+                <a class="absolute inset-0" :href="getDetailLink(image)"></a>
+                <h1 class="text-md font-bold mb-3">{{ image.fileName }}</h1>
+                <p class="font-sm font-light">{{ image.edges.createdBy.firstName }} {{ image.edges.createdBy.lastName }}</p>
+              </div>
+              <!--<div class="mt-auto flex flex-row">
               <span class="bg-white bg-opacity-60 py-1 px-4 rounded-md text-black">#tag</span>
             </div>-->
+            </div>
           </div>
         </div>
       </div>
@@ -27,12 +33,28 @@ import { Method, getDateTimeString, requestList, API_BASE_URL } from "~/api/comm
 
 const router = useRouter();
 const batchId = ref(router.currentRoute.value.query.batch as string);
+const searchText = ref("");
+
+const images = ref<Image[]>([]);
 
 const requestUrl = computed(() => {
-  const url = `/projects/${props.projectId}/images`;
+  let url = `/projects/${props.projectId}/images?`;
+  const tags = searchText.value
+    .replace(/,/g, " ")
+    .split(" ")
+    .filter((tag) => tag.length > 0)
+    .map((tag) => tag.trim())
+    .join(",");
+  let queryParams = [];
+
   if (batchId.value) {
-    return `${url}?batch=${batchId.value}`;
+    queryParams.push(`batch=${batchId.value}`);
   }
+  if (tags) {
+    queryParams.push(`tags=${tags}`);
+  }
+
+  url += queryParams.join("&");
   return url;
 });
 
@@ -72,5 +94,14 @@ function getDetailLink(image: Image): string {
   return url;
 }
 
-const { items: images } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
+async function loadImages() {
+  const { items } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
+  if (items) images.value = items;
+}
+
+onMounted(() => {
+  loadImages();
+});
+
+// watch([batchId, searchText], loadImages, { immediate: true });
 </script>

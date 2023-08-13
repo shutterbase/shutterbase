@@ -25,7 +25,9 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 	}
 
 	if len(tags) != 0 {
-		andConditions = append(andConditions, image.HasImageTagAssignmentsWith(imagetagassignment.HasImageTagWith(imagetag.NameIn(tags...))))
+		for _, tag := range tags {
+			andConditions = append(andConditions, image.HasImageTagAssignmentsWith(imagetagassignment.HasImageTagWith(imagetag.Name(tag))))
+		}
 	}
 
 	conditions :=

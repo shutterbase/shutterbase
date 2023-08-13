@@ -2,29 +2,41 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"image"
 	"image/png"
 	"io/ioutil"
 
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/qrcode"
+	"github.com/rs/zerolog/log"
 )
 
 func GetQrCodeString(data []byte) (string, error) {
+	ctx := context.Background()
 	reader := qrcode.NewQRCodeReader()
+
+	data, err := ScaleJpegImage(ctx, data, 2000)
+	if err != nil {
+		log.Error().Err(err).Msg("error scaling qr code image")
+		return "", err
+	}
 
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
+		log.Error().Err(err).Msg("error decoding image")
 		return "", err
 	}
 
 	bitmap, err := gozxing.NewBinaryBitmapFromImage(img)
 	if err != nil {
+		log.Error().Err(err).Msg("error creating binary bitmap from image")
 		return "", err
 	}
 
 	result, err := reader.Decode(bitmap, nil)
 	if err != nil {
+		log.Error().Err(err).Msg("error decoding qr code")
 		return "", err
 	}
 
