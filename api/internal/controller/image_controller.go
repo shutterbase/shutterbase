@@ -41,6 +41,7 @@ func registerImagesController(router *gin.Engine) {
 	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, IMAGES_RESOURCE), getImageController)
 	router.GET(fmt.Sprintf("%s%s/:id/file", CONTEXT_PATH, IMAGES_RESOURCE), getImageFileController)
 	router.GET(fmt.Sprintf("%s%s/:id/thumb", CONTEXT_PATH, IMAGES_RESOURCE), getImageThumbController)
+	router.GET(fmt.Sprintf("%s%s/:id/export", CONTEXT_PATH, IMAGES_RESOURCE), getImageExportController)
 	router.PUT(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, IMAGES_RESOURCE), updateImageController)
 	router.DELETE(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, IMAGES_RESOURCE), deleteImageController)
 }
@@ -549,6 +550,53 @@ func getImageThumbController(c *gin.Context) {
 	c.Header("Cache-Control", "max-age=604800")
 	c.Header("Content-Disposition", "filename=\""+cacheEntry.Image.FileName+"\"")
 	c.Data(200, "image/jpeg", cacheEntry.Data)
+}
+
+func getImageExportController(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to image denied")
+		api_error.FORBIDDEN.Send(c)
+		return
+	}
+
+	item, err := repository.GetImage(ctx, id)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			api_error.NOT_FOUND.Send(c)
+		} else {
+			log.Error().Err(err).Msg("failed to get single image for export")
+			api_error.INTERNAL.Send(c)
+		}
+		return
+	}
+
+	data, err := storage.GetFile(ctx, item.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image file for export")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	resultData, err := util.ApplyExifData(ctx, *data, item)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to apply exif data for export")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	c.Header("Cache-Control", "max-age=0")
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Disposition", "attachment; filename=\""+item.FileName+"\"")
+	c.Data(200, "application/octet-stream", resultData)
 }
 
 func convertToImageCacheEntry(value interface{}) ImageCacheEntry {

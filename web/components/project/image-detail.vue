@@ -2,6 +2,7 @@
   <ClientOnly>
     <div class="" style="max-height: 75%">
       <div v-if="images[currentImageOffset]" style="max-height: 75%">
+        <a download :href="getImageDownloadUrl(images[currentImageOffset])"><Icon name="mdi:download" size="16" /></a>
         <ItemDescriptorLine :item="images[currentImageOffset]" />
         <div class="divider"></div>
         <DetailTagHeader :image="images[currentImageOffset]" :projectId="projectId" @tag-picker-state="setTagPickerState" @image-update="updateImage"></DetailTagHeader>
@@ -86,6 +87,10 @@ function getImageThumbnailUrl(image: Image): string {
 
 function getImageUrl(image: Image): string {
   return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/file?size=1500`;
+}
+
+function getImageDownloadUrl(image: Image): string {
+  return `${API_BASE_URL}/projects/${props.projectId}/images/${image.id}/export`;
 }
 
 async function fetchImageList() {

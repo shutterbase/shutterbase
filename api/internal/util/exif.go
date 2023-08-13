@@ -1,13 +1,19 @@
 package util
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"strings"
 	"time"
 
+	"golang.org/x/text/encoding/unicode"
+
 	"github.com/dsoprea/go-exif/v3"
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/tracing"
 )
 
 func GetExifDataStrings(jpegData []byte) ([]string, error) {
@@ -134,6 +140,70 @@ func GetDateTimeDigitized(jpegData []byte) (time.Time, error) {
 	}
 	dateTime = dateTime.Add(-timeOffset)
 	return dateTime, nil
+}
+
+func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]byte, error) {
+	_, tracer := tracing.GetTracer().Start(ctx, "apply_exif")
+	defer tracer.End()
+
+	jpegMediaParser := jpegstructure.NewJpegMediaParser()
+	mediaContext, err := jpegMediaParser.ParseBytes(jpegData)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing jpeg data")
+		return nil, err
+	}
+
+	segmentList := mediaContext.(*jpegstructure.SegmentList)
+	exifBuilder, err := segmentList.ConstructExifBuilder()
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating exif builder")
+	}
+
+	ifd0, err := exif.GetOrCreateIbFromRootIb(exifBuilder, "IFD0")
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating exif ib 'IFD0'")
+	}
+
+	exifIdf, err := exif.GetOrCreateIbFromRootIb(exifBuilder, "IFD/Exif")
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating exif ib 'IFD/Exif'")
+	}
+
+	// Setting tags as keywords
+	stringTags := []string{}
+	imageTagAssignments := image.Edges.ImageTagAssignments
+	for _, imageTagAssignment := range imageTagAssignments {
+		imageTag := imageTagAssignment.Edges.ImageTag
+		stringTags = append(stringTags, imageTag.Name+";")
+	}
+
+	tagString, err := unicode.UTF16(unicode.LittleEndian, unicode.IgnoreBOM).NewEncoder().String(strings.Join(stringTags, " "))
+	if err != nil {
+		log.Error().Err(err).Msg("Error encoding tag strings")
+		return nil, err
+	}
+
+	err = ifd0.SetStandardWithName("XPKeywords", []byte(tagString))
+	if err != nil {
+		log.Error().Err(err).Msg("Error setting keywords")
+		return nil, err
+	}
+
+	// Setting corrected date
+	exifIdf.SetStandardWithName("DateTimeOriginal", image.CapturedAtCorrected.UTC())
+
+	// TODO: setting project copyright
+	// TODO: setting artist copyright
+
+	segmentList.SetExif(exifBuilder)
+	buffer := new(bytes.Buffer)
+	err = segmentList.Write(buffer)
+	if err != nil {
+		log.Error().Err(err).Msg("Error writing image with exif data")
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
 }
 
 // set time
