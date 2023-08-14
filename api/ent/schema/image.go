@@ -16,6 +16,7 @@ func (Image) Fields() []ent.Field {
 	return []ent.Field{
 		field.UUID("thumbnail_id", uuid.UUID{}).Optional().StructTag(`json:"thumbnailId"`),
 		field.String("file_name").NotEmpty().StructTag(`json:"fileName"`),
+		field.String("computed_file_name").Default("").StructTag(`json:"computedFileName"`),
 		field.String("description").Default(""),
 		field.JSON("exif_data", map[string]interface{}{}).StructTag(`json:"exifData"`).Default(map[string]interface{}{}),
 		field.Time("captured_at").Optional().StructTag(`json:"capturedAt"`),

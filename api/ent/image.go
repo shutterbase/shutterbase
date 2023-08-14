@@ -31,6 +31,8 @@ type Image struct {
 	ThumbnailID uuid.UUID `json:"thumbnailId"`
 	// FileName holds the value of the "file_name" field.
 	FileName string `json:"fileName"`
+	// ComputedFileName holds the value of the "computed_file_name" field.
+	ComputedFileName string `json:"computedFileName"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
 	// ExifData holds the value of the "exif_data" field.
@@ -168,7 +170,7 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case image.FieldExifData:
 			values[i] = new([]byte)
-		case image.FieldFileName, image.FieldDescription:
+		case image.FieldFileName, image.FieldComputedFileName, image.FieldDescription:
 			values[i] = new(sql.NullString)
 		case image.FieldCreatedAt, image.FieldUpdatedAt, image.FieldCapturedAt, image.FieldCapturedAtCorrected, image.FieldInferredAt:
 			values[i] = new(sql.NullTime)
@@ -230,6 +232,12 @@ func (i *Image) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field file_name", values[j])
 			} else if value.Valid {
 				i.FileName = value.String
+			}
+		case image.FieldComputedFileName:
+			if value, ok := values[j].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field computed_file_name", values[j])
+			} else if value.Valid {
+				i.ComputedFileName = value.String
 			}
 		case image.FieldDescription:
 			if value, ok := values[j].(*sql.NullString); !ok {
@@ -387,6 +395,9 @@ func (i *Image) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("file_name=")
 	builder.WriteString(i.FileName)
+	builder.WriteString(", ")
+	builder.WriteString("computed_file_name=")
+	builder.WriteString(i.ComputedFileName)
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(i.Description)

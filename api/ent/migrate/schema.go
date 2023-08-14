@@ -8,6 +8,28 @@ import (
 )
 
 var (
+	// APIKeysColumns holds the columns for the "api_keys" table.
+	APIKeysColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "key", Type: field.TypeUUID, Unique: true},
+		{Name: "api_key_user", Type: field.TypeUUID},
+	}
+	// APIKeysTable holds the schema information for the "api_keys" table.
+	APIKeysTable = &schema.Table{
+		Name:       "api_keys",
+		Columns:    APIKeysColumns,
+		PrimaryKey: []*schema.Column{APIKeysColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "api_keys_users_user",
+				Columns:    []*schema.Column{APIKeysColumns[4]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// BatchesColumns holds the columns for the "batches" table.
 	BatchesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -88,6 +110,7 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "thumbnail_id", Type: field.TypeUUID, Nullable: true},
 		{Name: "file_name", Type: field.TypeString},
+		{Name: "computed_file_name", Type: field.TypeString, Default: ""},
 		{Name: "description", Type: field.TypeString, Default: ""},
 		{Name: "exif_data", Type: field.TypeJSON},
 		{Name: "captured_at", Type: field.TypeTime, Nullable: true},
@@ -108,37 +131,37 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "images_users_user",
-				Columns:    []*schema.Column{ImagesColumns[10]},
+				Columns:    []*schema.Column{ImagesColumns[11]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_batches_batch",
-				Columns:    []*schema.Column{ImagesColumns[11]},
+				Columns:    []*schema.Column{ImagesColumns[12]},
 				RefColumns: []*schema.Column{BatchesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_projects_project",
-				Columns:    []*schema.Column{ImagesColumns[12]},
+				Columns:    []*schema.Column{ImagesColumns[13]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_cameras_camera",
-				Columns:    []*schema.Column{ImagesColumns[13]},
+				Columns:    []*schema.Column{ImagesColumns[14]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_users_created_by",
-				Columns:    []*schema.Column{ImagesColumns[14]},
+				Columns:    []*schema.Column{ImagesColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "images_users_updated_by",
-				Columns:    []*schema.Column{ImagesColumns[15]},
+				Columns:    []*schema.Column{ImagesColumns[16]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -405,6 +428,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		APIKeysTable,
 		BatchesTable,
 		CamerasTable,
 		ImagesTable,
@@ -419,6 +443,7 @@ var (
 )
 
 func init() {
+	APIKeysTable.ForeignKeys[0].RefTable = UsersTable
 	BatchesTable.ForeignKeys[0].RefTable = ProjectsTable
 	BatchesTable.ForeignKeys[1].RefTable = UsersTable
 	BatchesTable.ForeignKeys[2].RefTable = UsersTable

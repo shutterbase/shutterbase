@@ -13,6 +13,25 @@
       "cwd": "${workspaceFolder}/api"
     },
     {
+      "name": "Launch Go Download",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "api/cmd/downloader",
+      "cwd": "${workspaceFolder}/api",
+      "args": [
+        "-vv",
+        "-u",
+        "http://localhost:8081/api/v1",
+        "-k",
+        "7d81bf6f-8b93-46ee-b870-297a0e1bd35f",
+        "-p",
+        "1e362cfe-e379-4cb8-b850-ec942d2874c2",
+        "download",
+        "acceleration"
+      ]
+    },
+    {
       "name": "Launch Go Seed",
       "type": "go",
       "request": "launch",

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
@@ -34,6 +35,7 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
+	TypeApiKey             = "ApiKey"
 	TypeBatch              = "Batch"
 	TypeCamera             = "Camera"
 	TypeImage              = "Image"
@@ -45,6 +47,513 @@ const (
 	TypeTimeOffset         = "TimeOffset"
 	TypeUser               = "User"
 )
+
+// ApiKeyMutation represents an operation that mutates the ApiKey nodes in the graph.
+type ApiKeyMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	created_at    *time.Time
+	updated_at    *time.Time
+	key           *uuid.UUID
+	clearedFields map[string]struct{}
+	user          *uuid.UUID
+	cleareduser   bool
+	done          bool
+	oldValue      func(context.Context) (*ApiKey, error)
+	predicates    []predicate.ApiKey
+}
+
+var _ ent.Mutation = (*ApiKeyMutation)(nil)
+
+// apikeyOption allows management of the mutation configuration using functional options.
+type apikeyOption func(*ApiKeyMutation)
+
+// newApiKeyMutation creates new mutation for the ApiKey entity.
+func newApiKeyMutation(c config, op Op, opts ...apikeyOption) *ApiKeyMutation {
+	m := &ApiKeyMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeApiKey,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withApiKeyID sets the ID field of the mutation.
+func withApiKeyID(id uuid.UUID) apikeyOption {
+	return func(m *ApiKeyMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ApiKey
+		)
+		m.oldValue = func(ctx context.Context) (*ApiKey, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ApiKey.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withApiKey sets the old ApiKey of the mutation.
+func withApiKey(node *ApiKey) apikeyOption {
+	return func(m *ApiKeyMutation) {
+		m.oldValue = func(context.Context) (*ApiKey, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ApiKeyMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ApiKeyMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ApiKey entities.
+func (m *ApiKeyMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ApiKeyMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ApiKeyMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ApiKey.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ApiKeyMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ApiKeyMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ApiKey entity.
+// If the ApiKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ApiKeyMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ApiKeyMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ApiKeyMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ApiKeyMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ApiKey entity.
+// If the ApiKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ApiKeyMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ApiKeyMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetKey sets the "key" field.
+func (m *ApiKeyMutation) SetKey(u uuid.UUID) {
+	m.key = &u
+}
+
+// Key returns the value of the "key" field in the mutation.
+func (m *ApiKeyMutation) Key() (r uuid.UUID, exists bool) {
+	v := m.key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKey returns the old "key" field's value of the ApiKey entity.
+// If the ApiKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ApiKeyMutation) OldKey(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKey: %w", err)
+	}
+	return oldValue.Key, nil
+}
+
+// ResetKey resets all changes to the "key" field.
+func (m *ApiKeyMutation) ResetKey() {
+	m.key = nil
+}
+
+// SetUserID sets the "user" edge to the User entity by id.
+func (m *ApiKeyMutation) SetUserID(id uuid.UUID) {
+	m.user = &id
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *ApiKeyMutation) ClearUser() {
+	m.cleareduser = true
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *ApiKeyMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserID returns the "user" edge ID in the mutation.
+func (m *ApiKeyMutation) UserID() (id uuid.UUID, exists bool) {
+	if m.user != nil {
+		return *m.user, true
+	}
+	return
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *ApiKeyMutation) UserIDs() (ids []uuid.UUID) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *ApiKeyMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the ApiKeyMutation builder.
+func (m *ApiKeyMutation) Where(ps ...predicate.ApiKey) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ApiKeyMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ApiKeyMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ApiKey, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ApiKeyMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ApiKeyMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ApiKey).
+func (m *ApiKeyMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ApiKeyMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.created_at != nil {
+		fields = append(fields, apikey.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, apikey.FieldUpdatedAt)
+	}
+	if m.key != nil {
+		fields = append(fields, apikey.FieldKey)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ApiKeyMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case apikey.FieldCreatedAt:
+		return m.CreatedAt()
+	case apikey.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case apikey.FieldKey:
+		return m.Key()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ApiKeyMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case apikey.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case apikey.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case apikey.FieldKey:
+		return m.OldKey(ctx)
+	}
+	return nil, fmt.Errorf("unknown ApiKey field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ApiKeyMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case apikey.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case apikey.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case apikey.FieldKey:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKey(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ApiKey field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ApiKeyMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ApiKeyMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ApiKeyMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown ApiKey numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ApiKeyMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ApiKeyMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ApiKeyMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown ApiKey nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ApiKeyMutation) ResetField(name string) error {
+	switch name {
+	case apikey.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case apikey.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case apikey.FieldKey:
+		m.ResetKey()
+		return nil
+	}
+	return fmt.Errorf("unknown ApiKey field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ApiKeyMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.user != nil {
+		edges = append(edges, apikey.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ApiKeyMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case apikey.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ApiKeyMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ApiKeyMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ApiKeyMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareduser {
+		edges = append(edges, apikey.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ApiKeyMutation) EdgeCleared(name string) bool {
+	switch name {
+	case apikey.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ApiKeyMutation) ClearEdge(name string) error {
+	switch name {
+	case apikey.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown ApiKey unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ApiKeyMutation) ResetEdge(name string) error {
+	switch name {
+	case apikey.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown ApiKey edge %s", name)
+}
 
 // BatchMutation represents an operation that mutates the Batch nodes in the graph.
 type BatchMutation struct {
@@ -1613,6 +2122,7 @@ type ImageMutation struct {
 	updated_at                   *time.Time
 	thumbnail_id                 *uuid.UUID
 	file_name                    *string
+	computed_file_name           *string
 	description                  *string
 	exif_data                    *map[string]interface{}
 	captured_at                  *time.Time
@@ -1898,6 +2408,42 @@ func (m *ImageMutation) OldFileName(ctx context.Context) (v string, err error) {
 // ResetFileName resets all changes to the "file_name" field.
 func (m *ImageMutation) ResetFileName() {
 	m.file_name = nil
+}
+
+// SetComputedFileName sets the "computed_file_name" field.
+func (m *ImageMutation) SetComputedFileName(s string) {
+	m.computed_file_name = &s
+}
+
+// ComputedFileName returns the value of the "computed_file_name" field in the mutation.
+func (m *ImageMutation) ComputedFileName() (r string, exists bool) {
+	v := m.computed_file_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldComputedFileName returns the old "computed_file_name" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldComputedFileName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldComputedFileName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldComputedFileName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldComputedFileName: %w", err)
+	}
+	return oldValue.ComputedFileName, nil
+}
+
+// ResetComputedFileName resets all changes to the "computed_file_name" field.
+func (m *ImageMutation) ResetComputedFileName() {
+	m.computed_file_name = nil
 }
 
 // SetDescription sets the "description" field.
@@ -2441,7 +2987,7 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.created_at != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
@@ -2453,6 +2999,9 @@ func (m *ImageMutation) Fields() []string {
 	}
 	if m.file_name != nil {
 		fields = append(fields, image.FieldFileName)
+	}
+	if m.computed_file_name != nil {
+		fields = append(fields, image.FieldComputedFileName)
 	}
 	if m.description != nil {
 		fields = append(fields, image.FieldDescription)
@@ -2485,6 +3034,8 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.ThumbnailID()
 	case image.FieldFileName:
 		return m.FileName()
+	case image.FieldComputedFileName:
+		return m.ComputedFileName()
 	case image.FieldDescription:
 		return m.Description()
 	case image.FieldExifData:
@@ -2512,6 +3063,8 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldThumbnailID(ctx)
 	case image.FieldFileName:
 		return m.OldFileName(ctx)
+	case image.FieldComputedFileName:
+		return m.OldComputedFileName(ctx)
 	case image.FieldDescription:
 		return m.OldDescription(ctx)
 	case image.FieldExifData:
@@ -2558,6 +3111,13 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetFileName(v)
+		return nil
+	case image.FieldComputedFileName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetComputedFileName(v)
 		return nil
 	case image.FieldDescription:
 		v, ok := value.(string)
@@ -2681,6 +3241,9 @@ func (m *ImageMutation) ResetField(name string) error {
 		return nil
 	case image.FieldFileName:
 		m.ResetFileName()
+		return nil
+	case image.FieldComputedFileName:
+		m.ResetComputedFileName()
 		return nil
 	case image.FieldDescription:
 		m.ResetDescription()
@@ -7562,6 +8125,9 @@ type UserMutation struct {
 	cameras                   map[uuid.UUID]struct{}
 	removedcameras            map[uuid.UUID]struct{}
 	clearedcameras            bool
+	apiKey                    map[uuid.UUID]struct{}
+	removedapiKey             map[uuid.UUID]struct{}
+	clearedapiKey             bool
 	created_users             map[uuid.UUID]struct{}
 	removedcreated_users      map[uuid.UUID]struct{}
 	clearedcreated_users      bool
@@ -8350,6 +8916,60 @@ func (m *UserMutation) ResetCameras() {
 	m.removedcameras = nil
 }
 
+// AddApiKeyIDs adds the "apiKey" edge to the ApiKey entity by ids.
+func (m *UserMutation) AddApiKeyIDs(ids ...uuid.UUID) {
+	if m.apiKey == nil {
+		m.apiKey = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.apiKey[ids[i]] = struct{}{}
+	}
+}
+
+// ClearApiKey clears the "apiKey" edge to the ApiKey entity.
+func (m *UserMutation) ClearApiKey() {
+	m.clearedapiKey = true
+}
+
+// ApiKeyCleared reports if the "apiKey" edge to the ApiKey entity was cleared.
+func (m *UserMutation) ApiKeyCleared() bool {
+	return m.clearedapiKey
+}
+
+// RemoveApiKeyIDs removes the "apiKey" edge to the ApiKey entity by IDs.
+func (m *UserMutation) RemoveApiKeyIDs(ids ...uuid.UUID) {
+	if m.removedapiKey == nil {
+		m.removedapiKey = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.apiKey, ids[i])
+		m.removedapiKey[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedApiKey returns the removed IDs of the "apiKey" edge to the ApiKey entity.
+func (m *UserMutation) RemovedApiKeyIDs() (ids []uuid.UUID) {
+	for id := range m.removedapiKey {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ApiKeyIDs returns the "apiKey" edge IDs in the mutation.
+func (m *UserMutation) ApiKeyIDs() (ids []uuid.UUID) {
+	for id := range m.apiKey {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetApiKey resets all changes to the "apiKey" edge.
+func (m *UserMutation) ResetApiKey() {
+	m.apiKey = nil
+	m.clearedapiKey = false
+	m.removedapiKey = nil
+}
+
 // AddCreatedUserIDs adds the "created_users" edge to the User entity by ids.
 func (m *UserMutation) AddCreatedUserIDs(ids ...uuid.UUID) {
 	if m.created_users == nil {
@@ -8873,7 +9493,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.role != nil {
 		edges = append(edges, user.EdgeRole)
 	}
@@ -8885,6 +9505,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.cameras != nil {
 		edges = append(edges, user.EdgeCameras)
+	}
+	if m.apiKey != nil {
+		edges = append(edges, user.EdgeApiKey)
 	}
 	if m.created_users != nil {
 		edges = append(edges, user.EdgeCreatedUsers)
@@ -8927,6 +9550,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeApiKey:
+		ids := make([]ent.Value, 0, len(m.apiKey))
+		for id := range m.apiKey {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeCreatedUsers:
 		ids := make([]ent.Value, 0, len(m.created_users))
 		for id := range m.created_users {
@@ -8953,7 +9582,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.removedprojectAssignments != nil {
 		edges = append(edges, user.EdgeProjectAssignments)
 	}
@@ -8962,6 +9591,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedcameras != nil {
 		edges = append(edges, user.EdgeCameras)
+	}
+	if m.removedapiKey != nil {
+		edges = append(edges, user.EdgeApiKey)
 	}
 	if m.removedcreated_users != nil {
 		edges = append(edges, user.EdgeCreatedUsers)
@@ -8994,6 +9626,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeApiKey:
+		ids := make([]ent.Value, 0, len(m.removedapiKey))
+		for id := range m.removedapiKey {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeCreatedUsers:
 		ids := make([]ent.Value, 0, len(m.removedcreated_users))
 		for id := range m.removedcreated_users {
@@ -9012,7 +9650,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 9)
 	if m.clearedrole {
 		edges = append(edges, user.EdgeRole)
 	}
@@ -9024,6 +9662,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedcameras {
 		edges = append(edges, user.EdgeCameras)
+	}
+	if m.clearedapiKey {
+		edges = append(edges, user.EdgeApiKey)
 	}
 	if m.clearedcreated_users {
 		edges = append(edges, user.EdgeCreatedUsers)
@@ -9052,6 +9693,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedimages
 	case user.EdgeCameras:
 		return m.clearedcameras
+	case user.EdgeApiKey:
+		return m.clearedapiKey
 	case user.EdgeCreatedUsers:
 		return m.clearedcreated_users
 	case user.EdgeCreatedBy:
@@ -9096,6 +9739,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeCameras:
 		m.ResetCameras()
+		return nil
+	case user.EdgeApiKey:
+		m.ResetApiKey()
 		return nil
 	case user.EdgeCreatedUsers:
 		m.ResetCreatedUsers()

@@ -9,6 +9,18 @@ import (
 	"github.com/shutterbase/shutterbase/ent"
 )
 
+// The ApiKeyFunc type is an adapter to allow the use of ordinary
+// function as ApiKey mutator.
+type ApiKeyFunc func(context.Context, *ent.ApiKeyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ApiKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ApiKeyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ApiKeyMutation", m)
+}
+
 // The BatchFunc type is an adapter to allow the use of ordinary
 // function as Batch mutator.
 type BatchFunc func(context.Context, *ent.BatchMutation) (ent.Value, error)

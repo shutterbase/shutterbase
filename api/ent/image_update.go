@@ -66,6 +66,20 @@ func (iu *ImageUpdate) SetFileName(s string) *ImageUpdate {
 	return iu
 }
 
+// SetComputedFileName sets the "computed_file_name" field.
+func (iu *ImageUpdate) SetComputedFileName(s string) *ImageUpdate {
+	iu.mutation.SetComputedFileName(s)
+	return iu
+}
+
+// SetNillableComputedFileName sets the "computed_file_name" field if the given value is not nil.
+func (iu *ImageUpdate) SetNillableComputedFileName(s *string) *ImageUpdate {
+	if s != nil {
+		iu.SetComputedFileName(*s)
+	}
+	return iu
+}
+
 // SetDescription sets the "description" field.
 func (iu *ImageUpdate) SetDescription(s string) *ImageUpdate {
 	iu.mutation.SetDescription(s)
@@ -387,6 +401,9 @@ func (iu *ImageUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := iu.mutation.FileName(); ok {
 		_spec.SetField(image.FieldFileName, field.TypeString, value)
 	}
+	if value, ok := iu.mutation.ComputedFileName(); ok {
+		_spec.SetField(image.FieldComputedFileName, field.TypeString, value)
+	}
 	if value, ok := iu.mutation.Description(); ok {
 		_spec.SetField(image.FieldDescription, field.TypeString, value)
 	}
@@ -679,6 +696,20 @@ func (iuo *ImageUpdateOne) ClearThumbnailID() *ImageUpdateOne {
 // SetFileName sets the "file_name" field.
 func (iuo *ImageUpdateOne) SetFileName(s string) *ImageUpdateOne {
 	iuo.mutation.SetFileName(s)
+	return iuo
+}
+
+// SetComputedFileName sets the "computed_file_name" field.
+func (iuo *ImageUpdateOne) SetComputedFileName(s string) *ImageUpdateOne {
+	iuo.mutation.SetComputedFileName(s)
+	return iuo
+}
+
+// SetNillableComputedFileName sets the "computed_file_name" field if the given value is not nil.
+func (iuo *ImageUpdateOne) SetNillableComputedFileName(s *string) *ImageUpdateOne {
+	if s != nil {
+		iuo.SetComputedFileName(*s)
+	}
 	return iuo
 }
 
@@ -1032,6 +1063,9 @@ func (iuo *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error
 	}
 	if value, ok := iuo.mutation.FileName(); ok {
 		_spec.SetField(image.FieldFileName, field.TypeString, value)
+	}
+	if value, ok := iuo.mutation.ComputedFileName(); ok {
+		_spec.SetField(image.FieldComputedFileName, field.TypeString, value)
 	}
 	if value, ok := iuo.mutation.Description(); ok {
 		_spec.SetField(image.FieldDescription, field.TypeString, value)

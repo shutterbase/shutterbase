@@ -41,9 +41,8 @@ func (User) Edges() []ent.Edge {
 		edge.From("projectAssignments", ProjectAssignment.Type).Ref("user"),
 		edge.From("images", Image.Type).Ref("user"),
 		edge.From("cameras", Camera.Type).Ref("owner"),
+		edge.From("apiKey", ApiKey.Type).Ref("user"),
 		edge.To("created_by", User.Type).Unique().StructTag(`json:"createdBy"`).From("created_users"),
-		// edge.To("created_by", User.Type).StructTag(`json:"createdBy"`),
-		// edge.To("updated_by", User.Type).StructTag(`json:"updatedBy"`),
 		edge.To("updated_by", User.Type).Unique().StructTag(`json:"updatedBy"`).From("modified_users"),
 	}
 }

@@ -49,6 +49,8 @@ const (
 	EdgeImages = "images"
 	// EdgeCameras holds the string denoting the cameras edge name in mutations.
 	EdgeCameras = "cameras"
+	// EdgeApiKey holds the string denoting the apikey edge name in mutations.
+	EdgeApiKey = "apiKey"
 	// EdgeCreatedUsers holds the string denoting the created_users edge name in mutations.
 	EdgeCreatedUsers = "created_users"
 	// EdgeCreatedBy holds the string denoting the created_by edge name in mutations.
@@ -87,6 +89,13 @@ const (
 	CamerasInverseTable = "cameras"
 	// CamerasColumn is the table column denoting the cameras relation/edge.
 	CamerasColumn = "camera_owner"
+	// ApiKeyTable is the table that holds the apiKey relation/edge.
+	ApiKeyTable = "api_keys"
+	// ApiKeyInverseTable is the table name for the ApiKey entity.
+	// It exists in this package in order to avoid circular dependency with the "apikey" package.
+	ApiKeyInverseTable = "api_keys"
+	// ApiKeyColumn is the table column denoting the apiKey relation/edge.
+	ApiKeyColumn = "api_key_user"
 	// CreatedUsersTable is the table that holds the created_users relation/edge.
 	CreatedUsersTable = "users"
 	// CreatedUsersColumn is the table column denoting the created_users relation/edge.
@@ -296,6 +305,20 @@ func ByCameras(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByApiKeyCount orders the results by apiKey count.
+func ByApiKeyCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newApiKeyStep(), opts...)
+	}
+}
+
+// ByApiKey orders the results by apiKey terms.
+func ByApiKey(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newApiKeyStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByCreatedUsersCount orders the results by created_users count.
 func ByCreatedUsersCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -363,6 +386,13 @@ func newCamerasStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CamerasInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, true, CamerasTable, CamerasColumn),
+	)
+}
+func newApiKeyStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ApiKeyInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, true, ApiKeyTable, ApiKeyColumn),
 	)
 }
 func newCreatedUsersStep() *sqlgraph.Step {

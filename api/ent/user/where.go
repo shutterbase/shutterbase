@@ -773,6 +773,29 @@ func HasCamerasWith(preds ...predicate.Camera) predicate.User {
 	})
 }
 
+// HasApiKey applies the HasEdge predicate on the "apiKey" edge.
+func HasApiKey() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, ApiKeyTable, ApiKeyColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasApiKeyWith applies the HasEdge predicate on the "apiKey" edge with a given conditions (other predicates).
+func HasApiKeyWith(preds ...predicate.ApiKey) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newApiKeyStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasCreatedUsers applies the HasEdge predicate on the "created_users" edge.
 func HasCreatedUsers() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

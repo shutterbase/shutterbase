@@ -56,6 +56,7 @@
     <div class="divider"></div>
     <div class="flex flex-row">
       <div class="mr-8"><button class="btn btn-secondary" @click="navigateToCameras">Cameras</button></div>
+      <div class="mr-8"><button class="btn btn-secondary" @click="getApiKey">Get new API KEY</button></div>
       <div class="mr-8"><button class="btn btn-primary" :disabled="!modified" @click="update">Update</button></div>
     </div>
   </div>
@@ -63,6 +64,7 @@
 
 <script setup lang="ts">
 import { UpdateUserInput, User } from "~/api/user";
+import { ApiKey } from "~/api/apiKey";
 import { Method, getFetchOptions, getCreatedByString, getUpdatedByString, getDateTimeString } from "~/api/common";
 
 const store = useStore();
@@ -157,5 +159,13 @@ async function update() {
 
 function navigateToCameras() {
   navigateTo(`/dashboard/users/${props.id}/cameras`);
+}
+
+async function getApiKey() {
+  const { data } = await useFetch(`/users/${props.id}/api-keys`, getFetchOptions(Method.POST));
+  if (data) {
+    const apiKey = data as Ref<ApiKey>;
+    alert(`API KEY: ${apiKey.value.key}`);
+  }
 }
 </script>

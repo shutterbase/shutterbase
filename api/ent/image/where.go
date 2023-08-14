@@ -76,6 +76,11 @@ func FileName(v string) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldFileName, v))
 }
 
+// ComputedFileName applies equality check predicate on the "computed_file_name" field. It's identical to ComputedFileNameEQ.
+func ComputedFileName(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldComputedFileName, v))
+}
+
 // Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
 func Description(v string) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldDescription, v))
@@ -289,6 +294,71 @@ func FileNameEqualFold(v string) predicate.Image {
 // FileNameContainsFold applies the ContainsFold predicate on the "file_name" field.
 func FileNameContainsFold(v string) predicate.Image {
 	return predicate.Image(sql.FieldContainsFold(FieldFileName, v))
+}
+
+// ComputedFileNameEQ applies the EQ predicate on the "computed_file_name" field.
+func ComputedFileNameEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldComputedFileName, v))
+}
+
+// ComputedFileNameNEQ applies the NEQ predicate on the "computed_file_name" field.
+func ComputedFileNameNEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldComputedFileName, v))
+}
+
+// ComputedFileNameIn applies the In predicate on the "computed_file_name" field.
+func ComputedFileNameIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldComputedFileName, vs...))
+}
+
+// ComputedFileNameNotIn applies the NotIn predicate on the "computed_file_name" field.
+func ComputedFileNameNotIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldComputedFileName, vs...))
+}
+
+// ComputedFileNameGT applies the GT predicate on the "computed_file_name" field.
+func ComputedFileNameGT(v string) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldComputedFileName, v))
+}
+
+// ComputedFileNameGTE applies the GTE predicate on the "computed_file_name" field.
+func ComputedFileNameGTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldComputedFileName, v))
+}
+
+// ComputedFileNameLT applies the LT predicate on the "computed_file_name" field.
+func ComputedFileNameLT(v string) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldComputedFileName, v))
+}
+
+// ComputedFileNameLTE applies the LTE predicate on the "computed_file_name" field.
+func ComputedFileNameLTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldComputedFileName, v))
+}
+
+// ComputedFileNameContains applies the Contains predicate on the "computed_file_name" field.
+func ComputedFileNameContains(v string) predicate.Image {
+	return predicate.Image(sql.FieldContains(FieldComputedFileName, v))
+}
+
+// ComputedFileNameHasPrefix applies the HasPrefix predicate on the "computed_file_name" field.
+func ComputedFileNameHasPrefix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasPrefix(FieldComputedFileName, v))
+}
+
+// ComputedFileNameHasSuffix applies the HasSuffix predicate on the "computed_file_name" field.
+func ComputedFileNameHasSuffix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasSuffix(FieldComputedFileName, v))
+}
+
+// ComputedFileNameEqualFold applies the EqualFold predicate on the "computed_file_name" field.
+func ComputedFileNameEqualFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldEqualFold(FieldComputedFileName, v))
+}
+
+// ComputedFileNameContainsFold applies the ContainsFold predicate on the "computed_file_name" field.
+func ComputedFileNameContainsFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldContainsFold(FieldComputedFileName, v))
 }
 
 // DescriptionEQ applies the EQ predicate on the "description" field.

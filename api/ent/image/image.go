@@ -23,6 +23,8 @@ const (
 	FieldThumbnailID = "thumbnail_id"
 	// FieldFileName holds the string denoting the file_name field in the database.
 	FieldFileName = "file_name"
+	// FieldComputedFileName holds the string denoting the computed_file_name field in the database.
+	FieldComputedFileName = "computed_file_name"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
 	// FieldExifData holds the string denoting the exif_data field in the database.
@@ -107,6 +109,7 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldThumbnailID,
 	FieldFileName,
+	FieldComputedFileName,
 	FieldDescription,
 	FieldExifData,
 	FieldCapturedAt,
@@ -149,6 +152,8 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// FileNameValidator is a validator for the "file_name" field. It is called by the builders before save.
 	FileNameValidator func(string) error
+	// DefaultComputedFileName holds the default value on creation for the "computed_file_name" field.
+	DefaultComputedFileName string
 	// DefaultDescription holds the default value on creation for the "description" field.
 	DefaultDescription string
 	// DefaultExifData holds the default value on creation for the "exif_data" field.
@@ -183,6 +188,11 @@ func ByThumbnailID(opts ...sql.OrderTermOption) OrderOption {
 // ByFileName orders the results by the file_name field.
 func ByFileName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFileName, opts...).ToFunc()
+}
+
+// ByComputedFileName orders the results by the computed_file_name field.
+func ByComputedFileName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldComputedFileName, opts...).ToFunc()
 }
 
 // ByDescription orders the results by the description field.

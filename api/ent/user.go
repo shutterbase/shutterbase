@@ -64,6 +64,8 @@ type UserEdges struct {
 	Images []*Image `json:"images,omitempty"`
 	// Cameras holds the value of the cameras edge.
 	Cameras []*Camera `json:"cameras,omitempty"`
+	// ApiKey holds the value of the apiKey edge.
+	ApiKey []*ApiKey `json:"apiKey,omitempty"`
 	// CreatedUsers holds the value of the created_users edge.
 	CreatedUsers []*User `json:"created_users,omitempty"`
 	// CreatedBy holds the value of the created_by edge.
@@ -74,7 +76,7 @@ type UserEdges struct {
 	UpdatedBy *User `json:"updatedBy"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [9]bool
 }
 
 // RoleOrErr returns the Role value or an error if the edge
@@ -117,10 +119,19 @@ func (e UserEdges) CamerasOrErr() ([]*Camera, error) {
 	return nil, &NotLoadedError{edge: "cameras"}
 }
 
+// ApiKeyOrErr returns the ApiKey value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) ApiKeyOrErr() ([]*ApiKey, error) {
+	if e.loadedTypes[4] {
+		return e.ApiKey, nil
+	}
+	return nil, &NotLoadedError{edge: "apiKey"}
+}
+
 // CreatedUsersOrErr returns the CreatedUsers value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) CreatedUsersOrErr() ([]*User, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.CreatedUsers, nil
 	}
 	return nil, &NotLoadedError{edge: "created_users"}
@@ -129,7 +140,7 @@ func (e UserEdges) CreatedUsersOrErr() ([]*User, error) {
 // CreatedByOrErr returns the CreatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e UserEdges) CreatedByOrErr() (*User, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		if e.CreatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -142,7 +153,7 @@ func (e UserEdges) CreatedByOrErr() (*User, error) {
 // ModifiedUsersOrErr returns the ModifiedUsers value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) ModifiedUsersOrErr() ([]*User, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.ModifiedUsers, nil
 	}
 	return nil, &NotLoadedError{edge: "modified_users"}
@@ -151,7 +162,7 @@ func (e UserEdges) ModifiedUsersOrErr() ([]*User, error) {
 // UpdatedByOrErr returns the UpdatedBy value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e UserEdges) UpdatedByOrErr() (*User, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		if e.UpdatedBy == nil {
 			// Edge was loaded but was not found.
 			return nil, &NotFoundError{label: user.Label}
@@ -333,6 +344,11 @@ func (u *User) QueryImages() *ImageQuery {
 // QueryCameras queries the "cameras" edge of the User entity.
 func (u *User) QueryCameras() *CameraQuery {
 	return NewUserClient(u.config).QueryCameras(u)
+}
+
+// QueryApiKey queries the "apiKey" edge of the User entity.
+func (u *User) QueryApiKey() *ApiKeyQuery {
+	return NewUserClient(u.config).QueryApiKey(u)
 }
 
 // QueryCreatedUsers queries the "created_users" edge of the User entity.

@@ -50,7 +50,7 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 	}
 
 	items, err := databaseClient.Image.Query().
-		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithCreatedBy().WithUpdatedBy().
+		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithUser().WithCamera().WithCreatedBy().WithUpdatedBy().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
 		Where(conditions).Order(order).

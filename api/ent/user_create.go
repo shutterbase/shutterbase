@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
@@ -243,6 +244,21 @@ func (uc *UserCreate) AddCameras(c ...*Camera) *UserCreate {
 		ids[i] = c[i].ID
 	}
 	return uc.AddCameraIDs(ids...)
+}
+
+// AddApiKeyIDs adds the "apiKey" edge to the ApiKey entity by IDs.
+func (uc *UserCreate) AddApiKeyIDs(ids ...uuid.UUID) *UserCreate {
+	uc.mutation.AddApiKeyIDs(ids...)
+	return uc
+}
+
+// AddApiKey adds the "apiKey" edges to the ApiKey entity.
+func (uc *UserCreate) AddApiKey(a ...*ApiKey) *UserCreate {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uc.AddApiKeyIDs(ids...)
 }
 
 // AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
@@ -597,6 +613,22 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := uc.mutation.ApiKeyIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ApiKeyTable,
+			Columns: []string{user.ApiKeyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

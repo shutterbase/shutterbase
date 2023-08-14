@@ -74,6 +74,20 @@ func (ic *ImageCreate) SetFileName(s string) *ImageCreate {
 	return ic
 }
 
+// SetComputedFileName sets the "computed_file_name" field.
+func (ic *ImageCreate) SetComputedFileName(s string) *ImageCreate {
+	ic.mutation.SetComputedFileName(s)
+	return ic
+}
+
+// SetNillableComputedFileName sets the "computed_file_name" field if the given value is not nil.
+func (ic *ImageCreate) SetNillableComputedFileName(s *string) *ImageCreate {
+	if s != nil {
+		ic.SetComputedFileName(*s)
+	}
+	return ic
+}
+
 // SetDescription sets the "description" field.
 func (ic *ImageCreate) SetDescription(s string) *ImageCreate {
 	ic.mutation.SetDescription(s)
@@ -290,6 +304,10 @@ func (ic *ImageCreate) defaults() {
 		v := image.DefaultUpdatedAt()
 		ic.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := ic.mutation.ComputedFileName(); !ok {
+		v := image.DefaultComputedFileName
+		ic.mutation.SetComputedFileName(v)
+	}
 	if _, ok := ic.mutation.Description(); !ok {
 		v := image.DefaultDescription
 		ic.mutation.SetDescription(v)
@@ -319,6 +337,9 @@ func (ic *ImageCreate) check() error {
 		if err := image.FileNameValidator(v); err != nil {
 			return &ValidationError{Name: "file_name", err: fmt.Errorf(`ent: validator failed for field "Image.file_name": %w`, err)}
 		}
+	}
+	if _, ok := ic.mutation.ComputedFileName(); !ok {
+		return &ValidationError{Name: "computed_file_name", err: errors.New(`ent: missing required field "Image.computed_file_name"`)}
 	}
 	if _, ok := ic.mutation.Description(); !ok {
 		return &ValidationError{Name: "description", err: errors.New(`ent: missing required field "Image.description"`)}
@@ -388,6 +409,10 @@ func (ic *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 	if value, ok := ic.mutation.FileName(); ok {
 		_spec.SetField(image.FieldFileName, field.TypeString, value)
 		_node.FileName = value
+	}
+	if value, ok := ic.mutation.ComputedFileName(); ok {
+		_spec.SetField(image.FieldComputedFileName, field.TypeString, value)
+		_node.ComputedFileName = value
 	}
 	if value, ok := ic.mutation.Description(); ok {
 		_spec.SetField(image.FieldDescription, field.TypeString, value)

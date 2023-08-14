@@ -180,6 +180,7 @@ func createImageController(c *gin.Context) {
 			return
 		}
 		itemCreate.SetCapturedAt(dateTimeDigitized)
+		correctedCaptureTime := dateTimeDigitized
 
 		timeOffset, err := getBestTimeOffset(ctx, camera.ID, dateTimeDigitized)
 		if err != nil {
@@ -191,9 +192,17 @@ func createImageController(c *gin.Context) {
 		if timeOffset != nil {
 			offsetDuration := time.Duration(timeOffset.OffsetSeconds) * time.Second
 			log.Debug().Msgf("offsetting captured at by %s", offsetDuration)
-			correctedCaptureTime := dateTimeDigitized.Add(offsetDuration)
+			correctedCaptureTime = dateTimeDigitized.Add(offsetDuration)
 			itemCreate.SetCapturedAtCorrected(correctedCaptureTime)
 		}
+
+		computedFileName, err := computeFileName(value[0].Filename, userContext.User.CopyrightTag, correctedCaptureTime)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to compute file name for image creation")
+			api_error.BAD_REQUEST.Send(c)
+			return
+		}
+		itemCreate.SetComputedFileName(computedFileName)
 
 		item, err := itemCreate.Save(ctx)
 		if err != nil {
@@ -286,6 +295,19 @@ func getImagesController(c *gin.Context) {
 		api_error.INTERNAL.Send(c)
 		return
 	}
+
+	// Fallback pfusch for generating computed file name after upload
+	for _, item := range items {
+		if item.ComputedFileName == "" {
+			computedFileName, err := computeFileName(item.FileName, item.Edges.User.CopyrightTag, item.CapturedAtCorrected)
+			if err != nil {
+				item.ComputedFileName = item.FileName
+				log.Warn().Err(err).Msgf("failed to compute file name for image '%s' | '%s'", item.ID.String(), item.FileName)
+			}
+			item.ComputedFileName = computedFileName
+		}
+	}
+
 	c.JSON(200, gin.H{"items": items, "total": total})
 }
 
@@ -314,6 +336,16 @@ func getImageController(c *gin.Context) {
 			api_error.INTERNAL.Send(c)
 		}
 		return
+	}
+
+	// Fallback pfusch for generating computed file name after upload
+	if item.ComputedFileName == "" {
+		computedFileName, err := computeFileName(item.FileName, item.Edges.User.CopyrightTag, item.CapturedAtCorrected)
+		if err != nil {
+			item.ComputedFileName = item.FileName
+			log.Warn().Err(err).Msgf("failed to compute file name for image '%s' | '%s'", item.ID.String(), item.FileName)
+		}
+		item.ComputedFileName = computedFileName
 	}
 
 	c.JSON(200, item)
@@ -579,6 +611,13 @@ func getImageExportController(c *gin.Context) {
 		return
 	}
 
+	computedFileName, err := computeFileName(item.FileName, item.Edges.User.CopyrightTag, item.CapturedAtCorrected)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to compute file name for image export")
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
 	data, err := storage.GetFile(ctx, item.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get image file for export")
@@ -595,7 +634,7 @@ func getImageExportController(c *gin.Context) {
 
 	c.Header("Cache-Control", "max-age=0")
 	c.Header("Content-Type", "application/octet-stream")
-	c.Header("Content-Disposition", "attachment; filename=\""+item.FileName+"\"")
+	c.Header("Content-Disposition", "attachment; filename=\""+computedFileName+"\"")
 	c.Data(200, "application/octet-stream", resultData)
 }
 
@@ -767,4 +806,30 @@ func applyDefaultTags(imageId uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func computeFileName(fileName string, photographerCopyright string, correctedCaptureTime time.Time) (string, error) {
+	// 20220815_22-55-28_5526_seizinger
+	// <date>_<time>_<last 4 digits of image file name>_<photographer copyright tag>
+
+	date := correctedCaptureTime.Format("20060102")
+	time := correctedCaptureTime.Format("15-04-05")
+
+	fileNameWithoutExtension := stripFileNameExtension(fileName)
+	fileNameDigits := fileNameWithoutExtension[len(fileNameWithoutExtension)-4:]
+	if _, err := strconv.Atoi(fileNameDigits); err != nil {
+		log.Error().Err(err).Msgf("failed to parse last 4 digits of file name %s", fileName)
+		return "", err
+	}
+
+	computedFileName := fmt.Sprintf("%s_%s_%s_%s.jpg", date, time, fileNameDigits, photographerCopyright)
+	log.Trace().Msgf("computed file name %s", computedFileName)
+	return computedFileName, nil
+}
+
+func stripFileNameExtension(fileName string) string {
+	if pos := strings.LastIndexByte(fileName, '.'); pos != -1 {
+		return fileName[:pos]
+	}
+	return fileName
 }

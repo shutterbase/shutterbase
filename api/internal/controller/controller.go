@@ -6,8 +6,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
+	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/internal/api_error"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
@@ -90,6 +92,9 @@ func registerControllers(router *gin.Engine) {
 	log.Debug().Msg("-> Registering time offsets controller")
 	registerTimeOffsetsController(router)
 
+	log.Debug().Msg("-> Registering api key controller")
+	registerApiKeysController(router)
+
 	log.Debug().Msg("-> Done registering controllers")
 }
 
@@ -100,9 +105,30 @@ func authContextMiddleware(c *gin.Context) {
 		Subject:      "anonymous",
 		ProjectRoles: map[string]string{},
 	}
+
+	apiKeyString := c.GetHeader("X-API-Key")
+	if apiKeyString != "" {
+		apiKey, err := uuid.Parse(apiKeyString)
+		if err != nil {
+			log.Warn().Err(err).Msg("failed to parse api key")
+		} else {
+			log.Trace().Msg("proceeding with api key")
+			apiKeyUser, err := repository.GetDatabaseClient().ApiKey.Query().WithUser().Where(apikey.Key(apiKey)).First(c.Request.Context())
+			if err != nil {
+				log.Warn().Err(err).Msg("failed to get api key")
+			} else {
+				claims = &AuthTokenClaims{
+					UserId: apiKeyUser.Edges.User.ID,
+					Email:  apiKeyUser.Edges.User.Email,
+				}
+			}
+		}
+	}
+
 	if claims != nil {
 		userId := claims.UserId
 		user, err := repository.GetUserContext(c.Request.Context(), userId)
+
 		if err != nil {
 			log.Warn().Err(err).Msg("failed to get user context")
 			c.AbortWithStatus(500)

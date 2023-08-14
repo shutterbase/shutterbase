@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/batch"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
@@ -23,6 +24,29 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	apikeyMixin := schema.ApiKey{}.Mixin()
+	apikeyMixinFields0 := apikeyMixin[0].Fields()
+	_ = apikeyMixinFields0
+	apikeyFields := schema.ApiKey{}.Fields()
+	_ = apikeyFields
+	// apikeyDescCreatedAt is the schema descriptor for created_at field.
+	apikeyDescCreatedAt := apikeyMixinFields0[1].Descriptor()
+	// apikey.DefaultCreatedAt holds the default value on creation for the created_at field.
+	apikey.DefaultCreatedAt = apikeyDescCreatedAt.Default.(func() time.Time)
+	// apikeyDescUpdatedAt is the schema descriptor for updated_at field.
+	apikeyDescUpdatedAt := apikeyMixinFields0[2].Descriptor()
+	// apikey.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	apikey.DefaultUpdatedAt = apikeyDescUpdatedAt.Default.(func() time.Time)
+	// apikey.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	apikey.UpdateDefaultUpdatedAt = apikeyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// apikeyDescKey is the schema descriptor for key field.
+	apikeyDescKey := apikeyFields[0].Descriptor()
+	// apikey.DefaultKey holds the default value on creation for the key field.
+	apikey.DefaultKey = apikeyDescKey.Default.(func() uuid.UUID)
+	// apikeyDescID is the schema descriptor for id field.
+	apikeyDescID := apikeyMixinFields0[0].Descriptor()
+	// apikey.DefaultID holds the default value on creation for the id field.
+	apikey.DefaultID = apikeyDescID.Default.(func() uuid.UUID)
 	batchMixin := schema.Batch{}.Mixin()
 	batchMixinFields0 := batchMixin[0].Fields()
 	_ = batchMixinFields0
@@ -92,12 +116,16 @@ func init() {
 	imageDescFileName := imageFields[1].Descriptor()
 	// image.FileNameValidator is a validator for the "file_name" field. It is called by the builders before save.
 	image.FileNameValidator = imageDescFileName.Validators[0].(func(string) error)
+	// imageDescComputedFileName is the schema descriptor for computed_file_name field.
+	imageDescComputedFileName := imageFields[2].Descriptor()
+	// image.DefaultComputedFileName holds the default value on creation for the computed_file_name field.
+	image.DefaultComputedFileName = imageDescComputedFileName.Default.(string)
 	// imageDescDescription is the schema descriptor for description field.
-	imageDescDescription := imageFields[2].Descriptor()
+	imageDescDescription := imageFields[3].Descriptor()
 	// image.DefaultDescription holds the default value on creation for the description field.
 	image.DefaultDescription = imageDescDescription.Default.(string)
 	// imageDescExifData is the schema descriptor for exif_data field.
-	imageDescExifData := imageFields[3].Descriptor()
+	imageDescExifData := imageFields[4].Descriptor()
 	// image.DefaultExifData holds the default value on creation for the exif_data field.
 	image.DefaultExifData = imageDescExifData.Default.(map[string]interface{})
 	// imageDescID is the schema descriptor for id field.

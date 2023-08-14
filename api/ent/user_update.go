@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/predicate"
@@ -211,6 +212,21 @@ func (uu *UserUpdate) AddCameras(c ...*Camera) *UserUpdate {
 	return uu.AddCameraIDs(ids...)
 }
 
+// AddApiKeyIDs adds the "apiKey" edge to the ApiKey entity by IDs.
+func (uu *UserUpdate) AddApiKeyIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.AddApiKeyIDs(ids...)
+	return uu
+}
+
+// AddApiKey adds the "apiKey" edges to the ApiKey entity.
+func (uu *UserUpdate) AddApiKey(a ...*ApiKey) *UserUpdate {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uu.AddApiKeyIDs(ids...)
+}
+
 // AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
 func (uu *UserUpdate) AddCreatedUserIDs(ids ...uuid.UUID) *UserUpdate {
 	uu.mutation.AddCreatedUserIDs(ids...)
@@ -351,6 +367,27 @@ func (uu *UserUpdate) RemoveCameras(c ...*Camera) *UserUpdate {
 		ids[i] = c[i].ID
 	}
 	return uu.RemoveCameraIDs(ids...)
+}
+
+// ClearApiKey clears all "apiKey" edges to the ApiKey entity.
+func (uu *UserUpdate) ClearApiKey() *UserUpdate {
+	uu.mutation.ClearApiKey()
+	return uu
+}
+
+// RemoveApiKeyIDs removes the "apiKey" edge to ApiKey entities by IDs.
+func (uu *UserUpdate) RemoveApiKeyIDs(ids ...uuid.UUID) *UserUpdate {
+	uu.mutation.RemoveApiKeyIDs(ids...)
+	return uu
+}
+
+// RemoveApiKey removes "apiKey" edges to ApiKey entities.
+func (uu *UserUpdate) RemoveApiKey(a ...*ApiKey) *UserUpdate {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uu.RemoveApiKeyIDs(ids...)
 }
 
 // ClearCreatedUsers clears all "created_users" edges to the User entity.
@@ -670,6 +707,51 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uu.mutation.ApiKeyCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ApiKeyTable,
+			Columns: []string{user.ApiKeyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.RemovedApiKeyIDs(); len(nodes) > 0 && !uu.mutation.ApiKeyCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ApiKeyTable,
+			Columns: []string{user.ApiKeyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uu.mutation.ApiKeyIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ApiKeyTable,
+			Columns: []string{user.ApiKeyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1023,6 +1105,21 @@ func (uuo *UserUpdateOne) AddCameras(c ...*Camera) *UserUpdateOne {
 	return uuo.AddCameraIDs(ids...)
 }
 
+// AddApiKeyIDs adds the "apiKey" edge to the ApiKey entity by IDs.
+func (uuo *UserUpdateOne) AddApiKeyIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.AddApiKeyIDs(ids...)
+	return uuo
+}
+
+// AddApiKey adds the "apiKey" edges to the ApiKey entity.
+func (uuo *UserUpdateOne) AddApiKey(a ...*ApiKey) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uuo.AddApiKeyIDs(ids...)
+}
+
 // AddCreatedUserIDs adds the "created_users" edge to the User entity by IDs.
 func (uuo *UserUpdateOne) AddCreatedUserIDs(ids ...uuid.UUID) *UserUpdateOne {
 	uuo.mutation.AddCreatedUserIDs(ids...)
@@ -1163,6 +1260,27 @@ func (uuo *UserUpdateOne) RemoveCameras(c ...*Camera) *UserUpdateOne {
 		ids[i] = c[i].ID
 	}
 	return uuo.RemoveCameraIDs(ids...)
+}
+
+// ClearApiKey clears all "apiKey" edges to the ApiKey entity.
+func (uuo *UserUpdateOne) ClearApiKey() *UserUpdateOne {
+	uuo.mutation.ClearApiKey()
+	return uuo
+}
+
+// RemoveApiKeyIDs removes the "apiKey" edge to ApiKey entities by IDs.
+func (uuo *UserUpdateOne) RemoveApiKeyIDs(ids ...uuid.UUID) *UserUpdateOne {
+	uuo.mutation.RemoveApiKeyIDs(ids...)
+	return uuo
+}
+
+// RemoveApiKey removes "apiKey" edges to ApiKey entities.
+func (uuo *UserUpdateOne) RemoveApiKey(a ...*ApiKey) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(a))
+	for i := range a {
+		ids[i] = a[i].ID
+	}
+	return uuo.RemoveApiKeyIDs(ids...)
 }
 
 // ClearCreatedUsers clears all "created_users" edges to the User entity.
@@ -1512,6 +1630,51 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(camera.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if uuo.mutation.ApiKeyCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ApiKeyTable,
+			Columns: []string{user.ApiKeyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.RemovedApiKeyIDs(); len(nodes) > 0 && !uuo.mutation.ApiKeyCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ApiKeyTable,
+			Columns: []string{user.ApiKeyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := uuo.mutation.ApiKeyIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: true,
+			Table:   user.ApiKeyTable,
+			Columns: []string{user.ApiKeyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
