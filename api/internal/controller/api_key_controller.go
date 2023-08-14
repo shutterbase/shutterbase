@@ -26,16 +26,16 @@ func registerApiKeysController(router *gin.Engine) {
 func createApiKeyController(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.CREATE))
-	if err != nil || !allowed {
-		log.Warn().Err(err).Msg("unauthorized access to create project denied")
-		api_error.FORBIDDEN.Send(c)
-		return
-	}
-
 	userId, err := uuid.Parse(c.Param("uid"))
 	if err != nil {
 		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.CREATE).OwnerId(userId))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to create project denied")
+		api_error.FORBIDDEN.Send(c)
 		return
 	}
 

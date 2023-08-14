@@ -62,6 +62,17 @@ var policies = []*ladon.DefaultPolicy{
 		Effect: ladon.AllowAccess,
 	},
 	{
+		ID:          "1dd8dafb-8c27-4eed-89cf-35c7ef2e3298",
+		Description: "Allow own api key create",
+		Subjects:    []string{"role:user"},
+		Resources:   []string{"/users/" + UUID_REGEX + "/api-keys"},
+		Actions:     C.GetItems(),
+		Conditions: ladon.Conditions{
+			"ownerId": &OwnerIdCondition{},
+		},
+		Effect: ladon.AllowAccess,
+	},
+	{
 		ID:          "77db29de-b300-41d7-8950-8b30001bc925",
 		Description: "Allow minimal users list read access",
 		Subjects:    []string{"role:user"},
