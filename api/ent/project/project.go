@@ -23,6 +23,16 @@ const (
 	FieldName = "name"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
+	// FieldCopyright holds the string denoting the copyright field in the database.
+	FieldCopyright = "copyright"
+	// FieldCopyrightReference holds the string denoting the copyright_reference field in the database.
+	FieldCopyrightReference = "copyright_reference"
+	// FieldLocationName holds the string denoting the location_name field in the database.
+	FieldLocationName = "location_name"
+	// FieldLocationCode holds the string denoting the location_code field in the database.
+	FieldLocationCode = "location_code"
+	// FieldLocationCity holds the string denoting the location_city field in the database.
+	FieldLocationCity = "location_city"
 	// EdgeAssignments holds the string denoting the assignments edge name in mutations.
 	EdgeAssignments = "assignments"
 	// EdgeImages holds the string denoting the images edge name in mutations.
@@ -88,6 +98,11 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldName,
 	FieldDescription,
+	FieldCopyright,
+	FieldCopyrightReference,
+	FieldLocationName,
+	FieldLocationCode,
+	FieldLocationCity,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "projects"
@@ -123,6 +138,16 @@ var (
 	NameValidator func(string) error
 	// DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
 	DescriptionValidator func(string) error
+	// DefaultCopyright holds the default value on creation for the "copyright" field.
+	DefaultCopyright string
+	// DefaultCopyrightReference holds the default value on creation for the "copyright_reference" field.
+	DefaultCopyrightReference string
+	// DefaultLocationName holds the default value on creation for the "location_name" field.
+	DefaultLocationName string
+	// DefaultLocationCode holds the default value on creation for the "location_code" field.
+	DefaultLocationCode string
+	// DefaultLocationCity holds the default value on creation for the "location_city" field.
+	DefaultLocationCity string
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -153,6 +178,31 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByDescription orders the results by the description field.
 func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDescription, opts...).ToFunc()
+}
+
+// ByCopyright orders the results by the copyright field.
+func ByCopyright(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCopyright, opts...).ToFunc()
+}
+
+// ByCopyrightReference orders the results by the copyright_reference field.
+func ByCopyrightReference(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCopyrightReference, opts...).ToFunc()
+}
+
+// ByLocationName orders the results by the location_name field.
+func ByLocationName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLocationName, opts...).ToFunc()
+}
+
+// ByLocationCode orders the results by the location_code field.
+func ByLocationCode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLocationCode, opts...).ToFunc()
+}
+
+// ByLocationCity orders the results by the location_city field.
+func ByLocationCity(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLocationCity, opts...).ToFunc()
 }
 
 // ByAssignmentsCount orders the results by assignments count.

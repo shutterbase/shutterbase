@@ -27,6 +27,16 @@ type Project struct {
 	Name string `json:"name,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
+	// Copyright holds the value of the "copyright" field.
+	Copyright string `json:"copyright"`
+	// CopyrightReference holds the value of the "copyright_reference" field.
+	CopyrightReference string `json:"copyrightReference"`
+	// LocationName holds the value of the "location_name" field.
+	LocationName string `json:"locationName"`
+	// LocationCode holds the value of the "location_code" field.
+	LocationCode string `json:"locationCode"`
+	// LocationCity holds the value of the "location_city" field.
+	LocationCity string `json:"locationCity"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges              ProjectEdges `json:"edges"`
@@ -121,7 +131,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case project.FieldName, project.FieldDescription:
+		case project.FieldName, project.FieldDescription, project.FieldCopyright, project.FieldCopyrightReference, project.FieldLocationName, project.FieldLocationCode, project.FieldLocationCity:
 			values[i] = new(sql.NullString)
 		case project.FieldCreatedAt, project.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -175,6 +185,36 @@ func (pr *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field description", values[i])
 			} else if value.Valid {
 				pr.Description = value.String
+			}
+		case project.FieldCopyright:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field copyright", values[i])
+			} else if value.Valid {
+				pr.Copyright = value.String
+			}
+		case project.FieldCopyrightReference:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field copyright_reference", values[i])
+			} else if value.Valid {
+				pr.CopyrightReference = value.String
+			}
+		case project.FieldLocationName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field location_name", values[i])
+			} else if value.Valid {
+				pr.LocationName = value.String
+			}
+		case project.FieldLocationCode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field location_code", values[i])
+			} else if value.Valid {
+				pr.LocationCode = value.String
+			}
+		case project.FieldLocationCity:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field location_city", values[i])
+			} else if value.Valid {
+				pr.LocationCity = value.String
 			}
 		case project.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -267,6 +307,21 @@ func (pr *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(pr.Description)
+	builder.WriteString(", ")
+	builder.WriteString("copyright=")
+	builder.WriteString(pr.Copyright)
+	builder.WriteString(", ")
+	builder.WriteString("copyright_reference=")
+	builder.WriteString(pr.CopyrightReference)
+	builder.WriteString(", ")
+	builder.WriteString("location_name=")
+	builder.WriteString(pr.LocationName)
+	builder.WriteString(", ")
+	builder.WriteString("location_code=")
+	builder.WriteString(pr.LocationCode)
+	builder.WriteString(", ")
+	builder.WriteString("location_city=")
+	builder.WriteString(pr.LocationCity)
 	builder.WriteByte(')')
 	return builder.String()
 }

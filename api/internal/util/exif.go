@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -159,6 +160,11 @@ func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]by
 		log.Error().Err(err).Msg("Error creating exif builder")
 	}
 
+	ifd, err := exif.GetOrCreateIbFromRootIb(exifBuilder, "IFD")
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating exif ib 'IFD'")
+	}
+
 	ifd0, err := exif.GetOrCreateIbFromRootIb(exifBuilder, "IFD0")
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating exif ib 'IFD0'")
@@ -190,10 +196,27 @@ func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]by
 	}
 
 	// Setting corrected date
+	// time created IPTC:TimeCreated
 	exifIdf.SetStandardWithName("DateTimeOriginal", image.CapturedAtCorrected.UTC())
+	exifIdf.SetStandardWithName("DateTimeDigitized", image.CapturedAtCorrected.UTC())
 
-	// TODO: setting project copyright
-	// TODO: setting artist copyright
+	// EXIF:Copyright => Formula Student Germany
+	ifd.SetStandardWithName("Copyright", image.Edges.Project.Copyright)
+	// XMP:Rights => Formula Student Germany
+
+	// Credit
+	// IPTC:Credit => www.formulastudent.de
+
+	// EXIF:Artist => FirstName LastName
+	ifd.SetStandardWithName("Artist", fmt.Sprintf("%s %s", image.Edges.User.FirstName, image.Edges.User.LastName))
+
+	// IPTC:By-lineTitle => photographer.CopyrightTag
+	// IPTC:By-line => FirstName LastName
+	// XMP:Creator => FirstName LastName
+	// IPTC:Writer-Editor => FirstName LastName
+
+	// IPTC:OriginalTransmissionReference => project.CopyrightReference FSG
+	// IPTC:CopyrightNotice => Copyright and Photographer should be quoted: (C)FSG - FirstName LastName
 
 	segmentList.SetExif(exifBuilder)
 	buffer := new(bytes.Buffer)
@@ -205,8 +228,3 @@ func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]by
 
 	return buffer.Bytes(), nil
 }
-
-// set time
-// DateTimeOriginal
-// DateTimeDigitized
-// DateTime

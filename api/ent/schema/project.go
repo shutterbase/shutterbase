@@ -14,6 +14,11 @@ func (Project) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty(),
 		field.String("description").NotEmpty(),
+		field.String("copyright").Default("").StructTag(`json:"copyright"`),                    // e.g. Formula Student Germany
+		field.String("copyright_reference").Default("").StructTag(`json:"copyrightReference"`), // e.g. FSG
+		field.String("location_name").Default("").StructTag(`json:"locationName"`),             // e.g. Germany
+		field.String("location_code").Default("").StructTag(`json:"locationCode"`),             // e.g. DEU
+		field.String("location_city").Default("").StructTag(`json:"locationCity"`),             // e.g. Hockenheim
 	}
 }
 

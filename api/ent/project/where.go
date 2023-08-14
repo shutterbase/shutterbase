@@ -76,6 +76,31 @@ func Description(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldDescription, v))
 }
 
+// Copyright applies equality check predicate on the "copyright" field. It's identical to CopyrightEQ.
+func Copyright(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldCopyright, v))
+}
+
+// CopyrightReference applies equality check predicate on the "copyright_reference" field. It's identical to CopyrightReferenceEQ.
+func CopyrightReference(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldCopyrightReference, v))
+}
+
+// LocationName applies equality check predicate on the "location_name" field. It's identical to LocationNameEQ.
+func LocationName(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldLocationName, v))
+}
+
+// LocationCode applies equality check predicate on the "location_code" field. It's identical to LocationCodeEQ.
+func LocationCode(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldLocationCode, v))
+}
+
+// LocationCity applies equality check predicate on the "location_city" field. It's identical to LocationCityEQ.
+func LocationCity(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldLocationCity, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldCreatedAt, v))
@@ -284,6 +309,331 @@ func DescriptionEqualFold(v string) predicate.Project {
 // DescriptionContainsFold applies the ContainsFold predicate on the "description" field.
 func DescriptionContainsFold(v string) predicate.Project {
 	return predicate.Project(sql.FieldContainsFold(FieldDescription, v))
+}
+
+// CopyrightEQ applies the EQ predicate on the "copyright" field.
+func CopyrightEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldCopyright, v))
+}
+
+// CopyrightNEQ applies the NEQ predicate on the "copyright" field.
+func CopyrightNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldCopyright, v))
+}
+
+// CopyrightIn applies the In predicate on the "copyright" field.
+func CopyrightIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldCopyright, vs...))
+}
+
+// CopyrightNotIn applies the NotIn predicate on the "copyright" field.
+func CopyrightNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldCopyright, vs...))
+}
+
+// CopyrightGT applies the GT predicate on the "copyright" field.
+func CopyrightGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldCopyright, v))
+}
+
+// CopyrightGTE applies the GTE predicate on the "copyright" field.
+func CopyrightGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldCopyright, v))
+}
+
+// CopyrightLT applies the LT predicate on the "copyright" field.
+func CopyrightLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldCopyright, v))
+}
+
+// CopyrightLTE applies the LTE predicate on the "copyright" field.
+func CopyrightLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldCopyright, v))
+}
+
+// CopyrightContains applies the Contains predicate on the "copyright" field.
+func CopyrightContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldCopyright, v))
+}
+
+// CopyrightHasPrefix applies the HasPrefix predicate on the "copyright" field.
+func CopyrightHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldCopyright, v))
+}
+
+// CopyrightHasSuffix applies the HasSuffix predicate on the "copyright" field.
+func CopyrightHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldCopyright, v))
+}
+
+// CopyrightEqualFold applies the EqualFold predicate on the "copyright" field.
+func CopyrightEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldCopyright, v))
+}
+
+// CopyrightContainsFold applies the ContainsFold predicate on the "copyright" field.
+func CopyrightContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldCopyright, v))
+}
+
+// CopyrightReferenceEQ applies the EQ predicate on the "copyright_reference" field.
+func CopyrightReferenceEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceNEQ applies the NEQ predicate on the "copyright_reference" field.
+func CopyrightReferenceNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceIn applies the In predicate on the "copyright_reference" field.
+func CopyrightReferenceIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldCopyrightReference, vs...))
+}
+
+// CopyrightReferenceNotIn applies the NotIn predicate on the "copyright_reference" field.
+func CopyrightReferenceNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldCopyrightReference, vs...))
+}
+
+// CopyrightReferenceGT applies the GT predicate on the "copyright_reference" field.
+func CopyrightReferenceGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceGTE applies the GTE predicate on the "copyright_reference" field.
+func CopyrightReferenceGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceLT applies the LT predicate on the "copyright_reference" field.
+func CopyrightReferenceLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceLTE applies the LTE predicate on the "copyright_reference" field.
+func CopyrightReferenceLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceContains applies the Contains predicate on the "copyright_reference" field.
+func CopyrightReferenceContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceHasPrefix applies the HasPrefix predicate on the "copyright_reference" field.
+func CopyrightReferenceHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceHasSuffix applies the HasSuffix predicate on the "copyright_reference" field.
+func CopyrightReferenceHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceEqualFold applies the EqualFold predicate on the "copyright_reference" field.
+func CopyrightReferenceEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldCopyrightReference, v))
+}
+
+// CopyrightReferenceContainsFold applies the ContainsFold predicate on the "copyright_reference" field.
+func CopyrightReferenceContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldCopyrightReference, v))
+}
+
+// LocationNameEQ applies the EQ predicate on the "location_name" field.
+func LocationNameEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldLocationName, v))
+}
+
+// LocationNameNEQ applies the NEQ predicate on the "location_name" field.
+func LocationNameNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldLocationName, v))
+}
+
+// LocationNameIn applies the In predicate on the "location_name" field.
+func LocationNameIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldLocationName, vs...))
+}
+
+// LocationNameNotIn applies the NotIn predicate on the "location_name" field.
+func LocationNameNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldLocationName, vs...))
+}
+
+// LocationNameGT applies the GT predicate on the "location_name" field.
+func LocationNameGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldLocationName, v))
+}
+
+// LocationNameGTE applies the GTE predicate on the "location_name" field.
+func LocationNameGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldLocationName, v))
+}
+
+// LocationNameLT applies the LT predicate on the "location_name" field.
+func LocationNameLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldLocationName, v))
+}
+
+// LocationNameLTE applies the LTE predicate on the "location_name" field.
+func LocationNameLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldLocationName, v))
+}
+
+// LocationNameContains applies the Contains predicate on the "location_name" field.
+func LocationNameContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldLocationName, v))
+}
+
+// LocationNameHasPrefix applies the HasPrefix predicate on the "location_name" field.
+func LocationNameHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldLocationName, v))
+}
+
+// LocationNameHasSuffix applies the HasSuffix predicate on the "location_name" field.
+func LocationNameHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldLocationName, v))
+}
+
+// LocationNameEqualFold applies the EqualFold predicate on the "location_name" field.
+func LocationNameEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldLocationName, v))
+}
+
+// LocationNameContainsFold applies the ContainsFold predicate on the "location_name" field.
+func LocationNameContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldLocationName, v))
+}
+
+// LocationCodeEQ applies the EQ predicate on the "location_code" field.
+func LocationCodeEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldLocationCode, v))
+}
+
+// LocationCodeNEQ applies the NEQ predicate on the "location_code" field.
+func LocationCodeNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldLocationCode, v))
+}
+
+// LocationCodeIn applies the In predicate on the "location_code" field.
+func LocationCodeIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldLocationCode, vs...))
+}
+
+// LocationCodeNotIn applies the NotIn predicate on the "location_code" field.
+func LocationCodeNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldLocationCode, vs...))
+}
+
+// LocationCodeGT applies the GT predicate on the "location_code" field.
+func LocationCodeGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldLocationCode, v))
+}
+
+// LocationCodeGTE applies the GTE predicate on the "location_code" field.
+func LocationCodeGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldLocationCode, v))
+}
+
+// LocationCodeLT applies the LT predicate on the "location_code" field.
+func LocationCodeLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldLocationCode, v))
+}
+
+// LocationCodeLTE applies the LTE predicate on the "location_code" field.
+func LocationCodeLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldLocationCode, v))
+}
+
+// LocationCodeContains applies the Contains predicate on the "location_code" field.
+func LocationCodeContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldLocationCode, v))
+}
+
+// LocationCodeHasPrefix applies the HasPrefix predicate on the "location_code" field.
+func LocationCodeHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldLocationCode, v))
+}
+
+// LocationCodeHasSuffix applies the HasSuffix predicate on the "location_code" field.
+func LocationCodeHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldLocationCode, v))
+}
+
+// LocationCodeEqualFold applies the EqualFold predicate on the "location_code" field.
+func LocationCodeEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldLocationCode, v))
+}
+
+// LocationCodeContainsFold applies the ContainsFold predicate on the "location_code" field.
+func LocationCodeContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldLocationCode, v))
+}
+
+// LocationCityEQ applies the EQ predicate on the "location_city" field.
+func LocationCityEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldLocationCity, v))
+}
+
+// LocationCityNEQ applies the NEQ predicate on the "location_city" field.
+func LocationCityNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldLocationCity, v))
+}
+
+// LocationCityIn applies the In predicate on the "location_city" field.
+func LocationCityIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldLocationCity, vs...))
+}
+
+// LocationCityNotIn applies the NotIn predicate on the "location_city" field.
+func LocationCityNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldLocationCity, vs...))
+}
+
+// LocationCityGT applies the GT predicate on the "location_city" field.
+func LocationCityGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldLocationCity, v))
+}
+
+// LocationCityGTE applies the GTE predicate on the "location_city" field.
+func LocationCityGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldLocationCity, v))
+}
+
+// LocationCityLT applies the LT predicate on the "location_city" field.
+func LocationCityLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldLocationCity, v))
+}
+
+// LocationCityLTE applies the LTE predicate on the "location_city" field.
+func LocationCityLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldLocationCity, v))
+}
+
+// LocationCityContains applies the Contains predicate on the "location_city" field.
+func LocationCityContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldLocationCity, v))
+}
+
+// LocationCityHasPrefix applies the HasPrefix predicate on the "location_city" field.
+func LocationCityHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldLocationCity, v))
+}
+
+// LocationCityHasSuffix applies the HasSuffix predicate on the "location_city" field.
+func LocationCityHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldLocationCity, v))
+}
+
+// LocationCityEqualFold applies the EqualFold predicate on the "location_city" field.
+func LocationCityEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldLocationCity, v))
+}
+
+// LocationCityContainsFold applies the ContainsFold predicate on the "location_city" field.
+func LocationCityContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldLocationCity, v))
 }
 
 // HasAssignments applies the HasEdge predicate on the "assignments" edge.

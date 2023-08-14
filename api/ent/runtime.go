@@ -205,6 +205,26 @@ func init() {
 	projectDescDescription := projectFields[1].Descriptor()
 	// project.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
 	project.DescriptionValidator = projectDescDescription.Validators[0].(func(string) error)
+	// projectDescCopyright is the schema descriptor for copyright field.
+	projectDescCopyright := projectFields[2].Descriptor()
+	// project.DefaultCopyright holds the default value on creation for the copyright field.
+	project.DefaultCopyright = projectDescCopyright.Default.(string)
+	// projectDescCopyrightReference is the schema descriptor for copyright_reference field.
+	projectDescCopyrightReference := projectFields[3].Descriptor()
+	// project.DefaultCopyrightReference holds the default value on creation for the copyright_reference field.
+	project.DefaultCopyrightReference = projectDescCopyrightReference.Default.(string)
+	// projectDescLocationName is the schema descriptor for location_name field.
+	projectDescLocationName := projectFields[4].Descriptor()
+	// project.DefaultLocationName holds the default value on creation for the location_name field.
+	project.DefaultLocationName = projectDescLocationName.Default.(string)
+	// projectDescLocationCode is the schema descriptor for location_code field.
+	projectDescLocationCode := projectFields[5].Descriptor()
+	// project.DefaultLocationCode holds the default value on creation for the location_code field.
+	project.DefaultLocationCode = projectDescLocationCode.Default.(string)
+	// projectDescLocationCity is the schema descriptor for location_city field.
+	projectDescLocationCity := projectFields[6].Descriptor()
+	// project.DefaultLocationCity holds the default value on creation for the location_city field.
+	project.DefaultLocationCity = projectDescLocationCity.Default.(string)
 	// projectDescID is the schema descriptor for id field.
 	projectDescID := projectMixinFields0[0].Descriptor()
 	// project.DefaultID holds the default value on creation for the id field.

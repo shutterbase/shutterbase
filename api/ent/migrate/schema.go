@@ -256,6 +256,11 @@ var (
 		{Name: "updated_at", Type: field.TypeTime},
 		{Name: "name", Type: field.TypeString},
 		{Name: "description", Type: field.TypeString},
+		{Name: "copyright", Type: field.TypeString, Default: ""},
+		{Name: "copyright_reference", Type: field.TypeString, Default: ""},
+		{Name: "location_name", Type: field.TypeString, Default: ""},
+		{Name: "location_code", Type: field.TypeString, Default: ""},
+		{Name: "location_city", Type: field.TypeString, Default: ""},
 		{Name: "project_created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "project_updated_by", Type: field.TypeUUID, Nullable: true},
 	}
@@ -267,13 +272,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_users_created_by",
-				Columns:    []*schema.Column{ProjectsColumns[5]},
+				Columns:    []*schema.Column{ProjectsColumns[10]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
 			{
 				Symbol:     "projects_users_updated_by",
-				Columns:    []*schema.Column{ProjectsColumns[6]},
+				Columns:    []*schema.Column{ProjectsColumns[11]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

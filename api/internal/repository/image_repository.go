@@ -50,7 +50,7 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 	}
 
 	items, err := databaseClient.Image.Query().
-		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithUser().WithCamera().WithCreatedBy().WithUpdatedBy().
+		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithUser().WithCamera().WithProject().WithCreatedBy().WithUpdatedBy().
 		Limit(paginationParameters.Limit).
 		Offset(paginationParameters.Offset).
 		Where(conditions).Order(order).
@@ -103,7 +103,7 @@ func GetPublicImages(ctx context.Context, paginationParameters *PaginationParame
 func GetImage(ctx context.Context, id uuid.UUID) (*ent.Image, error) {
 	item, err := databaseClient.Image.Query().
 		Where(image.ID(id)).
-		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithCamera().WithUser().WithCreatedBy().WithUpdatedBy().
+		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).WithCamera().WithUser().WithProject().WithCreatedBy().WithUpdatedBy().
 		Only(ctx)
 	if err != nil {
 		log.Info().Err(err).Msg("Error getting image")

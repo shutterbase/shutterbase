@@ -66,6 +66,76 @@ func (pc *ProjectCreate) SetDescription(s string) *ProjectCreate {
 	return pc
 }
 
+// SetCopyright sets the "copyright" field.
+func (pc *ProjectCreate) SetCopyright(s string) *ProjectCreate {
+	pc.mutation.SetCopyright(s)
+	return pc
+}
+
+// SetNillableCopyright sets the "copyright" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableCopyright(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetCopyright(*s)
+	}
+	return pc
+}
+
+// SetCopyrightReference sets the "copyright_reference" field.
+func (pc *ProjectCreate) SetCopyrightReference(s string) *ProjectCreate {
+	pc.mutation.SetCopyrightReference(s)
+	return pc
+}
+
+// SetNillableCopyrightReference sets the "copyright_reference" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableCopyrightReference(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetCopyrightReference(*s)
+	}
+	return pc
+}
+
+// SetLocationName sets the "location_name" field.
+func (pc *ProjectCreate) SetLocationName(s string) *ProjectCreate {
+	pc.mutation.SetLocationName(s)
+	return pc
+}
+
+// SetNillableLocationName sets the "location_name" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableLocationName(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetLocationName(*s)
+	}
+	return pc
+}
+
+// SetLocationCode sets the "location_code" field.
+func (pc *ProjectCreate) SetLocationCode(s string) *ProjectCreate {
+	pc.mutation.SetLocationCode(s)
+	return pc
+}
+
+// SetNillableLocationCode sets the "location_code" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableLocationCode(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetLocationCode(*s)
+	}
+	return pc
+}
+
+// SetLocationCity sets the "location_city" field.
+func (pc *ProjectCreate) SetLocationCity(s string) *ProjectCreate {
+	pc.mutation.SetLocationCity(s)
+	return pc
+}
+
+// SetNillableLocationCity sets the "location_city" field if the given value is not nil.
+func (pc *ProjectCreate) SetNillableLocationCity(s *string) *ProjectCreate {
+	if s != nil {
+		pc.SetLocationCity(*s)
+	}
+	return pc
+}
+
 // SetID sets the "id" field.
 func (pc *ProjectCreate) SetID(u uuid.UUID) *ProjectCreate {
 	pc.mutation.SetID(u)
@@ -221,6 +291,26 @@ func (pc *ProjectCreate) defaults() {
 		v := project.DefaultUpdatedAt()
 		pc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := pc.mutation.Copyright(); !ok {
+		v := project.DefaultCopyright
+		pc.mutation.SetCopyright(v)
+	}
+	if _, ok := pc.mutation.CopyrightReference(); !ok {
+		v := project.DefaultCopyrightReference
+		pc.mutation.SetCopyrightReference(v)
+	}
+	if _, ok := pc.mutation.LocationName(); !ok {
+		v := project.DefaultLocationName
+		pc.mutation.SetLocationName(v)
+	}
+	if _, ok := pc.mutation.LocationCode(); !ok {
+		v := project.DefaultLocationCode
+		pc.mutation.SetLocationCode(v)
+	}
+	if _, ok := pc.mutation.LocationCity(); !ok {
+		v := project.DefaultLocationCity
+		pc.mutation.SetLocationCity(v)
+	}
 	if _, ok := pc.mutation.ID(); !ok {
 		v := project.DefaultID()
 		pc.mutation.SetID(v)
@@ -250,6 +340,21 @@ func (pc *ProjectCreate) check() error {
 		if err := project.DescriptionValidator(v); err != nil {
 			return &ValidationError{Name: "description", err: fmt.Errorf(`ent: validator failed for field "Project.description": %w`, err)}
 		}
+	}
+	if _, ok := pc.mutation.Copyright(); !ok {
+		return &ValidationError{Name: "copyright", err: errors.New(`ent: missing required field "Project.copyright"`)}
+	}
+	if _, ok := pc.mutation.CopyrightReference(); !ok {
+		return &ValidationError{Name: "copyright_reference", err: errors.New(`ent: missing required field "Project.copyright_reference"`)}
+	}
+	if _, ok := pc.mutation.LocationName(); !ok {
+		return &ValidationError{Name: "location_name", err: errors.New(`ent: missing required field "Project.location_name"`)}
+	}
+	if _, ok := pc.mutation.LocationCode(); !ok {
+		return &ValidationError{Name: "location_code", err: errors.New(`ent: missing required field "Project.location_code"`)}
+	}
+	if _, ok := pc.mutation.LocationCity(); !ok {
+		return &ValidationError{Name: "location_city", err: errors.New(`ent: missing required field "Project.location_city"`)}
 	}
 	return nil
 }
@@ -301,6 +406,26 @@ func (pc *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := pc.mutation.Description(); ok {
 		_spec.SetField(project.FieldDescription, field.TypeString, value)
 		_node.Description = value
+	}
+	if value, ok := pc.mutation.Copyright(); ok {
+		_spec.SetField(project.FieldCopyright, field.TypeString, value)
+		_node.Copyright = value
+	}
+	if value, ok := pc.mutation.CopyrightReference(); ok {
+		_spec.SetField(project.FieldCopyrightReference, field.TypeString, value)
+		_node.CopyrightReference = value
+	}
+	if value, ok := pc.mutation.LocationName(); ok {
+		_spec.SetField(project.FieldLocationName, field.TypeString, value)
+		_node.LocationName = value
+	}
+	if value, ok := pc.mutation.LocationCode(); ok {
+		_spec.SetField(project.FieldLocationCode, field.TypeString, value)
+		_node.LocationCode = value
+	}
+	if value, ok := pc.mutation.LocationCity(); ok {
+		_spec.SetField(project.FieldLocationCity, field.TypeString, value)
+		_node.LocationCity = value
 	}
 	if nodes := pc.mutation.AssignmentsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

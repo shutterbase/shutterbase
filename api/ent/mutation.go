@@ -5015,33 +5015,38 @@ func (m *ImageTagAssignmentMutation) ResetEdge(name string) error {
 // ProjectMutation represents an operation that mutates the Project nodes in the graph.
 type ProjectMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *uuid.UUID
-	created_at         *time.Time
-	updated_at         *time.Time
-	name               *string
-	description        *string
-	clearedFields      map[string]struct{}
-	assignments        map[uuid.UUID]struct{}
-	removedassignments map[uuid.UUID]struct{}
-	clearedassignments bool
-	images             map[uuid.UUID]struct{}
-	removedimages      map[uuid.UUID]struct{}
-	clearedimages      bool
-	batches            map[uuid.UUID]struct{}
-	removedbatches     map[uuid.UUID]struct{}
-	clearedbatches     bool
-	tags               map[uuid.UUID]struct{}
-	removedtags        map[uuid.UUID]struct{}
-	clearedtags        bool
-	created_by         *uuid.UUID
-	clearedcreated_by  bool
-	updated_by         *uuid.UUID
-	clearedupdated_by  bool
-	done               bool
-	oldValue           func(context.Context) (*Project, error)
-	predicates         []predicate.Project
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	created_at          *time.Time
+	updated_at          *time.Time
+	name                *string
+	description         *string
+	copyright           *string
+	copyright_reference *string
+	location_name       *string
+	location_code       *string
+	location_city       *string
+	clearedFields       map[string]struct{}
+	assignments         map[uuid.UUID]struct{}
+	removedassignments  map[uuid.UUID]struct{}
+	clearedassignments  bool
+	images              map[uuid.UUID]struct{}
+	removedimages       map[uuid.UUID]struct{}
+	clearedimages       bool
+	batches             map[uuid.UUID]struct{}
+	removedbatches      map[uuid.UUID]struct{}
+	clearedbatches      bool
+	tags                map[uuid.UUID]struct{}
+	removedtags         map[uuid.UUID]struct{}
+	clearedtags         bool
+	created_by          *uuid.UUID
+	clearedcreated_by   bool
+	updated_by          *uuid.UUID
+	clearedupdated_by   bool
+	done                bool
+	oldValue            func(context.Context) (*Project, error)
+	predicates          []predicate.Project
 }
 
 var _ ent.Mutation = (*ProjectMutation)(nil)
@@ -5290,6 +5295,186 @@ func (m *ProjectMutation) OldDescription(ctx context.Context) (v string, err err
 // ResetDescription resets all changes to the "description" field.
 func (m *ProjectMutation) ResetDescription() {
 	m.description = nil
+}
+
+// SetCopyright sets the "copyright" field.
+func (m *ProjectMutation) SetCopyright(s string) {
+	m.copyright = &s
+}
+
+// Copyright returns the value of the "copyright" field in the mutation.
+func (m *ProjectMutation) Copyright() (r string, exists bool) {
+	v := m.copyright
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCopyright returns the old "copyright" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldCopyright(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCopyright is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCopyright requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCopyright: %w", err)
+	}
+	return oldValue.Copyright, nil
+}
+
+// ResetCopyright resets all changes to the "copyright" field.
+func (m *ProjectMutation) ResetCopyright() {
+	m.copyright = nil
+}
+
+// SetCopyrightReference sets the "copyright_reference" field.
+func (m *ProjectMutation) SetCopyrightReference(s string) {
+	m.copyright_reference = &s
+}
+
+// CopyrightReference returns the value of the "copyright_reference" field in the mutation.
+func (m *ProjectMutation) CopyrightReference() (r string, exists bool) {
+	v := m.copyright_reference
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCopyrightReference returns the old "copyright_reference" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldCopyrightReference(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCopyrightReference is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCopyrightReference requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCopyrightReference: %w", err)
+	}
+	return oldValue.CopyrightReference, nil
+}
+
+// ResetCopyrightReference resets all changes to the "copyright_reference" field.
+func (m *ProjectMutation) ResetCopyrightReference() {
+	m.copyright_reference = nil
+}
+
+// SetLocationName sets the "location_name" field.
+func (m *ProjectMutation) SetLocationName(s string) {
+	m.location_name = &s
+}
+
+// LocationName returns the value of the "location_name" field in the mutation.
+func (m *ProjectMutation) LocationName() (r string, exists bool) {
+	v := m.location_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocationName returns the old "location_name" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldLocationName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocationName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocationName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocationName: %w", err)
+	}
+	return oldValue.LocationName, nil
+}
+
+// ResetLocationName resets all changes to the "location_name" field.
+func (m *ProjectMutation) ResetLocationName() {
+	m.location_name = nil
+}
+
+// SetLocationCode sets the "location_code" field.
+func (m *ProjectMutation) SetLocationCode(s string) {
+	m.location_code = &s
+}
+
+// LocationCode returns the value of the "location_code" field in the mutation.
+func (m *ProjectMutation) LocationCode() (r string, exists bool) {
+	v := m.location_code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocationCode returns the old "location_code" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldLocationCode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocationCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocationCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocationCode: %w", err)
+	}
+	return oldValue.LocationCode, nil
+}
+
+// ResetLocationCode resets all changes to the "location_code" field.
+func (m *ProjectMutation) ResetLocationCode() {
+	m.location_code = nil
+}
+
+// SetLocationCity sets the "location_city" field.
+func (m *ProjectMutation) SetLocationCity(s string) {
+	m.location_city = &s
+}
+
+// LocationCity returns the value of the "location_city" field in the mutation.
+func (m *ProjectMutation) LocationCity() (r string, exists bool) {
+	v := m.location_city
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocationCity returns the old "location_city" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldLocationCity(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocationCity is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocationCity requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocationCity: %w", err)
+	}
+	return oldValue.LocationCity, nil
+}
+
+// ResetLocationCity resets all changes to the "location_city" field.
+func (m *ProjectMutation) ResetLocationCity() {
+	m.location_city = nil
 }
 
 // AddAssignmentIDs adds the "assignments" edge to the ProjectAssignment entity by ids.
@@ -5620,7 +5805,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 9)
 	if m.created_at != nil {
 		fields = append(fields, project.FieldCreatedAt)
 	}
@@ -5632,6 +5817,21 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.description != nil {
 		fields = append(fields, project.FieldDescription)
+	}
+	if m.copyright != nil {
+		fields = append(fields, project.FieldCopyright)
+	}
+	if m.copyright_reference != nil {
+		fields = append(fields, project.FieldCopyrightReference)
+	}
+	if m.location_name != nil {
+		fields = append(fields, project.FieldLocationName)
+	}
+	if m.location_code != nil {
+		fields = append(fields, project.FieldLocationCode)
+	}
+	if m.location_city != nil {
+		fields = append(fields, project.FieldLocationCity)
 	}
 	return fields
 }
@@ -5649,6 +5849,16 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case project.FieldDescription:
 		return m.Description()
+	case project.FieldCopyright:
+		return m.Copyright()
+	case project.FieldCopyrightReference:
+		return m.CopyrightReference()
+	case project.FieldLocationName:
+		return m.LocationName()
+	case project.FieldLocationCode:
+		return m.LocationCode()
+	case project.FieldLocationCity:
+		return m.LocationCity()
 	}
 	return nil, false
 }
@@ -5666,6 +5876,16 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldName(ctx)
 	case project.FieldDescription:
 		return m.OldDescription(ctx)
+	case project.FieldCopyright:
+		return m.OldCopyright(ctx)
+	case project.FieldCopyrightReference:
+		return m.OldCopyrightReference(ctx)
+	case project.FieldLocationName:
+		return m.OldLocationName(ctx)
+	case project.FieldLocationCode:
+		return m.OldLocationCode(ctx)
+	case project.FieldLocationCity:
+		return m.OldLocationCity(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -5702,6 +5922,41 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDescription(v)
+		return nil
+	case project.FieldCopyright:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCopyright(v)
+		return nil
+	case project.FieldCopyrightReference:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCopyrightReference(v)
+		return nil
+	case project.FieldLocationName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocationName(v)
+		return nil
+	case project.FieldLocationCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocationCode(v)
+		return nil
+	case project.FieldLocationCity:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocationCity(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
@@ -5763,6 +6018,21 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldDescription:
 		m.ResetDescription()
+		return nil
+	case project.FieldCopyright:
+		m.ResetCopyright()
+		return nil
+	case project.FieldCopyrightReference:
+		m.ResetCopyrightReference()
+		return nil
+	case project.FieldLocationName:
+		m.ResetLocationName()
+		return nil
+	case project.FieldLocationCode:
+		m.ResetLocationCode()
+		return nil
+	case project.FieldLocationCity:
+		m.ResetLocationCity()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)

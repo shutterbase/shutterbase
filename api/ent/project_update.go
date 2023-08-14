@@ -52,6 +52,76 @@ func (pu *ProjectUpdate) SetDescription(s string) *ProjectUpdate {
 	return pu
 }
 
+// SetCopyright sets the "copyright" field.
+func (pu *ProjectUpdate) SetCopyright(s string) *ProjectUpdate {
+	pu.mutation.SetCopyright(s)
+	return pu
+}
+
+// SetNillableCopyright sets the "copyright" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableCopyright(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetCopyright(*s)
+	}
+	return pu
+}
+
+// SetCopyrightReference sets the "copyright_reference" field.
+func (pu *ProjectUpdate) SetCopyrightReference(s string) *ProjectUpdate {
+	pu.mutation.SetCopyrightReference(s)
+	return pu
+}
+
+// SetNillableCopyrightReference sets the "copyright_reference" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableCopyrightReference(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetCopyrightReference(*s)
+	}
+	return pu
+}
+
+// SetLocationName sets the "location_name" field.
+func (pu *ProjectUpdate) SetLocationName(s string) *ProjectUpdate {
+	pu.mutation.SetLocationName(s)
+	return pu
+}
+
+// SetNillableLocationName sets the "location_name" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableLocationName(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetLocationName(*s)
+	}
+	return pu
+}
+
+// SetLocationCode sets the "location_code" field.
+func (pu *ProjectUpdate) SetLocationCode(s string) *ProjectUpdate {
+	pu.mutation.SetLocationCode(s)
+	return pu
+}
+
+// SetNillableLocationCode sets the "location_code" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableLocationCode(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetLocationCode(*s)
+	}
+	return pu
+}
+
+// SetLocationCity sets the "location_city" field.
+func (pu *ProjectUpdate) SetLocationCity(s string) *ProjectUpdate {
+	pu.mutation.SetLocationCity(s)
+	return pu
+}
+
+// SetNillableLocationCity sets the "location_city" field if the given value is not nil.
+func (pu *ProjectUpdate) SetNillableLocationCity(s *string) *ProjectUpdate {
+	if s != nil {
+		pu.SetLocationCity(*s)
+	}
+	return pu
+}
+
 // AddAssignmentIDs adds the "assignments" edge to the ProjectAssignment entity by IDs.
 func (pu *ProjectUpdate) AddAssignmentIDs(ids ...uuid.UUID) *ProjectUpdate {
 	pu.mutation.AddAssignmentIDs(ids...)
@@ -322,6 +392,21 @@ func (pu *ProjectUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := pu.mutation.Description(); ok {
 		_spec.SetField(project.FieldDescription, field.TypeString, value)
+	}
+	if value, ok := pu.mutation.Copyright(); ok {
+		_spec.SetField(project.FieldCopyright, field.TypeString, value)
+	}
+	if value, ok := pu.mutation.CopyrightReference(); ok {
+		_spec.SetField(project.FieldCopyrightReference, field.TypeString, value)
+	}
+	if value, ok := pu.mutation.LocationName(); ok {
+		_spec.SetField(project.FieldLocationName, field.TypeString, value)
+	}
+	if value, ok := pu.mutation.LocationCode(); ok {
+		_spec.SetField(project.FieldLocationCode, field.TypeString, value)
+	}
+	if value, ok := pu.mutation.LocationCity(); ok {
+		_spec.SetField(project.FieldLocationCity, field.TypeString, value)
 	}
 	if pu.mutation.AssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -596,6 +681,76 @@ func (puo *ProjectUpdateOne) SetName(s string) *ProjectUpdateOne {
 // SetDescription sets the "description" field.
 func (puo *ProjectUpdateOne) SetDescription(s string) *ProjectUpdateOne {
 	puo.mutation.SetDescription(s)
+	return puo
+}
+
+// SetCopyright sets the "copyright" field.
+func (puo *ProjectUpdateOne) SetCopyright(s string) *ProjectUpdateOne {
+	puo.mutation.SetCopyright(s)
+	return puo
+}
+
+// SetNillableCopyright sets the "copyright" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableCopyright(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetCopyright(*s)
+	}
+	return puo
+}
+
+// SetCopyrightReference sets the "copyright_reference" field.
+func (puo *ProjectUpdateOne) SetCopyrightReference(s string) *ProjectUpdateOne {
+	puo.mutation.SetCopyrightReference(s)
+	return puo
+}
+
+// SetNillableCopyrightReference sets the "copyright_reference" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableCopyrightReference(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetCopyrightReference(*s)
+	}
+	return puo
+}
+
+// SetLocationName sets the "location_name" field.
+func (puo *ProjectUpdateOne) SetLocationName(s string) *ProjectUpdateOne {
+	puo.mutation.SetLocationName(s)
+	return puo
+}
+
+// SetNillableLocationName sets the "location_name" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableLocationName(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetLocationName(*s)
+	}
+	return puo
+}
+
+// SetLocationCode sets the "location_code" field.
+func (puo *ProjectUpdateOne) SetLocationCode(s string) *ProjectUpdateOne {
+	puo.mutation.SetLocationCode(s)
+	return puo
+}
+
+// SetNillableLocationCode sets the "location_code" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableLocationCode(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetLocationCode(*s)
+	}
+	return puo
+}
+
+// SetLocationCity sets the "location_city" field.
+func (puo *ProjectUpdateOne) SetLocationCity(s string) *ProjectUpdateOne {
+	puo.mutation.SetLocationCity(s)
+	return puo
+}
+
+// SetNillableLocationCity sets the "location_city" field if the given value is not nil.
+func (puo *ProjectUpdateOne) SetNillableLocationCity(s *string) *ProjectUpdateOne {
+	if s != nil {
+		puo.SetLocationCity(*s)
+	}
 	return puo
 }
 
@@ -899,6 +1054,21 @@ func (puo *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err e
 	}
 	if value, ok := puo.mutation.Description(); ok {
 		_spec.SetField(project.FieldDescription, field.TypeString, value)
+	}
+	if value, ok := puo.mutation.Copyright(); ok {
+		_spec.SetField(project.FieldCopyright, field.TypeString, value)
+	}
+	if value, ok := puo.mutation.CopyrightReference(); ok {
+		_spec.SetField(project.FieldCopyrightReference, field.TypeString, value)
+	}
+	if value, ok := puo.mutation.LocationName(); ok {
+		_spec.SetField(project.FieldLocationName, field.TypeString, value)
+	}
+	if value, ok := puo.mutation.LocationCode(); ok {
+		_spec.SetField(project.FieldLocationCode, field.TypeString, value)
+	}
+	if value, ok := puo.mutation.LocationCity(); ok {
+		_spec.SetField(project.FieldLocationCity, field.TypeString, value)
 	}
 	if puo.mutation.AssignmentsCleared() {
 		edge := &sqlgraph.EdgeSpec{
