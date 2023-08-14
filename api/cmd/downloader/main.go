@@ -137,7 +137,7 @@ func fetchImageList(c *cli.Context, tag string) (*[]ent.Image, error) {
 
 	url := fmt.Sprintf("%s/projects/%s/images", c.String("url"), c.String("project"))
 	currentPage := 0
-	pageSize := 500
+	pageSize := 250
 
 	results := &Images{}
 

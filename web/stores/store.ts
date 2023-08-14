@@ -172,5 +172,9 @@ export const useStore = defineStore(
       setActiveProjectName,
     };
   },
-  { persist: true }
+  {
+    persist: {
+      storage: persistedState.localStorage,
+    },
+  }
 );
