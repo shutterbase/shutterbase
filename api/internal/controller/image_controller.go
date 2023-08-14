@@ -132,6 +132,7 @@ func createImageController(c *gin.Context) {
 	}
 
 	for _, value := range c.Request.MultipartForm.File {
+		log.Trace().Msgf("Processing file %s", value[0].Filename)
 		itemId := uuid.New()
 		itemCreate := repository.GetDatabaseClient().Image.Create().
 			SetID(itemId).

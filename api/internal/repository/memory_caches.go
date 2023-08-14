@@ -127,7 +127,7 @@ func GetCacheItem[T any](ctx context.Context, name string, key string, value *T)
 		rawItem, ok = memoryCache.Cache.Get(key)
 	}
 
-	if ok {
+	if ok && rawItem != nil {
 		var item *T = rawItem.(*T)
 		if item == nil {
 			return false
