@@ -1,20 +1,17 @@
 package util
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
+	"os"
 	"strings"
 	"time"
 
-	"golang.org/x/text/encoding/unicode"
-
+	"github.com/barasher/go-exiftool"
 	"github.com/dsoprea/go-exif/v3"
 	jpegstructure "github.com/dsoprea/go-jpeg-image-structure/v2"
 	"github.com/rs/zerolog/log"
 	"github.com/shutterbase/shutterbase/ent"
-	"github.com/shutterbase/shutterbase/internal/tracing"
 )
 
 func GetExifDataStrings(jpegData []byte) ([]string, error) {
@@ -143,7 +140,7 @@ func GetDateTimeDigitized(jpegData []byte) (time.Time, error) {
 	return dateTime, nil
 }
 
-func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]byte, error) {
+/* func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]byte, error) {
 	_, tracer := tracing.GetTracer().Start(ctx, "apply_exif")
 	defer tracer.End()
 
@@ -227,4 +224,77 @@ func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]by
 	}
 
 	return buffer.Bytes(), nil
+}
+*/
+
+func ApplyExifData(ctx context.Context, jpegData []byte, image *ent.Image) ([]byte, error) {
+	tempFile, err := writeTempFile(jpegData)
+	if err != nil {
+		return nil, err
+	}
+	defer removeTempFile(tempFile)
+
+	tempFileName := tempFile.Name()
+
+	et, err := exiftool.NewExiftool()
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating exiftool")
+		return nil, err
+	}
+	defer et.Close()
+	exifOriginals := et.ExtractMetadata(tempFileName)
+
+	dateTimeOriginal, err := exifOriginals[0].GetString("DateTimeOriginal")
+	if err != nil {
+		log.Error().Err(err).Fields({"image": image.FileName}).Msg("Error getting DateTimeOriginal")
+		return nil, err
+	}
+	log.Trace().Msgf("EXIF:DateTimeOriginals: %s", dateTimeOriginal)
+
+	exifOriginals[0].SetString("Title", "newTitle")
+
+	et.WriteMetadata(exifOriginals)
+
+	data, err := readTempFile(tempFile)
+	if err != nil {
+		log.Error().Err(err).Msg("Error reading temp file")
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func writeTempFile(data []byte) (*os.File, error) {
+	tempFile, err := os.CreateTemp("temp", "*.jpg")
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating temp file")
+		return nil, err
+	}
+	defer tempFile.Close()
+
+	_, err = tempFile.Write(data)
+	if err != nil {
+		log.Error().Err(err).Msg("Error writing temp file")
+		return nil, err
+	}
+
+	return tempFile, nil
+}
+
+func readTempFile(tempFile *os.File) ([]byte, error) {
+	data, err := os.ReadFile(tempFile.Name())
+	if err != nil {
+		log.Error().Err(err).Msg("Error reading temp file")
+		return nil, err
+	}
+	return data, nil
+}
+
+func removeTempFile(tempFile *os.File) error {
+	err := os.Remove(tempFile.Name())
+	if err != nil {
+		log.Error().Err(err).Msg("Error removing temp file")
+		return err
+	}
+	return nil
 }
