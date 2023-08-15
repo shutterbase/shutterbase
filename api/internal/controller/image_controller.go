@@ -300,14 +300,12 @@ func getImagesController(c *gin.Context) {
 
 	// Fallback pfusch for generating computed file name after upload
 	for _, item := range items {
-		if item.ComputedFileName == "" {
-			computedFileName, err := computeFileName(item.FileName, item.Edges.User.CopyrightTag, item.CapturedAtCorrected)
-			if err != nil {
-				item.ComputedFileName = item.FileName
-				log.Warn().Err(err).Msgf("failed to compute file name for image '%s' | '%s'", item.ID.String(), item.FileName)
-			}
-			item.ComputedFileName = computedFileName
+		computedFileName, err := computeFileName(item.FileName, item.Edges.User.CopyrightTag, item.CapturedAtCorrected)
+		if err != nil {
+			item.ComputedFileName = item.FileName
+			log.Warn().Err(err).Msgf("failed to compute file name for image '%s' | '%s'", item.ID.String(), item.FileName)
 		}
+		item.ComputedFileName = computedFileName
 	}
 
 	c.JSON(200, gin.H{"items": items, "total": total})
@@ -341,14 +339,12 @@ func getImageController(c *gin.Context) {
 	}
 
 	// Fallback pfusch for generating computed file name after upload
-	if item.ComputedFileName == "" {
-		computedFileName, err := computeFileName(item.FileName, item.Edges.User.CopyrightTag, item.CapturedAtCorrected)
-		if err != nil {
-			item.ComputedFileName = item.FileName
-			log.Warn().Err(err).Msgf("failed to compute file name for image '%s' | '%s'", item.ID.String(), item.FileName)
-		}
-		item.ComputedFileName = computedFileName
+	computedFileName, err := computeFileName(item.FileName, item.Edges.User.CopyrightTag, item.CapturedAtCorrected)
+	if err != nil {
+		item.ComputedFileName = item.FileName
+		log.Warn().Err(err).Msgf("failed to compute file name for image '%s' | '%s'", item.ID.String(), item.FileName)
 	}
+	item.ComputedFileName = computedFileName
 
 	c.JSON(200, item)
 }
