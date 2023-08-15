@@ -10,6 +10,13 @@ export interface Tag {
     // images: Image[];
     createdBy: User;
     updatedBy: User;
+    tagAssignments: [
+      {
+        id: string;
+        imageId: string;
+        tagId: string;
+      }
+    ];
   };
   createdAt: string;
   updatedAt: string;
@@ -31,4 +38,9 @@ export interface CreateTagInput {
 
 export interface CreateTagsInput {
   tags: CreateTagInput[];
+}
+
+export interface TagOverviewResult {
+  items: Tag[];
+  totalImages: number;
 }

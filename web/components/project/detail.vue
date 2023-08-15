@@ -22,6 +22,7 @@
     <div class="flex flex-row">
       <div class="mr-8"><button class="btn btn-primary" :disabled="!modified" @click="update">Update</button></div>
       <div class="mr-8"><button class="btn btn-primary" @click="toTagsPage">Manage Tags</button></div>
+      <div class="mr-8"><button class="btn btn-primary" @click="toTagOverviewPage">Tag Overview</button></div>
       <div class="mr-8"><button class="btn btn-primary" @click="toUsersPage">Manage Users</button></div>
     </div>
   </div>
@@ -79,6 +80,10 @@ async function update() {
 
 function toTagsPage() {
   navigateTo(`/dashboard/projects/${props.id}/tags`);
+}
+
+function toTagOverviewPage() {
+  navigateTo(`/dashboard/projects/${props.id}/tag-overview`);
 }
 
 function toUsersPage() {

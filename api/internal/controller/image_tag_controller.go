@@ -3,12 +3,15 @@ package controller
 import (
 	"fmt"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/internal/api_error"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
@@ -22,6 +25,7 @@ func registerImageTagsController(router *gin.Engine) {
 	router.POST(fmt.Sprintf("%s%s", CONTEXT_PATH, TAGS_RESOURCE), createImageTagController)
 	router.POST(fmt.Sprintf("%s%s/bulk", CONTEXT_PATH, TAGS_RESOURCE), createImageTagsController)
 	router.GET(fmt.Sprintf("%s%s", CONTEXT_PATH, TAGS_RESOURCE), getImageTagsController)
+	router.GET(fmt.Sprintf("%s%s/overview", CONTEXT_PATH, TAGS_RESOURCE), getImageTagOverviewController)
 	router.GET(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TAGS_RESOURCE), getImageTagController)
 	router.PUT(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TAGS_RESOURCE), updateImageTagController)
 	router.DELETE(fmt.Sprintf("%s%s/:id", CONTEXT_PATH, TAGS_RESOURCE), deleteImageTagController)
@@ -42,6 +46,11 @@ type CreateImageTagBody struct {
 
 type CreateImageTagsBody struct {
 	Tags []CreateImageTagBody `json:"tags"`
+}
+
+type TagOverviewResponse struct {
+	TotalImages int             `json:"totalImages"`
+	Items       []*ent.ImageTag `json:"items"`
 }
 
 func createImageTagController(c *gin.Context) {
@@ -199,6 +208,42 @@ func getImageTagsController(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"items": items, "total": total})
+}
+
+func getImageTagOverviewController(c *gin.Context) {
+	ctx := c.Request.Context()
+	allowed, err := authorization.IsAllowed(c, authorization.AuthCheckOption().Resource(c.Request.URL.Path).Action(authorization.READ))
+	if err != nil || !allowed {
+		log.Warn().Err(err).Msg("unauthorized access to image tag denied")
+		api_error.FORBIDDEN.Send(c)
+		return
+	}
+
+	projectId, err := uuid.Parse(c.Param("pid"))
+	if err != nil {
+		api_error.BAD_REQUEST.Send(c)
+		return
+	}
+
+	items, err := repository.GetDatabaseClient().ImageTag.Query().
+		WithImageTagAssignments().
+		Where(imagetag.HasProjectWith(project.ID(projectId))).
+		Order(imagetag.ByImageTagAssignmentsCount(sql.OrderDesc())).
+		All(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image tags for tag overview list")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	count, err := repository.GetDatabaseClient().Image.Query().Where(image.HasProjectWith(project.ID(projectId))).Count(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get image count for tag overview list")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	c.JSON(200, TagOverviewResponse{TotalImages: count, Items: items})
 }
 
 func getImageTagController(c *gin.Context) {
