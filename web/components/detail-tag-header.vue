@@ -15,7 +15,7 @@
       <form method="dialog" class="modal-box w-11/12 max-w-5xl">
         <h3 class="font-bold text-lg">Pick a tag to add</h3>
         <label class="btn btn-xs" @click="closeTagPicker">Close</label>
-        <TagPicker :projectId="props.projectId" :active="showTagPicker" @selected="tagSelected" />
+        <TagPicker :projectId="props.projectId" :active="tagPickerActive" @selected="tagSelected" />
       </form>
     </div>
     <input type="checkbox" id="removeTagDialog" :checked="showRemoveTagDialog" class="modal-toggle" />
@@ -98,9 +98,16 @@ watchEffect(() => {
 
 const showTagPicker = ref(false);
 const showRemoveTagDialog = ref(false);
+const tagPickerActive = ref(false);
+
+const lastAppliedTag = ref<Tag | null>(null);
 
 emitter.on("key-t", (event: any) => {
   openTagPickerWithHotkey(event);
+});
+
+emitter.on("key-r", (event: any) => {
+  tryTagRepeat();
 });
 
 emitter.on("key-Escape", closeTagPicker);
@@ -115,6 +122,7 @@ function openTagPickerWithHotkey(event: any) {
   event.preventDefault();
   emitter.emit("display-tag-picker", event);
   showTagPicker.value = true;
+  tagPickerActive.value = true;
   emit("tag-picker-state", true);
 }
 
@@ -123,17 +131,24 @@ function openTagPicker() {
   if (showTagPicker.value) return;
   emitter.emit("display-tag-picker");
   showTagPicker.value = true;
+  tagPickerActive.value = true;
   emit("tag-picker-state", true);
 }
 
 async function tagSelected(tag: Tag) {
-  showTagPicker.value = false;
-  emit("tag-picker-state", false);
+  tagPickerActive.value = false;
+  emitter.emit("block-hotkeys");
   if (props.image) {
     let currentTagAssignments: Array<TagAssignment> = [];
     if (props.image.edges && props.image.edges.tagAssignments) {
       currentTagAssignments = props.image.edges.tagAssignments;
     }
+    if (currentTagAssignments.some((t: TagAssignment) => t.edges.tag.id === tag.id)) {
+      console.log(`Tag ${tag.name} already applied on image ${props.image.fileName}`);
+      emitter.emit("unblock-hotkeys");
+      return;
+    }
+    lastAppliedTag.value = tag;
     const url = `/projects/${props.projectId}/images/${props.image.id}`;
     const response = await useFetch(
       url,
@@ -176,6 +191,21 @@ async function tagSelected(tag: Tag) {
       emit("image-update", updatedImage);
     }
   }
+  showTagPicker.value = false;
+  emit("tag-picker-state", false);
+  emitter.emit("unblock-hotkeys");
+}
+
+function tryTagRepeat() {
+  if (!editAllowed.value) {
+    console.log("Not allowed to edit tags");
+    return;
+  }
+  if (lastAppliedTag.value) {
+    tagSelected(lastAppliedTag.value);
+  } else {
+    console.log("No tag to repeat");
+  }
 }
 
 const removeTagCandidate = ref<Tag | null>(null);
@@ -186,7 +216,6 @@ function requestRemoveTag(tag: Tag) {
   showRemoveTagDialog.value = true;
 }
 async function removeTag() {
-  showRemoveTagDialog.value = false;
   if (props.image) {
     let currentTagAssignments: Array<TagAssignment> = [];
     if (props.image.edges && props.image.edges.tagAssignments) {
@@ -223,6 +252,7 @@ async function removeTag() {
       emit("image-update", updatedImage);
     }
   }
+  showRemoveTagDialog.value = false;
 }
 
 function getTagTypeClasses(tag: Tag): string {

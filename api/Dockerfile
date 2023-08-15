@@ -16,6 +16,7 @@ WORKDIR /usr/src/cmd/shutterbase
 RUN go build -o /usr/src/application
 
 FROM alpine:3.16 as application
+RUN apk add --no-cache exiftool
 USER 1000
 WORKDIR /usr/app
 COPY --from=golang-build --chown=1000:1000 /usr/src/application /usr/app/application
