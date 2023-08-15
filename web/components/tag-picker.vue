@@ -49,22 +49,36 @@ const props = defineProps({
 
 const tagSearchTerm = ref("");
 const tagSearchInput = ref<HTMLInputElement | null>(null);
-const tags = ref<Array<Tag>>([]);
-const total = ref(0);
+const loadedTags = ref<Array<Tag>>([]);
+const lastAppliedTags = ref<Array<Tag>>([]);
 
 const selectedIndex = ref(-1);
 
 async function loadTags() {
   const result = await requestList<Tag>(`/projects/${props.projectId}/tags`, { limit: 1000, search: tagSearchTerm.value });
   if (result.items && result.total !== undefined) {
-    if (!props.showDefaultTags) {
-      tags.value = result.items.filter((t) => t.type !== "default");
-    } else {
-      tags.value = result.items;
-    }
-    total.value = result.total;
+    loadedTags.value = result.items;
   }
 }
+
+const tags = computed(() => {
+  let result = loadedTags.value;
+  if (!props.showDefaultTags) {
+    result = result.filter((t) => t.type !== "default");
+  }
+  if (tagSearchTerm.value !== "") {
+    result = result.filter((t) => {
+      return t.name.toLowerCase().includes(tagSearchTerm.value.toLowerCase()) || t.description.toLowerCase().includes(tagSearchTerm.value.toLowerCase());
+    });
+  } else if (lastAppliedTags.value.length > 0) {
+    result = lastAppliedTags.value;
+  }
+  return result;
+});
+
+const total = computed(() => {
+  return tags.value.length;
+});
 
 let debounceTimeout: any = null;
 watch(tagSearchTerm, async () => {
@@ -74,7 +88,7 @@ watch(tagSearchTerm, async () => {
   }
   debounceTimeout = setTimeout(async () => {
     await loadTags();
-  }, 250);
+  }, 100);
 });
 
 await loadTags();
@@ -109,8 +123,15 @@ function getIndexOfTag(tag: Tag): number {
 
 function tagSelected(tag: Tag) {
   selectedIndex.value = getIndexOfTag(tag);
+  if (!lastAppliedTags.value.some((t) => t.id === tag.id)) {
+    lastAppliedTags.value = [tag, ...lastAppliedTags.value];
+    if (lastAppliedTags.value.length > 9) {
+      lastAppliedTags.value = lastAppliedTags.value.slice(0, 9);
+    }
+  }
+
   setTimeout(() => {
     emit("selected", tag);
-  }, 200);
+  }, 50);
 }
 </script>
