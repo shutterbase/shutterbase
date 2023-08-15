@@ -42,9 +42,9 @@ import { ProjectAssignment } from "~/api/projectAssignment";
 import ImageDetail from "components/project/image-detail.vue";
 
 const store = useStore();
-const emit = defineEmits(["tag-picker-state", "image-update"]);
-
 const ownUser = store.getOwnUser();
+
+const emit = defineEmits(["tag-picker-state", "image-update"]);
 
 const props = defineProps({
   image: {
@@ -55,14 +55,10 @@ const props = defineProps({
     type: String,
     required: true,
   },
-});
-
-const editAllowed = computed(() => {
-  return (
-    store.isAdmin() ||
-    ownUser?.edges.projectAssignments.some((pa: ProjectAssignment) => pa.edges.project.id === props.projectId && pa.edges.role.key === "project_admin") ||
-    props.image.edges.createdBy.id === ownUser?.id
-  );
+  editAllowed: {
+    type: Boolean,
+    required: true,
+  },
 });
 
 const tags = ref<Array<TagAssignment>>([]);
@@ -128,7 +124,7 @@ function openTagPickerWithHotkey(event: any) {
 }
 
 function openTagPicker() {
-  if (!editAllowed.value) return;
+  if (!props.editAllowed) return;
   if (showTagPicker.value) return;
   emitter.emit("display-tag-picker");
   showTagPicker.value = true;
@@ -198,7 +194,7 @@ async function tagSelected(tag: Tag) {
 }
 
 function tryTagRepeat() {
-  if (!editAllowed.value) {
+  if (!props.editAllowed) {
     console.log("Not allowed to edit tags");
     return;
   }
@@ -211,7 +207,7 @@ function tryTagRepeat() {
 
 const removeTagCandidate = ref<Tag | null>(null);
 function requestRemoveTag(tag: Tag) {
-  if (!editAllowed.value) return;
+  if (!props.editAllowed) return;
   if (tag.type === "default") return;
   removeTagCandidate.value = tag;
   showRemoveTagDialog.value = true;
@@ -261,10 +257,10 @@ function getTagTypeClasses(tag: Tag): string {
     case "default":
       return "badge-ghost hover:cursor-not-allowed";
     case "manual":
-      if (editAllowed.value) return "badge-primary hover click hover:cursor-pointer";
+      if (props.editAllowed) return "badge-primary hover click hover:cursor-pointer";
       else return "badge-primary badge-outline hover:cursor-not-allowed";
     case "suggested":
-      if (editAllowed.value) return "badge-success badge-outline hover click hover:cursor-copy";
+      if (props.editAllowed) return "badge-success badge-outline hover click hover:cursor-copy";
       else return "badge-success badge-outline hover:cursor-not-allowed";
     default:
       return "badge-ghost";
@@ -272,7 +268,7 @@ function getTagTypeClasses(tag: Tag): string {
 }
 
 function getAddTagsBtnClasses(): string {
-  if (editAllowed.value) {
+  if (props.editAllowed) {
     return "btn-primary hover click hover:cursor-pointer";
   } else {
     return "btn-ghost hover:cursor-not-allowed";

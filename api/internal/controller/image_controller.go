@@ -497,9 +497,26 @@ func deleteImageController(c *gin.Context) {
 		return
 	}
 
+	imageId := item.ID
+	thumbnailId := item.ThumbnailID
+
 	err = repository.DeleteImage(ctx, id)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to delete image")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	err = storage.DeleteFile(ctx, imageId)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to delete image file")
+		api_error.INTERNAL.Send(c)
+		return
+	}
+
+	err = storage.DeleteFile(ctx, thumbnailId)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to delete thumbnail file")
 		api_error.INTERNAL.Send(c)
 		return
 	}
@@ -747,6 +764,12 @@ func applyDefaultTags(imageId uuid.UUID) error {
 		return err
 	}
 
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		log.Error().Err(err).Msg("failed to load location for image file name computation")
+		return err
+	}
+
 	project, err := image.QueryProject().Only(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get project for default tag application")
@@ -778,14 +801,14 @@ func applyDefaultTags(imageId uuid.UUID) error {
 			}
 			tags = append(tags, photographerTag)
 		case "date":
-			dateTag, err := repository.GetDateTag(ctx, project.ID, image.CapturedAtCorrected)
+			dateTag, err := repository.GetDateTag(ctx, project.ID, image.CapturedAtCorrected.In(loc))
 			if err != nil {
 				log.Error().Err(err).Msg("failed to get date tag for default tag application")
 				return err
 			}
 			tags = append(tags, dateTag)
 		case "weekday":
-			weekdayTag, err := repository.GetWeekdayTag(ctx, project.ID, image.CapturedAtCorrected)
+			weekdayTag, err := repository.GetWeekdayTag(ctx, project.ID, image.CapturedAtCorrected.In(loc))
 			if err != nil {
 				log.Error().Err(err).Msg("failed to get date tag for default tag application")
 				return err
@@ -813,8 +836,14 @@ func computeFileName(fileName string, photographerCopyright string, correctedCap
 	// 20220815_22-55-28_5526_seizinger
 	// <date>_<time>_<last 4 digits of image file name>_<photographer copyright tag>
 
-	date := correctedCaptureTime.Format("20060102")
-	time := correctedCaptureTime.Format("15-04-05")
+	loc, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		log.Error().Err(err).Msg("failed to load location for image file name computation")
+		return "", err
+	}
+
+	date := correctedCaptureTime.In(loc).Format("20060102")
+	time := correctedCaptureTime.In(loc).Format("15-04-05")
 
 	fileNameWithoutExtension := stripFileNameExtension(fileName)
 	fileNameDigits := fileNameWithoutExtension[len(fileNameWithoutExtension)-4:]

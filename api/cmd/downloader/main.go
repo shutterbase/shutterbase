@@ -18,6 +18,17 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+type DownloadType string
+
+const (
+	DownloadTypeFull  DownloadType = "full"
+	DownloadTypeDelta DownloadType = "delta"
+)
+
+type DownloadProperties struct {
+	Type DownloadType
+}
+
 func main() {
 	app := &cli.App{
 		Name:  "shutterbase-downloader",
@@ -56,12 +67,25 @@ func main() {
 		},
 		Commands: []*cli.Command{
 			{
-				Name:    "download",
-				Aliases: []string{"d"},
-				Usage:   "Download images of a specific shutterbase tag",
-				Action: func(c *cli.Context) error {
-					initLogger(c)
-					return download(c)
+				Name:  "download",
+				Usage: "Download images of a specific shutterbase tag",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "full",
+						Usage: "Make a full sync of a specific shutterbase tag",
+						Action: func(c *cli.Context) error {
+							initLogger(c)
+							return download(c, DownloadProperties{Type: DownloadTypeFull})
+						},
+					},
+					{
+						Name:  "delta",
+						Usage: "Make a full sync of a specific shutterbase tag",
+						Action: func(c *cli.Context) error {
+							initLogger(c)
+							return download(c, DownloadProperties{Type: DownloadTypeDelta})
+						},
+					},
 				},
 			},
 		},
@@ -78,14 +102,41 @@ type Images struct {
 	Total int         `json:"total"`
 }
 
-func download(c *cli.Context) error {
+func download(c *cli.Context, properties DownloadProperties) error {
 	if c.Args().Len() != 1 {
 		log.Fatal().Msg("Please specify a single tag to download")
 	}
 	tagString := c.Args().First()
 	outputDir := filepath.Join("downloads", tagString)
 
+	syncWindowStartTime, _ := time.Parse(time.RFC3339, "2000-01-01T00:00:00Z")
+
+	if properties.Type == DownloadTypeDelta {
+		// check if output dir exists
+		if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+			log.Fatal().Msgf("Output directory '%s' does not exist. Please run a full sync first", outputDir)
+		}
+		// check if timestamp file exists
+		timestampFile := filepath.Join(outputDir, ".timestamp")
+		if _, err := os.Stat(timestampFile); os.IsNotExist(err) {
+			log.Fatal().Msgf("Timestamp file '%s' does not exist. Please run a full sync first", timestampFile)
+		}
+		// read timestamp file
+		timestampFileContent, err := os.ReadFile(timestampFile)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("Failed to read timestamp file '%s'", timestampFile)
+		}
+		syncWindowStartTime, err = time.Parse(time.RFC3339, string(timestampFileContent))
+		if err != nil {
+			log.Fatal().Err(err).Msgf("Failed to parse timestamp file '%s'", timestampFile)
+		}
+		syncWindowStartTime = syncWindowStartTime.Add(time.Minute * -5)
+	}
+
 	log.Info().Msgf("Downloading images with tag '%s' to '%s'", tagString, outputDir)
+	if properties.Type == DownloadTypeDelta {
+		log.Info().Msgf("Only downloading images newer than '%s'", syncWindowStartTime.Format(time.RFC3339))
+	}
 	// check if output dir exists
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		log.Info().Msgf("Creating output directory '%s'", outputDir)
@@ -95,23 +146,39 @@ func download(c *cli.Context) error {
 		}
 	}
 
+	runStartTime := time.Now()
+	// write timestamp file
+	timestampFile := filepath.Join(outputDir, ".timestamp")
+	err := os.WriteFile(timestampFile, []byte(runStartTime.Format(time.RFC3339)), 0644)
+	if err != nil {
+		log.Fatal().Err(err).Msgf("Failed to write timestamp file '%s'", timestampFile)
+	}
+
 	images, err := fetchImageList(c, tagString)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to fetch image list")
 	}
 
 	filteredImages := []ent.Image{}
-	for _, image := range *images {
-		if _, err := os.Stat(filepath.Join(outputDir, image.ComputedFileName)); errors.Is(err, os.ErrNotExist) {
-			filteredImages = append(filteredImages, image)
-		} else {
-			log.Info().Msgf("Skipping image '%s' as it already exists", image.ComputedFileName)
+	if properties.Type == DownloadTypeFull {
+		filteredImages = *images
+	} else {
+		for _, image := range *images {
+			if _, err := os.Stat(filepath.Join(outputDir, image.ComputedFileName)); errors.Is(err, os.ErrNotExist) {
+				filteredImages = append(filteredImages, image)
+			} else if properties.Type == DownloadTypeDelta && image.UpdatedAt.After(syncWindowStartTime) {
+				filteredImages = append(filteredImages, image)
+			} else {
+				log.Debug().Msgf("Skipping image '%s' as it already exists in its latest version", image.ComputedFileName)
+			}
 		}
 	}
 
+	log.Info().Msgf("Downloading %d images. Skipping %d images", len(filteredImages), len(*images)-len(filteredImages))
+
 	bar := progressbar.Default(int64(len(filteredImages)))
 	for _, image := range filteredImages {
-		log.Info().Msgf("Downloading image '%s'", image.ComputedFileName)
+		log.Debug().Msgf("Downloading image '%s'", image.ComputedFileName)
 		bar.Add(1)
 		err := downloadFile(c, &image, filepath.Join(outputDir, image.ComputedFileName))
 		if err != nil {
@@ -149,7 +216,7 @@ func fetchImageList(c *cli.Context, tag string) (*[]ent.Image, error) {
 		client := &http.Client{}
 		req, err := http.NewRequest("GET", pageUrl, buf)
 		if err != nil {
-			log.Err(err).Msg("Error creating request for fetching repository list")
+			log.Err(err).Msg("Error creating request for fetching images list")
 			return nil, 0, err
 		}
 		req.Header.Set("X-API-Key", c.String("key"))
@@ -187,7 +254,7 @@ func fetchImageList(c *cli.Context, tag string) (*[]ent.Image, error) {
 		}
 		currentPage++
 	}
-	log.Info().Msgf("Fetched %d repositories", len(results.Items))
+	log.Info().Msgf("Fetched %d images", len(results.Items))
 	return &results.Items, nil
 }
 
@@ -208,7 +275,7 @@ func downloadFile(c *cli.Context, image *ent.Image, outputFile string) error {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", downloadUrl, buf)
 	if err != nil {
-		log.Err(err).Msg("Error creating request for fetching repository list")
+		log.Err(err).Msg("Error creating request for fetching images list")
 		return err
 	}
 	req.Header.Set("X-API-Key", c.String("key"))

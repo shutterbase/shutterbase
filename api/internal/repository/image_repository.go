@@ -34,8 +34,9 @@ func GetProjectImages(ctx context.Context, projectId uuid.UUID, paginationParame
 		image.And(
 			image.And(andConditions...),
 			image.Or(
-				image.DescriptionContains(paginationParameters.Search),
-				image.FileNameContains(paginationParameters.Search),
+				image.DescriptionContainsFold(paginationParameters.Search),
+				image.FileNameContainsFold(paginationParameters.Search),
+				image.ComputedFileNameContainsFold(paginationParameters.Search),
 			),
 		)
 

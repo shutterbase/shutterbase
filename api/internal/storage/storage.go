@@ -85,6 +85,15 @@ func PutFile(ctx context.Context, id uuid.UUID, data []byte) error {
 	return nil
 }
 
+func DeleteFile(ctx context.Context, id uuid.UUID) error {
+	err := s3Client.RemoveObject(ctx, S3_BUCKET, id.String(), minio.RemoveObjectOptions{})
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to remove object '%s'", id)
+	}
+	log.Debug().Msgf("Removed object '%s'", id)
+	return nil
+}
+
 func getHumanReadableSize(size int64) string {
 	if size < 1024 {
 		return fmt.Sprintf("%d B", size)

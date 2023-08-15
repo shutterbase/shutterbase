@@ -2,6 +2,7 @@
 .env*
 api/*.JPG
 api/*.jpg
+api/temp/
 
 downloads/
 

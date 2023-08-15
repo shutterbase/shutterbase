@@ -2,8 +2,9 @@
   <client-only>
     <div class="object-top">
       <div class="my-2">
-        <input type="text" v-model="searchText" placeholder="Search" class="input input-bordered w-full max-w-xs" />
-        <div :class="`btn mx-2`" @click="loadImages">Search</div>
+        <input type="text" v-model="filterTagsText" placeholder="Filter tags" class="input input-bordered w-full max-w-xs mr-2" />
+        <input type="text" v-model="searchText" placeholder="Search" class="input input-bordered w-full max-w-xs mr-2" />
+        <div :class="`btn mr-2`" @click="loadImages">Go!</div>
       </div>
       <div class="grid gap-2 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3">
         <div v-for="image in images" :key="image.id" class="max-h-80" style="max-height: 20rem">
@@ -33,13 +34,14 @@ import { Method, getDateTimeString, requestList, API_BASE_URL } from "~/api/comm
 
 const router = useRouter();
 const batchId = ref(router.currentRoute.value.query.batch as string);
+const filterTagsText = ref("");
 const searchText = ref("");
 
 const images = ref<Image[]>([]);
 
 const requestUrl = computed(() => {
   let url = `/projects/${props.projectId}/images?`;
-  const tags = searchText.value
+  const tags = filterTagsText.value
     .replace(/,/g, " ")
     .split(" ")
     .filter((tag) => tag.length > 0)
@@ -52,6 +54,10 @@ const requestUrl = computed(() => {
   }
   if (tags) {
     queryParams.push(`tags=${tags}`);
+  }
+
+  if (searchText.value && searchText.value.length > 0) {
+    queryParams.push(`search=${searchText.value}`);
   }
 
   url += queryParams.join("&");

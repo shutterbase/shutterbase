@@ -2,10 +2,21 @@
   <ClientOnly>
     <div class="" style="max-height: 75%">
       <div v-if="images[currentImageOffset]" style="max-height: 75%">
-        <a download :href="getImageDownloadUrl(images[currentImageOffset])"><Icon name="mdi:download" size="16" /></a>
-        <ItemDescriptorLine :item="images[currentImageOffset]" />
+        <div class="flex">
+          <a title="download image" class="mr-4" download :href="getImageDownloadUrl(images[currentImageOffset])"><Icon name="mdi:download" size="32" /></a>
+          <a v-if="editAllowed" title="delete image" class="mr-4 cursor-pointer" @click="requestImageDeletion"><Icon name="mdi:delete" size="32" /></a>
+          <div>
+            <ItemDescriptorLine :item="images[currentImageOffset]" />
+          </div>
+        </div>
         <div class="divider"></div>
-        <DetailTagHeader :image="images[currentImageOffset]" :projectId="projectId" @tag-picker-state="setTagPickerState" @image-update="updateImage"></DetailTagHeader>
+        <DetailTagHeader
+          :edit-allowed="editAllowed"
+          :image="images[currentImageOffset]"
+          :projectId="projectId"
+          @tag-picker-state="setTagPickerState"
+          @image-update="updateImage"
+        ></DetailTagHeader>
         <div class="divider"></div>
         <div class="" style="max-height: 50%">
           <img :src="getImageUrl(images[currentImageOffset])" class="centerImage rounded-md" />
@@ -25,6 +36,17 @@
     <div>
       <link v-for="image in prefetchImages" :rel="`prefetch`" :href="getImageUrl(image)" />
     </div>
+    <input type="checkbox" id="removeImageDialog" :checked="showRemoveImageDialog" class="modal-toggle" />
+    <div class="modal">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Remove Image</h3>
+        <p class="py-4">Are you sure that you want to delete image {{ removeImageCandidate?.fileName }}</p>
+        <div class="modal-action">
+          <label class="btn" @click="cancelImageRemoval">Cancel</label>
+          <label class="btn" @click="removeImage">OK</label>
+        </div>
+      </div>
+    </div>
   </ClientOnly>
 </template>
 
@@ -33,9 +55,16 @@ import { ref, Ref } from "vue";
 import { Image } from "~/api/image";
 import { Method, getFetchOptions, API_BASE_URL, ListResponse } from "~/api/common";
 import { emitter } from "~/boot/mitt";
+import { ProjectAssignment } from "~/api/projectAssignment";
 
 const router = useRouter();
 const route = useRoute();
+
+const store = useStore();
+const ownUser = store.getOwnUser();
+
+const showRemoveImageDialog = ref(false);
+const removeImageCandidate = ref<Image | null>(null);
 
 const batchId = ref(router.currentRoute.value.query.batch as string);
 
@@ -56,6 +85,14 @@ const prefetchImages = ref<Array<Image>>([]);
 const filmstrip = ref<HTMLElement | null>(null);
 
 const tagPickerOpen = ref(false);
+
+const editAllowed = computed(() => {
+  return (
+    store.isAdmin() ||
+    ownUser?.edges.projectAssignments.some((pa: ProjectAssignment) => pa.edges.project.id === props.projectId && pa.edges.role.key === "project_admin") ||
+    images.value[currentImageOffset.value]?.edges?.createdBy?.id === ownUser?.id
+  );
+});
 
 function previousImage() {
   if (tagPickerOpen.value) return;
@@ -193,6 +230,35 @@ async function updateDisplayedImage() {
   fetchCurrentImage();
   updateFilmstripScroll();
   calculatePrefetchImages();
+}
+
+function requestImageDeletion() {
+  if (images.value[currentImageOffset.value]) {
+    removeImageCandidate.value = images.value[currentImageOffset.value];
+    showRemoveImageDialog.value = true;
+  }
+}
+
+function cancelImageRemoval() {
+  showRemoveImageDialog.value = false;
+  removeImageCandidate.value = null;
+}
+
+async function removeImage() {
+  if (removeImageCandidate.value) {
+    const url = `/projects/${props.projectId}/images/${removeImageCandidate.value.id}`;
+    const response = await useFetch(url, getFetchOptions(Method.DELETE));
+    if (response.data.value) {
+      const data = response.data.value as Image;
+      const index = getImageIndex(removeImageCandidate.value);
+      images.value.splice(index, 1);
+      if (currentImageOffset.value > 0) {
+        currentImageOffset.value--;
+      }
+    }
+  }
+  showRemoveImageDialog.value = false;
+  removeImageCandidate.value = null;
 }
 
 await fetchImageList();
