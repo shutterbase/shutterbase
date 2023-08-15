@@ -24,6 +24,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/util"
 
 	_ "image/jpeg"
+	_ "time/tzdata"
 )
 
 const IMAGES_RESOURCE = "/projects/:pid/images"
