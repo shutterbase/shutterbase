@@ -107,6 +107,7 @@ emitter.on("key-t", (event: any) => {
 });
 
 emitter.on("key-r", (event: any) => {
+  if (showTagPicker.value) return;
   tryTagRepeat();
 });
 
