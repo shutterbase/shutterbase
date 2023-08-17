@@ -13,7 +13,7 @@
             <div class="absolute inset-0 p-8 text-white flex flex-col">
               <div class="relative">
                 <a class="absolute inset-0" :href="getDetailLink(image)"></a>
-                <h1 class="text-md font-bold mb-3">{{ image.fileName }}</h1>
+                <h1 class="text-md font-bold mb-3">{{ image.computedFileName }}</h1>
                 <p class="font-sm font-light">{{ image.edges.createdBy.firstName }} {{ image.edges.createdBy.lastName }}</p>
               </div>
               <!--<div class="mt-auto flex flex-row">
@@ -23,6 +23,7 @@
           </div>
         </div>
       </div>
+      <button class="btn btn-wide my-4" @click="loadMore">Load more</button>
     </div>
   </client-only>
 </template>
@@ -37,7 +38,19 @@ const batchId = ref(router.currentRoute.value.query.batch as string);
 const filterTagsText = ref("");
 const searchText = ref("");
 
+const limit = ref(50);
+const offset = ref(0);
+
 const images = ref<Image[]>([]);
+const total = ref(0);
+
+window.onscroll = async function (ev) {
+  if (window.innerHeight + window.scrollY >= document.body.scrollHeight) {
+    if (total.value > 0 && images.value.length < total.value) {
+      loadMore();
+    }
+  }
+};
 
 const requestUrl = computed(() => {
   let url = `/projects/${props.projectId}/images?`;
@@ -47,7 +60,7 @@ const requestUrl = computed(() => {
     .filter((tag) => tag.length > 0)
     .map((tag) => tag.trim())
     .join(",");
-  let queryParams = [];
+  let queryParams = [`limit=${limit.value}`, `offset=${offset.value}`];
 
   if (batchId.value) {
     queryParams.push(`batch=${batchId.value}`);
@@ -101,8 +114,24 @@ function getDetailLink(image: Image): string {
 }
 
 async function loadImages() {
-  const { items } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
-  if (items) images.value = items;
+  const { items, total: t } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
+  if (items) {
+    images.value = items;
+  }
+  if (t) {
+    total.value = t;
+  }
+}
+
+async function loadMore() {
+  offset.value = Math.min(total.value, offset.value + limit.value);
+  const { items, total: t } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
+  if (items) {
+    images.value = [...images.value, ...items];
+  }
+  if (t) {
+    total.value = t;
+  }
 }
 
 onMounted(() => {

@@ -8,6 +8,7 @@ export interface Image {
   id: string;
   thumbnailId: string;
   fileName: string;
+  computedFileName: string;
   description: string;
   exifData: object;
   edges: {
