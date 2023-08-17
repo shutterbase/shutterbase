@@ -1,11 +1,11 @@
 <template>
   <client-only>
     <div class="object-top">
-      <div class="my-2">
-        <input type="text" v-model="filterTagsText" placeholder="Filter tags" class="input input-bordered w-full max-w-xs mr-2" />
-        <input type="text" v-model="searchText" placeholder="Search" class="input input-bordered w-full max-w-xs mr-2" />
+      <form class="my-2">
+        <input v-on:keyup.enter="loadImages" type="text" v-model="filterTagsText" placeholder="Filter tags" class="input input-bordered w-full max-w-xs mr-2" />
+        <input v-on:keyup.enter="loadImages" type="text" v-model="searchText" placeholder="Search" class="input input-bordered w-full max-w-xs mr-2" />
         <div :class="`btn mr-2`" @click="loadImages">Go!</div>
-      </div>
+      </form>
       <div class="grid gap-2 grid-cols-1 md:grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3">
         <div v-for="image in images" :key="image.id" class="max-h-80" style="max-height: 20rem">
           <div class="relative before:content-[''] before:rounded-md before:absolute before:inset-0 before:bg-black before:bg-opacity-20">
@@ -32,13 +32,14 @@
 import { ref, Ref } from "vue";
 import { Image } from "~/api/image";
 import { Method, getDateTimeString, requestList, API_BASE_URL } from "~/api/common";
+import { off } from "process";
 
 const router = useRouter();
 const batchId = ref(router.currentRoute.value.query.batch as string);
 const filterTagsText = ref("");
 const searchText = ref("");
 
-const limit = ref(50);
+const limit = ref(10);
 const offset = ref(0);
 
 const images = ref<Image[]>([]);
@@ -47,12 +48,17 @@ const total = ref(0);
 window.onscroll = async function (ev) {
   if (window.innerHeight + window.scrollY >= document.body.scrollHeight) {
     if (total.value > 0 && images.value.length < total.value) {
+      console.log("Loading more");
       loadMore();
     }
   }
 };
 
 const requestUrl = computed(() => {
+  return computeRequestUrl();
+});
+
+function computeRequestUrl() {
   let url = `/projects/${props.projectId}/images?`;
   const tags = filterTagsText.value
     .replace(/,/g, " ")
@@ -75,7 +81,7 @@ const requestUrl = computed(() => {
 
   url += queryParams.join("&");
   return url;
-});
+}
 
 function getFetchOptions(method: Method, body?: any, watch?: any[]) {
   const headers = useRequestHeaders(["cookie"]);
@@ -114,7 +120,9 @@ function getDetailLink(image: Image): string {
 }
 
 async function loadImages() {
-  const { items, total: t } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
+  offset.value = 0;
+  const url = computeRequestUrl();
+  const { items, total: t } = await requestList<Image>(url, getFetchOptions(Method.GET));
   if (items) {
     images.value = items;
   }
@@ -124,7 +132,8 @@ async function loadImages() {
 }
 
 async function loadMore() {
-  offset.value = Math.min(total.value, offset.value + limit.value);
+  offset.value = Math.min(total.value, images.value.length);
+  console.log(`loading with offset ${offset.value}`);
   const { items, total: t } = await requestList<Image>(requestUrl.value, getFetchOptions(Method.GET));
   if (items) {
     images.value = [...images.value, ...items];
