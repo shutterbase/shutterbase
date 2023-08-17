@@ -39,7 +39,7 @@ const batchId = ref(router.currentRoute.value.query.batch as string);
 const filterTagsText = ref("");
 const searchText = ref("");
 
-const limit = ref(10);
+const limit = ref(50);
 const offset = ref(0);
 
 const images = ref<Image[]>([]);
