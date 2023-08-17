@@ -19,3 +19,13 @@ The API Key can be obtained by navigating to the the "My User" page and clicking
 ```
 
 **Note:** Windows users shoud use `downloader.exe` instead of `./downloader`
+
+### Blocklist
+
+Optionally, a blocklist can be provided to exclude certain files from the download.
+The blocklist is a simple text file with one file name path per line.
+The blocklist can be provided by using the `--blocklist` flag.
+
+```
+./downloader --url https://shutterbase.mxcd.de/api/v1 --key <INSERT API KEY> --project c3f2ea22-2e15-44d6-a926-69db76a60c86 --blocklist my-blocklist.txt download delta vbo
+```

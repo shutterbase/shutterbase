@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/schollz/progressbar/v3"
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/exp/slices"
 )
 
 type DownloadType string
@@ -44,7 +46,7 @@ func main() {
 				Name:    "very-verbose",
 				Aliases: []string{"vv"},
 				Usage:   "trace output",
-				EnvVars: []string{"SHUTTERBASE_VERBOSE"},
+				EnvVars: []string{"SHUTTERBASE_VERY_VERBOSE"},
 			},
 			&cli.StringFlag{
 				Name:    "url",
@@ -64,6 +66,11 @@ func main() {
 				Usage:   "shutterbase api key",
 				EnvVars: []string{"SHUTTERBASE_API_KEY"},
 			},
+			&cli.StringFlag{
+				Name:    "blocklist",
+				Usage:   "file with list of image names to ignore. one filename per line",
+				EnvVars: []string{"SHUTTERBASE_BLOCKLIST"},
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -80,7 +87,7 @@ func main() {
 					},
 					{
 						Name:  "delta",
-						Usage: "Make a full sync of a specific shutterbase tag",
+						Usage: "Make a delta sync of a specific shutterbase tag. Missing images will be downloaded",
 						Action: func(c *cli.Context) error {
 							initLogger(c)
 							return download(c, DownloadProperties{Type: DownloadTypeDelta})
@@ -146,6 +153,27 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		}
 	}
 
+	blockedImages := []string{}
+	if c.String("blocklist") != "" {
+		blocklistFile, err := os.Open(c.String("blocklist"))
+		if err != nil {
+			log.Fatal().Err(err).Msgf("Failed to open blocklist file '%s'", c.String("blocklist"))
+		}
+		defer blocklistFile.Close()
+		blocklistFileScanner := bufio.NewScanner(blocklistFile)
+		for blocklistFileScanner.Scan() {
+			blockedImage := blocklistFileScanner.Text()
+			if blockedImage == "" {
+				continue
+			}
+			log.Trace().Msgf("Ignoring image '%s' as it is in the blocklist", blockedImage)
+			blockedImages = append(blockedImages, blockedImage)
+		}
+		if err := blocklistFileScanner.Err(); err != nil {
+			log.Fatal().Err(err).Msgf("Failed to read blocklist file '%s'", c.String("blocklist"))
+		}
+	}
+
 	runStartTime := time.Now()
 	// write timestamp file
 	timestampFile := filepath.Join(outputDir, ".timestamp")
@@ -159,11 +187,23 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		log.Fatal().Err(err).Msg("Failed to fetch image list")
 	}
 
+	filterByBlocklist := func(images []ent.Image) []ent.Image {
+		result := []ent.Image{}
+		for _, image := range images {
+			if !slices.Contains(blockedImages, image.ComputedFileName) {
+				result = append(result, image)
+			}
+		}
+		return result
+	}
+
+	notBlockedImages := filterByBlocklist(*images)
+
 	filteredImages := []ent.Image{}
 	if properties.Type == DownloadTypeFull {
-		filteredImages = *images
+		filteredImages = notBlockedImages
 	} else {
-		for _, image := range *images {
+		for _, image := range notBlockedImages {
 			if _, err := os.Stat(filepath.Join(outputDir, image.ComputedFileName)); errors.Is(err, os.ErrNotExist) {
 				filteredImages = append(filteredImages, image)
 			} else if properties.Type == DownloadTypeDelta && image.UpdatedAt.After(syncWindowStartTime) {
