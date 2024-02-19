@@ -1,10 +1,17 @@
 import { defineStore } from "pinia";
 import { useStorage } from "@vueuse/core";
+import { ProjectsResponse } from "src/types/pocketbase";
 
 export const useUserStore = defineStore("user", {
   state: () => ({
-    foo: useStorage("foo", "bar"),
+    activeProjectId: useStorage("activeProjectId", ""),
+    activeProject: useStorage("activeProject", {} as ProjectsResponse),
   }),
   getters: {},
-  actions: {},
+  actions: {
+    clearActiveProject() {
+      this.activeProjectId = "";
+      this.activeProject = {} as ProjectsResponse;
+    },
+  },
 });

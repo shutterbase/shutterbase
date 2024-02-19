@@ -27,11 +27,11 @@ export default route(function (/* { store, ssrContext } */) {
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
 
-  const PUBLIC_PAGES = ["Login", "Signup", "About", "Sandbox"] as RouteRecordName[];
+  const PUBLIC_PAGES = ["login", "signup", "about", "sandbox"] as RouteRecordName[];
   Router.beforeEach(async (to, from) => {
     const toName = to.name || "";
     if (!pb.authStore.isValid && !PUBLIC_PAGES.includes(toName)) {
-      return { name: "Login" };
+      return { name: "login" };
     }
   });
 

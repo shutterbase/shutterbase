@@ -1,3 +1,4 @@
+<template></template>
 <script setup lang="ts">
 import { onMounted } from "vue";
 import pb from "src/boot/pocketbase";
@@ -7,6 +8,6 @@ const router = useRouter();
 
 onMounted(() => {
   pb.authStore.clear();
-  router.push("/login");
+  router.push("login");
 });
 </script>

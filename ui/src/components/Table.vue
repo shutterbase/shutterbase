@@ -35,18 +35,45 @@
                 <td :colspan="columns.length" :class="[rowPadding, 'text-sm font-medium text-gray-900 dark:text-gray-200 text-left']">No {{ pluralName }} found</td>
               </tr>
 
-              <tr v-for="item in items" :key="item.id" class="even:bg-gray-100 even:dark:bg-primary-600">
+              <tr v-for="item in items" :key="item.id" class="even:bg-gray-200 even:dark:bg-primary-600">
                 <td
                   v-for="(column, columnIndex) in columns"
                   :key="column.key"
                   :class="[rowPadding, 'whitespace-nowrap pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-gray-200 sm:pl-6 lg:pl-8']"
                 >
-                  <span v-if="!column.actions">{{ item[column.key] }}</span>
-                  <span v-else>
+                  <span v-if="column.key !== 'actions'">{{ item[column.key] }}</span>
+                  <span v-else class="flex">
                     <span v-for="(action, actionIndex) in column.actions" :key="actionIndex" @click="() => action.callback(item)">
-                      <a v-if="action.type === 'edit'" href="#" class="text-secondary-600 hover:text-secondary-900">{{ action.label }}</a>
-                      <a v-if="action.type === 'delete'" href="#" class="text-error-600 hover:text-error-900">{{ action.label }}</a>
-                      <a v-if="action.type === 'custom'" href="#" class="text-primary-600 hover:text-primary-900">{{ action.label }}</a>
+                      <button
+                        v-if="action.type === 'edit'"
+                        :class="[
+                          actionIndex === 0 ? '' : 'ml-2',
+                          'block rounded-sm px-2 text-center text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                          'bg-secondary-600 text-white hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline-secondary-600',
+                        ]"
+                      >
+                        {{ action.label }}
+                      </button>
+                      <button
+                        v-if="action.type === 'delete'"
+                        :class="[
+                          actionIndex === 0 ? '' : 'ml-2',
+                          'block rounded-sm px-2 text-center text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                          'bg-error-600 text-white hover:bg-error-500 dark:hover:bg-error-700 focus-visible:outline-error-600',
+                        ]"
+                      >
+                        {{ action.label }}
+                      </button>
+                      <button
+                        v-if="action.type === 'custom'"
+                        :class="[
+                          actionIndex === 0 ? '' : 'ml-2',
+                          'block rounded-sm px-2 text-center text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+                          'bg-primary-600 dark:bg-primary-900 text-white hover:bg-primary-500 dark:hover:bg-primary-950 focus-visible:outline-primary-600',
+                        ]"
+                      >
+                        {{ action.label }}
+                      </button>
                     </span>
                   </span>
                 </td>
@@ -104,7 +131,7 @@ function capitalize(s: string): string {
 export type Identifiable = { id: string };
 
 export type TableColumn<T> = {
-  key: string;
+  key: keyof T | "actions";
   label: string;
   actions?: TableRowAction<T>[];
 };

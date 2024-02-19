@@ -1,11 +1,14 @@
 {
-	"folders": [
-		{
-			"path": "api"
-		},
-		{
-			"path": "ui"
-		}
-	],
-	"settings": {}
+  "folders": [
+    {
+      "path": "api"
+    },
+    {
+      "path": "ui"
+    },
+    {
+      "path": "hack"
+    }
+  ],
+  "settings": {}
 }
