@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -74,13 +75,18 @@ func registerUserHooks(app *pocketbase.PocketBase) {
 		if err != nil {
 			return err
 		}
-		e.Record.SetUsername(e.Record.GetString("email"))
+
 		e.Record.Set("projectAssignments", []string{})
 		e.Record.Set("role", role.Id)
 		e.Record.Set("active", true)
 
+		username, err := findUniqueUsername(app, e.Record)
+		if err != nil {
+			return err
+		}
+		e.Record.SetUsername(username)
+
 		copyrightTag, err := findUniqueCopyrightTag(app, e.Record)
-		// _, err = findUniqueCopyrightTag(app, e.Record)
 		if err != nil {
 			return err
 		}
@@ -113,7 +119,7 @@ func findUniqueCopyrightTag(app *pocketbase.PocketBase, user *models.Record) (st
 		return tag, nil
 	}
 
-	count := 1
+	count := 2
 
 	for {
 		tag = firstName + lastName + string(count)
@@ -132,6 +138,53 @@ func findUniqueCopyrightTag(app *pocketbase.PocketBase, user *models.Record) (st
 func doesCopyrightTagExist(app *pocketbase.PocketBase, tag string) (bool, error) {
 	records, err := app.Dao().FindRecordsByExpr("users",
 		dbx.NewExp("LOWER(copyrightTag) = {:tag}", dbx.Params{"tag": tag}),
+	)
+	if err != nil {
+		return true, err
+	}
+
+	if len(records) == 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
+func findUniqueUsername(app *pocketbase.PocketBase, user *models.Record) (string, error) {
+
+	getUsernameBody := func() string {
+		return fmt.Sprintf("%s.%s", strings.ToLower(user.GetString("firstName")), strings.ToLower(user.GetString("lastName")))
+	}
+
+	username := getUsernameBody()
+
+	exists, err := doesUsernameExist(app, username)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return username, nil
+	}
+
+	count := 2
+
+	for {
+		username = fmt.Sprintf("%s%d", getUsernameBody(), count)
+		exists, err = doesUsernameExist(app, username)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return username, nil
+		}
+
+		count++
+	}
+}
+
+func doesUsernameExist(app *pocketbase.PocketBase, username string) (bool, error) {
+	records, err := app.Dao().FindRecordsByExpr("users",
+		dbx.NewExp("LOWER(username) = {:username}", dbx.Params{"username": username}),
 	)
 	if err != nil {
 		return true, err

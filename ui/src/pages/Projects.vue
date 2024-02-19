@@ -1,14 +1,24 @@
 <template>
   <div class="mx-auto max-w-7xl">
-    <Table :items="items" :columns="columns" name="Project"></Table>
+    <Table dense :items="items" :columns="columns" name="Project" :subtitle="activeProjectText"></Table>
+    <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { Ref, onMounted, ref } from "vue";
-import Table, { TableColumn, TableRowAction, TableRowActionType } from "src/components/Table.vue";
+import { Ref, computed, onMounted, ref, watch } from "vue";
+import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
 import pb from "src/boot/pocketbase";
 import { ProjectsResponse } from "src/types/pocketbase";
+import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
+import { storeToRefs } from "pinia";
+import { useUserStore } from "src/stores/user-store";
+
+const userStore = useUserStore();
+const { activeProjectId } = storeToRefs(userStore);
+
+const showUnexpectedErrorMessage = ref(false);
+const unexpectedError = ref(null);
 
 const limit = ref(50);
 const offset = ref(0);
@@ -19,14 +29,53 @@ const columns: TableColumn<ProjectsResponse>[] = [
   {
     key: "actions",
     label: "Actions",
-    actions: [{ key: "edit", label: "Edit", callback: (item) => console.log(`Edit: ${item.name}`), type: TableRowActionType.EDIT } as TableRowAction<ProjectsResponse>],
+    actions: [
+      { key: "activate", label: "Activate", callback: activateProject, type: TableRowActionType.CUSTOM },
+      { key: "edit", label: "Edit", callback: (item) => console.log(`Edit: ${item.name}`), type: TableRowActionType.EDIT },
+    ],
   },
 ];
 
-onMounted(async () => {
-  const resultList = await pb.collection<ProjectsResponse>("projects").getList(1, 50, {});
-  items.value = resultList.items;
-  resultList.items[0].id;
+const activeProjectText = computed(() => {
+  if (activeProjectId.value && activeProjectId.value !== "") {
+    if (items.value && items.value.length > 0) {
+      const activeProject = items.value.find((item) => item.id === activeProjectId.value);
+      if (activeProject) {
+        return "Active project: " + activeProject.name;
+      }
+    } else {
+      return "Active project ID: " + activeProjectId.value;
+    }
+  }
+  return "No active project";
 });
+
+async function requestItems() {
+  try {
+    const resultList = await pb.collection<ProjectsResponse>("projects").getList(1, 50, {});
+    items.value = resultList.items;
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+async function activateProject(item: ProjectsResponse) {
+  const userId = pb.authStore.model?.id;
+  if (!userId) {
+    return;
+  }
+
+  try {
+    await pb.collection("users").update(userId, { activeProject: item.id });
+    userStore.activeProjectId = item.id;
+    userStore.activeProject = item;
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+onMounted(requestItems);
+watch([limit, offset], requestItems);
 </script>
-src/types/pocketbase-generated
