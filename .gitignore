@@ -4,6 +4,8 @@ api/*.JPG
 api/*.jpg
 api/temp/
 
+api/pb_data/
+
 downloads/
 
 sandbox/

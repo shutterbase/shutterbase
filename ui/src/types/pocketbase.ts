@@ -1,0 +1,184 @@
+/**
+ * This file was @generated using pocketbase-typegen
+ */
+
+import type PocketBase from "pocketbase";
+import type { RecordService } from "pocketbase";
+
+export enum Collections {
+  Batches = "batches",
+  Cameras = "cameras",
+  ImageTagAssignments = "image_tag_assignments",
+  ImageTags = "image_tags",
+  Images = "images",
+  ProjectAssignments = "project_assignments",
+  Projects = "projects",
+  Roles = "roles",
+  TimeOffsets = "time_offsets",
+  Users = "users",
+}
+
+// Alias types for improved usability
+export type IsoDateString = string;
+export type RecordIdString = string;
+export type HTMLString = string;
+
+// System fields
+export type BaseSystemFields<T = never> = {
+  id: RecordIdString;
+  created: IsoDateString;
+  updated: IsoDateString;
+  collectionId: string;
+  collectionName: Collections;
+  expand?: T;
+};
+
+export type AuthSystemFields<T = never> = {
+  email: string;
+  emailVisibility: boolean;
+  username: string;
+  verified: boolean;
+} & BaseSystemFields<T>;
+
+// Record types for each collection
+
+export type BatchesRecord = {
+  name: string;
+  project: RecordIdString;
+  user: RecordIdString;
+};
+
+export type CamerasRecord = {
+  name: string;
+  user: RecordIdString;
+};
+
+export enum ImageTagAssignmentsTypeOptions {
+  "manual" = "manual",
+  "inferred" = "inferred",
+  "default" = "default",
+}
+export type ImageTagAssignmentsRecord = {
+  imageTag?: RecordIdString;
+  type?: ImageTagAssignmentsTypeOptions;
+};
+
+export enum ImageTagsTypeOptions {
+  "default" = "default",
+  "manual" = "manual",
+  "custom" = "custom",
+}
+export type ImageTagsRecord = {
+  description: string;
+  isAlbum?: boolean;
+  name: string;
+  project: RecordIdString;
+  type: ImageTagsTypeOptions;
+};
+
+export type ImagesRecord<TexifData = unknown> = {
+  batch: RecordIdString;
+  camera: RecordIdString;
+  capturedAt?: IsoDateString;
+  capturedAtCorrected?: IsoDateString;
+  computedFileName?: string;
+  exifData?: null | TexifData;
+  fileName: string;
+  imageTagAssignments?: RecordIdString[];
+  inferredAt?: IsoDateString;
+  project: RecordIdString;
+  user: RecordIdString;
+};
+
+export type ProjectAssignmentsRecord = {
+  project: RecordIdString;
+  role: RecordIdString;
+  user: RecordIdString;
+};
+
+export type ProjectsRecord = {
+  copyright: string;
+  copyrightReference: string;
+  description: string;
+  locationCity: string;
+  locationCode: string;
+  locationName: string;
+  name: string;
+};
+
+export type RolesRecord = {
+  description: string;
+  key: string;
+};
+
+export type TimeOffsetsRecord = {
+  camera: RecordIdString;
+  cameraTime: IsoDateString;
+  serverTime: IsoDateString;
+};
+
+export type UsersRecord = {
+  active?: boolean;
+  avatar?: string;
+  copyrightTag?: string;
+  firstName: string;
+  lastName: string;
+  projectAssignments?: RecordIdString[];
+  role: RecordIdString;
+};
+
+// Response types include system fields and match responses from the PocketBase API
+export type BatchesResponse<Texpand = unknown> = Required<BatchesRecord> & BaseSystemFields<Texpand>;
+export type CamerasResponse<Texpand = unknown> = Required<CamerasRecord> & BaseSystemFields<Texpand>;
+export type ImageTagAssignmentsResponse<Texpand = unknown> = Required<ImageTagAssignmentsRecord> & BaseSystemFields<Texpand>;
+export type ImageTagsResponse<Texpand = unknown> = Required<ImageTagsRecord> & BaseSystemFields<Texpand>;
+export type ImagesResponse<TexifData = unknown, Texpand = unknown> = Required<ImagesRecord<TexifData>> & BaseSystemFields<Texpand>;
+export type ProjectAssignmentsResponse<Texpand = unknown> = Required<ProjectAssignmentsRecord> & BaseSystemFields<Texpand>;
+export type ProjectsResponse<Texpand = unknown> = Required<ProjectsRecord> & BaseSystemFields<Texpand>;
+export type RolesResponse<Texpand = unknown> = Required<RolesRecord> & BaseSystemFields<Texpand>;
+export type TimeOffsetsResponse<Texpand = unknown> = Required<TimeOffsetsRecord> & BaseSystemFields<Texpand>;
+export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>;
+
+// Types containing all Records and Responses, useful for creating typing helper functions
+
+export type CollectionRecords = {
+  batches: BatchesRecord;
+  cameras: CamerasRecord;
+  image_tag_assignments: ImageTagAssignmentsRecord;
+  image_tags: ImageTagsRecord;
+  images: ImagesRecord;
+  project_assignments: ProjectAssignmentsRecord;
+  projects: ProjectsRecord;
+  roles: RolesRecord;
+  time_offsets: TimeOffsetsRecord;
+  users: UsersRecord;
+};
+
+export type CollectionResponses = {
+  batches: BatchesResponse;
+  cameras: CamerasResponse;
+  image_tag_assignments: ImageTagAssignmentsResponse;
+  image_tags: ImageTagsResponse;
+  images: ImagesResponse;
+  project_assignments: ProjectAssignmentsResponse;
+  projects: ProjectsResponse;
+  roles: RolesResponse;
+  time_offsets: TimeOffsetsResponse;
+  users: UsersResponse;
+};
+
+// Type for usage with type asserted PocketBase instance
+// https://github.com/pocketbase/js-sdk#specify-typescript-definitions
+
+export type TypedPocketBase = PocketBase & {
+  collection(idOrName: "batches"): RecordService<BatchesResponse>;
+  collection(idOrName: "cameras"): RecordService<CamerasResponse>;
+  collection(idOrName: "image_tag_assignments"): RecordService<ImageTagAssignmentsResponse>;
+  collection(idOrName: "image_tags"): RecordService<ImageTagsResponse>;
+  collection(idOrName: "images"): RecordService<ImagesResponse>;
+  collection(idOrName: "project_assignments"): RecordService<ProjectAssignmentsResponse>;
+  collection(idOrName: "projects"): RecordService<ProjectsResponse>;
+  collection(idOrName: "roles"): RecordService<RolesResponse>;
+  collection(idOrName: "time_offsets"): RecordService<TimeOffsetsResponse>;
+  collection(idOrName: "users"): RecordService<UsersResponse>;
+};

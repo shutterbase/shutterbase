@@ -1,17 +1,11 @@
 {
-  "folders": [
-    {
-      "path": "api"
-    },
-    {
-      "path": "ui"
-    },
-    {
-      "path": "."
-    },
-    {
-      "path": "web"
-    }
-  ],
-  "settings": {}
+	"folders": [
+		{
+			"path": "api"
+		},
+		{
+			"path": "ui"
+		}
+	],
+	"settings": {}
 }
