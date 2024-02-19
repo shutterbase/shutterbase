@@ -1,13 +1,12 @@
-<template>
-  <q-page class="row justify-evenly"> </q-page>
-</template>
-
 <script setup lang="ts">
-import { logout } from "src/api/authorization";
 import { onMounted } from "vue";
+import pb from "src/boot/pocketbase";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
+
 onMounted(() => {
-  logout();
+  pb.authStore.clear();
+  router.push("/login");
 });
 </script>
-
-<style lang="sass" scoped></style>

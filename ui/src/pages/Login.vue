@@ -1,157 +1,140 @@
 <template>
-  <q-page class="row items-center justify-evenly">
-    <q-card class="text-center register-card">
-      <q-card-section>
-        <div class="text-h5">Login</div>
-      </q-card-section>
-      <q-card-section>
-        <q-form @submit="login">
-          <div class="row">
-            <div class="col-12">
-              <q-input class="col-12 q-ma-sm" data-test="email" v-model="email" ref="emailRef" :rules="emailRules" lazy-rules label=".email" type="email" outlined />
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-12">
-              <q-input
-                class="col-12 q-mx-sm"
-                data-test="password"
-                v-model="password"
-                ref="passwordRef"
-                :rules="passwordRules"
-                lazy-rules
-                label=".password"
-                type="password"
-                outlined
+  <section class="bg-gray-50 dark:bg-gray-900">
+    <div class="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
+      <a href="/" class="flex items-center mb-6 text-2xl font-semibold text-gray-900 dark:text-white">
+        <img class="h-12 mr-2 block dark:!hidden" src="~assets/img/shutterbase-header-logo-light.png" alt="logo" />
+        <img class="h-12 mr-2 hidden dark:!block" src="~assets/img/shutterbase-header-logo-dark.png" alt="logo" />
+      </a>
+      <div class="w-full bg-white rounded-lg shadow dark:border md:mt-0 sm:max-w-md xl:p-0 dark:!bg-gray-800 dark:border-gray-700">
+        <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
+          <h1 class="text-xl font-bold leading-tight tracking-tight text-gray-900 md:text-2xl dark:text-white">Sign in to your account</h1>
+          <form class="space-y-4 md:space-y-6" action="#">
+            <div>
+              <label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Your email</label>
+              <input
+                v-model="email"
+                type="email"
+                name="email"
+                autocomplete="username"
+                id="email"
+                class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                placeholder="foo@bar.de"
               />
+              <p v-if="emailErrorMessage != ''" class="mt-2 text-sm text-red-600 dark:text-red-500">
+                <span class="font-medium">{{ emailErrorMessage }}</span>
+              </p>
             </div>
-          </div>
-          <div class="row q-mb-sm">
-            <div class="col-12 text-left">
-              <q-checkbox data-test="rememberMe" v-model="rememberMe" label=".rememberMe" />
+            <div>
+              <label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
+              <input
+                v-model="password"
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                id="password"
+                placeholder="••••••••"
+                class="bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              />
+              <p v-if="passwordErrorMessage != ''" class="mt-2 text-sm text-red-600 dark:text-red-500">
+                <span class="font-medium">{{ passwordErrorMessage }}</span>
+              </p>
             </div>
-          </div>
-          <div v-if="showErrorMessage" class="row q-pa-sm q-my-md">
-            <q-banner class="col-12 text-center text-white bg-red" data-test="errorMessage">
-              {{ errorMessage }}
-            </q-banner>
-          </div>
-          <div class="row">
-            <div class="col-12 text-center q-pl-sm">
-              <router-link data-test="resetPasswordButton" to="/request-password-reset">Forgot your password?</router-link>
+            <div class="flex items-center justify-between">
+              <a href="#" class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-500">Forgot password?</a>
             </div>
-          </div>
-          <div class="row q-py-md">
-            <div class="col-12">
-              <q-btn class="col-12 q-ma-sm" type="submit" data-test="loginButton" label=".login" color="primary" />
-            </div>
-          </div>
-          <div class="row q-pt-md">
-            <div class="col-12 text-center q-px-sm">
-              <div>Don't have an account yet? <router-link data-test="registerButton" to="/register">Register now</router-link></div>
-            </div>
-          </div>
-        </q-form>
-      </q-card-section>
-    </q-card>
-    <!--<q-dialog v-model="showErrorMessage" persistent>
-      <q-card>
-        <q-card-section>
-          <div class="text-h6">Error</div>
-        </q-card-section>
-
-        <q-card-section class="q-pt-none">
-          {{ errorMessage }}
-        </q-card-section>
-
-        <q-card-actions align="right">
-          <q-btn flat label="Ok" color="primary" v-close-popup />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>-->
-  </q-page>
+            <button
+              type="submit"
+              @click.prevent="login"
+              class="w-full text-white bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
+            >
+              Sign in
+            </button>
+            <p class="text-sm font-light text-gray-500 dark:text-gray-400">
+              Don't have an account yet?
+              <router-link to="/signup" class="font-medium text-primary-600 hover:underline dark:text-primary-500">Sign up</router-link>
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+    <UnexpectedErrorMessage
+      :show="showUnexpectedErrorMessage"
+      :error="unexpectedError"
+      :headline="unexpectedErrorHeadline"
+      :message="unexpectedErrorMessage"
+      @closed="showUnexpectedErrorMessage = false"
+    />
+  </section>
 </template>
-
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import * as EmailValidator from "email-validator";
-import * as apiAuthorization from "src/api/authorization";
-import { ResponseCode } from "src/api/authorization";
+import { ref } from "vue";
+import pb from "src/boot/pocketbase";
 import { useRouter } from "vue-router";
-import { emitter } from "src/boot/mitt";
-import { useUserStore } from "src/stores/user-store";
-import { useLoginStore } from "src/stores/login-store";
+import * as EmailValidator from "email-validator";
+import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 
 const router = useRouter();
-const userStore = useUserStore();
-const loginStore = useLoginStore();
 
-if (loginStore.isLoggedIn) {
-  router.push("/dashboard");
+const email = ref("");
+const emailErrorMessage = ref("");
+function validateUsername() {
+  if (email.value === "") {
+    emailErrorMessage.value = "Please enter a username";
+    return false;
+  } else {
+    if (!EmailValidator.validate(email.value)) {
+      emailErrorMessage.value = "Please enter a valid email";
+      return false;
+    }
+  }
+  return true;
 }
 
-const email = ref<string>("");
-const emailRef = ref<any>(null);
-const emailRules = [(v: string) => !!v || "email is required", (v: string) => EmailValidator.validate(v) || "email is invalid"];
-
-const password = ref<string>("");
-const passwordRef = ref<any>(null);
-
-const passwordRules = [(v: string) => !!v || "password is required"];
-
-const rememberMe = ref<boolean>(false);
-
-const showErrorMessage = ref<boolean>(false);
-const errorMessage = ref<string>(``);
-const showSuccessMessage = ref<boolean>(false);
-
-const login = async () => {
-  emailRef.value.validate();
-  passwordRef.value.validate();
-  if (emailRef.value.hasError || passwordRef.value.hasError) {
-    return;
+const password = ref("");
+const passwordErrorMessage = ref("");
+function validatePassword() {
+  if (password.value === "") {
+    passwordErrorMessage.value = "Please enter a password";
+    return false;
   }
-  const response = await apiAuthorization.login({ email: email.value, password: password.value, rememberMe: rememberMe.value });
-  console.log(response);
+  return true;
+}
 
-  // handle happy case
-  if (response.code === ResponseCode.OK) {
-    showSuccessMessage.value = true;
-    router.push("/dashboard");
+const showUnexpectedErrorMessage = ref(false);
+const unexpectedError = ref(null);
+const unexpectedErrorHeadline = ref("");
+const unexpectedErrorMessage = ref("");
+
+function clearErrorMessages() {
+  emailErrorMessage.value = "";
+  passwordErrorMessage.value = "";
+}
+
+async function login() {
+  clearErrorMessages();
+
+  if (!validateUsername() || !validatePassword()) {
     return;
   }
 
-  // handle error codes
-  switch (response.code) {
-    case ResponseCode.USER_NOT_ACTIVE:
-      errorMessage.value = "The user account is not activated. Please wait for activation or get in touch with an administrator.";
-      break;
-    case ResponseCode.EMAIL_NOT_VALIDATED:
-      router.push({ path: `/check-email`, query: { email: email.value, action: `confirm-account` } });
-      break;
-    case ResponseCode.LOGIN_PASSWORD_INVALID:
-      errorMessage.value = "Username or password are invalid.";
-      break;
-    case ResponseCode.NETWORK_ERROR:
-    case ResponseCode.BAD_REQUEST:
-    case ResponseCode.SERVER_ERROR:
-    default:
-      errorMessage.value = "An error occurred. Please try again later.";
-      break;
+  try {
+    const authData = await pb.collection("users").authWithPassword(email.value, password.value);
+    if (authData) {
+      router.push("/");
+    }
+  } catch (error: any) {
+    if (error.status === 400) {
+      passwordErrorMessage.value = "Invalid username or password";
+      return;
+    }
+
+    if (error.response?.message) {
+      unexpectedErrorHeadline.value = "Error";
+      unexpectedErrorMessage.value = error.response.message;
+    }
+
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
   }
-  showErrorMessage.value = true;
-};
+}
 </script>
-
-<style lang="sass" scoped>
-.register-card
-  min-width: 350px
-  @media (max-width: $breakpoint-xs)
-    width: 95%
-  @media (max-width: $breakpoint-sm)
-    max-width: 550px
-  @media (max-width: $breakpoint-md)
-    max-width: 650px
-  @media (max-width: $breakpoint-lg)
-    max-width: 750px
-</style>

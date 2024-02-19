@@ -1,64 +1,51 @@
-import { useLoginStore } from "src/stores/login-store";
-import { useUserStore } from "src/stores/user-store";
 import { RouteRecordRaw } from "vue-router";
+import pb from "src/boot/pocketbase";
 
 const routes: RouteRecordRaw[] = [
   {
     path: "/",
     component: () => import("layouts/MainLayout.vue"),
     children: [
-      { path: "", component: () => import("pages/IndexPage.vue") },
-      { path: "/register", component: () => import("pages/Register.vue") },
       {
-        path: "/request-password-reset",
-        component: () => import("pages/RequestPasswordReset.vue"),
+        name: "index",
+        path: "",
+        component: () => import("pages/IndexPage.vue"),
       },
       {
-        path: "/password-reset",
-        component: () => import("pages/PasswordReset.vue"),
+        name: "projects",
+        path: "/projects",
+        component: () => import("pages/Projects.vue"),
       },
-      { path: "/login", component: () => import("pages/Login.vue") },
-      { path: "/logout", component: () => import("pages/Logout.vue") },
-      { path: "/check-email", component: () => import("pages/CheckEmail.vue") },
       {
-        path: "/confirm-email/",
-        component: () => import("pages/ConfirmEmail.vue"),
+        name: "sandbox",
+        path: "/sandbox",
+        component: () => import("pages/Sandbox.vue"),
       },
     ],
   },
   {
-    path: "/dashboard",
-    beforeEnter: (to, from) => {
-      if (!useLoginStore().isLoggedIn) {
-        return "/login";
+    name: "login",
+    path: "/login",
+    component: () => import("pages/Login.vue"),
+    beforeEnter: (to, from, next) => {
+      if (pb.authStore.isValid) {
+        next({ name: "index" });
+      } else {
+        next();
       }
-      return true;
     },
-    component: () => import("layouts/MainLayout.vue"),
-    children: [
-      { path: "", component: () => import("pages/Dashboard.vue") },
-      {
-        path: "users",
-        component: () => import("pages/dashboard/Users.vue"),
-        beforeEnter: (to, from) => {
-          if (!useUserStore().isAdmin) {
-            return "/dashboard";
-          }
-          return true;
-        },
-      },
-      {
-        path: "users/:id",
-        component: () => import("pages/dashboard/UserDetail.vue"),
-        beforeEnter: (to, from) => {
-          if (!useUserStore().isAdmin && to.params.id != useUserStore().ownUser()?.id) {
-            return "/dashboard";
-          }
-          return true;
-        },
-      },
-    ],
   },
+  {
+    name: "logout",
+    path: "/logout",
+    component: () => import("pages/Logout.vue"),
+  },
+  {
+    name: "signup",
+    path: "/signup",
+    component: () => import("pages/Signup.vue"),
+  },
+
   // Always leave this as last one,
   // but you can also remove it
   {
