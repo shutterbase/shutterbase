@@ -13,6 +13,8 @@ import { ProjectsResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
+import { useRouter } from "vue-router";
+const router = useRouter();
 
 const userStore = useUserStore();
 const { activeProjectId } = storeToRefs(userStore);
@@ -31,7 +33,7 @@ const columns: TableColumn<ProjectsResponse>[] = [
     label: "Actions",
     actions: [
       { key: "activate", label: "Activate", callback: activateProject, type: TableRowActionType.CUSTOM },
-      { key: "edit", label: "Edit", callback: (item) => console.log(`Edit: ${item.name}`), type: TableRowActionType.EDIT },
+      { key: "edit", label: "Details", callback: (item) => router.push({ name: `project`, params: { id: item.id } }), type: TableRowActionType.EDIT },
     ],
   },
 ];
