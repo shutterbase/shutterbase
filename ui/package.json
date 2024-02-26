@@ -10,7 +10,8 @@
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
-    "format": "prettier --config ./.prettierrc --write ./src index.html package.json postcss.config.cjs quasar.config.ts README.md tailwind.config.js tsconfig.json"
+    "format": "prettier --config ./.prettierrc --write ./src index.html package.json postcss.config.cjs quasar.config.ts README.md tailwind.config.js tsconfig.json",
+    "check-dependencies": "bunx depcruise src"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.19",
@@ -19,6 +20,7 @@
     "@types/pluralize": "^0.0.33",
     "@types/zxcvbn": "^4.4.4",
     "@vueuse/core": "^10.7.2",
+    "dependency-cruiser": "^16.2.1",
     "email-validator": "^2.0.4",
     "flowbite": "^2.3.0",
     "pinia": "^2.0.11",

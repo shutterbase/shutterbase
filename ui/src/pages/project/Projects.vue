@@ -1,6 +1,6 @@
 <template>
   <div class="mx-auto max-w-7xl">
-    <Table dense :items="items" :columns="columns" name="Project" :subtitle="activeProjectText"></Table>
+    <Table dense :items="items" :columns="columns" name="Project" :subtitle="activeProjectText" :add-callback="() => router.push('/projects/create')"></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
   </div>
 </template>
@@ -33,7 +33,7 @@ const columns: TableColumn<ProjectsResponse>[] = [
     label: "Actions",
     actions: [
       { key: "activate", label: "Activate", callback: activateProject, type: TableRowActionType.CUSTOM },
-      { key: "edit", label: "Details", callback: (item) => router.push({ name: `project`, params: { id: item.id } }), type: TableRowActionType.EDIT },
+      { key: "edit", label: "Details", callback: (item) => router.push({ name: `project-general`, params: { id: item.id } }), type: TableRowActionType.EDIT },
     ],
   },
 ];
