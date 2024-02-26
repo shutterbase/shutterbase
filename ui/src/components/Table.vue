@@ -5,10 +5,11 @@
         <h1 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100">{{ capitalize(pluralName) }}</h1>
         <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ subtitle }}</p>
       </div>
-      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+      <div v-if="addCallback" class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
         <button
+          @click="addCallback"
           type="button"
-          class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
         >
           Add {{ name }}
         </button>
@@ -24,7 +25,7 @@
                   v-for="(column, columnIndex) in columns"
                   :key="column.key"
                   scope="col"
-                  class="sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-800 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8"
+                  class="sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-900 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8"
                 >
                   {{ column.label }}
                 </th>
@@ -35,7 +36,7 @@
                 <td :colspan="columns.length" :class="[rowPadding, 'text-sm font-medium text-gray-900 dark:text-gray-200 text-left']">No {{ pluralName }} found</td>
               </tr>
 
-              <tr v-for="item in items" :key="item.id" class="even:bg-gray-200 even:dark:bg-primary-600">
+              <tr v-for="item in items" :key="item.id" class="even:bg-gray-200 even:dark:bg-primary-700">
                 <td
                   v-for="(column, columnIndex) in columns"
                   :key="column.key"
@@ -103,6 +104,8 @@ interface Props {
   dense?: boolean;
 
   items?: T[];
+
+  addCallback?: () => void;
 
   cancelText?: string;
   headline?: string;

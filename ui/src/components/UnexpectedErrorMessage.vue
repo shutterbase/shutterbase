@@ -75,6 +75,27 @@ interface Props {
   error?: any;
 }
 
+interface ErrorResponse {
+  status: number;
+  response: {
+    code: number;
+    message: string;
+    data: Record<
+      string,
+      {
+        code: string;
+        message: string;
+      }
+    >;
+  };
+  isAbort: boolean;
+  originalError?: {
+    url: string;
+    status: number;
+    data: any;
+  };
+}
+
 const props = withDefaults(defineProps<Props>(), {
   buttonText: () => "OK",
   headline: () => "",
@@ -83,7 +104,30 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const computedHeadline = computed(() => {
-  return props.headline && props.headline !== "" ? props.headline : "Unexpected Error";
+  const e = props.error as ErrorResponse;
+  if (props.headline && props.headline !== "") {
+    return props.headline;
+  }
+  if (!e) {
+    return "Unexpected Error";
+  }
+  if (e.response.data) {
+    if (Object.keys(e.response.data).length === 1) {
+      return `Error on field '${Object.keys(e.response.data)[0]}': ${Object.values(e.response.data)[0].message}`;
+    }
+
+    if (Object.keys(e.response.data).length >= 1) {
+      let errorMessages = {} as Record<string, boolean>;
+      for (const [key, value] of Object.entries(e.response.data)) {
+        errorMessages[value.message] = true;
+      }
+      if (Object.keys(errorMessages).length === 1) {
+        return `Error on ${Object.keys(e.response.data).length} fields: ${Object.keys(errorMessages)[0]}`;
+      } else {
+        return `Multiple errors on ${Object.keys(e.response.data).length} fields`;
+      }
+    }
+  }
 });
 
 const computedMessage = computed(() => {

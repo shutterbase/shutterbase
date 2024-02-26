@@ -1,40 +1,27 @@
 <template>
-  <div>
-    <div class="mx-auto max-w-7xl lg:flex lg:gap-x-16 lg:px-8">
-      <Navigation />
-      <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-        <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
-          <DetailEditGroup
-            @edit-save="saveProject"
-            headline="Project Information"
-            subtitle="General information concerning this project"
-            :fields="informationFields"
-            :item="project"
-          />
-          <DetailEditGroup
-            @edit-save="saveProject"
-            headline="Copyright Data"
-            subtitle="Copyright information to be embedded into the EXIF data"
-            :fields="copyrightFields"
-            :item="project"
-          />
-        </div>
-      </main>
+  <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
+    <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
+      <DetailEditGroup @edit-save="saveProject" headline="Project Information" subtitle="General information concerning this project" :fields="informationFields" :item="project" />
+      <DetailEditGroup
+        @edit-save="saveProject"
+        headline="Copyright Data"
+        subtitle="Copyright information to be embedded into the EXIF data"
+        :fields="copyrightFields"
+        :item="project"
+      />
     </div>
-    <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
-  </div>
+  </main>
+  <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 
 <script setup lang="ts">
 import { Ref, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import Navigation from "src/components/project/Navigation.vue";
+import { useRoute } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import DetailEditGroup, { Field, FieldType, EditData } from "src/components/DetailEditGroup.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
 import pb from "src/boot/pocketbase";
 const route = useRoute();
-const router = useRouter();
 
 const project: Ref<ProjectsResponse | null> = ref(null);
 
