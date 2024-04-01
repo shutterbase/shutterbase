@@ -2,21 +2,56 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"net/http"
 	"strings"
+
+	"github.com/labstack/echo/v5"
+	"github.com/mxcd/go-config/config"
+	"github.com/rs/zerolog/log"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
+	"github.com/shutterbase/shutterbase/internal/s3"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 func main() {
+
+	err := util.InitConfig()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize config")
+	}
+
+	err = util.InitLogger()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize logger")
+	}
+
+	s3Client, err := s3.NewClient(&s3.S3ClientOptions{
+		Endpoint:  config.Get().String("S3_ENDPOINT"),
+		Port:      config.Get().Int("S3_PORT"),
+		SSL:       config.Get().Bool("S3_SSL"),
+		Bucket:    config.Get().String("S3_BUCKET"),
+		AccessKey: config.Get().String("S3_ACCESS_KEY"),
+		SecretKey: config.Get().String("S3_SECRET_KEY"),
+	})
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize s3 client")
+	}
+
 	app := pocketbase.New()
 
-	registerProjectAssignmentHooks(app)
-	registerUserHooks(app)
+	context := &util.Context{
+		App:      app,
+		S3Client: s3Client,
+	}
+
+	registerProjectAssignmentHooks(context)
+	registerUserHooks(context)
+	registerGetUploadUrlEndpoint(context)
 
 	// serves static files from the provided public dir (if exists)
 	// app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
@@ -25,15 +60,15 @@ func main() {
 	// })
 
 	if err := app.Start(); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 }
 
-func registerProjectAssignmentHooks(app *pocketbase.PocketBase) {
-	app.OnRecordAfterCreateRequest("project_assignments").Add(func(e *core.RecordCreateEvent) error {
+func registerProjectAssignmentHooks(context *util.Context) {
+	context.App.OnRecordAfterCreateRequest("project_assignments").Add(func(e *core.RecordCreateEvent) error {
 
 		projectAssignmentUserId := e.Record.GetString("user")
-		projectAssignmentUser, err := app.Dao().FindRecordById("users", projectAssignmentUserId)
+		projectAssignmentUser, err := context.App.Dao().FindRecordById("users", projectAssignmentUserId)
 		if err != nil {
 			return err
 		}
@@ -42,17 +77,17 @@ func registerProjectAssignmentHooks(app *pocketbase.PocketBase) {
 		projectAssignmentIds = append(projectAssignmentIds, e.Record.Id)
 		projectAssignmentUser.Set("projectAssignments", projectAssignmentIds)
 
-		if err := app.Dao().SaveRecord(projectAssignmentUser); err != nil {
+		if err := context.App.Dao().SaveRecord(projectAssignmentUser); err != nil {
 			return err
 		}
 
 		return nil
 	})
 
-	app.OnRecordAfterDeleteRequest("project_assignments").Add(func(e *core.RecordDeleteEvent) error {
+	context.App.OnRecordAfterDeleteRequest("project_assignments").Add(func(e *core.RecordDeleteEvent) error {
 
 		projectAssignmentUserId := e.Record.GetString("user")
-		projectAssignmentUser, err := app.Dao().FindRecordById("users", projectAssignmentUserId)
+		projectAssignmentUser, err := context.App.Dao().FindRecordById("users", projectAssignmentUserId)
 		if err != nil {
 			return err
 		}
@@ -61,7 +96,7 @@ func registerProjectAssignmentHooks(app *pocketbase.PocketBase) {
 		projectAssignmentIds = util.RemoveStringFromSlice(projectAssignmentIds, e.Record.Id)
 		projectAssignmentUser.Set("projectAssignments", projectAssignmentIds)
 
-		if err := app.Dao().SaveRecord(projectAssignmentUser); err != nil {
+		if err := context.App.Dao().SaveRecord(projectAssignmentUser); err != nil {
 			return err
 		}
 
@@ -69,9 +104,9 @@ func registerProjectAssignmentHooks(app *pocketbase.PocketBase) {
 	})
 }
 
-func registerUserHooks(app *pocketbase.PocketBase) {
-	app.OnRecordBeforeCreateRequest("users").Add(func(e *core.RecordCreateEvent) error {
-		role, err := app.Dao().FindFirstRecordByData("roles", "key", "user")
+func registerUserHooks(context *util.Context) {
+	context.App.OnRecordBeforeCreateRequest("users").Add(func(e *core.RecordCreateEvent) error {
+		role, err := context.App.Dao().FindFirstRecordByData("roles", "key", "user")
 		if err != nil {
 			return err
 		}
@@ -80,13 +115,13 @@ func registerUserHooks(app *pocketbase.PocketBase) {
 		e.Record.Set("role", role.Id)
 		e.Record.Set("active", true)
 
-		username, err := findUniqueUsername(app, e.Record)
+		username, err := findUniqueUsername(context, e.Record)
 		if err != nil {
 			return err
 		}
 		e.Record.SetUsername(username)
 
-		copyrightTag, err := findUniqueCopyrightTag(app, e.Record)
+		copyrightTag, err := findUniqueCopyrightTag(context, e.Record)
 		if err != nil {
 			return err
 		}
@@ -95,13 +130,13 @@ func registerUserHooks(app *pocketbase.PocketBase) {
 	})
 }
 
-func findUniqueCopyrightTag(app *pocketbase.PocketBase, user *models.Record) (string, error) {
+func findUniqueCopyrightTag(context *util.Context, user *models.Record) (string, error) {
 	firstName := strings.ToLower(user.GetString("firstName"))
 	lastName := strings.ToLower(user.GetString("lastName"))
 
 	tag := lastName
 
-	exists, err := doesCopyrightTagExist(app, tag)
+	exists, err := doesCopyrightTagExist(context, tag)
 	if err != nil {
 		return "", err
 	}
@@ -111,7 +146,7 @@ func findUniqueCopyrightTag(app *pocketbase.PocketBase, user *models.Record) (st
 
 	tag = firstName + lastName
 
-	exists, err = doesCopyrightTagExist(app, tag)
+	exists, err = doesCopyrightTagExist(context, tag)
 	if err != nil {
 		return "", err
 	}
@@ -122,8 +157,8 @@ func findUniqueCopyrightTag(app *pocketbase.PocketBase, user *models.Record) (st
 	count := 2
 
 	for {
-		tag = firstName + lastName + string(count)
-		exists, err = doesCopyrightTagExist(app, tag)
+		tag = fmt.Sprintf("%s%s%d", firstName, lastName, count)
+		exists, err = doesCopyrightTagExist(context, tag)
 		if err != nil {
 			return "", err
 		}
@@ -135,8 +170,8 @@ func findUniqueCopyrightTag(app *pocketbase.PocketBase, user *models.Record) (st
 	}
 }
 
-func doesCopyrightTagExist(app *pocketbase.PocketBase, tag string) (bool, error) {
-	records, err := app.Dao().FindRecordsByExpr("users",
+func doesCopyrightTagExist(context *util.Context, tag string) (bool, error) {
+	records, err := context.App.Dao().FindRecordsByExpr("users",
 		dbx.NewExp("LOWER(copyrightTag) = {:tag}", dbx.Params{"tag": tag}),
 	)
 	if err != nil {
@@ -150,7 +185,7 @@ func doesCopyrightTagExist(app *pocketbase.PocketBase, tag string) (bool, error)
 	return true, nil
 }
 
-func findUniqueUsername(app *pocketbase.PocketBase, user *models.Record) (string, error) {
+func findUniqueUsername(context *util.Context, user *models.Record) (string, error) {
 
 	getUsernameBody := func() string {
 		return fmt.Sprintf("%s.%s", strings.ToLower(user.GetString("firstName")), strings.ToLower(user.GetString("lastName")))
@@ -158,7 +193,7 @@ func findUniqueUsername(app *pocketbase.PocketBase, user *models.Record) (string
 
 	username := getUsernameBody()
 
-	exists, err := doesUsernameExist(app, username)
+	exists, err := doesUsernameExist(context, username)
 	if err != nil {
 		return "", err
 	}
@@ -170,7 +205,7 @@ func findUniqueUsername(app *pocketbase.PocketBase, user *models.Record) (string
 
 	for {
 		username = fmt.Sprintf("%s%d", getUsernameBody(), count)
-		exists, err = doesUsernameExist(app, username)
+		exists, err = doesUsernameExist(context, username)
 		if err != nil {
 			return "", err
 		}
@@ -182,8 +217,8 @@ func findUniqueUsername(app *pocketbase.PocketBase, user *models.Record) (string
 	}
 }
 
-func doesUsernameExist(app *pocketbase.PocketBase, username string) (bool, error) {
-	records, err := app.Dao().FindRecordsByExpr("users",
+func doesUsernameExist(context *util.Context, username string) (bool, error) {
+	records, err := context.App.Dao().FindRecordsByExpr("users",
 		dbx.NewExp("LOWER(username) = {:username}", dbx.Params{"username": username}),
 	)
 	if err != nil {
@@ -195,4 +230,24 @@ func doesUsernameExist(app *pocketbase.PocketBase, username string) (bool, error
 	}
 
 	return true, nil
+}
+
+func registerGetUploadUrlEndpoint(context *util.Context) {
+	context.App.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/api/upload-url", func(c echo.Context) error {
+			name := c.QueryParam("name")
+			if name == "" {
+				return c.JSON(http.StatusBadRequest, map[string]string{"message": "name is required"})
+			}
+
+			url, err := context.S3Client.GetSignedUploadUrl(c.Request().Context(), name)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"message": "failed to get signed upload url"})
+			}
+
+			return c.JSON(http.StatusOK, map[string]string{"url": url})
+		}, apis.RequireRecordAuth())
+
+		return nil
+	})
 }

@@ -8,6 +8,9 @@
     },
     {
       "path": "hack"
+    },
+    {
+      "path": "wasm"
     }
   ],
   "settings": {}
