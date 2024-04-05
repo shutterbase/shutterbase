@@ -23,6 +23,7 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import CreateGroup, { Field, FieldType, CreateData } from "src/components/CreateGroup.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
 import pb from "src/boot/pocketbase";
+import { showNotificationToast } from "src/boot/mitt";
 
 const router = useRouter();
 
@@ -41,6 +42,7 @@ async function createProject() {
     const response = await pb.collection<ProjectsResponse>("projects").create(project.value);
     const itemId = response.id;
     console.log(`Project created with ID ${itemId}`);
+    showNotificationToast({ headline: `Project saved`, type: "success" });
     await router.push({ name: "project-general", params: { id: itemId } });
   } catch (error: any) {
     unexpectedError.value = error;

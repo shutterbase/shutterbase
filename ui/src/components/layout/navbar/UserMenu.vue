@@ -4,11 +4,7 @@
       <MenuButton class="relative flex rounded-full bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800">
         <span class="absolute -inset-1.5" />
         <span class="sr-only">Open user menu</span>
-        <img
-          class="h-8 w-8 rounded-full"
-          src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-          alt=""
-        />
+        <img id="user-menu-avatar" ref="userMenuAvatar" class="h-8 w-8 rounded-full" src="" alt="" />
       </MenuButton>
     </div>
     <transition
@@ -38,18 +34,24 @@
         </ul>
         <ul class="py-1 text-gray-700 dark:text-gray-300">
           <li>
-            <a href="#" class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
+            <router-link
+              :to="`/users/${pb.authStore.model?.id || ''}/general`"
+              class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
+            >
               <UserIcon class="mr-2 w-5 h-5 text-gray-400" />
               My profile
-            </a>
+            </router-link>
           </li>
         </ul>
         <ul class="py-1 text-gray-700 dark:text-gray-300">
           <li>
-            <a href="#" class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
+            <router-link
+              :to="`/users/${pb.authStore.model?.id || ''}/cameras`"
+              class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
+            >
               <CameraIcon class="mr-2 w-5 h-5 text-gray-400" />
               My Cameras
-            </a>
+            </router-link>
           </li>
           <li>
             <a href="#" class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
@@ -82,6 +84,9 @@ import { onMounted, ref } from "vue";
 import { initFlowbite } from "flowbite";
 import pb from "src/boot/pocketbase";
 import { useUserStore } from "src/stores/user-store";
+import Avatar from "avatar-initials";
+
+const userMenuAvatar = ref<HTMLImageElement>();
 
 const firstName = ref(pb.authStore.model?.firstName);
 const lastName = ref(pb.authStore.model?.lastName);
@@ -94,5 +99,18 @@ function clearProjectSelection() {
 
 onMounted(() => {
   initFlowbite();
+  if (!userMenuAvatar.value) return;
+  if (headshotUrl.value) {
+    userMenuAvatar.value.src = headshotUrl.value;
+    return;
+  }
+  const avatar = Avatar.from(userMenuAvatar.value, {
+    useGravatar: true,
+    email: pb.authStore.model?.email,
+    initials: `${firstName.value?.charAt(0) ?? ""}${lastName.value?.charAt(0) ?? ""}`,
+    color: "#FFFFFF",
+    background: "#37465D",
+    fontWeight: 400,
+  });
 });
 </script>

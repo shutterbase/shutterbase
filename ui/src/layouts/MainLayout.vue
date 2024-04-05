@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-50 dark:bg-primary-800 min-h-screen">
+  <div class="bg-gray-50 dark:bg-primary-950 min-h-screen">
     <Disclosure as="nav" class="bg-gray-50 dark:bg-primary-900" v-slot="{ open }">
       <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
         <div class="relative flex h-16 items-center justify-between">
@@ -62,6 +62,7 @@
     </Disclosure>
     <hr class="mb-2 sm:mb-12 dark:border-primary-400" />
     <router-view />
+    <Notification />
   </div>
 </template>
 
@@ -73,6 +74,7 @@ import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "src/stores/user-store";
 import UserMenu from "src/components/layout/navbar/UserMenu.vue";
+import Notification from "src/components/layout/Notification.vue";
 import { store } from "quasar/wrappers";
 import { storeToRefs } from "pinia";
 const userStore = useUserStore();

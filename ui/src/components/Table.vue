@@ -36,7 +36,7 @@
                 <td :colspan="columns.length" :class="[rowPadding, 'text-sm font-medium text-gray-900 dark:text-gray-200 text-left']">No {{ pluralName }} found</td>
               </tr>
 
-              <tr v-for="item in items" :key="item.id" class="even:bg-gray-200 even:dark:bg-primary-700">
+              <tr v-for="item in items" :key="item.id" class="even:bg-gray-200 even:dark:bg-primary-900">
                 <td
                   v-for="(column, columnIndex) in columns"
                   :key="column.key"

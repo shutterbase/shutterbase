@@ -21,14 +21,14 @@
 </template>
 
 <script setup lang="ts">
-import { ExclamationTriangleIcon, PresentationChartLineIcon, RectangleStackIcon, TagIcon, UserGroupIcon } from "@heroicons/vue/24/outline";
+import { UserIcon, CameraIcon } from "@heroicons/vue/24/outline";
 import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
 const router = useRouter();
 
-const BASE_URL = "/projects";
+const BASE_URL = "/users";
 
 type NavigationItem = {
   name: string;
@@ -39,13 +39,10 @@ type NavigationItem = {
 const navigationItems: Ref<NavigationItem[]> = ref([]);
 
 function updateNavigationItems() {
-  const itemId = route.params.id;
+  const itemId = route.params.userid;
   const items = [
-    { name: "General", icon: PresentationChartLineIcon, href: `${BASE_URL}/${itemId}/general`, current: false },
-    { name: "Tags", icon: TagIcon, href: `${BASE_URL}/${itemId}/tags`, current: false },
-    { name: "Statistics", icon: RectangleStackIcon, href: `${BASE_URL}/${itemId}/statistics`, current: false },
-    { name: "Members", icon: UserGroupIcon, href: `${BASE_URL}/${itemId}/members`, current: false },
-    { name: "Danger Zone", icon: ExclamationTriangleIcon, href: `${BASE_URL}/${itemId}/danger-zone`, current: false },
+    { name: "General", icon: UserIcon, href: `${BASE_URL}/${itemId}/general`, current: false },
+    { name: "Cameras", icon: CameraIcon, href: `${BASE_URL}/${itemId}/cameras`, current: false },
   ];
 
   items.forEach((item) => {

@@ -1,7 +1,13 @@
 <template>
   <div>
     <!-- <Table class="mx-auto max-w-7xl"></Table> -->
-    <Test />
+    <button @click="doStuff('success')">Success</button>
+    <br />
+    <button @click="doStuff('info')">Info</button>
+    <br />
+    <button @click="doStuff('error')">Error</button>
+    <br />
+    <button @click="doStuff('warning')">Warning</button>
   </div>
 </template>
 
@@ -9,19 +15,15 @@
 import { Ref, ref } from "vue";
 
 import pb from "src/boot/pocketbase";
-import Table from "src/components/Table.vue";
-import Test from "src/components/Test.vue";
+import { showNotificationToast } from "src/boot/mitt";
 
-const show = ref(false);
-const dialogError: Ref<any> = ref(null);
+const counter = ref(0);
 
-async function doStuff() {
-  console.log("Doing stuff");
-  try {
-    const resultList = await pb.collection("foo").getList(1, 50, {});
-  } catch (error) {
-    dialogError.value = error;
-    show.value = true;
-  }
+async function doStuff(type: "success" | "error" | "warning" | "info") {
+  showNotificationToast({
+    headline: `Attention ${++counter.value}`,
+    message: "Doing stuff",
+    type,
+  });
 }
 </script>

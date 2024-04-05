@@ -7,7 +7,7 @@ api/temp/
 api/pb_data/
 
 downloads/
-
+s3/
 sandbox/
 
 # Created by https://www.toptal.com/developers/gitignore/api/vue,vuejs,visualstudiocode,webstorm+all,goland+all,go
