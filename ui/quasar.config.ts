@@ -67,6 +67,9 @@ export default configure((/* ctx */) => {
     devServer: {
       // https: true
       open: true, // opens browser window automatically
+      fs: {
+        allow: [".."],
+      },
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework

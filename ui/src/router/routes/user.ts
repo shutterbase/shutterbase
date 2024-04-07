@@ -5,6 +5,16 @@ export const userRoutes = [
     component: () => import("pages/user/Users.vue"),
   },
   {
+    name: "camera-create",
+    path: "/users/:userid/cameras/create",
+    component: () => import("pages/user/CameraCreate.vue"),
+  },
+  {
+    name: "camera-time-offset",
+    path: "/cameras/:cameraid/time-offset",
+    component: () => import("pages/user/CameraTimeOffset.vue"),
+  },
+  {
     name: "user",
     path: "/users/:userid",
     component: () => import("pages/user/User.vue"),
@@ -23,11 +33,6 @@ export const userRoutes = [
       //   name: "camera",
       //   path: "cameras/:cameraid",
       //   component: () => import("pages/user/Camera.vue"),
-      // },
-      // {
-      //   name: "camera-create",
-      //   path: "cameras/create",
-      //   component: () => import("pages/user/CameraCreate.vue"),
       // },
     ],
   },

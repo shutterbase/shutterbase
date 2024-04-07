@@ -15,7 +15,9 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
 	"github.com/shutterbase/shutterbase/internal/s3"
+	"github.com/shutterbase/shutterbase/internal/timeoffset"
 	"github.com/shutterbase/shutterbase/internal/util"
+	"github.com/shutterbase/shutterbase/internal/websocket"
 )
 
 func main() {
@@ -52,6 +54,9 @@ func main() {
 	registerProjectAssignmentHooks(context)
 	registerUserHooks(context)
 	registerGetUploadUrlEndpoint(context)
+
+	websocket.RegisterWebsocketServer(context)
+	timeoffset.StartWebsocketTrigger()
 
 	// serves static files from the provided public dir (if exists)
 	// app.OnBeforeServe().Add(func(e *core.ServeEvent) error {

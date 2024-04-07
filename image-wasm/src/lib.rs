@@ -1,5 +1,8 @@
 mod image_util;
+mod qr_code_util;
+
 use crate::image_util::resizing::calculate_new_dimensions;
+use crate::qr_code_util::generator::get_time_qr_code;
 
 use exif::Tag;
 // use photon_rs::transform::resize;
@@ -13,6 +16,7 @@ use image::{io::Reader as ImageReader, DynamicImage};
 
 use std::io::{BufWriter, Cursor};
 use std::num::NonZeroU32;
+use std::vec;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -312,28 +316,34 @@ fn get_dynamic_image_from_bytes(data: &Vec<u8>) -> Result<DynamicImage, JsValue>
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct QrCodeImageResult {
+    time: u32,
+    base64: String,
+}
+
 #[wasm_bindgen]
-pub async fn run(repo: String) -> Result<JsValue, JsValue> {
-    let mut opts = RequestInit::new();
-    opts.method("GET");
-    opts.mode(RequestMode::Cors);
+pub async fn get_time_qr_code_image(time: u32) -> Result<JsValue, JsValue> {
+    let qr_code_image_result = match get_time_qr_code(time) {
+        Ok(png) => QrCodeImageResult {
+            time,
+            base64: general_purpose::STANDARD.encode(png),
+        },
+        Err(err) => {
+            log("Error generating QR code image");
+            log(&err.to_string());
+            return Err(JsValue::UNDEFINED);
+        }
+    };
 
-    let url = format!("https://api.github.com/repos/{}/branches/master", repo);
+    let result: JsValue = match serde_wasm_bindgen::to_value(&qr_code_image_result) {
+        Ok(value) => value,
+        Err(err) => {
+            log("Error serializing file processing result");
+            log(&err.to_string());
+            JsValue::UNDEFINED
+        }
+    };
 
-    let request = Request::new_with_str_and_init(&url, &opts)?;
-
-    request.headers().set("Accept", "application/vnd.github.v3+json")?;
-
-    let window = web_sys::window().unwrap();
-    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
-
-    // `resp_value` is a `Response` object.
-    assert!(resp_value.is_instance_of::<Response>());
-    let resp: Response = resp_value.dyn_into().unwrap();
-
-    // Convert this other `Promise` into a rust `Future`.
-    let json = JsFuture::from(resp.json()?).await?;
-
-    // Send the JSON response back to JS.
-    Ok(json)
+    Ok(result)
 }

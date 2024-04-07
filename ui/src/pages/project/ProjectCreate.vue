@@ -42,7 +42,7 @@ async function createProject() {
     const response = await pb.collection<ProjectsResponse>("projects").create(project.value);
     const itemId = response.id;
     console.log(`Project created with ID ${itemId}`);
-    showNotificationToast({ headline: `Project saved`, type: "success" });
+    showNotificationToast({ headline: `Project created`, type: "success" });
     await router.push({ name: "project-general", params: { id: itemId } });
   } catch (error: any) {
     unexpectedError.value = error;
