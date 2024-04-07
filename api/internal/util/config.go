@@ -6,6 +6,7 @@ func InitConfig() error {
 	err := config.LoadConfig([]config.Value{
 		config.String("LOG_LEVEL").Default("info"),
 		config.Bool("DEV").Default(false),
+		config.String("DOMAIN_NAME").NotEmpty(),
 
 		config.String("S3_ENDPOINT").NotEmpty(),
 		config.Bool("S3_SSL").Default(true),

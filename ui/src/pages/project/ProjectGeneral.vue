@@ -16,6 +16,7 @@ import DetailEditGroup, { Field, FieldType, EditData } from "src/components/Deta
 import { ProjectsResponse } from "src/types/pocketbase";
 import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
+import { capitalize } from "src/util/stringUtils";
 const route = useRoute();
 
 type ITEM_TYPE = ProjectsResponse;
@@ -57,7 +58,7 @@ async function saveItem(editData: EditData<ITEM_TYPE>) {
     console.log(`Saving ${ITEM_NAME} ${item.value.id}`);
     const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).update(item.value.id, editData);
     item.value = response;
-    showNotificationToast({ headline: `${ITEM_NAME} saved`, type: "success" });
+    showNotificationToast({ headline: `${capitalize(ITEM_NAME)} saved`, type: "success" });
   } catch (error: any) {
     item.value = rollbackData;
     unexpectedError.value = error;

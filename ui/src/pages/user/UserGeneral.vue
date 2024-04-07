@@ -1,7 +1,7 @@
 <template>
   <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
     <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
-      <DetailEditGroup @edit-save="saveitem" headline="User Information" subtitle="General information concerning this user" :fields="informationFields" :item="item" />
+      <DetailEditGroup @edit-save="saveItem" headline="User Information" subtitle="General information concerning this user" :fields="informationFields" :item="item" />
     </div>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -15,6 +15,7 @@ import DetailEditGroup, { Field, FieldType, EditData } from "src/components/Deta
 import { UsersResponse } from "src/types/pocketbase";
 import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
+import { capitalize } from "src/util/stringUtils";
 const route = useRoute();
 
 type ITEM_TYPE = UsersResponse;
@@ -26,7 +27,7 @@ const item: Ref<ITEM_TYPE | null> = ref(null);
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
 
-async function loaditem() {
+async function loadItem() {
   const itemId: string = `${route.params.userid}`;
   if (!itemId || itemId === "") {
     console.log(`No ${ITEM_NAME} ID provided`);
@@ -43,7 +44,7 @@ async function loaditem() {
   }
 }
 
-async function saveitem(editData: EditData<ITEM_TYPE>) {
+async function saveItem(editData: EditData<ITEM_TYPE>) {
   if (!item.value) {
     console.log("No item to save");
     return;
@@ -56,7 +57,7 @@ async function saveitem(editData: EditData<ITEM_TYPE>) {
     console.log(`Saving item ${item.value.id}`);
     const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).update(item.value.id, editData);
     item.value = response;
-    showNotificationToast({ headline: `${ITEM_NAME} saved`, type: "success" });
+    showNotificationToast({ headline: `${capitalize(ITEM_NAME)} saved`, type: "success" });
   } catch (error: any) {
     item.value = rollbackData;
     unexpectedError.value = error;
@@ -72,6 +73,6 @@ const informationFields: Field<ITEM_TYPE>[] = [
   { key: "copyrightTag", label: "Copyright Tag", type: FieldType.TEXT },
 ];
 
-watch(route, loaditem);
-onMounted(loaditem);
+watch(route, loadItem);
+onMounted(loadItem);
 </script>
