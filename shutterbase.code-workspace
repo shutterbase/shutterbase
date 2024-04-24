@@ -10,7 +10,7 @@
       "path": "hack"
     },
     {
-      "path": "wasm"
+      "path": "image-wasm"
     }
   ],
   "settings": {}
