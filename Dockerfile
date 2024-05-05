@@ -10,7 +10,6 @@ FROM wasm-builder as image-wasm-build
 WORKDIR /usr/src/image-wasm
 
 COPY image-wasm/Cargo.toml /usr/src/image-wasm/Cargo.toml 
-COPY image-wasm/Cargo.lock /usr/src/image-wasm/Cargo.lock 
 COPY image-wasm/src /usr/src/image-wasm/src
 
 RUN wasm-pack build --target web --release
