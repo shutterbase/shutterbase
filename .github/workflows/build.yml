@@ -1,0 +1,60 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  release:
+    name: Create release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Changelog
+        uses: scottbrenner/generate-changelog-action@master
+        id: Changelog
+        env:
+          REPO: ${{ github.repository }}
+      - name: Create release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          body: |
+            ${{ steps.Changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    permissions: write-all
+    env:
+      DOCKER_IMAGE_URL: ghcr.io/shutterbase/shutterbase
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Build
+        run: docker build --platform=linux/amd64 -t ${DOCKER_IMAGE_URL}:latest -t $DOCKER_IMAGE_URL:${GITHUB_SHA::8} -t $DOCKER_IMAGE_URL:${{ github.ref_name }} .
+
+      - name: Push
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          docker push $DOCKER_IMAGE_URL:latest
+          docker push $DOCKER_IMAGE_URL:${GITHUB_SHA::8}
+          docker push $DOCKER_IMAGE_URL:${{ github.ref_name }}
