@@ -38,6 +38,7 @@ jobs:
     permissions: write-all
     env:
       DOCKER_IMAGE_URL: ghcr.io/shutterbase/shutterbase
+      WASM_BUILDER_IMAGE: ghcr.io/shutterbase/wasm-builder
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -51,6 +52,10 @@ jobs:
 
       - name: Build
         run: |
+          docker pull $WASM_BUILDER_IMAGE:latest || true
+          docker build --platform=linux/amd64 -t $WASM_BUILDER_IMAGE:latest --target wasm-builder .
+          docker push $WASM_BUILDER_IMAGE:latest
+          
           docker build --platform=linux/amd64 -t $DOCKER_IMAGE_URL:${GITHUB_SHA::8} .
           docker push $DOCKER_IMAGE_URL:${GITHUB_SHA::8}
 
