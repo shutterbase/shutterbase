@@ -49,14 +49,15 @@ RUN go mod download
 COPY api/cmd /usr/src/cmd
 COPY api/internal /usr/src/internal
 
-COPY --from=ui /usr/src/dist/spa /usr/src/internal/web/html
-
 RUN go test ./...
 RUN go build -o server -ldflags="-s -w" cmd/server/main.go 
 
 FROM alpine:3.18
 WORKDIR /usr/app
 RUN chown -R 1000:1000 /usr/app
-COPY --chown=1000:1000 --from=builder /usr/src/server .
+COPY --chown=1000:1000 --from=builder /usr/src/server /usr/app/server
+COPY --chown=1000:1000 --from=ui /usr/src/dist/spa /usr/app/web
+
 USER 1000
-ENTRYPOINT ["/usr/app/server"]
+EXPOSE 8080
+ENTRYPOINT ["/usr/app/server", "serve", "--http=0.0.0.0:8080"]
