@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -45,6 +47,20 @@ func main() {
 	}
 
 	app := pocketbase.New()
+
+	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+		e.Router.GET("/*", func(c echo.Context) error {
+			root := "./web"
+			path := filepath.Clean(c.Request().URL.Path)
+
+			if _, err := os.Stat(filepath.Join(root, path)); os.IsNotExist(err) {
+				return c.File(filepath.Join(root, "index.html"))
+			}
+
+			return c.File(filepath.Join(root, path))
+		})
+		return nil
+	})
 
 	context := &util.Context{
 		App:      app,
