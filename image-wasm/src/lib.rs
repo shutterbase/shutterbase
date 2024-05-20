@@ -126,7 +126,14 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
         log(&format!("Queried upload url: {}", upload_url));
         log(&format!("Converting to {}px", dimension));
         let start = js_sys::Date::now();
-        let resized_image_data = resize_image(last_converted_image_data, *dimension);
+        let resized_image_data = match resize_image(last_converted_image_data, *dimension) {
+            Some(data) => data,
+            None => {
+                log("Error resizing image");
+                return Err(JsValue::UNDEFINED);
+            }
+        };
+
         last_converted_image_data = resized_image_data.clone();
         let duration = js_sys::Date::now() - start;
         log(&format!("Resized in: {}ms", duration));
@@ -216,6 +223,7 @@ pub async fn parse_qr_code(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue
 pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue> {
     let data = js_sys::Uint8Array::new(&file).to_vec();
 
+    log(&format!("1/3 - Decoding QR code from image"));
     let qr_code_data = match decode_qr_code(&data) {
         Ok(qr_code_data) => qr_code_data,
         Err(err) => {
@@ -225,6 +233,7 @@ pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> Result<JsValue, JsVal
         }
     };
 
+    log(&format!("2/3 - Reading exif metadata from image"));
     let metadata = match read_image_metadata(&data) {
         Ok(metadata) => metadata,
         Err(err) => {
@@ -234,6 +243,7 @@ pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> Result<JsValue, JsVal
         }
     };
 
+    log(&format!("3/3 - Calculating time offset"));
     let time_offset = match calculate_time_offset(&metadata, &qr_code_data) {
         Ok(time_offset) => time_offset,
         Err(err) => {
