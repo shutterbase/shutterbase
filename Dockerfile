@@ -47,6 +47,7 @@ RUN go mod download
 
 COPY api/cmd /usr/src/cmd
 COPY api/internal /usr/src/internal
+COPY api/migrations /usr/src/migrations
 
 RUN go test ./...
 RUN go build -o server -ldflags="-s -w" cmd/server/main.go 
