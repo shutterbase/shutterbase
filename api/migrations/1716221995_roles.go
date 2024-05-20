@@ -30,6 +30,15 @@ func init() {
 
 		for _, role := range roleDefinitions {
 
+			existingRecord, err := dao.FindFirstRecordByData(collection.Id, "key", role.key)
+			if err != nil {
+				return err
+			}
+
+			if existingRecord != nil {
+				continue
+			}
+
 			record := models.NewRecord(collection)
 			record.Set("key", role.key)
 			record.Set("description", role.description)
