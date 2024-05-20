@@ -21,6 +21,8 @@ import (
 	"github.com/shutterbase/shutterbase/internal/timeoffset"
 	"github.com/shutterbase/shutterbase/internal/util"
 	"github.com/shutterbase/shutterbase/internal/websocket"
+
+	_ "github.com/shutterbase/shutterbase/migrations"
 )
 
 func main() {
