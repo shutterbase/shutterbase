@@ -1,4 +1,4 @@
-name: Build and Release
+name: WASM Builder
 
 on:
   workflow_dispatch:
