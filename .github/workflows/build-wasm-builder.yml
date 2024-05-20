@@ -5,8 +5,11 @@ on:
 
 jobs:
   docker:
+    strategy:
+      matrix:
+        runner: ["ubuntu-latest", "macos-latest"]
     name: Docker Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     permissions: write-all
     env:
       WASM_BUILDER_IMAGE: ghcr.io/shutterbase/wasm-builder
@@ -24,5 +27,5 @@ jobs:
       - name: Build
         run: |
           docker pull $WASM_BUILDER_IMAGE:latest || true
-          docker build --platform=linux/amd64 -t $WASM_BUILDER_IMAGE:latest --target wasm-builder .
+          docker build -t $WASM_BUILDER_IMAGE:latest --target wasm-builder .
           docker push $WASM_BUILDER_IMAGE:latest
