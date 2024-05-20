@@ -16,6 +16,7 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/models"
+	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/shutterbase/shutterbase/internal/s3"
 	"github.com/shutterbase/shutterbase/internal/timeoffset"
 	"github.com/shutterbase/shutterbase/internal/util"
@@ -65,6 +66,10 @@ func main() {
 	context := &util.Context{
 		App:      app,
 		S3Client: s3Client,
+	}
+
+	if config.Get().Bool("DEV") {
+		registerMigrateCmd(context)
 	}
 
 	registerProjectAssignmentHooks(context)
@@ -270,5 +275,11 @@ func registerGetUploadUrlEndpoint(context *util.Context) {
 		}, apis.RequireRecordAuth())
 
 		return nil
+	})
+}
+
+func registerMigrateCmd(context *util.Context) {
+	migratecmd.MustRegister(context.App, context.App.RootCmd, migratecmd.Config{
+		Automigrate: true,
 	})
 }
