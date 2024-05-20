@@ -21,42 +21,85 @@ pub fn calculate_new_dimensions(width: u32, height: u32, max_width: u32, max_hei
     (new_width, new_height)
 }
 
-pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Vec<u8> {
+pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
     let source_image = match get_dynamic_image_from_bytes(&source_image_data) {
         Ok(image) => image,
         Err(_) => {
             log("Error getting dynamic image from bytes");
-            return vec![];
+            return None;
         }
     };
 
     let (width, height) = calculate_new_dimensions(source_image.width(), source_image.height(), size, size);
     log(&format!("Resizing to {}x{}", width, height));
 
-    let src_width = NonZeroU32::new(source_image.width()).unwrap();
-    let src_height = NonZeroU32::new(source_image.height()).unwrap();
-    let src_image = fr::Image::from_vec_u8(src_width, src_height, source_image.to_rgb8().into_raw(), fr::PixelType::U8x3).unwrap();
+    let src_width = match NonZeroU32::new(source_image.width()) {
+        Some(width) => width,
+        None => {
+            log("Error getting source image width");
+            return None;
+        }
+    };
+    let src_height = match NonZeroU32::new(source_image.height()) {
+        Some(height) => height,
+        None => {
+            log("Error getting source image height");
+            return None;
+        }
+    };
+    let src_image = match fr::Image::from_vec_u8(src_width, src_height, source_image.to_rgb8().into_raw(), fr::PixelType::U8x3) {
+        Ok(image) => image,
+        Err(err) => {
+            log("Error creating source image");
+            log(err.to_string().as_str());
+            return None;
+        }
+    };
 
-    let dst_width = NonZeroU32::new(width).unwrap();
-    let dst_height = NonZeroU32::new(height).unwrap();
+    let dst_width = match NonZeroU32::new(width) {
+        Some(width) => width,
+        None => {
+            log("Error getting destination image width");
+            return None;
+        }
+    };
+    let dst_height = match NonZeroU32::new(height) {
+        Some(height) => height,
+        None => {
+            log("Error getting destination image height");
+            return None;
+        }
+    };
     let mut dst_image = fr::Image::new(dst_width, dst_height, src_image.pixel_type());
 
     let mut dst_view = dst_image.view_mut();
 
     let mut resizer = fr::Resizer::new(fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3));
-    resizer.resize(&src_image.view(), &mut dst_view).unwrap();
+    match resizer.resize(&src_image.view(), &mut dst_view) {
+        Ok(_) => (),
+        Err(err) => {
+            log("Error resizing image");
+            log(err.to_string().as_str());
+            return None;
+        }
+    }
 
     let mut result_buf = BufWriter::new(Vec::new());
-    JpegEncoder::new(&mut result_buf)
-        .write_image(dst_image.buffer(), dst_width.get(), dst_height.get(), image::ColorType::Rgb8)
-        .unwrap();
+    match JpegEncoder::new(&mut result_buf).write_image(dst_image.buffer(), dst_width.get(), dst_height.get(), image::ColorType::Rgb8) {
+        Ok(_) => (),
+        Err(err) => {
+            log("Error encoding resized image");
+            log(err.to_string().as_str());
+            return None;
+        }
+    };
 
     match result_buf.into_inner() {
-        Ok(data) => data,
+        Ok(data) => Some(data),
         Err(err) => {
             log("Error extracting resized image data");
             log(err.to_string().as_str());
-            return vec![];
+            return None;
         }
     }
 }

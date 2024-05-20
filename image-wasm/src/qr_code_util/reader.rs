@@ -5,9 +5,16 @@ use bardecoder;
 use image;
 
 pub fn decode_qr_code(data: &Vec<u8>) -> Result<String, Box<dyn Error>> {
-    let resized_image = resize_image(data.clone(), 512);
+    let resized_image = match resize_image(data.clone(), 512) {
+        Some(resized_image) => resized_image,
+        None => return Err("Error resizing image".into()),
+    };
 
-    let image = image::load_from_memory(&resized_image)?;
+    let image = match image::load_from_memory(&resized_image) {
+        Ok(image) => image,
+        Err(err) => return Err(err.to_string().into()),
+    };
+
     let decoder = bardecoder::default_decoder();
     let results = decoder.decode(&image);
 

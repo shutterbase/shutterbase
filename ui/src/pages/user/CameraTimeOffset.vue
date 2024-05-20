@@ -19,7 +19,7 @@
           <div v-if="timeOffsetResult" class="mt-12">
             <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">Time Offset</h2>
             <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-300">
-              Your camera <b>{{ timeOffsetResult.model }}</b> is {{ timeOffsetResult.timeOffset }} seconds <span v-if="timeOffsetResult.timeOffset > 0">behind</span
+              Your camera <b>{{ timeOffsetResult.model }}</b> is {{ Math.abs(timeOffsetResult.timeOffset) }} seconds <span v-if="timeOffsetResult.timeOffset > 0">behind</span
               ><span v-else-if="timeOffsetResult.timeOffset < 0">ahead of</span> the server's time.
             </p>
             <div class="mt-6 space-y-6 divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm leading-6">
@@ -123,8 +123,6 @@ async function handleFiles(files: FileList) {
     await init();
     const imageMetadata = await get_image_metadata(data);
     console.log(imageMetadata);
-    const qrCodeResult = await parse_qr_code(data);
-    console.log(qrCodeResult);
     const timeOffset = await get_time_offset(data);
     console.log(timeOffset);
     timeOffsetResult.value = {
