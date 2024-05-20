@@ -1,44 +1,25 @@
-mod image_util;
+mod api;
+mod image;
 mod qr_code_util;
+mod util;
 
-use crate::image_util::resizing::calculate_new_dimensions;
+use crate::api::upload::{get_upload_url, upload_file};
+use crate::image::metadata::read_image_metadata;
+use crate::image::resizing::resize_image;
+use crate::image::util::get_image_from_array_buffer;
 use crate::qr_code_util::generator::get_time_qr_code;
+use crate::qr_code_util::reader::decode_qr_code;
 
-use exif::Tag;
-// use photon_rs::transform::resize;
-// use photon_rs::transform::SamplingFilter;
-// use photon_rs::PhotonImage;
-
-use fast_image_resize as fr;
-use image::codecs::jpeg::JpegEncoder;
-use image::ImageEncoder;
-use image::{io::Reader as ImageReader, DynamicImage};
-
-use std::io::{BufWriter, Cursor};
-use std::num::NonZeroU32;
-use std::vec;
+use crate::util::js::log;
+use crate::util::time_offset::calculate_time_offset;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-use js_sys::Uint8Array;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
-use web_sys::{Blob, Request, RequestInit, RequestMode, Response};
 
 use base64::{engine::general_purpose, Engine as _};
-
-#[wasm_bindgen]
-extern "C" {
-    pub fn alert(s: &str);
-}
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct ProcessedFile {
@@ -65,19 +46,21 @@ pub struct FileProcessorOptions {
     api_url: String,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct UploadUrlResponse {
-    url: String,
-}
-
 #[wasm_bindgen]
 pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Result<JsValue, JsValue> {
     let overall_start_time = js_sys::Date::now();
 
     let data = js_sys::Uint8Array::new(&file).to_vec();
 
-    let source_image = match get_dynamic_image_from_bytes(&data) {
+    let source_image = match get_image_from_array_buffer(file) {
         Ok(image) => image,
+        Err(_) => {
+            return Err(JsValue::UNDEFINED);
+        }
+    };
+
+    let metadata = match read_image_metadata(&data) {
+        Ok(metadata) => metadata,
         Err(_) => {
             return Err(JsValue::UNDEFINED);
         }
@@ -94,30 +77,12 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
         }
     };
 
-    let exif = match exif::Reader::new().read_from_container(&mut std::io::BufReader::new(Cursor::new(&data))) {
-        Ok(exif) => exif,
-        Err(err) => {
-            log("Error creating exif reader");
-            log(&err.to_string());
-            return Err(JsValue::UNDEFINED);
-        }
-    };
-
-    let copyright = match exif.fields().find(|field| field.tag == Tag::Artist) {
-        Some(field) => field.display_value().to_string(),
-        None => "Unknown".to_string(),
-    };
-    let date = match exif.fields().find(|field| field.tag == Tag::DateTime) {
-        Some(field) => field.display_value().to_string(),
-        None => "Unknown".to_string(),
-    };
-
     let id = Uuid::new_v4();
     let mut processed_files = ProcessedFiles {
         id: id.to_string(),
         thumbnail: "".to_string(),
         original_size,
-        copyright,
+        copyright: metadata.copyright,
         sizes: HashMap::new(),
     };
 
@@ -130,6 +95,8 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
             // base64: general_purpose::STANDARD.encode(&data),
         },
     );
+
+    let data = source_image.as_bytes().to_vec();
 
     let upload_url = get_upload_url(&options.api_url, &options.auth_token, &format!("{}.jpg", id)).await?;
     let upload_start_time = js_sys::Date::now();
@@ -199,121 +166,93 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
     Ok(result)
 }
 
-fn resize_image(source_image_data: Vec<u8>, size: u32) -> Vec<u8> {
-    let source_image = match get_dynamic_image_from_bytes(&source_image_data) {
-        Ok(image) => image,
+#[wasm_bindgen]
+pub async fn get_image_metadata(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue> {
+    let data = js_sys::Uint8Array::new(&file).to_vec();
+
+    let metadata = match read_image_metadata(&data) {
+        Ok(metadata) => metadata,
         Err(_) => {
-            log("Error getting dynamic image from bytes");
-            return vec![];
+            return Err(JsValue::UNDEFINED);
         }
     };
 
-    let (width, height) = calculate_new_dimensions(source_image.width(), source_image.height(), size, size);
-    log(&format!("Resizing to {}x{}", width, height));
-
-    let src_width = NonZeroU32::new(source_image.width()).unwrap();
-    let src_height = NonZeroU32::new(source_image.height()).unwrap();
-    let src_image = fr::Image::from_vec_u8(src_width, src_height, source_image.to_rgb8().into_raw(), fr::PixelType::U8x3).unwrap();
-
-    let dst_width = NonZeroU32::new(width).unwrap();
-    let dst_height = NonZeroU32::new(height).unwrap();
-    let mut dst_image = fr::Image::new(dst_width, dst_height, src_image.pixel_type());
-
-    let mut dst_view = dst_image.view_mut();
-
-    let mut resizer = fr::Resizer::new(fr::ResizeAlg::Convolution(fr::FilterType::Lanczos3));
-    resizer.resize(&src_image.view(), &mut dst_view).unwrap();
-
-    let mut result_buf = BufWriter::new(Vec::new());
-    JpegEncoder::new(&mut result_buf)
-        .write_image(dst_image.buffer(), dst_width.get(), dst_height.get(), image::ExtendedColorType::Rgb8)
-        .unwrap();
-
-    match result_buf.into_inner() {
-        Ok(data) => data,
+    let result: JsValue = match serde_wasm_bindgen::to_value(&metadata) {
+        Ok(value) => value,
         Err(err) => {
-            log("Error extracting resized image data");
-            log(err.to_string().as_str());
-            return vec![];
+            log("Error serializing file file metadata result");
+            log(&err.to_string());
+            JsValue::UNDEFINED
         }
-    }
+    };
+
+    Ok(result)
 }
 
-async fn get_upload_url(api_url: &str, auth_token: &str, file_name: &str) -> Result<String, JsValue> {
-    log(&format!("Getting upload url for {}", file_name));
+#[wasm_bindgen]
+pub async fn parse_qr_code(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue> {
+    let data = js_sys::Uint8Array::new(&file).to_vec();
 
-    let mut opts = RequestInit::new();
-    opts.method("GET");
-    opts.mode(RequestMode::Cors);
-
-    let url = format!("{}/upload-url?name={}", api_url, file_name);
-    // log(format!("Querying upload url: {}", url).as_str());
-    // log(format!("Auth token: {}", auth_token).as_str());
-
-    let request = Request::new_with_str_and_init(&url, &opts)?;
-    request.headers().set("Authorization", auth_token)?;
-
-    let window = web_sys::window().unwrap();
-    let response: Response = match JsFuture::from(window.fetch_with_request(&request)).await {
-        Ok(resp_value) => resp_value.dyn_into()?,
-        Err(err) => {
-            log("Error fetching upload url");
-            log(err.as_string().unwrap().as_str());
-            return Err(err);
+    let qr_code_data = match decode_qr_code(&data) {
+        Ok(qr_code_data) => qr_code_data,
+        Err(_) => {
+            return Err(JsValue::UNDEFINED);
         }
     };
 
-    let json_data = JsFuture::from(response.json()?).await?;
-
-    let upload_url_response = match serde_wasm_bindgen::from_value::<UploadUrlResponse>(json_data) {
-        Ok(upload_url_response) => {
-            log(upload_url_response.url.as_str());
-            upload_url_response
-        }
+    let result: JsValue = match serde_wasm_bindgen::to_value(&qr_code_data) {
+        Ok(value) => value,
         Err(err) => {
-            log("Error parsing upload url response");
+            log("Error serializing file file metadata result");
+            log(&err.to_string());
+            JsValue::UNDEFINED
+        }
+    };
+
+    Ok(result)
+}
+
+#[wasm_bindgen]
+pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue> {
+    let data = js_sys::Uint8Array::new(&file).to_vec();
+
+    let qr_code_data = match decode_qr_code(&data) {
+        Ok(qr_code_data) => qr_code_data,
+        Err(err) => {
+            log("Error decoding QR code image");
             log(&err.to_string());
             return Err(JsValue::UNDEFINED);
         }
     };
 
-    Ok(upload_url_response.url)
-}
-
-async fn upload_file(data: &Vec<u8>, upload_url: String) -> Result<(), JsValue> {
-    // Convert Vec<u8> to Uint8Array for the Blob
-    let uint8_array = Uint8Array::new_with_length(data.len() as u32);
-    uint8_array.copy_from(&data);
-
-    // Create a Blob with the file data
-    let blob_parts = js_sys::Array::new();
-    blob_parts.push(&uint8_array);
-    let blob = Blob::new_with_u8_array_sequence(&blob_parts)?;
-
-    let mut opts = RequestInit::new();
-    opts.method("PUT");
-    opts.body(Some(&blob));
-    opts.mode(RequestMode::Cors);
-
-    let request = Request::new_with_str_and_init(&upload_url, &opts)?;
-
-    let window = web_sys::window().ok_or_else(|| JsValue::from_str("Could not obtain window"))?;
-    let _response = JsFuture::from(window.fetch_with_request(&request)).await?;
-
-    Ok(())
-}
-
-fn get_dynamic_image_from_bytes(data: &Vec<u8>) -> Result<DynamicImage, JsValue> {
-    let mut image_reader = ImageReader::new(Cursor::new(data));
-    image_reader.set_format(image::ImageFormat::Jpeg);
-    match image_reader.decode() {
-        Ok(image) => Ok(image),
+    let metadata = match read_image_metadata(&data) {
+        Ok(metadata) => metadata,
         Err(err) => {
-            log("Error decoding image");
+            log("Error reading exif metadata from image");
             log(&err.to_string());
             return Err(JsValue::UNDEFINED);
         }
-    }
+    };
+
+    let time_offset = match calculate_time_offset(&metadata, &qr_code_data) {
+        Ok(time_offset) => time_offset,
+        Err(err) => {
+            log("Error calculating time offset");
+            log(&err.to_string());
+            return Err(JsValue::UNDEFINED);
+        }
+    };
+
+    let result: JsValue = match serde_wasm_bindgen::to_value(&time_offset) {
+        Ok(value) => value,
+        Err(err) => {
+            log("Error serializing file file metadata result");
+            log(&err.to_string());
+            JsValue::UNDEFINED
+        }
+    };
+
+    Ok(result)
 }
 
 #[derive(Serialize, Deserialize)]

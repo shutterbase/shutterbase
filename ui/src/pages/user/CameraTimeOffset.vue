@@ -15,7 +15,40 @@
       <div class="mt-12">
         <div class="mx-auto grid max-w-2xl grid-cols-1 items-start gap-x-8 lg:mx-0 lg:max-w-none lg:grid-cols-2">
           <QrTimeCode />
-          <div class="w-64 h-64 bg-primary-400"></div>
+          <FileDropzone :multiple="false" @files="handleFiles" />
+          <div v-if="timeOffsetResult" class="mt-12">
+            <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">Time Offset</h2>
+            <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-300">
+              Your camera <b>{{ timeOffsetResult.model }}</b> is {{ timeOffsetResult.timeOffset }} seconds <span v-if="timeOffsetResult.timeOffset > 0">behind</span
+              ><span v-else-if="timeOffsetResult.timeOffset < 0">ahead of</span> the server's time.
+            </p>
+            <div class="mt-6 space-y-6 divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm leading-6">
+              <div class="pt-3 sm:flex">
+                <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Time Offset</dt>
+                <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
+                  <div>
+                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ timeOffsetResult.timeOffset }} seconds</div>
+                  </div>
+                </dd>
+              </div>
+              <div class="pt-3 sm:flex">
+                <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Server Time</dt>
+                <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
+                  <div>
+                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.serverTime) }}</div>
+                  </div>
+                </dd>
+              </div>
+              <div class="pt-3 sm:flex">
+                <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Camera Time</dt>
+                <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
+                  <div>
+                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.cameraTime) }}</div>
+                  </div>
+                </dd>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
@@ -29,10 +62,14 @@ import { onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import QrTimeCode from "src/components/QrTimeCode.vue";
+import FileDropzone from "src/components/FileDropzone.vue";
 import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
 import { CamerasResponse } from "src/types/pocketbase";
 import { fullNamePossessive } from "src/util/userUtil";
+import init, { get_image_metadata, get_time_offset, parse_qr_code } from "image-wasm";
+import * as fileUtil from "src/util/fileUtil";
+import { dateTimeFromUnix } from "src/util/dateTimeUtil";
 
 const router = useRouter();
 const route = useRoute();
@@ -44,6 +81,16 @@ const actingUserId = pb.authStore.model?.id;
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
+
+type TimeOffsetResult = {
+  timeOffset: number;
+  serverTime: number;
+  cameraTime: number;
+  model: string;
+  lensModel: string;
+};
+
+const timeOffsetResult = ref<TimeOffsetResult>();
 
 async function getCamera() {
   try {
@@ -60,22 +107,42 @@ async function getCamera() {
   }
 }
 
+async function handleFiles(files: FileList) {
+  console.log(files);
+  if (files.length !== 1) {
+    console.log("Only one file can be uploaded");
+    return;
+  }
+  const data = await fileUtil.loadFile(files[0]);
+  if (data == null) {
+    console.log("Failed to load file");
+    return;
+  }
+  console.log(data);
+  try {
+    await init();
+    const imageMetadata = await get_image_metadata(data);
+    console.log(imageMetadata);
+    const qrCodeResult = await parse_qr_code(data);
+    console.log(qrCodeResult);
+    const timeOffset = await get_time_offset(data);
+    console.log(timeOffset);
+    timeOffsetResult.value = {
+      timeOffset: timeOffset.time_offset,
+      serverTime: timeOffset.server_time,
+      cameraTime: timeOffset.camera_time,
+      model: imageMetadata.tags.get("Model"),
+      lensModel: imageMetadata.tags.get("LensModel"),
+    };
+  } catch (error: any) {
+    console.log("Failed to get image metadata");
+    console.log(error);
+    return;
+  }
+}
+
 onMounted(getCamera);
 
 onMounted(websocket.connect);
 onUnmounted(websocket.disconnect);
-
-// async function createItem() {
-//   try {
-//     console.log(`Creating ${ITEM_NAME} ${item.value.name}`);
-//     const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).create({ ...item.value, user: userId.value });
-//     const itemId = response.id;
-//     console.log(`Project created with ID ${itemId}`);
-//     showNotificationToast({ headline: `${capitalize(ITEM_NAME)} created`, type: "success" });
-//     await router.push({ name: `cameras`, params: { cameraid: itemId, userid: userId.value } });
-//   } catch (error: any) {
-//     unexpectedError.value = error;
-//     showUnexpectedErrorMessage.value = true;
-//   }
-// }
 </script>
