@@ -52,10 +52,7 @@ jobs:
 
       - name: Build
         run: |
-          docker pull $WASM_BUILDER_IMAGE:latest || true
-          docker build --platform=linux/amd64 -t $WASM_BUILDER_IMAGE:latest --target wasm-builder .
-          docker push $WASM_BUILDER_IMAGE:latest
-          
+          docker pull $WASM_BUILDER_IMAGE:latest
           docker build --platform=linux/amd64 -t $DOCKER_IMAGE_URL:${GITHUB_SHA::8} .
           docker push $DOCKER_IMAGE_URL:${GITHUB_SHA::8}
 

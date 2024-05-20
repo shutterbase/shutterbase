@@ -5,7 +5,7 @@ RUN cargo install wasm-pack
 RUN cargo install wasm-opt --locked
 
 
-FROM wasm-builder as image-wasm-build
+FROM ghcr.io/shutterbase/wasm-builder:latest as image-wasm-build
 
 WORKDIR /usr/src/image-wasm
 
