@@ -31,6 +31,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to initialize config")
 	}
+	config.Print()
 
 	err = util.InitLogger()
 	if err != nil {
@@ -57,6 +58,7 @@ func main() {
 			path := filepath.Clean(c.Request().URL.Path)
 
 			if _, err := os.Stat(filepath.Join(root, path)); os.IsNotExist(err) {
+				c.Response().Header().Set("Cache-Control", "no-cache")
 				return c.File(filepath.Join(root, "index.html"))
 			}
 
