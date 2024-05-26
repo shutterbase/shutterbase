@@ -48,6 +48,14 @@
                 </dd>
               </div>
             </div>
+            <div v-if="!timeOffsetCreated" class="mt-10 flex items-center justify-center gap-x-6">
+              <button
+                @click="saveTimeOffset"
+                class="bg-secondary-600 hover:bg-secondary-700 inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto"
+              >
+                <CheckCircleIcon class="mr-2 w-5 h-5 text-white" />Save time offset
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -65,22 +73,28 @@ import QrTimeCode from "src/components/QrTimeCode.vue";
 import FileDropzone from "src/components/FileDropzone.vue";
 import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
-import { CamerasResponse } from "src/types/pocketbase";
+import { CamerasResponse, TimeOffsetsRecord, UsersResponse } from "src/types/pocketbase";
 import { fullNamePossessive } from "src/util/userUtil";
 import init, { get_image_metadata, get_time_offset, parse_qr_code } from "image-wasm";
 import * as fileUtil from "src/util/fileUtil";
 import { dateTimeFromUnix } from "src/util/dateTimeUtil";
+import { CheckCircleIcon } from "@heroicons/vue/24/outline";
+import { TimeOffsetsResponse } from "src/types/pocketbase";
 
 const router = useRouter();
 const route = useRoute();
 
+type ITEM_TYPE = CamerasResponse & { expand: { user: UsersResponse } };
+
 const cameraId = ref<string>(`${route.params.cameraid}`);
-const camera = ref<CamerasResponse>();
+const camera = ref<ITEM_TYPE>();
 
 const actingUserId = pb.authStore.model?.id;
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
+
+const timeOffsetCreated = ref(false);
 
 type TimeOffsetResult = {
   timeOffset: number;
@@ -95,7 +109,7 @@ const timeOffsetResult = ref<TimeOffsetResult>();
 async function getCamera() {
   try {
     console.log(`Getting camera ${cameraId.value}`);
-    const response = await pb.collection<CamerasResponse>("cameras").getOne(cameraId.value, {
+    const response = await pb.collection<ITEM_TYPE>("cameras").getOne(cameraId.value, {
       expand: "user",
     });
     console.log(`Camera retrieved with ID ${cameraId.value}`);
@@ -127,8 +141,8 @@ async function handleFiles(files: FileList) {
     console.log(timeOffset);
     timeOffsetResult.value = {
       timeOffset: timeOffset.time_offset,
-      serverTime: timeOffset.server_time,
-      cameraTime: timeOffset.camera_time,
+      serverTime: timeOffset.server_time * 1000,
+      cameraTime: timeOffset.camera_time * 1000,
       model: imageMetadata.tags.get("Model"),
       lensModel: imageMetadata.tags.get("LensModel"),
     };
@@ -136,6 +150,30 @@ async function handleFiles(files: FileList) {
     console.log("Failed to get image metadata");
     console.log(error);
     return;
+  }
+}
+
+async function saveTimeOffset() {
+  if (timeOffsetResult.value == null) {
+    console.log("No time offset to save");
+    return;
+  }
+  try {
+    const timeOffsetRecord: TimeOffsetsRecord = {
+      timeOffset: timeOffsetResult.value.timeOffset,
+      cameraTime: new Date(timeOffsetResult.value.cameraTime).toISOString(),
+      serverTime: new Date(timeOffsetResult.value.serverTime).toISOString(),
+      camera: cameraId.value,
+    };
+
+    const response = await pb.collection<TimeOffsetsResponse>("time_offsets").create(timeOffsetRecord);
+    const itemId = response.id;
+    console.log(`Time offset created with ID ${itemId}`);
+    showNotificationToast({ headline: `Time offset created`, type: "success" });
+    timeOffsetCreated.value = true;
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
   }
 }
 

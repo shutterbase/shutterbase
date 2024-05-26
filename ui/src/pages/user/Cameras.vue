@@ -20,7 +20,10 @@
     </div>
     <div class="my-10 space-y-6 divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-600"></div>
     <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
-      <CameraEdit v-for="camera in items" :key="camera.id" :item="camera" @edit-save="saveItem" />
+      <div v-for="camera in items" :key="camera.id">
+        <CameraEdit :item="camera" @edit-save="saveItem" />
+        <CameraTimeOffsets :camera="camera" />
+      </div>
     </div>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -29,21 +32,23 @@
 <script setup lang="ts">
 import { Ref, computed, onMounted, ref, watch } from "vue";
 import pb from "src/boot/pocketbase";
-import { CamerasResponse } from "src/types/pocketbase";
+import { CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import CameraEdit, { CameraEditData } from "src/components/user/CameraEdit.vue";
+import CameraTimeOffsets from "src/components/user/CameraTimeOffsets.vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { useRouter, useRoute } from "vue-router";
 import { showNotificationToast } from "src/boot/mitt";
 import { capitalize } from "src/util/stringUtils";
 import { fullName } from "src/util/userUtil";
+
 const router = useRouter();
 const route = useRoute();
 
 const userStore = useUserStore();
 
-type ITEM_TYPE = CamerasResponse;
+type ITEM_TYPE = CamerasResponse & { expand: { time_offsets_via_camera: TimeOffsetsResponse[] } };
 const ITEM_COLLECTION = "cameras";
 const ITEM_NAME = "camera";
 
@@ -60,6 +65,7 @@ async function requestItems() {
   try {
     const resultList = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getList(1, 50, {
       filter: `user='${userId}'`,
+      expand: "time_offsets_via_camera",
     });
     items.value = resultList.items;
   } catch (error: any) {

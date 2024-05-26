@@ -1,4 +1,4 @@
-package websocket
+package server
 
 import (
 	"encoding/json"
@@ -11,7 +11,6 @@ import (
 	"github.com/mxcd/go-config/config"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/rs/zerolog/log"
-	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 var upgrader = websocket.Upgrader{
@@ -32,22 +31,20 @@ type WebsocketManager struct {
 	lock        sync.Mutex
 }
 
-var websocketManager *WebsocketManager
-
-func RegisterWebsocketServer(context *util.Context) {
-	websocketManager = &WebsocketManager{
+func (s *Server) registerWebsocketServer() {
+	s.WebsocketManager = &WebsocketManager{
 		connections: make(map[*websocket.Conn]bool),
 		lock:        sync.Mutex{},
 	}
 
-	context.App.OnBeforeServe().Add(func(e *core.ServeEvent) error {
+	s.App.OnBeforeServe().Add(func(e *core.ServeEvent) error {
 		e.Router.GET("/api/ws", func(c echo.Context) error {
 			websocketConnection, err := upgrader.Upgrade(c.Response().Writer, c.Request(), nil)
 			if err != nil {
 				log.Error().Err(err).Msg("error upgrading websocket connection")
 				return err
 			}
-			websocketManager.addConnection(websocketConnection)
+			s.WebsocketManager.addConnection(websocketConnection)
 			return nil
 		})
 
@@ -71,6 +68,10 @@ func (w *WebsocketManager) removeConnection(conn *websocket.Conn) {
 	delete(w.connections, conn)
 }
 
+func (w *WebsocketManager) HasConnections() bool {
+	return len(w.connections) > 0
+}
+
 type WebsocketMessage[T any] struct {
 	Object    EventObject `json:"object"`
 	Action    EventAction `json:"action"`
@@ -78,16 +79,16 @@ type WebsocketMessage[T any] struct {
 	Data      T           `json:"data"`
 }
 
-func BroadcastWebsocketMessage[T any](message *WebsocketMessage[T]) error {
+func BroadcastWebsocketMessage[T any](server *Server, message *WebsocketMessage[T]) error {
 	jsonData, err := json.Marshal(message)
 	if err != nil {
 		log.Error().Err(err).Msg("error marshalling websocket message to json")
 		return err
 	}
 
-	websocketManager.lock.Lock()
+	server.WebsocketManager.lock.Lock()
 	badConnections := make([]*websocket.Conn, 0)
-	for conn := range websocketManager.connections {
+	for conn := range server.WebsocketManager.connections {
 		err := conn.WriteMessage(websocket.TextMessage, jsonData)
 		if err != nil {
 			badConnections = append(badConnections, conn)
@@ -95,9 +96,9 @@ func BroadcastWebsocketMessage[T any](message *WebsocketMessage[T]) error {
 	}
 
 	for _, conn := range badConnections {
-		websocketManager.removeConnection(conn)
+		server.WebsocketManager.removeConnection(conn)
 	}
-	websocketManager.lock.Unlock()
+	server.WebsocketManager.lock.Unlock()
 
 	return nil
 }

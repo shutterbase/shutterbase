@@ -12,7 +12,7 @@ export const userRoutes = [
   {
     name: "camera-time-offset",
     path: "/cameras/:cameraid/time-offset",
-    component: () => import("pages/user/CameraTimeOffset.vue"),
+    component: () => import("pages/user/TimeOffsetCreate.vue"),
   },
   {
     name: "user",

@@ -1,4 +1,4 @@
-package websocket
+package server
 
 import (
 	"github.com/google/uuid"

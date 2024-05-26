@@ -25,13 +25,6 @@
           <span class="block text-sm font-semibold text-gray-900 dark:text-white">{{ firstName }} {{ lastName }}</span>
           <span class="block text-sm text-gray-900 truncate dark:text-white">INSERT ROLE HERE</span>
         </div>
-        <ul v-if="userStore.activeProjectId !== ''" class="py-1 text-gray-700 dark:text-gray-300">
-          <li>
-            <a href="#" class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
-              Project: <span class="text-bold ml-2">{{ userStore.activeProject?.name }}</span>
-            </a>
-          </li>
-        </ul>
         <ul class="py-1 text-gray-700 dark:text-gray-300">
           <li>
             <router-link
@@ -61,10 +54,23 @@
           </li>
         </ul>
         <ul class="py-1 text-gray-700 dark:text-gray-300">
-          <li>
+          <li v-if="activeProjectId">
+            <router-link :to="`/projects/${activeProjectId}/general`" class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
+              Project: <span class="text-bold ml-2">{{ userStore.activeProject?.name }}</span>
+            </router-link>
+          </li>
+          <li v-if="activeProjectId">
             <a href="#" @click.prevent="clearProjectSelection" class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
               Clear project selection</a
             >
+          </li>
+          <li v-else>
+            <router-link
+              :to="`/projects`"
+              class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
+            >
+              Select a project
+            </router-link>
           </li>
         </ul>
         <ul class="py-1 text-gray-700 dark:text-gray-300">
@@ -85,6 +91,7 @@ import { initFlowbite } from "flowbite";
 import pb from "src/boot/pocketbase";
 import { useUserStore } from "src/stores/user-store";
 import Avatar from "avatar-initials";
+import { storeToRefs } from "pinia";
 
 const userMenuAvatar = ref<HTMLImageElement>();
 
@@ -92,7 +99,10 @@ const firstName = ref(pb.authStore.model?.firstName);
 const lastName = ref(pb.authStore.model?.lastName);
 const headshotUrl = ref("");
 
+
 const userStore = useUserStore();
+const { activeProjectId } = storeToRefs(userStore);
+
 function clearProjectSelection() {
   userStore.clearActiveProject();
 }
