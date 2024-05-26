@@ -4,6 +4,7 @@ import { RouteRecordName, createMemoryHistory, createRouter, createWebHashHistor
 import routes from "./routes";
 
 import pb from "src/boot/pocketbase";
+import { emitter } from "src/boot/mitt";
 
 /*
  * If not building with SSR mode, you can
@@ -29,6 +30,7 @@ export default route(function (/* { store, ssrContext } */) {
 
   const PUBLIC_PAGES = ["login", "signup", "about", "sandbox"] as RouteRecordName[];
   Router.beforeEach(async (to, from) => {
+    emitter.emit("router:change", { to, from });
     const toName = to.name || "";
     if (!pb.authStore.isValid && !PUBLIC_PAGES.includes(toName)) {
       return { name: "login" };
