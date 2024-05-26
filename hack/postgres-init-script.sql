@@ -1,2 +1,0 @@
-CREATE SCHEMA shutterbase;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
