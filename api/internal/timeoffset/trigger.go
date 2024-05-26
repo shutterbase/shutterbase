@@ -3,19 +3,22 @@ package timeoffset
 import (
 	"time"
 
-	"github.com/shutterbase/shutterbase/internal/websocket"
+	"github.com/shutterbase/shutterbase/internal/server"
 )
 
-func StartWebsocketTrigger() {
+func StartWebsocketTrigger(s *server.Server) {
 	go func() {
 		for {
-			msg := &websocket.WebsocketMessage[int64]{
-				Object:    websocket.EventObjectTime,
-				Action:    websocket.EventActionAny,
-				Component: "",
-				Data:      time.Now().Unix(),
+			if s.WebsocketManager.HasConnections() {
+				msg := &server.WebsocketMessage[int64]{
+					Object:    server.EventObjectTime,
+					Action:    server.EventActionAny,
+					Component: "",
+					Data:      time.Now().Unix(),
+				}
+				server.BroadcastWebsocketMessage(s, msg)
 			}
-			websocket.BroadcastWebsocketMessage[int64](msg)
+
 			time.Sleep(250 * time.Millisecond)
 		}
 	}()

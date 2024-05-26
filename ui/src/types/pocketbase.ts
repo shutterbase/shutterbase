@@ -115,6 +115,7 @@ export type TimeOffsetsRecord = {
 	camera: RecordIdString
 	cameraTime: IsoDateString
 	serverTime: IsoDateString
+	timeOffset?: number
 }
 
 export type UsersRecord = {
