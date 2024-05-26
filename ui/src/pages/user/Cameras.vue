@@ -58,7 +58,9 @@ const items: Ref<ITEM_TYPE[]> = ref([]);
 
 async function requestItems() {
   try {
-    const resultList = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getList(1, 50, {});
+    const resultList = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getList(1, 50, {
+      filter: `user='${userId}'`,
+    });
     items.value = resultList.items;
   } catch (error: any) {
     unexpectedError.value = error;
