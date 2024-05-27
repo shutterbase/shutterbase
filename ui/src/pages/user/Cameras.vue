@@ -48,7 +48,7 @@ const route = useRoute();
 
 const userStore = useUserStore();
 
-type ITEM_TYPE = CamerasResponse & { expand: { time_offsets_via_camera: TimeOffsetsResponse[] } };
+type ITEM_TYPE = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
 const ITEM_COLLECTION = "cameras";
 const ITEM_NAME = "camera";
 
