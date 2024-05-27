@@ -11,7 +11,7 @@ use crate::qr_code_util::generator::get_time_qr_code;
 use crate::qr_code_util::reader::decode_qr_code;
 
 use crate::util::js::log;
-use crate::util::time_offset::calculate_time_offset;
+use crate::util::time_offset::{calculate_time_offset, get_camera_time};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -34,12 +34,14 @@ pub struct ProcessedFiles {
     id: String,
     thumbnail: String,
     original_size: u32,
-    copyright: String,
+    original_time: u32,
+    metadata: HashMap<String, String>,
     sizes: HashMap<u32, ProcessedFile>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct FileProcessorOptions {
+    file_name: String,
     dimensions: Vec<u32>,
     thumbnail_size: u32,
     auth_token: String,
@@ -68,6 +70,11 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
 
     let original_size = source_image.as_bytes().len() as u32;
 
+    let original_time = match get_camera_time(&metadata) {
+        Ok(camera_time) => camera_time.timestamp() as u32,
+        Err(_) => 0,
+    };
+
     let options: FileProcessorOptions = match serde_wasm_bindgen::from_value(js_options) {
         Ok(options) => options,
         Err(err) => {
@@ -82,7 +89,8 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
         id: id.to_string(),
         thumbnail: "".to_string(),
         original_size,
-        copyright: metadata.copyright,
+        original_time,
+        metadata: metadata.tags,
         sizes: HashMap::new(),
     };
 
@@ -96,11 +104,9 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
         },
     );
 
-    let data = source_image.as_bytes().to_vec();
-
     let upload_url = get_upload_url(&options.api_url, &options.auth_token, &format!("{}.jpg", id)).await?;
     let upload_start_time = js_sys::Date::now();
-    upload_file(&data, upload_url).await?;
+    upload_file(&data, upload_url, options.file_name.to_string()).await?;
     let upload_duration = js_sys::Date::now() - upload_start_time;
     log(&format!("Uploaded original in: {}ms", upload_duration));
 
@@ -147,7 +153,7 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue) -> Res
         };
 
         let upload_start_time = js_sys::Date::now();
-        upload_file(&resized_image_data, upload_url).await?;
+        upload_file(&resized_image_data, upload_url, format!("{} - {}", options.file_name.to_string(), dimension)).await?;
         let upload_duration = js_sys::Date::now() - upload_start_time;
         log(&format!("Uploaded {}px in: {}ms", dimension, upload_duration));
 

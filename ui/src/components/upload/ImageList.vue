@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { Ref, computed, onMounted, ref, watch } from "vue";
+import { Ref, computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { UploadsResponse, CamerasResponse, TimeOffsetsResponse, UsersResponse } from "src/types/pocketbase";
@@ -55,8 +55,7 @@ import { showNotificationToast } from "src/boot/mitt";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { dateTimeFromUnix } from "src/util/dateTimeUtil";
-import * as fileUtil from "src/util/fileUtil";
-import { Image, ImageStatus } from "src/util/uploadUtil";
+import { Image, ImageStatus, FileProcessor, newImage } from "src/util/fileProcessor";
 
 const tableHeaderClasses =
   "sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-900 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8";
@@ -73,10 +72,17 @@ const props = withDefaults(defineProps<Props>(), {});
 
 const images = ref<Image[]>([]);
 
+const fileProcessor = new FileProcessor(images);
+onUnmounted(() => fileProcessor.stop);
+
 async function updateFiles(files: File[]) {
   for (const file of files) {
-    images.value.push({ status: ImageStatus.PENDING, file, originalFileName: file.name, data: null, size: file.size });
+    if (images.value.find((image) => image.originalFileName === file.name)) {
+      continue;
+    }
+    images.value.push(newImage({ file }));
   }
+  fileProcessor.start();
 }
 
 watch(props, (props) => {
