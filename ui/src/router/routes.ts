@@ -2,6 +2,7 @@ import { RouteRecordRaw } from "vue-router";
 import pb from "src/boot/pocketbase";
 import { projectRoutes } from "src/router/routes/project";
 import { userRoutes } from "src/router/routes/user";
+import { uploadRoutes } from "src/router/routes/upload";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -15,6 +16,7 @@ const routes: RouteRecordRaw[] = [
       },
       ...projectRoutes,
       ...userRoutes,
+      ...uploadRoutes,
       {
         name: "sandbox",
         path: "/sandbox",

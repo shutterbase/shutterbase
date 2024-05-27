@@ -42,7 +42,7 @@ const props = withDefaults(defineProps<Props>(), {
 const fileExtensionString = props.fileExtensions.map((e) => `.${e}`).join(", ");
 
 const emit = defineEmits<{
-  files: [FileList];
+  files: [File[]];
 }>();
 
 const dropzoneContainer = ref<HTMLElement | null>(null);
@@ -63,7 +63,7 @@ function registerDropzone() {
       return;
     }
     dropzoneFile.value.files = evt.dataTransfer.files;
-    emit("files", dropzoneFile.value.files);
+    emit("files", Array.from(dropzoneFile.value.files));
     evt.preventDefault();
   };
 
@@ -71,7 +71,7 @@ function registerDropzone() {
     if (!dropzoneFile.value?.files) {
       return;
     }
-    emit("files", dropzoneFile.value.files);
+    emit("files", Array.from(dropzoneFile.value.files));
     dropzoneFile.value.value = "";
   };
 }

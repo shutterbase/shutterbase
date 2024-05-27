@@ -28,9 +28,9 @@ import { ClockIcon } from "@heroicons/vue/24/outline";
 import { CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
 import { onMounted, ref, watch } from "vue";
 import pb from "src/boot/pocketbase";
-import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
+import { showNotificationToast } from "src/boot/mitt";
 
-type CameraType = CamerasResponse & { expand: { time_offsets_via_camera: TimeOffsetsResponse[] } };
+type CameraType = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
 
 interface Props {
   camera: CameraType;
@@ -55,6 +55,7 @@ async function deleteTimeOffset(timeOffset: TimeOffsetsResponse) {
   try {
     await pb.collection<TimeOffsetsResponse>("time_offsets").delete(timeOffset.id);
     timeOffsets.value = timeOffsets.value.filter((e) => e.id !== timeOffset.id);
+    showNotificationToast({ headline: `Time offset deleted`, type: "success" });
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;

@@ -35,7 +35,7 @@
                 <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Server Time</dt>
                 <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
                   <div>
-                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.serverTime) }}</div>
+                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.serverTime / 1000) }}</div>
                   </div>
                 </dd>
               </div>
@@ -43,7 +43,7 @@
                 <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Camera Time</dt>
                 <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
                   <div>
-                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.cameraTime) }}</div>
+                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.cameraTime / 1000) }}</div>
                   </div>
                 </dd>
               </div>
@@ -121,7 +121,7 @@ async function getCamera() {
   }
 }
 
-async function handleFiles(files: FileList) {
+async function handleFiles(files: File[]) {
   console.log(files);
   if (files.length !== 1) {
     console.log("Only one file can be uploaded");
@@ -149,6 +149,8 @@ async function handleFiles(files: FileList) {
   } catch (error: any) {
     console.log("Failed to get image metadata");
     console.log(error);
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
     return;
   }
 }

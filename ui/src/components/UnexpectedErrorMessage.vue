@@ -111,8 +111,8 @@ const computedHeadline = computed(() => {
   if (!e) {
     return "Unexpected Error";
   }
-  if (e.response.data) {
-    if (Object.keys(e.response.data).length === 1) {
+  if (e.response?.data) {
+    if (Object.keys(e.response?.data).length === 1) {
       return `Error on field '${Object.keys(e.response.data)[0]}': ${Object.values(e.response.data)[0].message}`;
     }
 

@@ -6,7 +6,6 @@ import type PocketBase from 'pocketbase'
 import type { RecordService } from 'pocketbase'
 
 export enum Collections {
-	Batches = "batches",
 	Cameras = "cameras",
 	ImageTagAssignments = "image_tag_assignments",
 	ImageTags = "image_tags",
@@ -15,6 +14,7 @@ export enum Collections {
 	Projects = "projects",
 	Roles = "roles",
 	TimeOffsets = "time_offsets",
+	Uploads = "uploads",
 	Users = "users",
 }
 
@@ -41,12 +41,6 @@ export type AuthSystemFields<T = never> = {
 } & BaseSystemFields<T>
 
 // Record types for each collection
-
-export type BatchesRecord = {
-	name: string
-	project: RecordIdString
-	user: RecordIdString
-}
 
 export type CamerasRecord = {
 	name: string
@@ -118,6 +112,13 @@ export type TimeOffsetsRecord = {
 	timeOffset?: number
 }
 
+export type UploadsRecord = {
+	camera: RecordIdString
+	name: string
+	project: RecordIdString
+	user: RecordIdString
+}
+
 export type UsersRecord = {
 	active?: boolean
 	activeProject?: RecordIdString
@@ -130,7 +131,6 @@ export type UsersRecord = {
 }
 
 // Response types include system fields and match responses from the PocketBase API
-export type BatchesResponse<Texpand = unknown> = Required<BatchesRecord> & BaseSystemFields<Texpand>
 export type CamerasResponse<Texpand = unknown> = Required<CamerasRecord> & BaseSystemFields<Texpand>
 export type ImageTagAssignmentsResponse<Texpand = unknown> = Required<ImageTagAssignmentsRecord> & BaseSystemFields<Texpand>
 export type ImageTagsResponse<Texpand = unknown> = Required<ImageTagsRecord> & BaseSystemFields<Texpand>
@@ -139,12 +139,12 @@ export type ProjectAssignmentsResponse<Texpand = unknown> = Required<ProjectAssi
 export type ProjectsResponse<Texpand = unknown> = Required<ProjectsRecord> & BaseSystemFields<Texpand>
 export type RolesResponse<Texpand = unknown> = Required<RolesRecord> & BaseSystemFields<Texpand>
 export type TimeOffsetsResponse<Texpand = unknown> = Required<TimeOffsetsRecord> & BaseSystemFields<Texpand>
+export type UploadsResponse<Texpand = unknown> = Required<UploadsRecord> & BaseSystemFields<Texpand>
 export type UsersResponse<Texpand = unknown> = Required<UsersRecord> & AuthSystemFields<Texpand>
 
 // Types containing all Records and Responses, useful for creating typing helper functions
 
 export type CollectionRecords = {
-	batches: BatchesRecord
 	cameras: CamerasRecord
 	image_tag_assignments: ImageTagAssignmentsRecord
 	image_tags: ImageTagsRecord
@@ -153,11 +153,11 @@ export type CollectionRecords = {
 	projects: ProjectsRecord
 	roles: RolesRecord
 	time_offsets: TimeOffsetsRecord
+	uploads: UploadsRecord
 	users: UsersRecord
 }
 
 export type CollectionResponses = {
-	batches: BatchesResponse
 	cameras: CamerasResponse
 	image_tag_assignments: ImageTagAssignmentsResponse
 	image_tags: ImageTagsResponse
@@ -166,6 +166,7 @@ export type CollectionResponses = {
 	projects: ProjectsResponse
 	roles: RolesResponse
 	time_offsets: TimeOffsetsResponse
+	uploads: UploadsResponse
 	users: UsersResponse
 }
 
@@ -173,7 +174,6 @@ export type CollectionResponses = {
 // https://github.com/pocketbase/js-sdk#specify-typescript-definitions
 
 export type TypedPocketBase = PocketBase & {
-	collection(idOrName: 'batches'): RecordService<BatchesResponse>
 	collection(idOrName: 'cameras'): RecordService<CamerasResponse>
 	collection(idOrName: 'image_tag_assignments'): RecordService<ImageTagAssignmentsResponse>
 	collection(idOrName: 'image_tags'): RecordService<ImageTagsResponse>
@@ -182,5 +182,6 @@ export type TypedPocketBase = PocketBase & {
 	collection(idOrName: 'projects'): RecordService<ProjectsResponse>
 	collection(idOrName: 'roles'): RecordService<RolesResponse>
 	collection(idOrName: 'time_offsets'): RecordService<TimeOffsetsResponse>
+	collection(idOrName: 'uploads'): RecordService<UploadsResponse>
 	collection(idOrName: 'users'): RecordService<UsersResponse>
 }
