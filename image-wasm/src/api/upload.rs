@@ -51,7 +51,8 @@ pub async fn get_upload_url(api_url: &str, auth_token: &str, file_name: &str) ->
     Ok(upload_url_response.url)
 }
 
-pub async fn upload_file(data: &Vec<u8>, upload_url: String) -> Result<(), JsValue> {
+pub async fn upload_file(data: &Vec<u8>, upload_url: String, file_name: String) -> Result<(), JsValue> {
+    log(&format!("Uploading file with {} bytes", data.len()));
     // Convert Vec<u8> to Uint8Array for the Blob
     let uint8_array = Uint8Array::new_with_length(data.len() as u32);
     uint8_array.copy_from(&data);
@@ -69,7 +70,9 @@ pub async fn upload_file(data: &Vec<u8>, upload_url: String) -> Result<(), JsVal
     let request = Request::new_with_str_and_init(&upload_url, &opts)?;
 
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("Could not obtain window"))?;
+    log("Uploading file");
     let _response = JsFuture::from(window.fetch_with_request(&request)).await?;
+    log("File uploaded");
 
     Ok(())
 }

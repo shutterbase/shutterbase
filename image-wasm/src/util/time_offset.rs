@@ -24,6 +24,25 @@ pub fn calculate_time_offset(metadata: &ImageMetadata, qr_code_data: &String) ->
         }
     };
 
+    let camera_time = match get_camera_time(metadata) {
+        Ok(camera_time) => camera_time,
+        Err(err) => {
+            return Err(err);
+        }
+    };
+
+    let time_offset = (server_time - camera_time).num_seconds();
+
+    let result = TimeOffsetResult {
+        time_offset: time_offset,
+        server_time: server_time.timestamp(),
+        camera_time: camera_time.timestamp(),
+    };
+
+    Ok(result)
+}
+
+pub fn get_camera_time(metadata: &ImageMetadata) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
     let date_time_original_string = match metadata.tags.get("DateTimeOriginal") {
         Some(value) => value,
         None => "",
@@ -45,13 +64,5 @@ pub fn calculate_time_offset(metadata: &ImageMetadata, qr_code_data: &String) ->
 
     let camera_time = camera_time_fixed.with_timezone(&Utc);
 
-    let time_offset = (server_time - camera_time).num_seconds();
-
-    let result = TimeOffsetResult {
-        time_offset: time_offset,
-        server_time: server_time.timestamp(),
-        camera_time: camera_time.timestamp(),
-    };
-
-    Ok(result)
+    Ok(camera_time)
 }

@@ -1,3 +1,4 @@
+use image::codecs::jpeg::JpegEncoder;
 use image::ImageError;
 use image::{io::Reader as ImageReader, DynamicImage};
 
@@ -30,4 +31,11 @@ pub fn get_dynamic_image_from_bytes(data: &Vec<u8>) -> Result<DynamicImage, Imag
             return Err(err);
         }
     }
+}
+
+pub fn get_jpeg_from_dynamic_image(image: DynamicImage) -> Result<Vec<u8>, ImageError> {
+    let mut buffer = Vec::new();
+    let mut jpeg_encoder = JpegEncoder::new_with_quality(&mut buffer, 100);
+    jpeg_encoder.encode_image(&image)?;
+    Ok(buffer)
 }
