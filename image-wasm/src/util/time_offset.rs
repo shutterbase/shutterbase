@@ -47,9 +47,11 @@ pub fn get_camera_time(metadata: &ImageMetadata) -> Result<DateTime<Utc>, Box<dy
         Some(value) => value,
         None => "",
     };
+
+    let local_time_zone_offset = Local::now().offset().to_string();
     let date_time_original_time_zone_string = match metadata.tags.get("OffsetTimeOriginal") {
-        Some(value) => value,
-        None => "",
+        Some(value) => value.as_str(),
+        None => &local_time_zone_offset,
     };
 
     let camera_time_string = format!("{}{}", date_time_original_string, date_time_original_time_zone_string);
