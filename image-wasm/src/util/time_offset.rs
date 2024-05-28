@@ -1,5 +1,6 @@
 use crate::image::metadata::ImageMetadata;
-use crate::util::js::log;
+use crate::util::logger::{debug, error, info, warn};
+
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -55,7 +56,7 @@ pub fn get_camera_time(metadata: &ImageMetadata) -> Result<DateTime<Utc>, Box<dy
     };
 
     let camera_time_string = format!("{}{}", date_time_original_string, date_time_original_time_zone_string);
-    log(&camera_time_string);
+    debug(&camera_time_string);
 
     let camera_time_fixed = match DateTime::parse_from_str(&camera_time_string, "%Y-%m-%d %H:%M:%S%z") {
         Ok(camera_time_fixed) => camera_time_fixed,

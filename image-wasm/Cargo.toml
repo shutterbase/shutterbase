@@ -31,9 +31,12 @@ qrcode-generator = "4.1.9"
 base64 = "0.22.0"
 
 [dependencies.web-sys]
-version = "0.3.4"
+version = "0.3.69"
 features = [
   'Blob',
+  'XmlHttpRequest',
+  'XmlHttpRequestUpload',
+  'ProgressEvent',
   'Headers',
   'Request',
   'RequestInit',
