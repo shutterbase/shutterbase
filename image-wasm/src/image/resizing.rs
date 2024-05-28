@@ -1,12 +1,10 @@
+use crate::util::logger::{debug, error, info, warn};
 use fast_image_resize as fr;
 use image::codecs::jpeg::JpegEncoder;
 use image::ImageEncoder;
 
 use std::io::BufWriter;
 use std::num::NonZeroU32;
-use std::vec;
-
-use crate::util::js::log;
 
 use super::util::get_dynamic_image_from_bytes;
 
@@ -25,33 +23,33 @@ pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
     let source_image = match get_dynamic_image_from_bytes(&source_image_data) {
         Ok(image) => image,
         Err(_) => {
-            log("Error getting dynamic image from bytes");
+            error("Error getting dynamic image from bytes");
             return None;
         }
     };
 
     let (width, height) = calculate_new_dimensions(source_image.width(), source_image.height(), size, size);
-    log(&format!("Resizing to {}x{}", width, height));
+    debug(&format!("Resizing to {}x{}", width, height));
 
     let src_width = match NonZeroU32::new(source_image.width()) {
         Some(width) => width,
         None => {
-            log("Error getting source image width");
+            error("Error getting source image width");
             return None;
         }
     };
     let src_height = match NonZeroU32::new(source_image.height()) {
         Some(height) => height,
         None => {
-            log("Error getting source image height");
+            error("Error getting source image height");
             return None;
         }
     };
     let src_image = match fr::Image::from_vec_u8(src_width, src_height, source_image.to_rgb8().into_raw(), fr::PixelType::U8x3) {
         Ok(image) => image,
         Err(err) => {
-            log("Error creating source image");
-            log(err.to_string().as_str());
+            error("Error creating source image");
+            error(err.to_string().as_str());
             return None;
         }
     };
@@ -59,14 +57,14 @@ pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
     let dst_width = match NonZeroU32::new(width) {
         Some(width) => width,
         None => {
-            log("Error getting destination image width");
+            error("Error getting destination image width");
             return None;
         }
     };
     let dst_height = match NonZeroU32::new(height) {
         Some(height) => height,
         None => {
-            log("Error getting destination image height");
+            error("Error getting destination image height");
             return None;
         }
     };
@@ -78,8 +76,8 @@ pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
     match resizer.resize(&src_image.view(), &mut dst_view) {
         Ok(_) => (),
         Err(err) => {
-            log("Error resizing image");
-            log(err.to_string().as_str());
+            error("Error resizing image");
+            error(err.to_string().as_str());
             return None;
         }
     }
@@ -88,8 +86,8 @@ pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
     match JpegEncoder::new(&mut result_buf).write_image(dst_image.buffer(), dst_width.get(), dst_height.get(), image::ColorType::Rgb8) {
         Ok(_) => (),
         Err(err) => {
-            log("Error encoding resized image");
-            log(err.to_string().as_str());
+            error("Error encoding resized image");
+            error(err.to_string().as_str());
             return None;
         }
     };
@@ -97,8 +95,8 @@ pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
     match result_buf.into_inner() {
         Ok(data) => Some(data),
         Err(err) => {
-            log("Error extracting resized image data");
-            log(err.to_string().as_str());
+            error("Error extracting resized image data");
+            error(err.to_string().as_str());
             return None;
         }
     }

@@ -1,4 +1,4 @@
-use crate::util::js::log;
+use crate::util::logger::{debug, error, info, warn};
 
 use exif;
 use exif::Tag;
@@ -19,13 +19,13 @@ pub fn read_image_metadata(data: &Vec<u8>) -> Result<ImageMetadata, Box<dyn std:
     let cursor = Cursor::new(&data);
     let mut buffer = std::io::BufReader::new(cursor);
 
-    log(format!("Data length: {}", data.len()).as_str());
+    debug(format!("Data length: {}", data.len()).as_str());
 
     let exif = match exif::Reader::new().read_from_container(&mut buffer) {
         Ok(exif) => exif,
         Err(err) => {
-            log("Error creating exif reader");
-            log(&err.to_string());
+            error("Error creating exif reader");
+            error(&err.to_string());
             return Err(Box::new(err));
         }
     };

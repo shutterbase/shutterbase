@@ -1,8 +1,9 @@
 import { DateTime } from "luxon";
 import * as fileUtil from "./fileUtil";
-import init, { get_image_metadata, process_file } from "image-wasm";
+import init, { set_log_level, process_file } from "image-wasm";
 import { Ref, ref } from "vue";
 import pb, { URL as BACKEND_BASE_URL } from "src/boot/pocketbase";
+import { getLogLevelString, debug, info, error } from "./logger";
 
 export enum ImageStatus {
   PENDING = "pending", // initial state after file selection
@@ -29,6 +30,7 @@ const poolSizeLimits = {
 export type Image = {
   file: File | null;
   status: ImageStatus;
+  progress: number;
   originalFileName: string;
   computedFileName?: string;
   originalTime?: DateTime;
@@ -56,6 +58,7 @@ export class FileProcessor {
 
   public start = async (): Promise<void> => {
     await init();
+    set_log_level(getLogLevelString());
     if (this.interval == null) {
       this.interval = setInterval(this.processImages, 500);
     }
@@ -137,19 +140,19 @@ export class FileProcessor {
   private setState = (image: Image, status: ImageStatus) => {
     const oldStatus = image.status;
     image.status = status;
-    console.log(`Image ${image.originalFileName} - ${oldStatus} => ${status}`);
+    debug(`Image ${image.originalFileName} - ${oldStatus} => ${status}`);
   };
 
   private loadImage = (image: Image): Promise<void> => {
     return new Promise(async (resolve, reject) => {
       if (image.file == null) {
-        console.log(`File object of ${image.originalFileName} is null`);
+        error(`File object of ${image.originalFileName} is null`);
         reject();
         return;
       }
       const data = await fileUtil.loadFile(image.file);
       if (data == null) {
-        console.log("Failed to load file");
+        error("Failed to load file");
         reject();
       }
       image.data = data;
@@ -160,7 +163,7 @@ export class FileProcessor {
   private processImage = (image: Image): Promise<void> => {
     return new Promise(async (resolve, reject) => {
       if (image.data == null) {
-        console.log(`Data of ${image.originalFileName} is null`);
+        error(`Data of ${image.originalFileName} is null`);
         reject();
         return;
       }
@@ -182,14 +185,17 @@ export class FileProcessor {
       };
 
       try {
-        const processingResult = await process_file(image.data, options);
-        console.log(processingResult);
+        const processingResult = await process_file(image.data, options, (status: ImageStatus, progress: number) => {
+          image.status = status;
+          image.progress = progress;
+        });
+        debug(processingResult);
         image.originalTime = DateTime.fromSeconds(processingResult.original_time);
         image.thumbnail = processingResult.thumbnail;
         resolve();
       } catch (error: any) {
-        console.log("Failed to process image");
-        console.log(error);
+        error("Failed to process image");
+        error(error);
         reject();
         return;
       }
@@ -200,6 +206,7 @@ export class FileProcessor {
 export function newImage(options: { file: File }): Image {
   return {
     status: ImageStatus.PENDING,
+    progress: 0,
     file: options.file,
     size: options.file.size,
     originalFileName: options.file.name,

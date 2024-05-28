@@ -1,10 +1,9 @@
+use crate::util::logger::{debug, error, info, warn};
 use image::codecs::jpeg::JpegEncoder;
 use image::ImageError;
 use image::{io::Reader as ImageReader, DynamicImage};
 
 use std::io::Cursor;
-
-use crate::util::js::log;
 
 pub fn get_image_from_array_buffer(file: js_sys::ArrayBuffer) -> Result<DynamicImage, ImageError> {
     let data = js_sys::Uint8Array::new(&file).to_vec();
@@ -12,7 +11,7 @@ pub fn get_image_from_array_buffer(file: js_sys::ArrayBuffer) -> Result<DynamicI
     let source_image = match get_dynamic_image_from_bytes(&data) {
         Ok(image) => image,
         Err(err) => {
-            log("Error getting dynamic image from bytes");
+            error("Error getting dynamic image from bytes");
             return Err(err);
         }
     };
@@ -26,8 +25,8 @@ pub fn get_dynamic_image_from_bytes(data: &Vec<u8>) -> Result<DynamicImage, Imag
     match image_reader.decode() {
         Ok(image) => Ok(image),
         Err(err) => {
-            log("Error decoding image");
-            log(&err.to_string());
+            error("Error decoding image");
+            error(&err.to_string());
             return Err(err);
         }
     }

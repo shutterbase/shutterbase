@@ -29,7 +29,7 @@
               </thead>
               <tbody>
                 <tr v-for="image in images">
-                  <td :class="[tableCellClasses]">{{ image.status }}</td>
+                  <td :class="[tableCellClasses]">{{ image.status }} {{ image.progress !== 0.0 ? `(${image.progress.toFixed(0)}%)` : `` }}</td>
                   <td :class="[tableCellClasses]">{{ image.originalFileName }}</td>
                   <td :class="[tableCellClasses]">{{ image.size }}</td>
                   <td :class="[tableCellClasses]">
