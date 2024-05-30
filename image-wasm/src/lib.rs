@@ -12,7 +12,7 @@ use crate::qr_code_util::reader::decode_qr_code;
 use crate::util::logger::{debug, error, info, warn};
 
 use crate::util::callback_util::{send_callback, CallbackStatus};
-use crate::util::time_offset::{calculate_time_offset, get_camera_time};
+use crate::util::time_offset::{calculate_qr_code_time_offset, get_camera_time};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -30,19 +30,25 @@ pub struct ProcessedFile {
     // base64: String,
 }
 
+#[wasm_bindgen]
 #[derive(Serialize, Deserialize)]
-pub struct ProcessedFiles {
-    id: String,
+pub struct FileProcessorResult {
+    storage_id: String,
     thumbnail: String,
     original_size: u32,
-    original_time: u32,
+    camera_time_unix_seconds: u32,
+    corrected_camera_time_unix_seconds: u32,
+    computed_file_name: String,
     metadata: HashMap<String, String>,
 }
 
+#[wasm_bindgen]
 #[derive(Serialize, Deserialize)]
 pub struct FileProcessorOptions {
     file_name: String,
     dimensions: Vec<u32>,
+    time_offsets: Vec<util::time_offset::TimeOffsetResult>,
+    copyright_tag: String,
     thumbnail_size: u32,
     auth_token: String,
     api_url: String,
@@ -55,42 +61,62 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
 
     let data = js_sys::Uint8Array::new(&file).to_vec();
 
+    let options: FileProcessorOptions = match serde_wasm_bindgen::from_value(js_options) {
+        Ok(options) => options,
+        Err(err) => {
+            error("Error parsing options");
+            error(&err.to_string());
+            return Err("Error parsing options".into());
+        }
+    };
+
     let source_image = match get_image_from_array_buffer(file) {
         Ok(image) => image,
         Err(_) => {
-            return Err(JsValue::UNDEFINED);
+            return Err("Error reading image".into());
         }
     };
 
     let metadata = match read_image_metadata(&data) {
         Ok(metadata) => metadata,
         Err(_) => {
-            return Err(JsValue::UNDEFINED);
+            return Err("Error reading image metadata".into());
         }
     };
 
     let original_size = source_image.as_bytes().len() as u32;
 
-    let original_time = match get_camera_time(&metadata) {
-        Ok(camera_time) => camera_time.timestamp() as u32,
-        Err(_) => 0,
-    };
-
-    let options: FileProcessorOptions = match serde_wasm_bindgen::from_value(js_options) {
-        Ok(options) => options,
+    let camera_time = match get_camera_time(&metadata) {
+        Ok(camera_time) => camera_time,
         Err(err) => {
-            error("Error parsing options");
-            error(&err.to_string());
-            return Err(JsValue::UNDEFINED);
+            return Err("Error getting camera time".into());
+        }
+    };
+    let camera_time_unix_seconds = camera_time.timestamp() as u32;
+
+    let corrected_camera_time = match util::time_offset::calculate_corrected_camera_time(&metadata, options.time_offsets) {
+        Ok(corrected_camera_time) => corrected_camera_time,
+        Err(_) => {
+            return Err("Error calculating corrected camera time".into());
+        }
+    };
+    let corrected_camera_time_unix_seconds = corrected_camera_time.timestamp() as u32;
+
+    let computed_file_name = match util::filename::calculate_filename(options.file_name, corrected_camera_time, options.copyright_tag) {
+        Ok(calculated_file_name) => calculated_file_name,
+        Err(_) => {
+            return Err("Error calculating file name".into());
         }
     };
 
     let id = Uuid::new_v4();
-    let mut processed_files = ProcessedFiles {
-        id: id.to_string(),
+    let mut processed_files = FileProcessorResult {
+        storage_id: id.to_string(),
         thumbnail: "".to_string(),
         original_size,
-        original_time,
+        camera_time_unix_seconds,
+        corrected_camera_time_unix_seconds,
+        computed_file_name,
         metadata: metadata.tags,
     };
 
@@ -115,7 +141,7 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
             Some(data) => data,
             None => {
                 error("Error resizing image");
-                return Err(JsValue::UNDEFINED);
+                return Err("Error resizing image".into());
             }
         };
 
@@ -136,14 +162,7 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
     let mut upload_offset_size: usize = 0;
 
     for (filename, image_data) in upload_images.into_iter() {
-        let upload_url = match get_upload_url(&options.api_url, &options.auth_token, &filename).await {
-            Ok(upload_url) => upload_url,
-            Err(err) => {
-                error("Error getting upload url");
-                // log(err.as_string().unwrap().as_str());
-                "error".to_string()
-            }
-        };
+        let upload_url = get_upload_url(&options.api_url, &options.auth_token, &filename).await?;
 
         debug(&format!("Queried upload url: {}", upload_url));
 
@@ -161,7 +180,7 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
         Err(err) => {
             error("Error serializing file processing result");
             error(&err.to_string());
-            JsValue::UNDEFINED
+            return Err("Error serializing file processing result".into());
         }
     };
 
@@ -242,7 +261,7 @@ pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> Result<JsValue, JsVal
     };
 
     info(&format!("3/3 - Calculating time offset"));
-    let time_offset = match calculate_time_offset(&metadata, &qr_code_data) {
+    let time_offset = match calculate_qr_code_time_offset(&metadata, &qr_code_data) {
         Ok(time_offset) => time_offset,
         Err(err) => {
             error("Error calculating time offset");

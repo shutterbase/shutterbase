@@ -28,24 +28,28 @@ export function getLogLevelString(): string {
   }
 }
 
-export function debug(message: string): void {
+export function debug(message: any): void {
   log(LOG_LEVEL.DEBUG, message);
 }
 
-export function info(message: string): void {
+export function info(message: any): void {
   log(LOG_LEVEL.INFO, message);
 }
 
-export function warn(message: string): void {
+export function warn(message: any): void {
   log(LOG_LEVEL.WARN, message);
 }
 
-export function error(message: string): void {
+export function error(message: any): void {
   log(LOG_LEVEL.ERROR, message);
 }
 
-function log(level: LOG_LEVEL, message: string): void {
+function log(level: LOG_LEVEL, message: any): void {
   if (level >= logLevel) {
+    if (typeof message !== "string") {
+      console.log(`[${LOG_LEVEL[level]}] logging object below:`);
+      console.log(message);
+    }
     console.log(`[${LOG_LEVEL[level]}] ${message}`);
   }
 }

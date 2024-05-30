@@ -1,9 +1,14 @@
 import { DateTime } from "luxon";
 import * as fileUtil from "./fileUtil";
-import init, { set_log_level, process_file } from "image-wasm";
+import init, { set_log_level, process_file, TimeOffsetResult as WasmTimeOffsetResult, FileProcessorOptions, FileProcessorResult } from "image-wasm";
 import { Ref, ref } from "vue";
 import pb, { URL as BACKEND_BASE_URL } from "src/boot/pocketbase";
 import { getLogLevelString, debug, info, error } from "./logger";
+import { time } from "console";
+import { UploadsResponse, ImagesRecord, ImagesResponse } from "src/types/pocketbase";
+import { dateTimeFromBackend, parseBackendTime } from "src/util/dateTimeUtil";
+
+export type TimeOffsetResult = WasmTimeOffsetResult;
 
 export enum ImageStatus {
   PENDING = "pending", // initial state after file selection
@@ -28,12 +33,13 @@ const poolSizeLimits = {
 };
 
 export type Image = {
+  storageId?: string;
   file: File | null;
   status: ImageStatus;
   progress: number;
   originalFileName: string;
   computedFileName?: string;
-  originalTime?: DateTime;
+  cameraTime?: DateTime;
   correctedTime?: DateTime;
   data: ArrayBuffer | null;
   thumbnail?: string;
@@ -41,12 +47,16 @@ export type Image = {
 };
 
 export class FileProcessor {
+  private upload: Ref<UploadsResponse> = ref({} as UploadsResponse);
   private images: Ref<Image[]> = ref([]);
+  private timeOffsets: Ref<TimeOffsetResult[]> = ref([]);
   private interval: NodeJS.Timeout | null = null;
 
-  constructor(images: Ref<Image[]>) {
-    this.start();
+  constructor(upload: Ref<UploadsResponse>, images: Ref<Image[]>, timeOffsets: Ref<TimeOffsetResult[]>) {
+    this.upload = upload;
     this.images = images;
+    this.timeOffsets = timeOffsets;
+    this.start();
   }
 
   public stop(): void {
@@ -57,10 +67,10 @@ export class FileProcessor {
   }
 
   public start = async (): Promise<void> => {
-    await init();
-    set_log_level(getLogLevelString());
     if (this.interval == null) {
-      this.interval = setInterval(this.processImages, 500);
+      await init();
+      set_log_level(getLogLevelString());
+      this.interval = setInterval(this.processImages, 100);
     }
   };
 
@@ -71,13 +81,14 @@ export class FileProcessor {
   private processImages = async () => {
     const pendingImagesResult = this.processPendingImages();
     const loadedImagesResult = this.processLoadedImages();
+    const createdImagesResult = this.processUploadedImages();
 
-    if (!pendingImagesResult && !loadedImagesResult) {
-      if (this.interval != null) {
-        clearInterval(this.interval);
-        this.interval = null;
-      }
-    }
+    // if (!pendingImagesResult && !loadedImagesResult && !createdImagesResult) {
+    //   if (this.interval != null) {
+    //     clearInterval(this.interval);
+    //     this.interval = null;
+    //   }
+    // }
   };
 
   private processPendingImages = (): boolean => {
@@ -91,7 +102,7 @@ export class FileProcessor {
       this.loadImage(image)
         .then(() => {
           this.setState(image, ImageStatus.LOADED);
-          this.processImages();
+          // this.processImages();
         })
         .catch(() => {
           this.setState(image, ImageStatus.ERROR);
@@ -111,7 +122,27 @@ export class FileProcessor {
       this.processImage(image)
         .then(() => {
           this.setState(image, ImageStatus.UPLOADED);
-          this.processImages();
+          // this.processImages();
+        })
+        .catch(() => {
+          this.setState(image, ImageStatus.ERROR);
+        });
+    }
+    return true;
+  };
+
+  private processUploadedImages = (): boolean => {
+    while (this.getStateCount(ImageStatus.CREATING) < poolSizeLimits.creating) {
+      const image = this.getNextImage(ImageStatus.UPLOADED);
+      if (image == null) {
+        return false;
+      }
+
+      this.setState(image, ImageStatus.CREATING);
+      this.createBackendImage(image)
+        .then(() => {
+          this.setState(image, ImageStatus.DONE);
+          // this.processImages();
         })
         .catch(() => {
           this.setState(image, ImageStatus.ERROR);
@@ -168,51 +199,109 @@ export class FileProcessor {
         return;
       }
 
-      type FileProcessorOptions = {
-        file_name: string;
-        dimensions: number[];
-        thumbnail_size: number;
-        auth_token: string;
-        api_url: string;
-      };
+      if (this.timeOffsets.value.length == 0) {
+        error("No time offsets available");
+        reject();
+        return;
+      }
+
+      const copyrightTag = pb.authStore.model?.copyrightTag;
+      if (copyrightTag == null || copyrightTag == "") {
+        error("No copyright tag available");
+        reject();
+        return;
+      }
+
+      const authToken = pb.authStore.token;
+      if (authToken == null || authToken == "") {
+        error("No auth token available");
+        reject();
+        return;
+      }
 
       const options: FileProcessorOptions = {
         file_name: image.originalFileName,
+        time_offsets: this.timeOffsets.value,
+        copyright_tag: copyrightTag,
         dimensions: FILE_DIMENSIONS,
         thumbnail_size: 256,
-        auth_token: pb.authStore.token,
+        auth_token: authToken,
         api_url: `${BACKEND_BASE_URL}/api`,
       };
 
       try {
-        const processingResult = await process_file(image.data, options, (status: ImageStatus, progress: number) => {
+        const processingResult: FileProcessorResult = await process_file(image.data, options, (status: ImageStatus, progress: number) => {
           image.status = status;
           image.progress = progress;
         });
         debug(processingResult);
-        image.originalTime = DateTime.fromSeconds(processingResult.original_time);
+        image.storageId = processingResult.storage_id;
+        image.cameraTime = DateTime.fromSeconds(processingResult.camera_time_unix_seconds);
+        image.correctedTime = DateTime.fromSeconds(processingResult.corrected_camera_time_unix_seconds);
+        image.computedFileName = processingResult.computed_file_name;
         image.thumbnail = processingResult.thumbnail;
         resolve();
-      } catch (error: any) {
-        error("Failed to process image");
-        error(error);
+      } catch (err: any) {
+        error(`Failed to process image: ${err}`);
         reject();
         return;
       }
+    });
+  };
+
+  private createBackendImage = (image: Image): Promise<void> => {
+    return new Promise(async (resolve, reject) => {
+      pb.collection<ImagesRecord>("images")
+        .create({
+          storageId: image.storageId,
+          fileName: image.originalFileName,
+          computedFileName: image.computedFileName,
+          size: image.size,
+          capturedAt: image.cameraTime?.toISO(),
+          capturedAtCorrected: image.correctedTime?.toISO(),
+          user: pb.authStore.model?.id,
+          upload: this.upload.value.id,
+          project: this.upload.value.project,
+          camera: this.upload.value.camera,
+        })
+        .then((response) => {
+          resolve();
+        })
+        .catch((err) => {
+          error(`Failed to create image in backend: ${err}`);
+          reject();
+        });
     });
   };
 }
 
 export function newImage(options: { file: File }): Image {
   return {
+    storageId: undefined,
     status: ImageStatus.PENDING,
     progress: 0,
     file: options.file,
     size: options.file.size,
     originalFileName: options.file.name,
     computedFileName: undefined,
-    originalTime: undefined,
+    cameraTime: undefined,
     correctedTime: undefined,
+    data: null,
+    thumbnail: undefined,
+  };
+}
+
+export function newImageFromBackendImage(backendImage: ImagesResponse): Image {
+  return {
+    storageId: backendImage.storageId,
+    status: ImageStatus.DONE,
+    progress: 100,
+    file: null,
+    size: backendImage.size,
+    originalFileName: backendImage.fileName,
+    computedFileName: backendImage.computedFileName,
+    cameraTime: DateTime.fromJSDate(parseBackendTime(backendImage.capturedAt)),
+    correctedTime: DateTime.fromJSDate(parseBackendTime(backendImage.capturedAtCorrected)),
     data: null,
     thumbnail: undefined,
   };

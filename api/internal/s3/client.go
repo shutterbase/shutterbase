@@ -46,3 +46,19 @@ func (s *S3Client) GetSignedUploadUrl(ctx context.Context, objectName string) (s
 	}
 	return url.String(), nil
 }
+
+func (s *S3Client) DeleteImages(ctx context.Context, storageId string) error {
+	objectsCh := s.Client.ListObjects(ctx, s.Options.Bucket, minio.ListObjectsOptions{
+		Prefix: storageId,
+	})
+	for object := range objectsCh {
+		if object.Err != nil {
+			return object.Err
+		}
+		err := s.Client.RemoveObject(ctx, s.Options.Bucket, object.Key, minio.RemoveObjectOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
