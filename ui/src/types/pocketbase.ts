@@ -71,7 +71,6 @@ export type ImageTagsRecord = {
 }
 
 export type ImagesRecord<TexifData = unknown> = {
-	batch: RecordIdString
 	camera: RecordIdString
 	capturedAt?: IsoDateString
 	capturedAtCorrected?: IsoDateString
@@ -81,6 +80,9 @@ export type ImagesRecord<TexifData = unknown> = {
 	imageTagAssignments?: RecordIdString[]
 	inferredAt?: IsoDateString
 	project: RecordIdString
+	size: number
+	storageId: string
+	upload: RecordIdString
 	user: RecordIdString
 }
 

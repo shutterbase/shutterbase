@@ -9,7 +9,7 @@
           <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">Edit this upload</p>
           <FileDropzone :multiple="true" @files="handleFiles" />
         </div>
-        <ImageList :upload="upload" :files="inputFiles" />
+        <ImageUploadList :upload="upload" :files="inputFiles" />
       </div>
     </main>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -22,14 +22,15 @@ import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import FileDropzone from "src/components/FileDropzone.vue";
 import CreateGroup, { Field, FieldType, CreateData } from "src/components/CreateGroup.vue";
-import { UploadsResponse, CamerasResponse, TimeOffsetsResponse, UsersResponse } from "src/types/pocketbase";
+import { UploadsResponse, CamerasResponse, TimeOffsetsResponse, UsersResponse, ImagesResponse } from "src/types/pocketbase";
 import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { dateTimeFromUnix } from "src/util/dateTimeUtil";
-import * as fileUtil from "src/util/fileUtil";
-import ImageList, { InputFile } from "src/components/upload/ImageList.vue";
+import * as dateTimeUtil from "src/util/dateTimeUtil";
+import { TimeOffsetResult } from "src/util/fileProcessor";
+import ImageUploadList, { InputFile } from "src/components/upload/ImageUploadList.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -38,7 +39,8 @@ const { activeProject } = storeToRefs(useUserStore());
 const userId: string = pb.authStore.model?.id;
 const id: string = `${route.params.id}`;
 
-type UploadType = UploadsResponse & { expand?: { camera: CamerasResponse; user: UsersResponse } };
+type CameraType = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
+type UploadType = UploadsResponse & { expand?: { camera: CameraType; user: UsersResponse; images_via_upload: ImagesResponse[] } };
 const upload = ref<UploadType | null>(null);
 
 const showUnexpectedErrorMessage = ref(false);
@@ -47,7 +49,7 @@ const unexpectedError = ref(null);
 async function getUpload() {
   try {
     const result = await pb.collection<UploadType>("uploads").getOne(id, {
-      expand: "camera,user,images_via_upload",
+      expand: "camera,camera.time_offsets_via_camera,user,images_via_upload",
     });
     upload.value = result;
   } catch (error: any) {

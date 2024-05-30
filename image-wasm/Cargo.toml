@@ -30,6 +30,8 @@ qrcode-generator = "4.1.9"
 
 base64 = "0.22.0"
 
+regex = "1.10.4"
+
 [dependencies.web-sys]
 version = "0.3.69"
 features = [

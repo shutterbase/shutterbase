@@ -22,15 +22,17 @@
               <thead>
                 <tr>
                   <th scope="col" :class="[tableHeaderClasses]">Status</th>
-                  <th scope="col" :class="[tableHeaderClasses]">Original Filename</th>
+                  <th scope="col" :class="[tableHeaderClasses]">Filename</th>
+                  <th scope="col" :class="[tableHeaderClasses]">Time</th>
                   <th scope="col" :class="[tableHeaderClasses]">Size</th>
                   <th scope="col" :class="[tableHeaderClasses]">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="image in images">
+                <tr v-for="image in displayedImages">
                   <td :class="[tableCellClasses]">{{ image.status }} {{ image.progress !== 0.0 ? `(${image.progress.toFixed(0)}%)` : `` }}</td>
-                  <td :class="[tableCellClasses]">{{ image.originalFileName }}</td>
+                  <td :class="[tableCellClasses]">{{ fileNameTableEntry(image) }}</td>
+                  <td :class="[tableCellClasses]">{{ timeTableEntry(image) }}</td>
                   <td :class="[tableCellClasses]">{{ image.size }}</td>
                   <td :class="[tableCellClasses]">
                     <a href="#" class="text-red-700 dark:text-red-300 hover:text-primary-900">Remove</a>
@@ -49,20 +51,21 @@
 import { Ref, computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
-import { UploadsResponse, CamerasResponse, TimeOffsetsResponse, UsersResponse } from "src/types/pocketbase";
+import { UploadsResponse, CamerasResponse, TimeOffsetsResponse, UsersResponse, ImagesResponse } from "src/types/pocketbase";
 import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
-import { dateTimeFromUnix } from "src/util/dateTimeUtil";
-import { Image, ImageStatus, FileProcessor, newImage } from "src/util/fileProcessor";
+import * as dateTimeUtil from "src/util/dateTimeUtil";
+import { Image, ImageStatus, FileProcessor, newImage, newImageFromBackendImage, TimeOffsetResult } from "src/util/fileProcessor";
 
 const tableHeaderClasses =
   "sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-900 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8";
 
 const tableCellClasses = "whitespace-nowrap border-b border-gray-200 px-2 py-2 pr-3 text-sm font-medium text-gray-900 dark:text-gray-100 sm:pl-6 lg:pl-8";
 
-type UploadType = UploadsResponse & { expand?: { camera: CamerasResponse; user: UsersResponse } };
+type CameraType = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
+type UploadType = UploadsResponse & { expand?: { camera: CameraType; user: UsersResponse; images_via_upload: ImagesResponse[] } };
 
 interface Props {
   upload: UploadType;
@@ -70,19 +73,47 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {});
 
+const displayedImages = computed(() => {
+  const uploadedImages = props.upload.expand?.images_via_upload || [];
+  const convertedImages = uploadedImages.map(newImageFromBackendImage);
+  return [...convertedImages, ...images.value];
+});
 const images = ref<Image[]>([]);
+const timeOffsets = computed(() => {
+  const cameraTimeOffsets = props.upload.expand?.camera.expand?.time_offsets_via_camera || [];
+  return cameraTimeOffsets.map((timeOffset) => ({
+    free: (): void => {},
+    time_offset: BigInt(timeOffset.timeOffset),
+    server_time: BigInt(dateTimeUtil.parseBackendTime(timeOffset.serverTime).getTime() / 1000),
+    camera_time: BigInt(dateTimeUtil.parseBackendTime(timeOffset.cameraTime).getTime() / 1000),
+  }));
+});
+const upload = computed(() => props.upload);
 
-const fileProcessor = new FileProcessor(images);
+const fileProcessor = new FileProcessor(upload, images, timeOffsets);
 onUnmounted(() => fileProcessor.stop);
 
 async function updateFiles(files: File[]) {
   for (const file of files) {
-    if (images.value.find((image) => image.originalFileName === file.name)) {
+    if (displayedImages.value.find((image) => image.originalFileName === file.name)) {
       continue;
     }
     images.value.push(newImage({ file }));
   }
   fileProcessor.start();
+}
+
+function fileNameTableEntry(image: Image): string {
+  return `${image.originalFileName}${image.computedFileName ? ` => ${image.computedFileName}` : ""}`;
+}
+
+function timeTableEntry(image: Image): string {
+  if (image.cameraTime && image.correctedTime) {
+    const cameraTimeString = dateTimeUtil.dateTimeFromUnix(image.cameraTime.toUnixInteger());
+    const correctedTimeString = dateTimeUtil.dateTimeFromUnix(image.correctedTime.toUnixInteger());
+    return `${cameraTimeString} => ${correctedTimeString}`;
+  }
+  return "-";
 }
 
 watch(props, (props) => {

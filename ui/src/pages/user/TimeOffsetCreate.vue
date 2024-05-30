@@ -75,7 +75,7 @@ import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
 import { CamerasResponse, TimeOffsetsRecord, UsersResponse } from "src/types/pocketbase";
 import { fullNamePossessive } from "src/util/userUtil";
-import init, { get_image_metadata, get_time_offset, parse_qr_code } from "image-wasm";
+import init, { get_image_metadata, get_time_offset, parse_qr_code, TimeOffsetResult } from "image-wasm";
 import * as fileUtil from "src/util/fileUtil";
 import { dateTimeFromUnix } from "src/util/dateTimeUtil";
 import { CheckCircleIcon } from "@heroicons/vue/24/outline";
@@ -96,7 +96,7 @@ const unexpectedError = ref(null);
 
 const timeOffsetCreated = ref(false);
 
-type TimeOffsetResult = {
+type TimeOffsetMetadata = {
   timeOffset: number;
   serverTime: number;
   cameraTime: number;
@@ -104,7 +104,7 @@ type TimeOffsetResult = {
   lensModel: string;
 };
 
-const timeOffsetResult = ref<TimeOffsetResult>();
+const timeOffsetResult = ref<TimeOffsetMetadata>();
 
 async function getCamera() {
   try {
