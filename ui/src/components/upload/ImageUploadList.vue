@@ -35,7 +35,7 @@
                   <td :class="[tableCellClasses]">{{ timeTableEntry(image) }}</td>
                   <td :class="[tableCellClasses]">{{ image.size }}</td>
                   <td :class="[tableCellClasses]">
-                    <a href="#" class="text-red-700 dark:text-red-300 hover:text-primary-900">Remove</a>
+                    <button v-if="image.status === ImageStatus.DONE" @click="deleteItem(image)" class="text-red-700 dark:text-red-300 hover:text-primary-900">Remove</button>
                   </td>
                 </tr>
               </tbody>
@@ -45,6 +45,7 @@
       </div>
     </div>
   </div>
+  <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 
 <script setup lang="ts">
@@ -58,6 +59,7 @@ import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { Image, ImageStatus, FileProcessor, newImage, newImageFromBackendImage, TimeOffsetResult } from "src/util/fileProcessor";
+import { error } from "src/util/logger";
 
 const tableHeaderClasses =
   "sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-900 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8";
@@ -73,12 +75,17 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {});
 
-const displayedImages = computed(() => {
-  const uploadedImages = props.upload.expand?.images_via_upload || [];
-  const convertedImages = uploadedImages.map(newImageFromBackendImage);
-  return [...convertedImages, ...images.value];
-});
+const showUnexpectedErrorMessage = ref(false);
+const unexpectedError = ref(null);
+
+const upload = computed(() => props.upload);
 const images = ref<Image[]>([]);
+const uploadedImages = ref<Image[]>([]);
+
+const displayedImages = computed(() => {
+  return [...uploadedImages.value, ...images.value];
+});
+
 const timeOffsets = computed(() => {
   const cameraTimeOffsets = props.upload.expand?.camera.expand?.time_offsets_via_camera || [];
   return cameraTimeOffsets.map((timeOffset) => ({
@@ -88,11 +95,22 @@ const timeOffsets = computed(() => {
     camera_time: BigInt(dateTimeUtil.parseBackendTime(timeOffset.cameraTime).getTime() / 1000),
   }));
 });
-const upload = computed(() => props.upload);
+
+watch(
+  () => upload,
+  () => {
+    const backendImages = upload.value.expand?.images_via_upload || [];
+    uploadedImages.value = backendImages.map(newImageFromBackendImage);
+  },
+  { immediate: true }
+);
 
 const fileProcessor = new FileProcessor(upload, images, timeOffsets);
 onUnmounted(() => fileProcessor.stop);
 
+watch(props, (props) => {
+  updateFiles(props.files);
+});
 async function updateFiles(files: File[]) {
   for (const file of files) {
     if (displayedImages.value.find((image) => image.originalFileName === file.name)) {
@@ -116,9 +134,23 @@ function timeTableEntry(image: Image): string {
   return "-";
 }
 
-watch(props, (props) => {
-  updateFiles(props.files);
-});
+function deleteItem(item: Image): void {
+  if (!item.id) {
+    error("image cannot be deleted without an id");
+    return;
+  }
+
+  try {
+    pb.collection<ImagesResponse>("images").delete(item.id);
+    uploadedImages.value = uploadedImages.value.filter((i) => i.id !== item.id);
+    images.value = images.value.filter((i) => i.id !== item.id);
+    showNotificationToast({ headline: `Image deleted`, type: "success" });
+  } catch (error: any) {
+    error("error deleting image", error);
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
 </script>
 
 <script lang="ts">

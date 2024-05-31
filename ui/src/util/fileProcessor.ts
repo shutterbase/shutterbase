@@ -22,7 +22,9 @@ export enum ImageStatus {
   ERROR = "error", // an error occurred somewhere along the way
 }
 
+const PROCESSING_STATES = [ImageStatus.LOADING, ImageStatus.LOADED, ImageStatus.RESIZING, ImageStatus.UPLOADING, ImageStatus.UPLOADED, ImageStatus.CREATING];
 const FILE_DIMENSIONS = [256, 512, 1024, 2048];
+const PARALLEL_PROCESSING = 2;
 
 // TODO: Also add a limit for the total number of images currently being processed
 // FIXME: Remove ArrayBuffers once processing is done to free up memory
@@ -33,6 +35,7 @@ const poolSizeLimits = {
 };
 
 export type Image = {
+  id?: string;
   storageId?: string;
   file: File | null;
   status: ImageStatus;
@@ -79,76 +82,52 @@ export class FileProcessor {
   }
 
   private processImages = async () => {
-    const pendingImagesResult = this.processPendingImages();
-    const loadedImagesResult = this.processLoadedImages();
-    const createdImagesResult = this.processUploadedImages();
-
-    // if (!pendingImagesResult && !loadedImagesResult && !createdImagesResult) {
-    //   if (this.interval != null) {
-    //     clearInterval(this.interval);
-    //     this.interval = null;
-    //   }
-    // }
+    this.processPendingImages();
   };
 
-  private processPendingImages = (): boolean => {
-    while (this.getStateCount(ImageStatus.LOADING) < poolSizeLimits.loading) {
-      const image = this.getNextImage(ImageStatus.PENDING);
-      if (image == null) {
-        return false;
-      }
-
-      this.setState(image, ImageStatus.LOADING);
-      this.loadImage(image)
-        .then(() => {
-          this.setState(image, ImageStatus.LOADED);
-          // this.processImages();
-        })
-        .catch(() => {
-          this.setState(image, ImageStatus.ERROR);
-        });
+  private processPendingImages = (): void => {
+    // if (this.getStateCount(ImageStatus.LOADING) != 0) {
+    if (this.getStateCount(PROCESSING_STATES) >= PARALLEL_PROCESSING) {
+      return;
     }
-    return true;
+
+    const image = this.getNextImage(ImageStatus.PENDING);
+    if (image == null) {
+      return;
+    }
+
+    this.setState(image, ImageStatus.LOADING);
+    this.loadImage(image)
+      .then(() => {
+        this.setState(image, ImageStatus.LOADED);
+        this.processLoadedImage(image);
+      })
+      .catch(() => {
+        this.setState(image, ImageStatus.ERROR);
+      });
   };
 
-  private processLoadedImages = (): boolean => {
-    while (this.getStateCount([ImageStatus.RESIZING, ImageStatus.UPLOADING]) < poolSizeLimits.processing) {
-      const image = this.getNextImage(ImageStatus.LOADED);
-      if (image == null) {
-        return false;
-      }
-
-      this.setState(image, ImageStatus.RESIZING);
-      this.processImage(image)
-        .then(() => {
-          this.setState(image, ImageStatus.UPLOADED);
-          // this.processImages();
-        })
-        .catch(() => {
-          this.setState(image, ImageStatus.ERROR);
-        });
-    }
-    return true;
+  private processLoadedImage = (image: Image): void => {
+    this.setState(image, ImageStatus.RESIZING);
+    this.processImage(image)
+      .then(() => {
+        this.setState(image, ImageStatus.UPLOADED);
+        this.processUploadedImage(image);
+      })
+      .catch(() => {
+        this.setState(image, ImageStatus.ERROR);
+      });
   };
 
-  private processUploadedImages = (): boolean => {
-    while (this.getStateCount(ImageStatus.CREATING) < poolSizeLimits.creating) {
-      const image = this.getNextImage(ImageStatus.UPLOADED);
-      if (image == null) {
-        return false;
-      }
-
-      this.setState(image, ImageStatus.CREATING);
-      this.createBackendImage(image)
-        .then(() => {
-          this.setState(image, ImageStatus.DONE);
-          // this.processImages();
-        })
-        .catch(() => {
-          this.setState(image, ImageStatus.ERROR);
-        });
-    }
-    return true;
+  private processUploadedImage = (image: Image): void => {
+    this.setState(image, ImageStatus.CREATING);
+    this.createBackendImage(image)
+      .then(() => {
+        this.setState(image, ImageStatus.DONE);
+      })
+      .catch(() => {
+        this.setState(image, ImageStatus.ERROR);
+      });
   };
 
   private getNextImage = (status: ImageStatus): Image | null => {
@@ -171,7 +150,7 @@ export class FileProcessor {
   private setState = (image: Image, status: ImageStatus) => {
     const oldStatus = image.status;
     image.status = status;
-    debug(`Image ${image.originalFileName} - ${oldStatus} => ${status}`);
+    info(`Image ${image.originalFileName} - ${oldStatus} => ${status}`);
   };
 
   private loadImage = (image: Image): Promise<void> => {
@@ -251,7 +230,7 @@ export class FileProcessor {
 
   private createBackendImage = (image: Image): Promise<void> => {
     return new Promise(async (resolve, reject) => {
-      pb.collection<ImagesRecord>("images")
+      pb.collection<ImagesResponse>("images")
         .create({
           storageId: image.storageId,
           fileName: image.originalFileName,
@@ -265,6 +244,7 @@ export class FileProcessor {
           camera: this.upload.value.camera,
         })
         .then((response) => {
+          image.id = response.id;
           resolve();
         })
         .catch((err) => {
@@ -277,6 +257,7 @@ export class FileProcessor {
 
 export function newImage(options: { file: File }): Image {
   return {
+    id: undefined,
     storageId: undefined,
     status: ImageStatus.PENDING,
     progress: 0,
@@ -293,6 +274,7 @@ export function newImage(options: { file: File }): Image {
 
 export function newImageFromBackendImage(backendImage: ImagesResponse): Image {
   return {
+    id: backendImage.id,
     storageId: backendImage.storageId,
     status: ImageStatus.DONE,
     progress: 100,

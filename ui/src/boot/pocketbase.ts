@@ -6,4 +6,7 @@ export const BACKEND_PROTOCOL = process.env.DEV ? "http://" : `${window.location
 export const BACKEND_WEBSOCKET_PROTOCOL = process.env.DEV ? "ws://" : window.location.protocol === "http:" ? "ws://" : "wss://";
 
 export const URL = `${BACKEND_PROTOCOL}${BACKEND_HOST}${BACKEND_PORT}`;
-export default new PocketBase(URL);
+const pb = new PocketBase(URL);
+pb.autoCancellation(false);
+
+export default pb;
