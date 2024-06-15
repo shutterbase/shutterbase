@@ -21,6 +21,7 @@
             <table class="min-w-full border-separate border-spacing-0">
               <thead>
                 <tr>
+                  <th scope="col" :class="[tableHeaderClasses]">Preview</th>
                   <th scope="col" :class="[tableHeaderClasses]">Status</th>
                   <th scope="col" :class="[tableHeaderClasses]">Filename</th>
                   <th scope="col" :class="[tableHeaderClasses]">Time</th>
@@ -30,10 +31,23 @@
               </thead>
               <tbody>
                 <tr v-for="image in displayedImages">
-                  <td :class="[tableCellClasses]">{{ image.status }} {{ image.progress !== 0.0 ? `(${image.progress.toFixed(0)}%)` : `` }}</td>
+                  <td :class="[tableCellClasses]" class="relative">
+                    <img v-if="image.thumbnail" :src="`data:image/jpeg;base64, ${image.thumbnail}`" alt="Thumbnail" class="thumbnail" />
+                    <div v-else-if="image.downloadUrls">
+                      <img :src="image.downloadUrls[`256`]" alt="Thumbnail" class="thumbnail" />
+                    </div>
+                    <div class="tooltip">
+                      <img v-if="image.thumbnail" :src="`data:image/jpeg;base64, ${image.thumbnail}`" alt="Preview" class="preview" />
+                      <div v-else-if="image.downloadUrls">
+                        <img :src="image.downloadUrls[`512`]" alt="Preview" class="preview" />
+                      </div>
+                      <div class="arrow"></div>
+                    </div>
+                  </td>
+                  <td :class="[tableCellClasses]">{{ image.status }} {{ image.progress !== 0.0 && image.status !== ImageStatus.DONE ? `(${image.progress.toFixed(0)}%)` : `` }}</td>
                   <td :class="[tableCellClasses]">{{ fileNameTableEntry(image) }}</td>
                   <td :class="[tableCellClasses]">{{ timeTableEntry(image) }}</td>
-                  <td :class="[tableCellClasses]">{{ image.size }}</td>
+                  <td :class="[tableCellClasses]">{{ fileSize(image.size) }}</td>
                   <td :class="[tableCellClasses]">
                     <button v-if="image.status === ImageStatus.DONE" @click="deleteItem(image)" class="text-red-700 dark:text-red-300 hover:text-primary-900">Remove</button>
                   </td>
@@ -60,6 +74,7 @@ import { useUserStore } from "src/stores/user-store";
 import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { Image, ImageStatus, FileProcessor, newImage, newImageFromBackendImage, TimeOffsetResult } from "src/util/fileProcessor";
 import { error } from "src/util/logger";
+import { fileSize } from "src/util/fileUtil";
 
 const tableHeaderClasses =
   "sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-900 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8";
@@ -96,15 +111,6 @@ const timeOffsets = computed(() => {
   }));
 });
 
-watch(
-  () => upload,
-  () => {
-    const backendImages = upload.value.expand?.images_via_upload || [];
-    uploadedImages.value = backendImages.map(newImageFromBackendImage);
-  },
-  { immediate: true }
-);
-
 const fileProcessor = new FileProcessor(upload, images, timeOffsets);
 onUnmounted(() => fileProcessor.stop);
 
@@ -119,6 +125,19 @@ async function updateFiles(files: File[]) {
     images.value.push(newImage({ file }));
   }
   fileProcessor.start();
+}
+
+onMounted(requestImages);
+async function requestImages() {
+  try {
+    const resultList = await pb.collection<ImagesResponse>("images").getList(1, 1000, {
+      filter: `(upload='${upload.value.id}')`,
+    });
+    uploadedImages.value = resultList.items.map(newImageFromBackendImage);
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
 }
 
 function fileNameTableEntry(image: Image): string {
@@ -156,3 +175,40 @@ function deleteItem(item: Image): void {
 <script lang="ts">
 export type InputFile = { name: string; data: ArrayBuffer; size: number };
 </script>
+
+<style scoped>
+.thumbnail {
+  position: relative;
+  z-index: 1;
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 100%;
+  margin-left: 10px;
+  z-index: 10;
+}
+
+.thumbnail:hover + .tooltip {
+  display: block;
+}
+
+.preview {
+  max-width: 300px;
+  max-height: 300px;
+}
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  left: -10px;
+  margin-top: -5px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #000;
+}
+</style>

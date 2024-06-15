@@ -10,6 +10,7 @@ export enum Collections {
 	ImageTagAssignments = "image_tag_assignments",
 	ImageTags = "image_tags",
 	Images = "images",
+	Inferences = "inferences",
 	ProjectAssignments = "project_assignments",
 	Projects = "projects",
 	Roles = "roles",
@@ -70,20 +71,28 @@ export type ImageTagsRecord = {
 	type: ImageTagsTypeOptions
 }
 
-export type ImagesRecord<TexifData = unknown> = {
+export type ImagesRecord<TdownloadUrls = unknown, TexifData = unknown> = {
 	camera: RecordIdString
 	capturedAt?: IsoDateString
 	capturedAtCorrected?: IsoDateString
 	computedFileName?: string
+	downloadUrls?: null | TdownloadUrls
 	exifData?: null | TexifData
 	fileName: string
 	imageTagAssignments?: RecordIdString[]
-	inferredAt?: IsoDateString
 	project: RecordIdString
 	size: number
 	storageId: string
 	upload: RecordIdString
 	user: RecordIdString
+}
+
+export type InferencesRecord = {
+	completitionTokens?: number
+	image: RecordIdString
+	promptTokens?: number
+	result?: string
+	success?: boolean
 }
 
 export type ProjectAssignmentsRecord = {
@@ -136,7 +145,8 @@ export type UsersRecord = {
 export type CamerasResponse<Texpand = unknown> = Required<CamerasRecord> & BaseSystemFields<Texpand>
 export type ImageTagAssignmentsResponse<Texpand = unknown> = Required<ImageTagAssignmentsRecord> & BaseSystemFields<Texpand>
 export type ImageTagsResponse<Texpand = unknown> = Required<ImageTagsRecord> & BaseSystemFields<Texpand>
-export type ImagesResponse<TexifData = unknown, Texpand = unknown> = Required<ImagesRecord<TexifData>> & BaseSystemFields<Texpand>
+export type ImagesResponse<TdownloadUrls = unknown, TexifData = unknown, Texpand = unknown> = Required<ImagesRecord<TdownloadUrls, TexifData>> & BaseSystemFields<Texpand>
+export type InferencesResponse<Texpand = unknown> = Required<InferencesRecord> & BaseSystemFields<Texpand>
 export type ProjectAssignmentsResponse<Texpand = unknown> = Required<ProjectAssignmentsRecord> & BaseSystemFields<Texpand>
 export type ProjectsResponse<Texpand = unknown> = Required<ProjectsRecord> & BaseSystemFields<Texpand>
 export type RolesResponse<Texpand = unknown> = Required<RolesRecord> & BaseSystemFields<Texpand>
@@ -151,6 +161,7 @@ export type CollectionRecords = {
 	image_tag_assignments: ImageTagAssignmentsRecord
 	image_tags: ImageTagsRecord
 	images: ImagesRecord
+	inferences: InferencesRecord
 	project_assignments: ProjectAssignmentsRecord
 	projects: ProjectsRecord
 	roles: RolesRecord
@@ -164,6 +175,7 @@ export type CollectionResponses = {
 	image_tag_assignments: ImageTagAssignmentsResponse
 	image_tags: ImageTagsResponse
 	images: ImagesResponse
+	inferences: InferencesResponse
 	project_assignments: ProjectAssignmentsResponse
 	projects: ProjectsResponse
 	roles: RolesResponse
@@ -180,6 +192,7 @@ export type TypedPocketBase = PocketBase & {
 	collection(idOrName: 'image_tag_assignments'): RecordService<ImageTagAssignmentsResponse>
 	collection(idOrName: 'image_tags'): RecordService<ImageTagsResponse>
 	collection(idOrName: 'images'): RecordService<ImagesResponse>
+	collection(idOrName: 'inferences'): RecordService<InferencesResponse>
 	collection(idOrName: 'project_assignments'): RecordService<ProjectAssignmentsResponse>
 	collection(idOrName: 'projects'): RecordService<ProjectsResponse>
 	collection(idOrName: 'roles'): RecordService<RolesResponse>

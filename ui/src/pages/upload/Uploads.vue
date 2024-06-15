@@ -17,7 +17,7 @@
 import { Ref, computed, onMounted, ref, watch } from "vue";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
 import pb from "src/boot/pocketbase";
-import { UploadsResponse, ProjectsResponse } from "src/types/pocketbase";
+import { UploadsResponse, ProjectsResponse, UsersResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
@@ -40,7 +40,7 @@ const offset = ref(0);
 const items: Ref<UploadsResponse[]> = ref([]);
 const columns: TableColumn<UploadsResponse>[] = [
   { key: "name", label: "Name" },
-  { key: "user", label: "User" },
+  { key: ["expand", "user"], label: "User", formatter: (user) => `${user.firstName} ${user.lastName}` },
   {
     key: "actions",
     label: "Actions",
@@ -59,7 +59,10 @@ const columns: TableColumn<UploadsResponse>[] = [
 
 async function requestItems() {
   try {
-    const resultList = await pb.collection<UploadsResponse>("uploads").getList(1, 500, {});
+    const resultList = await pb.collection<UploadsResponse>("uploads").getList(1, 500, {
+      filter: `(project='${activeProjectId.value}')`,
+      expand: "user",
+    });
     items.value = resultList.items;
   } catch (error: any) {
     unexpectedError.value = error;

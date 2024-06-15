@@ -8,6 +8,8 @@ func InitConfig() error {
 		config.Bool("DEV").Default(false),
 		config.String("DOMAIN_NAME").NotEmpty(),
 
+		config.String("THUMBNAIL_SIZES").NotEmpty().Default("256,512,1024,2048"),
+
 		config.String("S3_ENDPOINT").NotEmpty(),
 		config.Bool("S3_SSL").Default(true),
 		config.Int("S3_PORT").Default(443),

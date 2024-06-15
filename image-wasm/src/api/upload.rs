@@ -76,6 +76,7 @@ pub async fn upload_file(data: &Vec<u8>, upload_url: String, file_name: String) 
     Ok(())
 }
 
+// FIXME: This function does not evaluate the http status code and does not return an error if the upload fails with e.g. HTTP 403
 pub async fn upload_file_with_progress(data: &Vec<u8>, total_upload_size: &usize, offset_size: &usize, upload_url: String, callback: &js_sys::Function) -> Result<(), JsValue> {
     debug(&format!("Uploading file with {} bytes", data.len()));
 

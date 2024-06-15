@@ -3,6 +3,7 @@ import pb from "src/boot/pocketbase";
 import { projectRoutes } from "src/router/routes/project";
 import { userRoutes } from "src/router/routes/user";
 import { uploadRoutes } from "src/router/routes/upload";
+import { imageRoutes } from "src/router/routes/image";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -17,6 +18,7 @@ const routes: RouteRecordRaw[] = [
       ...projectRoutes,
       ...userRoutes,
       ...uploadRoutes,
+      ...imageRoutes,
       {
         name: "sandbox",
         path: "/sandbox",
