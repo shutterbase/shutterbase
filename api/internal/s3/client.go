@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 type S3Client struct {
-	Options *S3ClientOptions
-	Client  *minio.Client
+	Options          *S3ClientOptions
+	Client           *minio.Client
+	DownloadUrlCache *expirable.LRU[string, string]
 }
 
 type S3ClientOptions struct {
@@ -34,16 +36,30 @@ func NewClient(options *S3ClientOptions) (*S3Client, error) {
 	}
 
 	return &S3Client{
-		Options: options,
-		Client:  client,
+		Options:          options,
+		Client:           client,
+		DownloadUrlCache: expirable.NewLRU[string, string](5000, nil, time.Minute*4),
 	}, nil
 }
 
 func (s *S3Client) GetSignedUploadUrl(ctx context.Context, objectName string) (string, error) {
-	url, err := s.Client.PresignedPutObject(ctx, s.Options.Bucket, objectName, time.Duration(10)*time.Minute)
+	url, err := s.Client.PresignedPutObject(ctx, s.Options.Bucket, objectName, time.Duration(4)*time.Minute)
 	if err != nil {
 		return "", err
 	}
+	return url.String(), nil
+}
+
+func (s *S3Client) GetSignedDownloadUrl(ctx context.Context, objectName string) (string, error) {
+	cachedUrl, ok := s.DownloadUrlCache.Get(objectName)
+	if ok {
+		return cachedUrl, nil
+	}
+	url, err := s.Client.PresignedGetObject(ctx, s.Options.Bucket, objectName, time.Duration(5)*time.Minute, nil)
+	if err != nil {
+		return "", err
+	}
+	s.DownloadUrlCache.Add(objectName, url.String())
 	return url.String(), nil
 }
 
@@ -55,10 +71,18 @@ func (s *S3Client) DeleteImages(ctx context.Context, storageId string) error {
 		if object.Err != nil {
 			return object.Err
 		}
-		err := s.Client.RemoveObject(ctx, s.Options.Bucket, object.Key, minio.RemoveObjectOptions{})
+		err := s.Delete(ctx, object.Key)
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (s *S3Client) Delete(ctx context.Context, objectKey string) error {
+	err := s.Client.RemoveObject(ctx, s.Options.Bucket, objectKey, minio.RemoveObjectOptions{})
+	if err != nil {
+		return err
 	}
 	return nil
 }

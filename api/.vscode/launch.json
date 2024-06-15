@@ -10,7 +10,8 @@
       "request": "launch",
       "mode": "auto",
       "program": "./cmd/server/main.go",
-      "args": ["serve", "--dir=${workspaceFolder}/pb_data"]
+      "args": ["serve", "--dir=${workspaceFolder}/pb_data"],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

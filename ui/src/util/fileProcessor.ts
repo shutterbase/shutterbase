@@ -46,7 +46,9 @@ export type Image = {
   correctedTime?: DateTime;
   data: ArrayBuffer | null;
   thumbnail?: string;
+  downloadUrls?: { [key: string]: string };
   size: number;
+  exifData?: any;
 };
 
 export class FileProcessor {
@@ -219,6 +221,8 @@ export class FileProcessor {
         image.correctedTime = DateTime.fromSeconds(processingResult.corrected_camera_time_unix_seconds);
         image.computedFileName = processingResult.computed_file_name;
         image.thumbnail = processingResult.thumbnail;
+        image.exifData = Object.fromEntries(processingResult.metadata);
+
         resolve();
       } catch (err: any) {
         error(`Failed to process image: ${err}`);
@@ -242,6 +246,7 @@ export class FileProcessor {
           upload: this.upload.value.id,
           project: this.upload.value.project,
           camera: this.upload.value.camera,
+          exifData: image.exifData,
         })
         .then((response) => {
           image.id = response.id;
@@ -269,6 +274,7 @@ export function newImage(options: { file: File }): Image {
     correctedTime: undefined,
     data: null,
     thumbnail: undefined,
+    downloadUrls: undefined,
   };
 }
 
@@ -286,5 +292,6 @@ export function newImageFromBackendImage(backendImage: ImagesResponse): Image {
     correctedTime: DateTime.fromJSDate(parseBackendTime(backendImage.capturedAtCorrected)),
     data: null,
     thumbnail: undefined,
+    downloadUrls: backendImage.downloadUrls,
   };
 }

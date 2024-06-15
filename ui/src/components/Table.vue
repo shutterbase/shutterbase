@@ -39,10 +39,12 @@
               <tr v-for="item in items" :key="item.id" class="even:bg-gray-200 even:dark:bg-primary-900">
                 <td
                   v-for="(column, columnIndex) in columns"
-                  :key="column.key"
+                  :key="Array.isArray(column.key) ? column.key.join('.') : column.key"
                   :class="[rowPadding, 'whitespace-nowrap pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-gray-200 sm:pl-6 lg:pl-8']"
                 >
-                  <span v-if="column.key !== 'actions'">{{ item[column.key] }}</span>
+                  <span v-if="column.key !== 'actions'">
+                    <span>{{ getValue(item, column) }}</span>
+                  </span>
                   <span v-else class="flex">
                     <span v-for="(action, actionIndex) in column.actions" :key="actionIndex" @click="() => action.callback(item)">
                       <button
@@ -128,15 +130,38 @@ const rowPadding = computed(() => (props.dense ? "py-2" : "py-4"));
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
+
+function getValue(obj: T, column: TableColumn<T>): any {
+  if (column.key === "actions") {
+    return null;
+  }
+
+  const getValueFromObject = (obj: T, key: keyof T | string[]) => {
+    if (Array.isArray(key)) {
+      const anyObj = obj as any;
+      return key.reduce((acc, key) => acc[key], anyObj);
+    } else {
+      return obj[key];
+    }
+  };
+
+  const plainValue = getValueFromObject(obj, column.key);
+  if (column.formatter) {
+    return column.formatter(plainValue);
+  } else {
+    return plainValue;
+  }
+}
 </script>
 
 <script lang="ts">
 export type Identifiable = { id: string };
 
 export type TableColumn<T> = {
-  key: keyof T | "actions";
+  key: keyof T | "actions" | string[];
   label: string;
   actions?: TableRowAction<T>[];
+  formatter?: (item: any) => string;
 };
 export type TableRowAction<T> = {
   key: string;

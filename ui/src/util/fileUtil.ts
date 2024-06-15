@@ -14,3 +14,13 @@ export function loadFile(f: File): Promise<ArrayBuffer> {
     fileReader.readAsArrayBuffer(f);
   });
 }
+
+export function fileSize(size: number): string {
+  if (size < 1024) {
+    return `${size} B`;
+  } else if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  } else {
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+}

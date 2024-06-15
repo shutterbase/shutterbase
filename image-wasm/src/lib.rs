@@ -109,9 +109,10 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
         }
     };
 
-    let id = Uuid::new_v4();
+    let object_id = Uuid::new_v4();
+    let object_id_prefix = object_id.to_string()[..2].to_string();
     let mut processed_files = FileProcessorResult {
-        storage_id: id.to_string(),
+        storage_id: object_id.to_string(),
         thumbnail: "".to_string(),
         original_size,
         camera_time_unix_seconds,
@@ -121,7 +122,7 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
     };
 
     let mut upload_images: HashMap<String, Vec<u8>> = HashMap::new();
-    upload_images.insert(format!("{}.jpg", id.to_string()), data.clone());
+    upload_images.insert(format!("{}/{}.jpg", object_id_prefix.to_string(), object_id.to_string()), data.clone());
     let mut last_converted_image_data = data.clone();
 
     let mut dimensions: Vec<u32> = options.dimensions.clone();
@@ -152,7 +153,7 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
         }
 
         last_converted_image_data = resized_image_data.clone();
-        upload_images.insert(format!("{}-{}.jpg", id.to_string(), dimension), resized_image_data);
+        upload_images.insert(format!("{}/{}-{}.jpg", object_id_prefix, object_id.to_string(), dimension), resized_image_data);
 
         let duration = js_sys::Date::now() - start;
         debug(&format!("Resized in: {}ms", duration));
@@ -167,10 +168,16 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
         debug(&format!("Queried upload url: {}", upload_url));
 
         let upload_start_time = js_sys::Date::now();
-        upload_file_with_progress(&image_data, &total_upload_size, &upload_offset_size, upload_url, callback).await?;
-        let upload_duration = js_sys::Date::now() - upload_start_time;
-        debug(&format!("Uploaded {} in: {}ms", filename, upload_duration));
-
+        match upload_file_with_progress(&image_data, &total_upload_size, &upload_offset_size, upload_url, callback).await {
+            Ok(_) => {
+                let upload_duration = js_sys::Date::now() - upload_start_time;
+                debug(&format!("Uploaded {} in: {}ms", filename, upload_duration));
+            }
+            Err(err) => {
+                error("Error uploading file");
+                return Err(err);
+            }
+        }
         upload_offset_size += image_data.len();
     }
     send_callback(&callback, CallbackStatus::UPLOADED, 100.0);
