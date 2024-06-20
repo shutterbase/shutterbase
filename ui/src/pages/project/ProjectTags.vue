@@ -169,8 +169,6 @@ async function loadTags(props?: any) {
   try {
     isTableActionPending.value = true;
 
-    console.log('pagination.value.page',pagination.value.page)
-
     const response = await pb.collection<ImageTagsResponse>("image_tags").getList(
       props ? props.pagination.page : pagination.value.page,
       pagination.value.rowsPerPage,
@@ -178,8 +176,6 @@ async function loadTags(props?: any) {
         sort: '-created',
       }
     );
-
-    console.log('Image tags response:', response);
 
     pagination.value.rowsNumber = response.totalItems;
     pagination.value.page = response.page;
@@ -265,8 +261,8 @@ async function deleteTag() {
 }
 
 async function loadData() {
-  loadProject();
-  loadTags();
+  await loadProject();
+  await loadTags();
 }
 
 watch(route, loadData);

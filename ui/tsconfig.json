@@ -1,6 +1,7 @@
 {
   "extends": "@quasar/app-vite/tsconfig-preset",
   "compilerOptions": {
+    "lib": ["es2015"],
     "baseUrl": "."
   }
 }
