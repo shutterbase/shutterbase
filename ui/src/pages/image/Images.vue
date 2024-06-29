@@ -82,6 +82,7 @@ async function loadImages(reload: boolean) {
     const result = await pb.collection<ImagesResponse>("images").getList(page.value, 20, {
       filter: getFilter(),
       sort: getSort(),
+      expand: "camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag", //"image_tag_assignments_via_image", //  image_tag_assignments_via_image.image_tag
     });
     totalImageCount.value = result.totalItems;
     page.value++;

@@ -1,15 +1,15 @@
 package hooks
 
 import (
-  "github.com/shutterbase/shutterbase/internal/util"
-  "github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
-func registerProjectAssignmentHooks(context *util.Context) {
-	context.App.OnRecordAfterCreateRequest("project_assignments").Add(func(e *core.RecordCreateEvent) error {
+func (h *HookExecutor) registerProjectAssignmentHooks() {
+	h.context.App.OnRecordAfterCreateRequest("project_assignments").Add(func(e *core.RecordCreateEvent) error {
 
 		projectAssignmentUserId := e.Record.GetString("user")
-		projectAssignmentUser, err := context.App.Dao().FindRecordById("users", projectAssignmentUserId)
+		projectAssignmentUser, err := h.context.App.Dao().FindRecordById("users", projectAssignmentUserId)
 		if err != nil {
 			return err
 		}
@@ -18,17 +18,17 @@ func registerProjectAssignmentHooks(context *util.Context) {
 		projectAssignmentIds = append(projectAssignmentIds, e.Record.Id)
 		projectAssignmentUser.Set("projectAssignments", projectAssignmentIds)
 
-		if err := context.App.Dao().SaveRecord(projectAssignmentUser); err != nil {
+		if err := h.context.App.Dao().SaveRecord(projectAssignmentUser); err != nil {
 			return err
 		}
 
 		return nil
 	})
 
-	context.App.OnRecordAfterDeleteRequest("project_assignments").Add(func(e *core.RecordDeleteEvent) error {
+	h.context.App.OnRecordAfterDeleteRequest("project_assignments").Add(func(e *core.RecordDeleteEvent) error {
 
 		projectAssignmentUserId := e.Record.GetString("user")
-		projectAssignmentUser, err := context.App.Dao().FindRecordById("users", projectAssignmentUserId)
+		projectAssignmentUser, err := h.context.App.Dao().FindRecordById("users", projectAssignmentUserId)
 		if err != nil {
 			return err
 		}
@@ -37,7 +37,7 @@ func registerProjectAssignmentHooks(context *util.Context) {
 		projectAssignmentIds = util.RemoveStringFromSlice(projectAssignmentIds, e.Record.Id)
 		projectAssignmentUser.Set("projectAssignments", projectAssignmentIds)
 
-		if err := context.App.Dao().SaveRecord(projectAssignmentUser); err != nil {
+		if err := h.context.App.Dao().SaveRecord(projectAssignmentUser); err != nil {
 			return err
 		}
 

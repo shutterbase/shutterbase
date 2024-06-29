@@ -3,7 +3,7 @@ use regex::Regex;
 
 pub fn calculate_filename(original_filename: String, corrected_camera_time: DateTime<Utc>, copyright_tag: String) -> Result<String, Box<dyn std::error::Error>> {
     let last_four_digits = extract_last_four_digits(&original_filename)?;
-    let corrected_camera_time_string = corrected_camera_time.format("%Y%m%d_%H-%M-%S").to_string();
+    let corrected_camera_time_string = corrected_camera_time.with_timezone(&Local).format("%Y%m%d_%H-%M-%S").to_string();
     let new_filename = format!("{}_{}_{}", corrected_camera_time_string, last_four_digits, copyright_tag);
 
     Ok(new_filename)
