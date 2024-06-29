@@ -11,7 +11,7 @@
     </div>
     <div class="lg:ml-4 flex">
       <div class="sm:col-span-3 mr-5">
-        <label for="search" class="block text-sm font-medium leading-6 text-gray-900">Search</label>
+        <label for="search" class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100">Search</label>
         <div class="mt-2">
           <input
             id="search"
@@ -26,13 +26,13 @@
         </div>
       </div>
       <div class="sm:col-span-3">
-        <label for="sorting" class="block text-sm font-medium leading-6 text-gray-900">Sorting</label>
+        <label for="sorting" class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100">Sorting</label>
         <div class="mt-2">
           <select
             id="sorting"
             name="sorting"
             v-model="preferredImageSortOrder"
-            class="block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-inset sm:max-w-xs sm:text-sm sm:leading-6"
+            class="block w-full rounded-md px-3.5 py-1.5 text-gray-900 bg-gray-50 border border-gray-300 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500 sm:text-sm sm:leading-6"
           >
             <option value="latestFirst">Latest images first</option>
             <option value="oldestFirst">Oldest images first</option>

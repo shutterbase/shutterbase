@@ -3,7 +3,13 @@
 </template>
 
 <script setup lang="ts">
-// import * as websocket from "src/util/websocket";
+import { keyEventHandler } from "src/util/keyEvents";
+import { onMounted, onUnmounted } from "vue";
 
-// websocket.connect();
+onMounted(() => {
+  document.addEventListener("keydown", keyEventHandler);
+});
+onUnmounted(() => {
+  document.removeEventListener("keydown", keyEventHandler);
+});
 </script>
