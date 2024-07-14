@@ -1,6 +1,6 @@
 <template>
   <div>
-    <!-- <Table class="mx-auto max-w-7xl"></Table> -->
+    <!-- <Table class="mx-auto max-w-7xl w-full"></Table> -->
     <button @click="doStuff('success')">Success</button>
     <br />
     <button @click="doStuff('info')">Info</button>

@@ -1,6 +1,6 @@
 <template>
   <div class="">
-    <div class="mx-auto max-w-7xl overflow-hidden sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl w-full overflow-hidden sm:px-6 lg:px-8">
       <ImagesHeader :total-image-count="totalImageCount" @search="updateSearchText" />
 
       <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4">
@@ -82,7 +82,7 @@ async function loadImages(reload: boolean) {
     const result = await pb.collection<ImagesResponse>("images").getList(page.value, 20, {
       filter: getFilter(),
       sort: getSort(),
-      expand: "camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag", //"image_tag_assignments_via_image", //  image_tag_assignments_via_image.image_tag
+      expand: "camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag",
     });
     totalImageCount.value = result.totalItems;
     page.value++;

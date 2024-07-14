@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl lg:flex lg:gap-x-16 lg:px-8">
+  <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
     <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
       <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">New Upload</h2>
       <div v-if="!activeProject.id">

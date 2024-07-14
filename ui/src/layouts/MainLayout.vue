@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-gray-50 dark:bg-primary-950 min-h-screen">
+  <div class="bg-gray-50 dark:bg-primary-950 min-h-screen flex flex-col">
     <Disclosure as="nav" class="bg-gray-50 dark:bg-primary-900" v-slot="{ open }">
-      <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-7xl w-full px-2 sm:px-6 lg:px-8">
         <div class="relative flex h-16 items-center justify-between">
           <div class="absolute inset-y-0 left-0 flex items-center sm:hidden">
             <!-- Mobile menu button-->
@@ -60,8 +60,13 @@
         </div>
       </DisclosurePanel>
     </Disclosure>
-    <hr class="mb-2 sm:mb-12 dark:border-primary-400" />
+    <hr class="mb-2 sm:mb-12 dark:border-primary-400 z-30 relative" />
     <router-view />
+    <!-- <footer class="w-full bg-gray-800 text-white py-4 mt-auto">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <p class="text-center">Sticky Footer Content</p>
+      </div>
+    </footer> -->
     <Notification />
   </div>
 </template>
