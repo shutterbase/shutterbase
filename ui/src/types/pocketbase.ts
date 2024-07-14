@@ -54,11 +54,13 @@ export enum ImageTagAssignmentsTypeOptions {
 	"default" = "default",
 }
 export type ImageTagAssignmentsRecord = {
-	imageTag?: RecordIdString
+	image: RecordIdString
+	imageTag: RecordIdString
 	type?: ImageTagAssignmentsTypeOptions
 }
 
 export enum ImageTagsTypeOptions {
+	"template" = "template",
 	"default" = "default",
 	"manual" = "manual",
 	"custom" = "custom",

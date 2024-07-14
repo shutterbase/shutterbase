@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl lg:flex lg:gap-x-16 lg:px-8">
+  <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
     <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
       <div v-if="camera" class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
         <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">

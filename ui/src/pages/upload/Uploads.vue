@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl">
+  <div class="mx-auto max-w-7xl w-full">
     <Table dense :items="items" :columns="columns" name="Upload" subtitle="" :add-callback="() => router.push('/uploads/create')"></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
     <ModalMessage

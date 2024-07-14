@@ -160,7 +160,10 @@ func (h *HookExecutor) getImageDateTag(image *models.Record) (*models.Record, er
 }
 
 func (h *HookExecutor) getImageWeekdayTag(image *models.Record) (*models.Record, error) {
-	capturedAtCorrected := image.GetTime("capturedAtCorrected")
+	capturedAtCorrected, err := parseBackendDateTime(image.GetString("capturedAtCorrected"))
+	if err != nil {
+		return nil, err
+	}
 	capturedAtWithThreshold := capturedAtCorrected.Add(time.Duration(DATE_TAG_HOUR_OFFSET) * time.Hour)
 
 	weekdayString := capturedAtWithThreshold.Format("Monday")
@@ -181,7 +184,7 @@ func (h *HookExecutor) getImageWeekdayTag(image *models.Record) (*models.Record,
 		return weekdayTag, nil
 	}
 
-	weekdayTag, err := h.createImageTag(&ImageTagCreateInput{
+	weekdayTag, err = h.createImageTag(&ImageTagCreateInput{
 		Name:        weekdayString,
 		Description: fmt.Sprintf("Weekday tag %s", weekdayString),
 		IsAlbum:     false,
@@ -244,7 +247,7 @@ func (h *HookExecutor) getProjectDefaultTagTemplates(projectId string) ([]*model
 		return records, nil
 	}
 
-	records, err := h.context.App.Dao().FindRecordsByExpr("image_tags", dbx.NewExp("project = {:project}", dbx.Params{"project": projectId}), dbx.NewExp("type = {:type}", dbx.Params{"type": "default"}))
+	records, err := h.context.App.Dao().FindRecordsByExpr("image_tags", dbx.NewExp("project = {:project}", dbx.Params{"project": projectId}), dbx.NewExp("type = {:type}", dbx.Params{"type": "template"}))
 	if err != nil {
 		return nil, err
 	}

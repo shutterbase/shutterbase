@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl lg:flex lg:gap-x-16 lg:px-8">
+  <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
     <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
       <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
         <CreateGroup @edit="updateData" headline="Project Information" subtitle="General information concerning this project" :fields="informationFields" />
