@@ -63,7 +63,7 @@ emitter.on("notification", (args: any) => {
   const notificationArgs: NotificationEvent = args;
   const id = nanoid();
 
-  const TOTAL_ANIMATION_DURATION = 3000;
+  const TOTAL_ANIMATION_DURATION = notificationArgs.timeout || 3000;
 
   function setNotificationClasses(classes: string[]) {
     const notification = notifications.value.find((n) => n.id === id);

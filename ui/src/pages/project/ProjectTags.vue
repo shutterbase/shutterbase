@@ -2,7 +2,8 @@
   <div class="mx-auto max-w-7xl w-full">
     <Table dense :items="item?.expand.image_tags_via_project" :columns="imageTagColumns" name="Project Tag" :add-callback="startTagCreate"></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
-    <TagDialog :show="showTagDialog" :create="createTag" :tag="editTagData" @add="addTag" @edit="editTag" @closed="() => (showTagDialog = false)" />
+    <TagDialog :show="showTagDialog" :create="createTag" :tag="editTagData" @add="addTag" @edit="editTag" @bulk="switchToBulkDialog" @closed="() => (showTagDialog = false)" />
+    <BulkTagCreationDialog :show="showBulkTagDialog" @add="addBulkTags" @closed="() => (showBulkTagDialog = false)" />
   </div>
 </template>
 
@@ -16,6 +17,7 @@ import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
 import { ProjectWithTagsType } from "src/types/custom";
 import TagDialog from "src/components/project/TagDialog.vue";
+import BulkTagCreationDialog from "src/components/project/BulkTagCreationDialog.vue";
 const route = useRoute();
 
 type ITEM_TYPE = ProjectWithTagsType;
@@ -29,6 +31,12 @@ const unexpectedError = ref(null);
 
 const showTagDialog = ref(false);
 const createTag = ref(false);
+
+const showBulkTagDialog = ref(false);
+function switchToBulkDialog() {
+  showTagDialog.value = false;
+  showBulkTagDialog.value = true;
+}
 
 const editTagData: Ref<ImageTagsResponse> = ref({} as ImageTagsResponse);
 
@@ -71,6 +79,34 @@ async function addTag(input: ImageTagsResponse) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   }
+}
+
+async function addBulkTags(input: ImageTagsResponse[]) {
+  if (item.value === null) {
+    console.log(`No ${ITEM_NAME} loaded`);
+    return;
+  }
+
+  console.log(`Adding ${input.length} tags to project ${item.value.name}`);
+
+  for (const tag of input) {
+    tag.project = item.value.id;
+    try {
+      const response = await pb.collection<ImageTagsResponse>("image_tags").create(tag);
+      item.value.expand.image_tags_via_project.push(response);
+      console.log(`Tag with ID ${response.id} created`);
+    } catch (error: any) {
+      console.log(`Error creating tag ${tag.name}`);
+      showNotificationToast({ headline: `Error creatin tag ${tag.name}`, type: "error", timeout: 10000 });
+      unexpectedError.value = error;
+      showUnexpectedErrorMessage.value = true;
+      break;
+    }
+  }
+
+  showBulkTagDialog.value = false;
+  console.log(`${input.length} tags created`);
+  showNotificationToast({ headline: `${input.length} tags created`, type: "success" });
 }
 
 function startTagCreate() {
