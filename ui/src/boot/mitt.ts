@@ -6,6 +6,7 @@ export type NotificationEvent = {
   type: "success" | "error" | "warning" | "info";
   headline: string;
   message?: string;
+  timeout?: number;
 };
 
 export function showNotificationToast(event: NotificationEvent) {

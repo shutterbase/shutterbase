@@ -31,13 +31,10 @@
                     <TagIcon class="h-6 w-6 text-green-600" aria-hidden="true" />
                   </div>
                   <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                    <div v-if="create" class="mt-2">
-                      <CreateGroup headline="Add Tag" @edit="updateData" :fields="createTagFields" />
+                    <DialogTitle as="h3" class="text-base font-semibold leading-6 text-primary-900 dark:text-primary-300">Add Bulk Tags as CSV</DialogTitle>
+                    <div class="mt-2">
+                      <textarea v-model="bulkText" placeholder="<name>,<description>,<type>" class="w-[40rem]"></textarea>
                     </div>
-                    <div v-else>
-                      <DetailEditGroup headline="Edit Tag" :alwaysEdit="true" @edit="updateData" :fields="editTagFields" :item="item" />
-                    </div>
-                    <p @click="emit('bulk')" class="mt-4 text-sm text-bold underline cursor-pointer">Create tags in bulk instead</p>
                   </div>
                 </div>
               </div>
@@ -53,9 +50,9 @@
                 <button
                   type="button"
                   class="bg-green-600 hover:bg-green-500 inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto"
-                  @click="saveTag"
+                  @click="saveTags"
                 >
-                  Save Tag
+                  Create Bulk Tags
                 </button>
               </div>
             </DialogPanel>
@@ -67,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { Dialog, DialogPanel, TransitionChild, TransitionRoot } from "@headlessui/vue";
+import { Dialog, DialogTitle, DialogPanel, TransitionChild, TransitionRoot } from "@headlessui/vue";
 import { TagIcon } from "@heroicons/vue/24/outline";
 import CreateGroup, { CreateData, Field as CreateField, FieldType as CreateFieldType } from "src/components/CreateGroup.vue";
 import DetailEditGroup, { Field as EditField, FieldType as EditFieldType } from "src/components/DetailEditGroup.vue";
@@ -76,59 +73,31 @@ import { computed, ref, Ref, watch } from "vue";
 
 interface Props {
   show: boolean;
-  create: boolean;
-  tag?: ImageTagsResponse;
 }
+const props = withDefaults(defineProps<Props>(), {});
 
-const props = withDefaults(defineProps<Props>(), {
-  create: false,
-});
-
-const item = ref<ImageTagsResponse>({} as ImageTagsResponse);
+const bulkText = ref("");
 watch(
-  () => props.tag,
-  (value) => {
-    item.value = value ?? ({} as ImageTagsResponse);
+  () => props.show,
+  (show) => {
+    if (show) {
+      bulkText.value = "";
+    }
   }
 );
 
 const emit = defineEmits<{
-  add: [ImageTagsResponse];
-  edit: [ImageTagsResponse];
+  add: [ImageTagsResponse[]];
   closed: [];
-  bulk: [];
 }>();
 
-async function updateData(data: CreateData<ImageTagsResponse>) {
-  item.value = { ...item.value, ...data };
+function saveTags() {
+  const tags = bulkText.value.split("\n").flatMap((line) => {
+    if (line.trim() === "") return [];
+    const [name, description, type] = line.split(",");
+    return { name, description, type } as ImageTagsResponse;
+  });
+  console.log(tags);
+  emit("add", tags);
 }
-
-function saveTag() {
-  if (props.create) {
-    if (item.value.name === "") {
-      console.log("Name is required");
-      return;
-    }
-    if (item.value.description === "") {
-      console.log("Description is required");
-      return;
-    }
-
-    emit("add", item.value);
-  } else {
-    emit("edit", item.value);
-  }
-}
-
-const createTagFields: CreateField<ImageTagsResponse>[] = [
-  { key: "name", label: "Name", type: CreateFieldType.TEXT },
-  { key: "description", label: "Description", type: CreateFieldType.TEXT },
-  { key: "type", label: "Type", type: CreateFieldType.SELECT, options: ["template", "default", "manual", "custom"], optionsDefault: "manual" },
-];
-
-const editTagFields: EditField<ImageTagsResponse>[] = [
-  { key: "name", label: "Name", type: EditFieldType.TEXT },
-  { key: "description", label: "Description", type: EditFieldType.TEXT },
-  { key: "type", label: "Type", type: EditFieldType.SELECT, options: ["template", "default", "manual", "custom"] },
-];
 </script>
