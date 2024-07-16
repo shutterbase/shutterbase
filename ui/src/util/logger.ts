@@ -5,7 +5,7 @@ export enum LOG_LEVEL {
   ERROR = 3,
 }
 
-let logLevel = LOG_LEVEL.INFO;
+let logLevel = LOG_LEVEL.DEBUG;
 
 export function setLogLevel(level: LOG_LEVEL): void {
   logLevel = level;

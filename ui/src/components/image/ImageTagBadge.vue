@@ -1,5 +1,5 @@
 <template>
-  <span @click="removeTag" :class="[`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset`, tagColor, removableClasses()]">{{
+  <span @click="emit('remove', tagAssignment)" :class="[`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset`, tagColor, removableClasses()]">{{
     tagAssignment.expand.imageTag.name
   }}</span>
 </template>
@@ -9,10 +9,17 @@ import { computed } from "vue";
 
 interface Props {
   tagAssignment: ImageTagAssignmentType;
+  removable: boolean;
 }
-const props = withDefaults(defineProps<Props>(), {});
+const props = withDefaults(defineProps<Props>(), {
+  removable: false,
+});
 
 const tagType = props.tagAssignment.expand.imageTag.type;
+
+const emit = defineEmits<{
+  remove: [ImageTagAssignmentType];
+}>();
 
 /*
 export enum ImageTagsTypeOptions {
@@ -41,23 +48,12 @@ const tagColor = computed(() => {
   }
 });
 
-function removable(): boolean {
-  return tagType !== "default";
-}
-
 function removableClasses() {
-  if (removable()) {
+  if (props.removable) {
     return "cursor-pointer";
   } else {
     return "cursor-not-allowed";
   }
-}
-
-function removeTag() {
-  if (!removable()) {
-    return;
-  }
-  console.log(`remove tag ${props.tagAssignment.expand.imageTag.name} with assignment id ${props.tagAssignment.id}`);
 }
 </script>
 <script lang="ts"></script>

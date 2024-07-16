@@ -27,19 +27,28 @@
       <div class="border-b pb-6 dark:border-primary-400">
         <h3 class="text-lg font-medium py-6">Image Tags</h3>
         <div class="flex">
-          <ImageTagBadge class="mr-2 mb-2" v-for="tagAssignment in tagAssignments" :key="tagAssignment.id" :tagAssignment="tagAssignment" />
+          <ImageTagBadge
+            class="mr-2 mb-2"
+            v-for="tagAssignment in tagAssignments"
+            :key="tagAssignment.id"
+            :tagAssignment="tagAssignment"
+            :removable="removable(tagAssignment)"
+            @remove="removeTag"
+          />
         </div>
+        <p @click="() => emitter.emit('show-tagging-dialog')" class="mt-4 p-2 text-sm text-bold underline cursor-pointer">add</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ImagesResponse } from "src/types/pocketbase";
-import { ImageWithTagsType } from "src/types/custom";
+import { ImageTagAssignmentType, ImageWithTagsType } from "src/types/custom";
 import { dateTimeFromBackend } from "src/util/dateTimeUtil";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import { emitter } from "src/boot/mitt";
+import pb from "src/boot/pocketbase";
 interface Props {
   item: ImageWithTagsType | null;
 }
@@ -48,6 +57,32 @@ const props = withDefaults(defineProps<Props>(), {});
 const tagAssignments = computed(() => {
   return props.item?.expand.image_tag_assignments_via_image || [];
 });
+
+function removable(tagAssignment: ImageTagAssignmentType): boolean {
+  return tagAssignment.expand.imageTag.type !== "default";
+}
+
+async function removeTag(tagAssignment: ImageTagAssignmentType) {
+  if (!removable(tagAssignment)) {
+    return;
+  }
+  try {
+    await pb.collection("image_tag_assignments").delete(tagAssignment.id);
+    emitter.emit(`notification`, {
+      headline: `Tag ${tagAssignment.expand.imageTag.name} removed`,
+      type: "success",
+    });
+    props.item?.expand.image_tag_assignments_via_image.splice(
+      props.item?.expand.image_tag_assignments_via_image.findIndex((ta) => ta.id === tagAssignment.id),
+      1
+    );
+  } catch (error: any) {
+    emitter.emit(`notification`, {
+      headline: `Error removing tag ${tagAssignment.expand.imageTag.name}`,
+      type: "error",
+    });
+  }
+}
 </script>
 <style>
 /* Hide scrollbar for Chrome, Safari and Opera */
