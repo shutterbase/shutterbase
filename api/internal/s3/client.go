@@ -55,7 +55,7 @@ func (s *S3Client) GetSignedDownloadUrl(ctx context.Context, objectName string) 
 	if ok {
 		return cachedUrl, nil
 	}
-	url, err := s.Client.PresignedGetObject(ctx, s.Options.Bucket, objectName, time.Duration(5)*time.Minute, nil)
+	url, err := s.Client.PresignedGetObject(ctx, s.Options.Bucket, objectName, time.Duration(4)*time.Hour, nil)
 	if err != nil {
 		return "", err
 	}

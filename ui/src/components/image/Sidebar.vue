@@ -11,6 +11,10 @@
           <p class="text-sm">{{ item.computedFileName }}</p>
         </div>
         <div class="pb-2">
+          <p class="text-sm font-medium">ID</p>
+          <p class="text-sm">{{ item.id }}</p>
+        </div>
+        <div class="pb-2">
           <p class="text-sm font-medium">Original file name</p>
           <p class="text-sm">{{ item.fileName }}</p>
         </div>

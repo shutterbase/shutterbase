@@ -20,9 +20,7 @@ import Sidebar from "src/components/image/Sidebar.vue";
 import TaggingDialog from "src/components/image/TaggingDialog.vue";
 import pb from "src/boot/pocketbase";
 import { emitter, showNotificationToast } from "src/boot/mitt";
-import { capitalize } from "src/util/stringUtils";
 import { debug } from "src/util/logger";
-import { T } from "app/dist/spa/assets/keyboard-CdObzdke";
 import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
 import { ImageTagAssignmentsRecord, ImageTagsResponse } from "src/types/pocketbase";
 const route = useRoute();
@@ -36,7 +34,7 @@ const item: Ref<ITEM_TYPE | null> = ref(null);
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
 
-const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
+
 
 onMounted(loadItem);
 watch(route, loadItem);
@@ -59,31 +57,6 @@ async function loadItem() {
   }
 }
 
-const taggingDialogVisible = ref(false);
-
-onHotkey({ key: "t", modifierKeys: [] }, showTaggingDialogViaHotkey);
-emitter.on("show-tagging-dialog", showTaggingDialog); // from sidebar button
-function showTaggingDialogViaHotkey(event: HotkeyEvent) {
-  if (!taggingDialogVisible.value) {
-    event.event.preventDefault();
-  }
-  showTaggingDialog();
-}
-function showTaggingDialog() {
-  if (!taggingDialogVisible.value) {
-    taggingDialogVisible.value = true;
-    taggingDialog.value?.focusSearchText();
-    taggingDialog.value?.clearSearchText();
-    debug("show tag dialog");
-  }
-}
-onHotkey({ key: "Escape", modifierKeys: [] }, hideTaggingDialog);
-function hideTaggingDialog() {
-  if (taggingDialogVisible.value) {
-    taggingDialogVisible.value = false;
-    debug("hide tag dialog");
-  }
-}
 
 async function addImageTag(tag: ImageTagsResponse) {
   if (!item.value) {
