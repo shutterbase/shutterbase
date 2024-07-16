@@ -18,7 +18,12 @@ import { showNotificationToast } from "src/boot/mitt";
 import { ProjectWithTagsType } from "src/types/custom";
 import TagDialog from "src/components/project/TagDialog.vue";
 import BulkTagCreationDialog from "src/components/project/BulkTagCreationDialog.vue";
+import { useUserStore } from "src/stores/user-store";
+import { storeToRefs } from "pinia";
 const route = useRoute();
+
+const userStore = useUserStore();
+const { projectTags } = storeToRefs(userStore);
 
 type ITEM_TYPE = ProjectWithTagsType;
 const ITEM_COLLECTION = "projects";
@@ -75,6 +80,7 @@ async function addTag(input: ImageTagsResponse) {
     console.log(`Tag with ID ${itemId} created`);
     showNotificationToast({ headline: `Tag created`, type: "success" });
     item.value.expand.image_tags_via_project.push(response);
+    projectTags.value?.push(response);
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
@@ -94,6 +100,7 @@ async function addBulkTags(input: ImageTagsResponse[]) {
     try {
       const response = await pb.collection<ImageTagsResponse>("image_tags").create(tag);
       item.value.expand.image_tags_via_project.push(response);
+      projectTags.value?.push(response);
       console.log(`Tag with ID ${response.id} created`);
     } catch (error: any) {
       console.log(`Error creating tag ${tag.name}`);
@@ -133,8 +140,14 @@ async function editTag(input: ImageTagsResponse) {
     showTagDialog.value = false;
     console.log(`Tag with ID ${input.id} updated`);
     showNotificationToast({ headline: `Tag updated`, type: "success" });
+
     const index = item.value.expand.image_tags_via_project.findIndex((t) => t.id === input.id);
     item.value.expand.image_tags_via_project[index] = response;
+
+    const projectTagIndex = projectTags.value?.findIndex((t) => t.id === input.id);
+    if (projectTagIndex !== undefined && projectTagIndex !== -1) {
+      projectTags.value[projectTagIndex] = response;
+    }
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
@@ -153,6 +166,7 @@ function deleteTag(tag: ImageTagsResponse) {
     console.log(`Tag with ID ${tag.id} deleted`);
     showNotificationToast({ headline: `Tag deleted`, type: "success" });
     item.value.expand.image_tags_via_project = item.value.expand.image_tags_via_project.filter((t) => t.id !== tag.id);
+    projectTags.value = projectTags.value?.filter((t) => t.id !== tag.id);
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;

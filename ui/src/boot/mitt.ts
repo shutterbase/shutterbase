@@ -7,6 +7,8 @@ type Events = {
   "block-hotkeys": void;
   "unblock-hotkeys": void;
   "show-tagging-dialog": void;
+  "reset-tagging-dialog": void;
+  "update-image-grid-scroll-position": void;
 };
 
 export const emitter: Emitter<Events> = mitt<Events>();

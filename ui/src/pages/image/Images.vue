@@ -2,13 +2,23 @@
   <div class="">
     <div class="mx-auto max-w-7xl w-full overflow-hidden sm:px-6 lg:px-8">
       <ImagesHeader :total-image-count="totalImageCount" @search="updateSearchText" />
-
-      <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4">
-        <ImageGridTile v-for="image in images" :image="image" :key="image.id" />
+      <div v-if="displayMode === DisplayMode.GRID">
+        <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4">
+          <ImageGridTile v-for="(image, index) in images" :image="image" :key="image.id" :selected="index === imageIndex" @select="selectImage" />
+        </div>
+        <ImagesFooter :current-image-count="images.length" :total-image-count="totalImageCount" :filtered="filtered" @load-more="() => loadImages(false)" />
       </div>
-      <ImagesFooter :current-image-count="images.length" :total-image-count="totalImageCount" :filtered="filtered" @load-more="() => loadImages(false)" />
+      <div class="flex" v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1">
+        <Sidebar :item="images[imageIndex]" />
+        <div v-if="images[imageIndex]" class="flex-1 flex items-center justify-center mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8">
+          <div class="relative">
+            <img :src="images[imageIndex].downloadUrls['2048']" alt="Centered Image" class="max-w-full max-h-[52rem] mx-auto drop-shadow-lg" />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+  <TaggingDialog v-if="imageIndex !== -1" ref="taggingDialog" :shown="taggingDialogVisible" @close="hideTaggingDialog" @selected="addImageTag" :image="images[imageIndex]" />
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 <script setup lang="ts">
@@ -18,84 +28,104 @@ import ImageGridTile from "src/components/image/ImageGridTile.vue";
 import ImagesHeader, { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
 import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
-import { useUserStore } from "src/stores/user-store";
-import { ImagesResponse } from "src/types/pocketbase";
-import { onMounted, ref, watch } from "vue";
+import Sidebar from "src/components/image/Sidebar.vue";
+import TaggingDialog from "src/components/image/TaggingDialog.vue";
+import { onMounted, ref, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useDebounceFn } from "@vueuse/core";
 
+import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
+import { preferredImageSortOrder, searchText, updateSearchText, filtered } from "./imageQueryLogic";
+import { totalImageCount, images, imageIndex } from "./imageQueryLogic";
+import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
+import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
+import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
+import { emitter } from "src/boot/mitt";
+import { debug } from "src/util/logger";
+
 const router = useRouter();
 
-const { activeProject, preferredImageSortOrder } = storeToRefs(useUserStore());
-
-const showUnexpectedErrorMessage = ref(false);
-const unexpectedError = ref(null);
-
-const images = ref<ImagesResponse[]>([]);
-const totalImageCount = ref(0);
-const page = ref(1);
-const loading = ref(false);
-const filtered = ref(false);
-
-const searchText = ref("");
-function updateSearchText(text: string) {
-  searchText.value = text;
-}
+const displayMode = ref(DisplayMode.GRID);
 
 window.onscroll = async function (ev) {
   if (window.innerHeight + window.scrollY + 100 >= document.body.scrollHeight) {
-    if (totalImageCount.value > 0 && images.value.length < totalImageCount.value) {
-      loadImages(false);
-    }
+    triggerInfiniteScroll();
   }
 };
-
-function getFilter() {
-  const and = [];
-  and.push(`project='${activeProject.value.id}'`);
-
-  if (searchText.value) {
-    filtered.value = true;
-  } else {
-    filtered.value = false;
-  }
-
-  if (searchText.value) {
-    and.push(`(computedFileName ~ '${searchText.value}' || fileName ~ '%${searchText.value}%')`);
-  }
-  return `(${and.join(" && ")})`;
-}
-
-function getSort() {
-  return preferredImageSortOrder.value === SORT_ORDER.LATEST_FIRST ? "-capturedAtCorrected" : "capturedAtCorrected";
-}
 
 onMounted(() => loadImages(true));
 const reloadDebounced = useDebounceFn(() => loadImages(true), 500);
 watch(preferredImageSortOrder, () => loadImages(true));
 watch(searchText, reloadDebounced);
-async function loadImages(reload: boolean) {
-  if (loading.value) return;
-  loading.value = true;
-  try {
-    if (reload) page.value = 1;
-    const result = await pb.collection<ImagesResponse>("images").getList(page.value, 20, {
-      filter: getFilter(),
-      sort: getSort(),
-      expand: "camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag",
-    });
-    totalImageCount.value = result.totalItems;
-    page.value++;
 
-    if (reload) {
-      images.value = [];
-    }
-    images.value.push(...result.items);
-  } catch (error: any) {
-    unexpectedError.value = error;
-    showUnexpectedErrorMessage.value = true;
-  } finally {
-    loading.value = false;
+onHotkey({ key: "g", modifierKeys: [] }, toggleGridDetail);
+function toggleGridDetail(event: HotkeyEvent) {
+  if (taggingDialogVisible.value) {
+    return;
+  }
+
+  event.event.preventDefault();
+  if (displayMode.value === DisplayMode.GRID) {
+    showDetail();
+    displayMode.value = DisplayMode.DETAIL;
+  } else {
+    displayMode.value = DisplayMode.GRID;
+    nextTick(() => {
+      scrollToSelectedImage();
+    });
+  }
+}
+
+function showDetail() {
+  if (imageIndex.value === -1) {
+    imageIndex.value = 0;
+  }
+  displayMode.value = DisplayMode.DETAIL;
+}
+
+const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
+
+onHotkey({ key: "t", modifierKeys: [] }, showTaggingDialogViaHotkey);
+emitter.on("show-tagging-dialog", showTaggingDialog); // from sidebar button
+function showTaggingDialogViaHotkey(event: HotkeyEvent) {
+  if (!taggingDialogVisible.value) {
+    event.event.preventDefault();
+  }
+  showTaggingDialog();
+}
+function showTaggingDialog() {
+  if (!taggingDialogVisible.value) {
+    taggingDialogVisible.value = true;
+    taggingDialog.value?.focusSearchText();
+    taggingDialog.value?.clearSearchText();
+    debug("show tag dialog");
+  }
+}
+onHotkey({ key: "Escape", modifierKeys: [] }, hideTaggingDialog);
+function hideTaggingDialog() {
+  if (taggingDialogVisible.value) {
+    taggingDialogVisible.value = false;
+    debug("hide tag dialog");
+  }
+}
+
+emitter.on("reset-tagging-dialog", resetTaggingDialog);
+function resetTaggingDialog() {
+  taggingDialog.value?.focusSearchText();
+  taggingDialog.value?.clearSearchText();
+}
+
+function selectImage(imageId: string) {
+  const index = images.value.findIndex((image) => image.id === imageId);
+  imageIndex.value = index;
+  showDetail();
+}
+
+emitter.on("update-image-grid-scroll-position", scrollToSelectedImage);
+function scrollToSelectedImage() {
+  const activeItem = document.querySelector(`#grid-tile-${images.value[imageIndex.value].id}`);
+  if (activeItem) {
+    activeItem.scrollIntoView({ behavior: `instant`, block: `nearest` });
   }
 }
 </script>

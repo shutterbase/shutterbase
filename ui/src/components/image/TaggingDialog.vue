@@ -153,7 +153,7 @@ interface Props {
 }
 const props = withDefaults(defineProps<Props>(), {});
 const emit = defineEmits<{
-  selected: [ImageTagsResponse];
+  selected: [ImageWithTagsType, ImageTagsResponse];
 }>();
 
 const userStore = useUserStore();
@@ -196,8 +196,11 @@ function clearSearchText() {
 
 onHotkey({ key: "Enter", modifierKeys: [] }, acceptOnlyResult);
 function acceptOnlyResult() {
+  if (!props.image) {
+    return;
+  }
   if (filteredTags.value.length === 1) {
-    emit("selected", filteredTags.value[0]);
+    emit("selected", props.image, filteredTags.value[0]);
   }
 }
 
