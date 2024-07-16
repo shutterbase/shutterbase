@@ -70,8 +70,7 @@ async function activateProject(item: ProjectsResponse) {
 
   try {
     await pb.collection("users").update(userId, { activeProject: item.id });
-    userStore.activeProjectId = item.id;
-    userStore.activeProject = item;
+    userStore.setProject(item);
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;

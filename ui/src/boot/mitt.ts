@@ -1,6 +1,15 @@
-import mitt from "mitt";
+import mitt, { Emitter } from "mitt";
+import { HotkeyEvent } from "src/util/keyEvents";
 
-export const emitter = mitt();
+type Events = {
+  notification: NotificationEvent;
+  hotkey: HotkeyEvent;
+  "block-hotkeys": void;
+  "unblock-hotkeys": void;
+  "show-tagging-dialog": void;
+};
+
+export const emitter: Emitter<Events> = mitt<Events>();
 
 export type NotificationEvent = {
   type: "success" | "error" | "warning" | "info";
