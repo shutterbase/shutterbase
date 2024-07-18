@@ -22,7 +22,7 @@ export function keyEventHandler(event: KeyboardEvent) {
     console.log("hotkeys blocked due to operation in progress");
     return;
   }
-  const emitterKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape", "Enter", "g", "t", "r", "h", "l"];
+  const emitterKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Escape", "Enter", "g", "t", "s", "h", "l", "j", "k"];
 
   if (emitterKeys.includes(event.key)) {
     debug(`key-${event.key}`);

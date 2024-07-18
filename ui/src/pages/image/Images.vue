@@ -18,7 +18,15 @@
       </div>
     </div>
   </div>
-  <TaggingDialog v-if="imageIndex !== -1" ref="taggingDialog" :shown="taggingDialogVisible" @close="hideTaggingDialog" @selected="addImageTag" :image="images[imageIndex]" />
+  <TaggingDialog
+    v-if="imageIndex !== -1"
+    ref="taggingDialog"
+    :shown="taggingDialogVisible"
+    @close="hideTaggingDialog"
+    @close-and-next="closeAndNext"
+    @selected="addImageTag"
+    :image="images[imageIndex]"
+  />
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 <script setup lang="ts">
@@ -96,8 +104,10 @@ function showTaggingDialogViaHotkey(event: HotkeyEvent) {
 function showTaggingDialog() {
   if (!taggingDialogVisible.value) {
     taggingDialogVisible.value = true;
-    taggingDialog.value?.focusSearchText();
-    taggingDialog.value?.clearSearchText();
+    nextTick(() => {
+      taggingDialog.value?.focusSearchText();
+      taggingDialog.value?.clearSearchText();
+    });
     debug("show tag dialog");
   }
 }
@@ -108,11 +118,21 @@ function hideTaggingDialog() {
     debug("hide tag dialog");
   }
 }
+function closeAndNext() {
+  hideTaggingDialog();
+  nextTick(() => {
+    if (imageIndex.value + 1 < images.value.length) {
+      imageIndex.value++;
+    }
+  });
+}
 
 emitter.on("reset-tagging-dialog", resetTaggingDialog);
 function resetTaggingDialog() {
-  taggingDialog.value?.focusSearchText();
-  taggingDialog.value?.clearSearchText();
+  nextTick(() => {
+    taggingDialog.value?.focusSearchText();
+    taggingDialog.value?.clearSearchText();
+  });
 }
 
 function selectImage(imageId: string) {
