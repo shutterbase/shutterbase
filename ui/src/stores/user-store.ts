@@ -7,18 +7,24 @@ import pb from "src/boot/pocketbase";
 const PROJECT_TAG_FETCH_INTERVAL = 1000 * 30;
 let interval: NodeJS.Timeout;
 
+const MAX_TAG_STACK_SIZE = 10;
+
 export const useUserStore = defineStore("user", {
   state: () => ({
     activeProjectId: useStorage("activeProjectId", ""),
     activeProject: useStorage("activeProject", {} as ProjectsResponse),
     preferredImageSortOrder: useStorage("preferredImageSortOrder", SORT_ORDER.LATEST_FIRST),
     projectTags: useStorage("projectTags", [] as ImageTagsResponse[]),
+    tagStack: useStorage("tagStack", [] as ImageTagsResponse[]),
   }),
   getters: {},
   actions: {
     setProject(project: ProjectsResponse) {
       this.activeProjectId = project.id;
       this.activeProject = project;
+      this.projectTags = [];
+      this.tagStack = [];
+      this.loadProjectTags();
     },
     clearActiveProject() {
       this.activeProjectId = "";
@@ -38,6 +44,13 @@ export const useUserStore = defineStore("user", {
     },
     stopProjectTagFetching() {
       if (interval) clearInterval(interval);
+    },
+    addTagToStack(tag: ImageTagsResponse) {
+      this.tagStack = this.tagStack.filter((t) => t.id !== tag.id);
+      this.tagStack.push(tag);
+      if (this.tagStack.length > MAX_TAG_STACK_SIZE) {
+        this.tagStack.shift();
+      }
     },
   },
 });

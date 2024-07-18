@@ -13,7 +13,7 @@ export enum DisplayMode {
   DETAIL = "detail",
 }
 
-export const { activeProject, preferredImageSortOrder } = storeToRefs(useUserStore());
+export const { activeProject, preferredImageSortOrder, tagStack } = storeToRefs(useUserStore());
 
 export const showUnexpectedErrorMessage = ref(false);
 export const unexpectedError = ref(null);
@@ -133,4 +133,59 @@ function previousImage(event: HotkeyEvent) {
     imageIndex.value--;
   }
   emitter.emit("update-image-grid-scroll-position");
+}
+
+onHotkey({ key: "ArrowUp", modifierKeys: [] }, previousRow);
+onHotkey({ key: "k", modifierKeys: [] }, previousRow);
+function previousRow(event: HotkeyEvent) {
+  if (taggingDialogVisible.value) {
+    return;
+  }
+  event.event.preventDefault();
+  if (imageIndex.value - 4 >= 0) {
+    imageIndex.value -= 4;
+  } else {
+    imageIndex.value = 0;
+  }
+  emitter.emit("update-image-grid-scroll-position");
+}
+
+onHotkey({ key: "ArrowDown", modifierKeys: [] }, nextRow);
+onHotkey({ key: "j", modifierKeys: [] }, nextRow);
+function nextRow(event: HotkeyEvent) {
+  if (taggingDialogVisible.value) {
+    return;
+  }
+  event.event.preventDefault();
+  if (imageIndex.value + 4 < images.value.length) {
+    imageIndex.value += 4;
+  } else {
+    imageIndex.value = images.value.length - 1;
+  }
+  if (imageIndex.value >= images.value.length - 4) {
+    triggerInfiniteScroll();
+  }
+  emitter.emit("update-image-grid-scroll-position");
+}
+
+onHotkey({ key: "s", modifierKeys: [] }, repeatLastTagAssignment);
+function repeatLastTagAssignment(event: HotkeyEvent) {
+  if (taggingDialogVisible.value) {
+    return;
+  }
+  event.event.preventDefault();
+  const image = images.value[imageIndex.value];
+  if (!image) {
+    return;
+  }
+
+  const lastAppliedTag = tagStack.value[tagStack.value.length - 1];
+  if (!lastAppliedTag) {
+    return;
+  }
+
+  if (image.expand.image_tag_assignments_via_image.some((i) => i.imageTag === lastAppliedTag.id)) {
+    return;
+  }
+  addImageTag(image, lastAppliedTag);
 }
