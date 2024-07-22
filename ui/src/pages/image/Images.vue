@@ -1,7 +1,7 @@
 <template>
   <div class="">
     <div class="mx-auto max-w-7xl w-full overflow-hidden sm:px-6 lg:px-8">
-      <ImagesHeader :total-image-count="totalImageCount" @search="updateSearchText" />
+      <ImagesHeader :total-image-count="totalImageCount" @search="updateSearchText" @filter-tags="updateFilterTags" />
       <div v-if="displayMode === DisplayMode.GRID">
         <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4">
           <ImageGridTile v-for="(image, index) in images" :image="image" :key="image.id" :selected="index === imageIndex" @select="selectImage" />
@@ -43,7 +43,7 @@ import { useRouter } from "vue-router";
 import { useDebounceFn } from "@vueuse/core";
 
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
-import { preferredImageSortOrder, searchText, updateSearchText, filtered } from "./imageQueryLogic";
+import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, filtered } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
 import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
@@ -65,6 +65,7 @@ onMounted(() => loadImages(true));
 const reloadDebounced = useDebounceFn(() => loadImages(true), 500);
 watch(preferredImageSortOrder, () => loadImages(true));
 watch(searchText, reloadDebounced);
+watch(filterTags, reloadDebounced);
 
 onHotkey({ key: "g", modifierKeys: [] }, toggleGridDetail);
 function toggleGridDetail(event: HotkeyEvent) {

@@ -34,6 +34,11 @@ export function updateSearchText(text: string) {
   searchText.value = text;
 }
 
+export const filterTags = ref<string[]>([]);
+export function updateFilterTags(tags: string[]) {
+  filterTags.value = tags;
+}
+
 export async function triggerInfiniteScroll() {
   if (totalImageCount.value > 0 && images.value.length < totalImageCount.value) {
     loadImages(false);
@@ -44,7 +49,7 @@ function getFilter() {
   const and = [];
   and.push(`project='${activeProject.value.id}'`);
 
-  if (searchText.value) {
+  if (searchText.value || filterTags.value.length > 0) {
     filtered.value = true;
   } else {
     filtered.value = false;
@@ -53,6 +58,15 @@ function getFilter() {
   if (searchText.value) {
     and.push(`(computedFileName ~ '${searchText.value}' || fileName ~ '%${searchText.value}%')`);
   }
+
+  if (filterTags.value.length > 0) {
+    const tagFilters = [];
+    for (const tag of filterTags.value) {
+      tagFilters.push(`image_tag_assignments_via_image.imageTag?="${tag}"`);
+    }
+    and.push(`(${tagFilters.join(" && ")})`);
+  }
+
   return `(${and.join(" && ")})`;
 }
 
