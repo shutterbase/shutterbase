@@ -10,6 +10,7 @@
       </div>
     </div>
     <div class="lg:ml-4 flex">
+      <ProjectTagComboBox class="mr-5" @selected="emitFilterTags" />
       <div class="sm:col-span-3 mr-5">
         <label for="search" class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100">Search</label>
         <div class="mt-2">
@@ -47,6 +48,8 @@ import { PhotoIcon } from "@heroicons/vue/24/outline";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { onMounted, ref, watch } from "vue";
+import ProjectTagComboBox from "../ProjectTagComboBox.vue";
+import { ImageTagsResponse } from "src/types/pocketbase";
 
 // const emit = defineEmits<{
 //   sort: [SORT_ORDER];
@@ -61,12 +64,20 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   search: [string];
+  filterTags: [string[]];
 }>();
 
 const { activeProject, preferredImageSortOrder } = storeToRefs(useUserStore());
 
 const searchText = ref("");
 watch(searchText, () => emit("search", searchText.value));
+
+function emitFilterTags(tags: ImageTagsResponse[]) {
+  emit(
+    "filterTags",
+    tags.map((tag) => tag.id)
+  );
+}
 </script>
 <script lang="ts">
 export enum SORT_ORDER {
