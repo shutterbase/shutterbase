@@ -16,6 +16,8 @@ func InitConfig() error {
 		config.String("S3_BUCKET").NotEmpty().Default("shutterbase"),
 		config.String("S3_ACCESS_KEY").NotEmpty(),
 		config.String("S3_SECRET_KEY").NotEmpty().Sensitive(),
+
+		config.String("OPENAI_API_KEY").NotEmpty().Sensitive(),
 	})
 	return err
 }

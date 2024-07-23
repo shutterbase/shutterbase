@@ -3,6 +3,7 @@
     <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
       <DetailEditGroup @edit-save="saveItem" headline="Project Information" subtitle="General information concerning this project" :fields="informationFields" :item="item" />
       <DetailEditGroup @edit-save="saveItem" headline="Copyright Data" subtitle="Copyright information to be embedded into the EXIF data" :fields="copyrightFields" :item="item" />
+      <DetailEditGroup @edit-save="saveItem" headline="AI Options" subtitle="Options for AI image tagging" :fields="aiFields" :item="item" />
     </div>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -70,6 +71,8 @@ const informationFields: Field<ITEM_TYPE>[] = [
   { key: "name", label: "Name", type: FieldType.TEXT },
   { key: "description", label: "Description", type: FieldType.TEXT },
 ];
+
+const aiFields: Field<ITEM_TYPE>[] = [{ key: "aiSystemMessage", label: "System Message", type: FieldType.TEXT }];
 
 const copyrightFields: Field<ITEM_TYPE>[] = [
   { key: "copyright", label: "Copyright", type: FieldType.TEXT },

@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"sync"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
@@ -9,8 +10,11 @@ import (
 )
 
 type HookExecutor struct {
-	context *util.Context
-	caches  *HookExecutorCaches
+	context        *util.Context
+	caches         *HookExecutorCaches
+	aiImageQueue   []*AiDetectionObject
+	aiBackoffUntil *time.Time
+	lock           sync.Mutex
 }
 
 const (
@@ -31,9 +35,13 @@ func RegisterHooks(context *util.Context) error {
 			projectDefaultTagsCache: expirable.NewLRU[string, []*models.Record](100, nil, time.Second*30),
 			tagCache:                expirable.NewLRU[string, *models.Record](100, nil, time.Minute*5),
 		},
+		lock:         sync.Mutex{},
+		aiImageQueue: []*AiDetectionObject{},
 	}
 	hookExecutor.registerProjectAssignmentHooks()
 	hookExecutor.registerUserHooks()
 	hookExecutor.registerImageHooks()
+
+	hookExecutor.StartImageDetectionProcessor()
 	return nil
 }

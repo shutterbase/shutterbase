@@ -4,6 +4,7 @@
       <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
         <CreateGroup @edit="updateData" headline="Project Information" subtitle="General information concerning this project" :fields="informationFields" />
         <CreateGroup @edit="updateData" headline="Copyright Data" subtitle="Copyright information to be embedded into the EXIF data" :fields="copyrightFields" />
+        <CreateGroup @edit="updateData" headline="AI Options" subtitle="Options for AI image tagging" :fields="aiFields" />
         <button
           @click="createProject"
           class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
@@ -54,6 +55,8 @@ const informationFields: Field<ProjectsResponse>[] = [
   { key: "name", label: "Name", type: FieldType.TEXT },
   { key: "description", label: "Description", type: FieldType.TEXT },
 ];
+
+const aiFields: Field<ProjectsResponse>[] = [{ key: "aiSystemMessage", label: "AI Message", type: FieldType.TEXT }];
 
 const copyrightFields: Field<ProjectsResponse>[] = [
   { key: "copyright", label: "Copyright", type: FieldType.TEXT },

@@ -3,6 +3,7 @@
 ## Very bad
 
 - proper permissions for everything
+- fix project edit dialog
 
 ## Bad
 

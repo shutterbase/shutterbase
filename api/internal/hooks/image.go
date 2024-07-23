@@ -19,6 +19,7 @@ func (h *HookExecutor) registerImageHooks() {
 func (h *HookExecutor) imageAfterCreateHook(e *core.RecordCreateEvent) error {
 	image := e.Record
 	err := h.addDefaultTags(image)
+	h.queueImageDetection(image.GetId())
 	if err != nil {
 		return err
 	}

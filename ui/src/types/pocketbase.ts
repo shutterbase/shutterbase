@@ -104,6 +104,7 @@ export type ProjectAssignmentsRecord = {
 }
 
 export type ProjectsRecord = {
+	aiSystemMessage?: string
 	copyright: string
 	copyrightReference: string
 	description: string
