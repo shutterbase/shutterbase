@@ -2,10 +2,12 @@ module github.com/shutterbase/shutterbase
 
 go 1.21.6
 
-require github.com/mxcd/go-config v1.2.0
+require (
+	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/mxcd/go-config v1.2.0
+)
 
 require (
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
@@ -39,6 +41,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.24.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.10 // indirect
 	github.com/aws/smithy-go v1.20.2 // indirect
+	github.com/barasher/go-exiftool v1.10.0
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/domodwyer/mailyak/v3 v3.6.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
