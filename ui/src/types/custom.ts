@@ -1,6 +1,6 @@
 import { ImageTagAssignmentsResponse, ImageTagsResponse, ImagesResponse, ProjectsResponse } from "src/types/pocketbase";
 
-type DownloadUrls = {
+export type DownloadUrls = {
   256: string;
   512: string;
   1024: string;
