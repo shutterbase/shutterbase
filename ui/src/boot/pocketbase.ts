@@ -6,6 +6,7 @@ export const BACKEND_PROTOCOL = process.env.DEV ? "http://" : `${window.location
 export const BACKEND_WEBSOCKET_PROTOCOL = process.env.DEV ? "ws://" : window.location.protocol === "http:" ? "ws://" : "wss://";
 
 export const URL = `${BACKEND_PROTOCOL}${BACKEND_HOST}${BACKEND_PORT}`;
+export const EXIF_WORKER_URL = process.env.DEV ? "http://localhost:8091" : URL;
 const pb = new PocketBase(URL);
 pb.autoCancellation(false);
 

@@ -2,6 +2,7 @@ package exif
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 
@@ -12,13 +13,13 @@ func GetImage(ctx context.Context, id string, client *client.Client) (*client.Im
 	return client.GetImage(ctx, id)
 }
 
-func GetImageFileWithAdjustedExifData(ctx context.Context, id string, client *client.Client) ([]byte, error) {
+func GetImageFileWithAdjustedExifData(ctx context.Context, id string, resolution string, client *client.Client) ([]byte, error) {
 	image, err := client.GetImage(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	originalImageFile, err := DownloadOriginalImageFile(ctx, image)
+	originalImageFile, err := DownloadImageFile(ctx, image, resolution)
 	if err != nil {
 		return nil, err
 	}
@@ -31,8 +32,11 @@ func GetImageFileWithAdjustedExifData(ctx context.Context, id string, client *cl
 	return adjustedImageFile, nil
 }
 
-func DownloadOriginalImageFile(ctx context.Context, image *client.Image) ([]byte, error) {
-	downloadUrl := image.DownloadUrls["original"]
+func DownloadImageFile(ctx context.Context, image *client.Image, resolution string) ([]byte, error) {
+	downloadUrl := image.DownloadUrls[resolution]
+	if downloadUrl == "" {
+		return nil, errors.New("resolution not found")
+	}
 
 	response, err := http.Get(downloadUrl)
 	if err != nil {
