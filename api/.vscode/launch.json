@@ -12,6 +12,15 @@
       "program": "./cmd/server/main.go",
       "args": ["serve", "--dir=${workspaceFolder}/pb_data"],
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "test",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "./cmd/test/main.go",
+      "args": [],
+      "cwd": "${workspaceFolder}"
     }
   ]
 }

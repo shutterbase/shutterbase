@@ -113,7 +113,7 @@ const computedPlaceholder = computed(() => {
 });
 
 function toggleTagSelection(tag: ImageTagsResponse) {
-  selectedTags.value = [];
+  // selectedTags.value = [];
   if (selectedTags.value.some((t) => t.id === tag.id)) {
     selectedTags.value = selectedTags.value.filter((t) => t.id !== tag.id);
   } else {

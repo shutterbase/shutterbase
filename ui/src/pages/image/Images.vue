@@ -92,6 +92,11 @@ function showDetail() {
   displayMode.value = DisplayMode.DETAIL;
 }
 
+onMounted(clearFilterTags);
+function clearFilterTags() {
+  filterTags.value = [];
+}
+
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
 
 onHotkey({ key: "t", modifierKeys: [] }, showTaggingDialogViaHotkey);
