@@ -26,5 +26,7 @@ func NewServer(options *ServerOptions) *Server {
 func (s *Server) RegisterRoutes() error {
 	s.registerGetUploadUrlEndpoint()
 	s.registerWebsocketServer()
+
+	s.registerSyncImageTagsEndpoint()
 	return nil
 }

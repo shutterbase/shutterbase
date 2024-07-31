@@ -41,6 +41,7 @@ func RegisterHooks(context *util.Context) error {
 	hookExecutor.registerProjectAssignmentHooks()
 	hookExecutor.registerUserHooks()
 	hookExecutor.registerImageHooks()
+	hookExecutor.registerImageTagAssignmentHooks()
 
 	hookExecutor.StartImageDetectionProcessor()
 	return nil

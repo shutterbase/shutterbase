@@ -62,7 +62,7 @@ function getFilter() {
   if (filterTags.value.length > 0) {
     const tagFilters = [];
     for (const tag of filterTags.value) {
-      tagFilters.push(`image_tag_assignments_via_image.imageTag?="${tag}"`);
+      tagFilters.push(`imageTags?~"${tag}"`);
     }
     and.push(`(${tagFilters.join(" && ")})`);
   }
