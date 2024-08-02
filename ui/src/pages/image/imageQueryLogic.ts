@@ -7,6 +7,7 @@ import { ImageTagAssignmentType, ImageWithTagsType } from "src/types/custom";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import { emitter } from "src/boot/mitt";
 import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
+import { dateTimeToBackendString } from "src/util/dateTimeUtil";
 
 export enum DisplayMode {
   GRID = "grid",
@@ -82,7 +83,7 @@ export async function loadImages(reload: boolean) {
     const result = await pb.collection<ImageWithTagsType>("images").getList(page.value, 20, {
       filter: getFilter(),
       sort: getSort(),
-      expand: "camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag",
+      expand: "camera, user, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag",
     });
     totalImageCount.value = result.totalItems;
     page.value++;
@@ -113,6 +114,7 @@ export async function addImageTag(image: ImageWithTagsType, tag: ImageTagsRespon
     result.expand = { imageTag: tag };
     const editedImageIndex = images.value.findIndex((i) => i.id === image.id);
     images.value[editedImageIndex].expand.image_tag_assignments_via_image.push(result);
+    images.value[editedImageIndex].updated = dateTimeToBackendString(new Date());
     emitter.emit("reset-tagging-dialog");
   } catch (error: any) {
     unexpectedError.value = error;

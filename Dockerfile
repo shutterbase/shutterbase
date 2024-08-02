@@ -38,7 +38,7 @@ COPY ui/tsconfig.json /usr/src/tsconfig.json
 RUN bun run build
 
 
-FROM golang:1.22-alpine3.18 AS builder
+FROM golang:1.22.3-alpine3.18 AS builder
 
 WORKDIR /usr/src
 COPY api/go.mod /usr/src/go.mod

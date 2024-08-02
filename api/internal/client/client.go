@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Client struct {
@@ -40,7 +43,13 @@ func (c *Client) Login(ctx context.Context, email, password string) error {
 		"password": c.Auth.Password,
 	}
 	result, err := SendPostRequest(c, "/api/collections/users/auth-with-password", []Parameter{}, payload, &AuthWithPasswordResponse{})
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to login with user %s", c.Auth.Email)
+		return err
+	}
+
 	c.Auth.Token = result.Token
+	log.Debug().Msgf("Logged in as %s", c.Auth.Email)
 	return err
 }
 
@@ -52,6 +61,77 @@ func (c *Client) GetImage(ctx context.Context, id string) (*Image, error) {
 	return SendGetRequest(c, fmt.Sprintf("/api/collections/images/records/%s", id), []Parameter{
 		{Key: "expand", Value: "user, camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag"},
 	}, &Image{})
+}
+
+func (c *Client) GetImages(ctx context.Context, projectId string, tags []string) ([]Image, error) {
+
+	imageTags, err := c.GetProjectTags(ctx, projectId)
+	if err != nil {
+		return nil, err
+	}
+
+	tagFilters := []string{}
+	for _, tag := range tags {
+		for _, imageTag := range imageTags {
+			if imageTag.Name == tag {
+				tagFilters = append(tagFilters, fmt.Sprintf(`imageTags?~"%s"`, imageTag.Id))
+			}
+		}
+	}
+
+	result := []Image{}
+
+	expandParameter := Parameter{Key: "expand", Value: "user, camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag"}
+	perPageParameter := Parameter{Key: "perPage", Value: "100"}
+	filterParameter := Parameter{Key: "filter", Value: fmt.Sprintf(`(project="%s"&&(%s))`, projectId, strings.Join(tagFilters, "&&"))}
+	totalPages := 1
+
+	for page := 1; page <= totalPages+1; page++ {
+		log.Debug().Msgf("Getting page %d of images with filter '%s'", page, filterParameter.Value)
+		imagesResponse, err := SendGetRequest(c, "/api/collections/images/records", []Parameter{
+			expandParameter,
+			perPageParameter,
+			filterParameter,
+			{Key: "page", Value: fmt.Sprintf("%d", page)},
+		}, &ImagesResponse{})
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to get images")
+			return nil, err
+		}
+
+		result = append(result, imagesResponse.Items...)
+		totalPages = imagesResponse.TotalPages
+	}
+
+	log.Debug().Msgf("Got %d images", len(result))
+	return result, nil
+}
+
+func (c *Client) GetProjectTags(ctx context.Context, projectId string) ([]ImageTag, error) {
+	result := []ImageTag{}
+
+	filterParameter := Parameter{Key: "filter", Value: fmt.Sprintf(`project="%s"`, projectId)}
+	perPageParameter := Parameter{Key: "perPage", Value: "100"}
+	totalPages := 1
+
+	for page := 1; page <= totalPages; page++ {
+		log.Debug().Msgf("Getting page %d of project tags", page)
+		imageTagsResponse, err := SendGetRequest(c, "/api/collections/image_tags/records", []Parameter{
+			filterParameter,
+			perPageParameter,
+			{Key: "page", Value: fmt.Sprintf("%d", page)},
+		}, &ImageTagsResponse{})
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to get project tags")
+			return nil, err
+		}
+
+		result = append(result, imageTagsResponse.Items...)
+		totalPages = imageTagsResponse.TotalPages
+	}
+
+	log.Debug().Msgf("Got %d project tags", len(result))
+	return result, nil
 }
 
 func SendPostRequest[T any](client *Client, endpoint string, params []Parameter, data interface{}, result *T) (*T, error) {
@@ -99,6 +179,8 @@ func SendGetRequest[T any](client *Client, endpoint string, params []Parameter, 
 
 	method := "GET"
 
+	log.Trace().Msgf("GET %s", url)
+
 	httpClient := &http.Client{}
 	req, err := http.NewRequest(method, url, nil)
 
@@ -130,17 +212,15 @@ func SendGetRequest[T any](client *Client, endpoint string, params []Parameter, 
 }
 
 func GetUrl(client *Client, endpoint string, params []Parameter) string {
-	url := fmt.Sprintf("%s%s", client.BaseUrl, endpoint)
+	urlString := fmt.Sprintf("%s%s", client.BaseUrl, endpoint)
 
-	parameterStrings := []string{}
+	urlParameters := url.Values{}
 	for _, pair := range params {
-		parameterStrings = append(parameterStrings, fmt.Sprintf("%s=%s", pair.Key, pair.Value))
+		urlParameters.Add(pair.Key, pair.Value)
 	}
 
-	if len(parameterStrings) > 0 {
-		url = fmt.Sprintf("%s?%s", url, strings.Join(parameterStrings, "&"))
+	if len(urlParameters) > 0 {
+		urlString = fmt.Sprintf("%s?%s", urlString, urlParameters.Encode())
 	}
-	// url encode
-	url = strings.ReplaceAll(url, " ", "%20")
-	return url
+	return urlString
 }

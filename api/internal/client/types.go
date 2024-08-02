@@ -15,8 +15,8 @@ type Image struct {
 	StorageId           string                 `json:"storageId"`
 	DownloadUrls        map[string]string      `json:"downloadUrls"`
 	Expand              *ImageExpand           `json:"expand"`
-	CreatedAt           DateTime               `json:"createdAt"`
-	UpdatedAt           DateTime               `json:"updatedAt"`
+	Created             DateTime               `json:"created"`
+	Updated             DateTime               `json:"updated"`
 }
 
 type ImageExpand struct {
@@ -97,4 +97,21 @@ type AuthWithPasswordResponse struct {
 		Verified           bool     `json:"verified"`
 	} `json:"record"`
 	Token string `json:"token"`
+}
+
+type ImagesResponse struct {
+	Items      []Image `json:"items"`
+	Page       int     `json:"page"`
+	PerPage    int     `json:"perPage"`
+	TotalItems int     `json:"totalItems"`
+	TotalPages int     `json:"totalPages"`
+}
+
+// FIXME: migrate to common type struct with interface and generic function
+type ImageTagsResponse struct {
+	Items      []ImageTag `json:"items"`
+	Page       int        `json:"page"`
+	PerPage    int        `json:"perPage"`
+	TotalItems int        `json:"totalItems"`
+	TotalPages int        `json:"totalPages"`
 }
