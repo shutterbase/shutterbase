@@ -28,6 +28,10 @@ export function dateTimeFromBackend(backendTime: string): string {
   return DateTime.fromJSDate(parseBackendTime(backendTime)).toFormat("dd.LL.iiii HH:mm:ss");
 }
 
+export function dateTimeToBackendString(date: Date): string {
+  return DateTime.fromJSDate(date).toFormat("yyyy-MM-dd HH:mm:ss");
+}
+
 export function parseBackendTime(backendTime: string): Date {
   return new Date(Date.parse(backendTime));
 }

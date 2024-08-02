@@ -26,6 +26,15 @@
           <p class="text-sm font-medium">Original capture time</p>
           <p class="text-sm">{{ dateTimeFromBackend(item.capturedAt) }}</p>
         </div>
+        <div class="pb-2">
+          <p class="text-sm font-medium">Uploaded</p>
+          <p class="text-sm">{{ dateTimeFromBackend(item.created) }}</p>
+          <p class="text-sm">by {{ item.expand.user.firstName }} {{ item.expand.user.lastName }}</p>
+        </div>
+        <div class="pb-2">
+          <p class="text-sm font-medium">Updated</p>
+          <p class="text-sm">{{ dateTimeFromBackend(item.updated) }}</p>
+        </div>
       </div>
 
       <div class="border-b pb-6 dark:border-primary-400">
@@ -108,6 +117,7 @@ import { computed, ref } from "vue";
 import { emitter } from "src/boot/mitt";
 import { downloadImage } from "src/util/download";
 import pb from "src/boot/pocketbase";
+import { dateTimeToBackendString } from "src/util/dateTimeUtil";
 import { CameraIcon, EyeIcon, ClockIcon } from "@heroicons/vue/24/solid";
 interface Props {
   item: ImageWithTagsType | null;
@@ -132,10 +142,13 @@ async function removeTag(tagAssignment: ImageTagAssignmentType) {
       headline: `Tag ${tagAssignment.expand.imageTag.name} removed`,
       type: "success",
     });
-    props.item?.expand.image_tag_assignments_via_image.splice(
-      props.item?.expand.image_tag_assignments_via_image.findIndex((ta) => ta.id === tagAssignment.id),
-      1
-    );
+    if (props.item) {
+      props.item.expand.image_tag_assignments_via_image.splice(
+        props.item.expand.image_tag_assignments_via_image.findIndex((ta) => ta.id === tagAssignment.id),
+        1
+      );
+      props.item.updated = dateTimeToBackendString(new Date());
+    }
   } catch (error: any) {
     emitter.emit(`notification`, {
       headline: `Error removing tag ${tagAssignment.expand.imageTag.name}`,

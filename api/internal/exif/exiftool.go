@@ -47,26 +47,9 @@ func ApplyExifData(ctx context.Context, jpegData []byte, image *client.Image) ([
 
 	tempFileName := tempFile.Name()
 
-	// et, err := exiftool.NewExiftool()
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Error creating exiftool")
-	// 	return nil, err
-	// }
-	// defer et.Close()
-	// exifOriginals := et.ExtractMetadata(tempFileName)
-
-	// for key, value := range exifOriginals[0].Fields {
-	// 	log.Debug().Msgf("%s: %s", key, value)
-	// }
-
 	exifMetadata := ExifMetadata{
 		Data: map[string]interface{}{},
 	}
-
-	// Save DateTimeOriginal, CreateDate
-	// createTagBackup(exifMetadata, exifOriginals[0], "DateTimeOriginal", image)
-	// createTagBackup(exifMetadata, exifOriginals[0], "CreateDate", image)
-	// createTagBackup(exifMetadata, exifOriginals[0], "Keywords", image)
 
 	// Writing corrected time
 	correctedTimeString := image.CapturedAtCorrected.Format("2006:01:02 15:04:05-07:00")
@@ -81,21 +64,29 @@ func ApplyExifData(ctx context.Context, jpegData []byte, image *client.Image) ([
 	imageTagAssignments := image.Expand.ImageTagAssignmentsViaImage
 	for _, imageTagAssignment := range imageTagAssignments {
 		imageTag := imageTagAssignment.Expand.ImageTag
+
+		// do not write tags that are not default or manual (e.g. "template" or "custom")
+		if imageTag.Type != "default" && imageTag.Type != "manual" {
+			continue
+		}
+
+		// do not write the "internal" tag as it is only for internal management
+		if imageTag.Name == "internal" {
+			continue
+		}
+
 		stringTags = append(stringTags, imageTag.Name)
 	}
 	exifMetadata.Write("EXIF:XPKeywords", stringTags)
 	exifMetadata.Write("IPTC:Keywords", stringTags)
 
 	// Writing credit and artist
-
 	exifMetadata.Write("IPTC:By-lineTitle", image.Expand.User.CopyrightTag)
 	exifMetadata.Write("IPTC:By-line", fmt.Sprintf("%s %s", image.Expand.User.FirstName, image.Expand.User.LastName))
-	// exifMetadata.Write("XMP:Creator", fmt.Sprintf("%s %s", image.Expand.User.FirstName, image.Expand.User.LastName))
 	exifMetadata.Write("EXIF:Artist", fmt.Sprintf("%s %s", image.Expand.User.FirstName, image.Expand.User.LastName))
 	exifMetadata.Write("IPTC:Writer-Editor", fmt.Sprintf("%s %s", image.Expand.User.FirstName, image.Expand.User.LastName))
 
 	exifMetadata.Write("IPTC:Credit", image.Expand.Project.Copyright)
-	// exifMetadata.Write("XMP:Rights", image.Expand.Project.Copyright)
 	exifMetadata.Write("EXIF:Copyright", image.Expand.Project.Copyright)
 	exifMetadata.Write("IPTC:OriginalTransmissionReference", image.Expand.Project.CopyrightReference)
 	exifMetadata.Write("IPTC:Country-PrimaryLocationName", image.Expand.Project.LocationName)
@@ -103,8 +94,6 @@ func ApplyExifData(ctx context.Context, jpegData []byte, image *client.Image) ([
 	exifMetadata.Write("IPTC:City", image.Expand.Project.LocationCity)
 
 	exifMetadata.Write("IPTC:CopyrightNotice", fmt.Sprintf("Copyright and Photographer should be quoted: (C)%s - %s %s", image.Expand.Project.CopyrightReference, image.Expand.User.FirstName, image.Expand.User.LastName))
-
-	// exifMetadata.Write("XMP:ShutterbaseEditStatus", "tagged")
 
 	exifMetadata.Write("IPTC:OriginatingProgram", "Shutterbase by Max Partenfeder")
 

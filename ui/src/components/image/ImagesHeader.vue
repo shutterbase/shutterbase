@@ -9,7 +9,7 @@
         </div>
       </div>
     </div>
-    <div class="lg:ml-4 flex">
+    <div v-if="showFilter" class="lg:ml-4 flex">
       <ProjectTagComboBox class="mr-5" @selected="emitFilterTags" />
       <div class="sm:col-span-3 mr-5">
         <label for="search" class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100">Search</label>
@@ -57,6 +57,7 @@ import { ImageTagsResponse } from "src/types/pocketbase";
 
 interface Props {
   totalImageCount: number;
+  showFilter: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   totalImageCount: 0,

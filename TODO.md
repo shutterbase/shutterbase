@@ -4,6 +4,7 @@
 
 - proper permissions for everything
 - fix project edit dialog
+- add pagination or infiniscroll to project tags
 
 ## Bad
 
