@@ -56,7 +56,7 @@ jobs:
             artifact_suffix: ""
           - os: windows
             artifact_suffix: ".exe"
-    runs-on: [self-hosted, road-runner, docker, large]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
       - uses: actions/setup-go@v5
