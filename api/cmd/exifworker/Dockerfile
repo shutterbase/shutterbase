@@ -1,13 +1,13 @@
 FROM golang:1.22.3-alpine3.18 AS builder
 
 WORKDIR /usr/src
-COPY go.mod /usr/src/go.mod
-COPY go.sum /usr/src/go.sum
+COPY api/go.mod /usr/src/go.mod
+COPY api/go.sum /usr/src/go.sum
 RUN go mod download
 
-COPY cmd /usr/src/cmd
-COPY internal /usr/src/internal
-COPY migrations /usr/src/migrations
+COPY api/cmd /usr/src/cmd
+COPY api/internal /usr/src/internal
+COPY api/migrations /usr/src/migrations
 
 RUN go build -o exifworker -ldflags="-s -w" cmd/exifworker/main.go 
 
