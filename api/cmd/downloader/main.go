@@ -254,10 +254,11 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		log.Info().Msgf("Downloading %d images", len(filteredImages))
 	} else {
 		for _, image := range notBlockedImages {
-			if _, err := os.Stat(filepath.Join(outputDir, image.ComputedFileName)); errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Stat(filepath.Join(outputDir, getFileName(image.ComputedFileName))); errors.Is(err, os.ErrNotExist) {
 				filteredImages = append(filteredImages, image)
 			} else if properties.Type == DownloadTypeDelta && image.Updated.After(syncWindowStartTime) {
 				filteredImages = append(filteredImages, image)
+				log.Debug().Msgf("Downloading image '%s' as it received updates after '%s'", image.ComputedFileName, syncWindowStartTime.Format(time.RFC3339))
 			} else {
 				log.Debug().Msgf("Skipping image '%s' as it already exists in its latest version", image.ComputedFileName)
 			}
@@ -269,7 +270,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 	for _, image := range filteredImages {
 		log.Debug().Msgf("Downloading image '%s'", image.ComputedFileName)
 		bar.Add(1)
-		err := downloadFile(c, apiClient, &image, filepath.Join(outputDir, fmt.Sprintf("%s.jpg", image.ComputedFileName)))
+		err := downloadFile(c, apiClient, &image, filepath.Join(outputDir, getFileName(image.ComputedFileName)))
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to download image '%s'", image.ComputedFileName)
 			continue
@@ -325,6 +326,8 @@ func initLogger(c *cli.Context) error {
 		applyLogLevel("trace")
 	} else if c.Bool("verbose") {
 		applyLogLevel("debug")
+	} else {
+		applyLogLevel("info")
 	}
 	log.Info().Msgf("Logger initialized on level '%s'", zerolog.GlobalLevel().String())
 	return nil
@@ -368,4 +371,8 @@ func getHumanReadableSize(size int64) string {
 	} else {
 		return fmt.Sprintf("%.2f TiB", float64(size)/(1024*1024*1024*1024))
 	}
+}
+
+func getFileName(computedFileName string) string {
+	return fmt.Sprintf("%s.jpg", computedFileName)
 }
