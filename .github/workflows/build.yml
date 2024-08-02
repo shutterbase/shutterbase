@@ -72,7 +72,7 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: ${{ github.workspace }}/downloader
+          file: ${{ github.workspace }}/api/downloader
           asset_name: shutterbase_downloader_${{ matrix.os }}_${{ matrix.arch }}${{ matrix.artifact_suffix }}
           tag: ${{ github.ref }}
 
