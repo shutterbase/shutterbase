@@ -33,7 +33,7 @@ jobs:
           prerelease: false
 
   downloader-build:
-    runs-on: [self-hosted, road-runner, docker, large]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
       - uses: actions/setup-go@v5
