@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -76,11 +77,16 @@ func main() {
 				Usage:   "shutterbase password",
 				EnvVars: []string{"SHUTTERBASE_PASSWORD"},
 			},
-			// &cli.StringFlag{
-			// 	Name:    "blocklist",
-			// 	Usage:   "file with list of image names to ignore. one filename per line",
-			// 	EnvVars: []string{"SHUTTERBASE_BLOCKLIST"},
-			// },
+			&cli.StringFlag{
+				Name:    "blocklist",
+				Usage:   "file with list of image names to ignore. one filename per line",
+				EnvVars: []string{"SHUTTERBASE_BLOCKLIST"},
+			},
+			&cli.IntFlag{
+				Name:    "parallelism",
+				Usage:   "number of parallel downloads",
+				EnvVars: []string{"SHUTTERBASE_PARALLELISM"},
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -266,16 +272,93 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		log.Info().Msgf("Downloading %d images. Skipping %d existing images", len(filteredImages), len(images)-len(filteredImages))
 	}
 
+	type DownloadStatus string
+	const (
+		DownloadStatusSuccess DownloadStatus = "success"
+		DownloadStatusError   DownloadStatus = "error"
+	)
+
+	type DownloadResult struct {
+		Status DownloadStatus
+		Image  client.Image
+		Error  error
+	}
+
 	bar := progressbar.Default(int64(len(filteredImages)))
-	for _, image := range filteredImages {
-		log.Debug().Msgf("Downloading image '%s'", image.ComputedFileName)
+	lock := sync.Mutex{}
+	incrementBar := func() {
+		lock.Lock()
+		defer lock.Unlock()
 		bar.Add(1)
-		err := downloadFile(c, apiClient, &image, filepath.Join(outputDir, getFileName(image.ComputedFileName)))
-		if err != nil {
-			log.Error().Err(err).Msgf("Failed to download image '%s'", image.ComputedFileName)
-			continue
+	}
+	downloadResults := make(chan DownloadResult, len(filteredImages))
+	workQueue := make(chan client.Image, len(filteredImages))
+
+	waitGroup := sync.WaitGroup{}
+	workerCount := c.Int("parallelism")
+	if workerCount == 0 {
+		workerCount = 1
+	}
+
+	log.Info().Msgf("Starting %d download workers", workerCount)
+	for i := 0; i < workerCount; i++ {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+
+			for {
+				image, ok := <-workQueue
+				if !ok {
+					return
+				}
+
+				log.Debug().Msgf("Downloading image '%s'", image.ComputedFileName)
+				incrementBar()
+				err := downloadFile(c, apiClient, &image, filepath.Join(outputDir, getFileName(image.ComputedFileName)))
+				if err != nil {
+					log.Error().Err(err).Msgf("Failed to download image '%s'", image.ComputedFileName)
+					downloadResults <- DownloadResult{Status: DownloadStatusError, Image: image, Error: err}
+				} else {
+					downloadResults <- DownloadResult{Status: DownloadStatusSuccess, Image: image, Error: nil}
+				}
+			}
+		}()
+	}
+
+	for _, image := range filteredImages {
+		workQueue <- image
+	}
+	log.Trace().Msg("Queued all images")
+	close(workQueue)
+	log.Trace().Msg("Closed work queue")
+
+	log.Trace().Msg("Waiting for workers to finish")
+	waitGroup.Wait()
+	log.Trace().Msg("All workers finished")
+	bar.Finish()
+
+	close(downloadResults)
+
+	successCount := 0
+	errorCount := 0
+	errorImageNames := []string{}
+	for result := range downloadResults {
+		if result.Status == DownloadStatusSuccess {
+			successCount++
+		} else {
+			errorCount++
+			errorImageNames = append(errorImageNames, result.Image.ComputedFileName)
 		}
 	}
+
+	log.Info().Msgf("Downloaded %d images in %s", successCount, time.Since(runStartTime).String())
+	if errorCount > 0 {
+		log.Error().Msgf("Failed to download %d images:", errorCount)
+		for _, errorImageName := range errorImageNames {
+			log.Error().Msgf("  - %s", errorImageName)
+		}
+	}
+
 	return nil
 }
 

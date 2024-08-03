@@ -8,13 +8,13 @@ Furthermore, the shutterbase project id is required to download the files. The p
 ## Usage
 
 ```
-./downloader -url <shutterbase url> --email <email> --password <password> --project <projectId> download [full|delta] <tags>
+./downloader -url <shutterbase url> --email <email> --password <password> --project <projectId> --parallelism <workerCount=1> download [full|delta] <tags>
 ```
 
 ### Example
 
 ```
-./downloader --url https://shutterbase.fsg.one --email <email> --password <password> --project qagr042y62aeptz download full vbo
+./downloader --url https://shutterbase.fsg.one --email <email> --password <password> --project qagr042y62aeptz --parallelism 3 download full vbo
 ```
 
 **Note:** Windows users shoud use `downloader.exe` instead of `./downloader`
