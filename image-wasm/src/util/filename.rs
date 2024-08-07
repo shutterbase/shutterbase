@@ -10,15 +10,45 @@ pub fn calculate_filename(original_filename: String, corrected_camera_time: Date
 }
 
 fn extract_last_four_digits(input: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let re = Regex::new(r"\d{4}").unwrap();
-    let mut last_match = None;
+    let re = Regex::new(r".*(\d{4}).*?")?;
 
-    for mat in re.find_iter(input) {
-        last_match = Some(mat.as_str());
+    match re.captures(input) {
+        Some(cap) => Ok(cap[1].to_string()),
+        None => Err("No four consecutive digits found in filename".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_last_four_digits_success() {
+        let filename = "PS_04953.jpg";
+        assert_eq!(extract_last_four_digits(filename).unwrap(), "4953");
     }
 
-    match last_match {
-        Some(digits) => Ok(digits.to_string()),
-        None => Err("No four consecutive digits found in filename".into()),
+    #[test]
+    fn test_extract_last_four_digits_too_few() {
+        let filename = "PS_049.jpg";
+        assert!(extract_last_four_digits(filename).is_err());
+    }
+
+    #[test]
+    fn test_extract_last_four_digits_success_2() {
+        let filename = "PS_04955.jpg";
+        assert_eq!(extract_last_four_digits(filename).unwrap(), "4955");
+    }
+
+    #[test]
+    fn test_extract_last_four_digits_success_file_duplicate() {
+        let filename = "PS_04961 (2).jpg";
+        assert_eq!(extract_last_four_digits(filename).unwrap(), "4961");
+    }
+
+    #[test]
+    fn test_extract_last_four_digits_success_edit() {
+        let filename = "PS_04955-EDIT.jpg";
+        assert_eq!(extract_last_four_digits(filename).unwrap(), "4955");
     }
 }
