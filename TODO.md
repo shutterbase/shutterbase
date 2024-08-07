@@ -5,6 +5,7 @@
 - proper permissions for everything
 - fix project edit dialog
 - add pagination or infiniscroll to project tags
+- image tags do not get applied to images
 
 ## Bad
 
@@ -14,7 +15,10 @@
 
 - delete cameras
 - tag ui broken when tag description too long
-
+- applied tag shows up locally as "manual" even though it might be "custom"
+- closing tag search when clicking outside of it
+- custom tag dialog
+- close tagging dialog when clicking outside of it
 
 # Permission TODOs:
 ## Auth required:
