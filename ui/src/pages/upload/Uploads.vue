@@ -1,6 +1,14 @@
 <template>
   <div class="mx-auto max-w-7xl w-full">
-    <Table dense :items="items" :columns="columns" name="Upload" subtitle="" :add-callback="() => router.push('/uploads/create')"></Table>
+    <Table
+      dense
+      :items="items"
+      :columns="columns"
+      name="Upload"
+      subtitle=""
+      :allow-add="userStore.isProjectEditorOrHigher()"
+      :add-callback="() => router.push('/uploads/create')"
+    ></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
     <ModalMessage
       :show="showDeleteDialog"
@@ -24,7 +32,8 @@ import { useUserStore } from "src/stores/user-store";
 import { useRouter } from "vue-router";
 import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 import { showNotificationToast } from "src/boot/mitt";
-import { U } from "app/dist/spa/assets/UnexpectedErrorMessage-BfdH_7q6";
+import { isUploadReadOnly, showUploadEdit } from "./uploadUtil";
+
 const router = useRouter();
 
 const userStore = useUserStore();
@@ -45,11 +54,31 @@ const columns: TableColumn<UploadsResponse>[] = [
     key: "actions",
     label: "Actions",
     actions: [
-      { key: "edit", label: "Edit", callback: (item) => router.push({ name: `upload-edit`, params: { id: item.id } }), type: TableRowActionType.EDIT },
-      { key: "tagging", label: "Tagging", callback: (item) => router.push({ name: `upload-tagging`, params: { id: item.id } }), type: TableRowActionType.CUSTOM },
+      {
+        key: "show",
+        label: "Show",
+        showCallback: isUploadReadOnly,
+        callback: (item) => router.push({ name: `upload-edit`, params: { id: item.id } }),
+        type: TableRowActionType.CUSTOM,
+      },
+      {
+        key: "edit",
+        label: "Edit",
+        showCallback: showUploadEdit,
+        callback: (item) => router.push({ name: `upload-edit`, params: { id: item.id } }),
+        type: TableRowActionType.EDIT,
+      },
+      {
+        key: "tagging",
+        label: "Tagging",
+        showCallback: showUploadEdit,
+        callback: (item) => router.push({ name: `upload-tagging`, params: { id: item.id } }),
+        type: TableRowActionType.CUSTOM,
+      },
       {
         key: "delete",
         label: "Delete",
+        showCallback: showUploadEdit,
         callback: deleteItem,
         type: TableRowActionType.DELETE,
       },

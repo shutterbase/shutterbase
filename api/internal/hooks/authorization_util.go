@@ -2,6 +2,8 @@ package hooks
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/dbx"
@@ -55,7 +57,7 @@ func (h *HookExecutor) isUserInProject(c echo.Context, projectId string) bool {
 	}
 
 	for _, projectAssignment := range projectAssignments {
-		if projectAssignment.GetString("projectId") == projectId {
+		if projectAssignment.GetString("project") == projectId {
 			return true
 		}
 	}
@@ -110,7 +112,7 @@ func (h *HookExecutor) hasRoleInProject(c echo.Context, projectId string, roleKe
 	}
 
 	for _, projectAssignment := range projectAssignments {
-		if projectAssignment.GetString("projectId") == projectId && projectAssignment.GetString("roleId") == role.Id {
+		if projectAssignment.GetString("project") == projectId && projectAssignment.GetString("role") == role.Id {
 			return true, nil
 		}
 	}
@@ -186,4 +188,38 @@ func (h *HookExecutor) getImage(imageId string) (*models.Record, error) {
 	h.caches.imageCache.Add(imageId, image)
 
 	return image, nil
+}
+
+func (h *HookExecutor) getFilteredUploadId(c echo.Context) (string, error) {
+	return h.getFilteredId(c, "upload")
+}
+
+func (h *HookExecutor) getFilteredProjectId(c echo.Context) (string, error) {
+	return h.getFilteredId(c, "project")
+}
+
+func (h *HookExecutor) getFilteredId(c echo.Context, filterName string) (string, error) {
+	filter := c.QueryParam("filter")
+	if filter == "" {
+		return "", errors.New("project filter not found")
+	}
+
+	// "(project='tqlqqanaf3qajtl')"
+	re := regexp.MustCompile(fmt.Sprintf("%s='(.*?)'", filterName))
+	matches := re.FindStringSubmatch(filter)
+	if len(matches) != 2 {
+		return "", errors.New("no definitive project id found in filter")
+	}
+
+	return matches[1], nil
+
+}
+
+func (h *HookExecutor) getUpload(c echo.Context, uploadId string) (*models.Record, error) {
+	upload, err := h.context.App.Dao().FindRecordById("uploads", uploadId)
+	if err != nil {
+		return nil, err
+	}
+
+	return upload, nil
 }

@@ -13,9 +13,12 @@ onMounted(async () => {
   document.addEventListener("keydown", keyEventHandler);
   await userStore.loadProjectTags();
   userStore.startProjectTagFetching();
+  await userStore.loadUser();
+  userStore.startUserFetching();
 });
 onUnmounted(() => {
   document.removeEventListener("keydown", keyEventHandler);
   userStore.stopProjectTagFetching();
+  userStore.stopUserFetching();
 });
 </script>

@@ -26,7 +26,7 @@
                   <th scope="col" :class="[tableHeaderClasses]">Filename</th>
                   <th scope="col" :class="[tableHeaderClasses]">Time</th>
                   <th scope="col" :class="[tableHeaderClasses]">Size</th>
-                  <th scope="col" :class="[tableHeaderClasses]">Actions</th>
+                  <th v-if="allowEdit" scope="col" :class="[tableHeaderClasses]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -48,7 +48,7 @@
                   <td :class="[tableCellClasses]">{{ fileNameTableEntry(image) }}</td>
                   <td :class="[tableCellClasses]">{{ timeTableEntry(image) }}</td>
                   <td :class="[tableCellClasses]">{{ fileSize(image.size) }}</td>
-                  <td :class="[tableCellClasses]">
+                  <td v-if="allowEdit" :class="[tableCellClasses]">
                     <button v-if="image.status === ImageStatus.DONE" @click="deleteItem(image)" class="text-red-700 dark:text-red-300 hover:text-primary-900">Remove</button>
                   </td>
                 </tr>
@@ -87,8 +87,11 @@ type UploadType = UploadsResponse & { expand?: { camera: CameraType; user: Users
 interface Props {
   upload: UploadType;
   files: File[];
+  allowEdit?: boolean;
 }
-const props = withDefaults(defineProps<Props>(), {});
+const props = withDefaults(defineProps<Props>(), {
+  allowEdit: false,
+});
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);

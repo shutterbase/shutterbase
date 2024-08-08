@@ -43,7 +43,7 @@ const tagColor = computed(() => {
     case "manual":
       return "bg-green-200 dark:bg-green-800 text-gray-900 dark:text-gray-100 ring-green-200 dark:ring-green-700";
     case "custom":
-      return "bg-yellow-200 dark:bg-yellow-800 text-gray-900 dark:text-gray-100 ring-yellow-200 dark:ring-yellow-700";
+      return "bg-yellow-200 dark:bg-yellow-500 text-gray-900 dark:text-gray-100 ring-yellow-200 dark:ring-yellow-700";
     // TODO: add inferred tag color
   }
 });

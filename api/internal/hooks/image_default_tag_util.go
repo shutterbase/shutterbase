@@ -1,12 +1,14 @@
 package hooks
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/models"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 func (h *HookExecutor) addDefaultTags(image *models.Record) error {
@@ -42,6 +44,8 @@ func (h *HookExecutor) addDefaultTags(image *models.Record) error {
 			h.context.App.Logger().Warn(fmt.Sprintf("Unknown default tag '%s'", tagName))
 		}
 	}
+
+	util.SyncImageTags(context.Background(), h.context.App, image.Id)
 
 	return nil
 }

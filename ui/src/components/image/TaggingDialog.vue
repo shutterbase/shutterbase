@@ -142,7 +142,7 @@
           <TagIcon class="mx-auto h-6 w-6 text-gray-500" />
           <p class="mt-4 font-semibold text-gray-900 dark:text-gray-100">No matching tags</p>
           <p class="mt-2 text-gray-500">No tag matching your search could be found. Please use a different keyword or create a 'custom' tag</p>
-          <p class="mt-4 font-semibold text-gray-900 dark:text-gray-100 underline cursor-pointer">
+          <p @click="createCustomTag" class="mt-4 font-semibold text-gray-900 dark:text-gray-100 underline cursor-pointer">
             Create custom tag '<b>{{ searchText }}</b
             >'
           </p>
@@ -162,8 +162,9 @@ import { emitter } from "src/boot/mitt";
 import { debug } from "src/util/logger";
 import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
 import { Image } from "src/util/fileProcessor";
-import { ImageTagsResponse } from "src/types/pocketbase";
+import { ImageTagsRecord, ImageTagsResponse } from "src/types/pocketbase";
 import { tagStack } from "src/pages/image/imageQueryLogic";
+import pb from "src/boot/pocketbase";
 
 interface Props {
   image: ImageWithTagsType | null;
@@ -190,7 +191,10 @@ const filteredTags = computed(() => {
     return [];
   }
   return projectTags.value.filter((tag) => {
-    if (tag.type === "default" || tag.type === "template") {
+    if (tag.type === "template") {
+      return false;
+    }
+    if (tag.type === "default" && !userStore.isProjectAdminOrHigher()) {
       return false;
     }
     if (props.image?.expand.image_tag_assignments_via_image?.some((assignment) => assignment.imageTag === tag.id)) {
@@ -275,6 +279,27 @@ function acceptTag(tag: ImageTagsResponse) {
   }
   emit("selected", props.image, tag);
   userStore.addTagToStack(tag);
+}
+
+async function createCustomTag() {
+  if (!props.image) {
+    return;
+  }
+  try {
+    const createdTag = await pb.collection<ImageTagsResponse>("image_tags").create({
+      name: searchText.value,
+      description: `Custom tag '${searchText.value}'`,
+      type: "custom",
+      project: props.image.project,
+    });
+    userStore.projectTags.push(createdTag);
+    acceptTag(createdTag);
+  } catch (error: any) {
+    emitter.emit(`notification`, {
+      headline: `Error creating custom tag`,
+      type: "error",
+    });
+  }
 }
 
 defineExpose({

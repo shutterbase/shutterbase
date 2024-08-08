@@ -49,7 +49,7 @@
             @remove="removeTag"
           />
         </div>
-        <p @click="() => emitter.emit('show-tagging-dialog')" class="mt-4 p-2 text-sm text-bold underline cursor-pointer">add</p>
+        <p v-if="tagsCanBeAdded()" @click="() => emitter.emit('show-tagging-dialog')" class="mt-4 p-2 text-sm text-bold underline cursor-pointer">add</p>
       </div>
       <div class="border-b pb-6 dark:border-primary-400">
         <h3 class="text-lg font-medium py-6">Download Links</h3>
@@ -113,12 +113,15 @@
 import { ImageTagAssignmentType, ImageWithTagsType } from "src/types/custom";
 import { dateTimeFromBackend } from "src/util/dateTimeUtil";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { emitter } from "src/boot/mitt";
 import { downloadImage } from "src/util/download";
 import pb from "src/boot/pocketbase";
 import { dateTimeToBackendString } from "src/util/dateTimeUtil";
-import { CameraIcon, EyeIcon, ClockIcon } from "@heroicons/vue/24/solid";
+import { useUserStore } from "src/stores/user-store";
+
+const userStore = useUserStore();
+
 interface Props {
   item: ImageWithTagsType | null;
 }
@@ -129,7 +132,17 @@ const tagAssignments = computed(() => {
 });
 
 function removable(tagAssignment: ImageTagAssignmentType): boolean {
-  return tagAssignment.expand.imageTag.type !== "default";
+  const isOwnImage = props.item?.user === userStore.user.id;
+  const isProjectAdminOrHigher = userStore.isProjectAdminOrHigher();
+  if (tagAssignment.expand.imageTag.type === "default") {
+    return isProjectAdminOrHigher;
+  } else {
+    return isOwnImage || isProjectAdminOrHigher;
+  }
+}
+
+function tagsCanBeAdded(): boolean {
+  return userStore.isProjectAdminOrHigher() || props.item?.user === userStore.user.id;
 }
 
 async function removeTag(tagAssignment: ImageTagAssignmentType) {
