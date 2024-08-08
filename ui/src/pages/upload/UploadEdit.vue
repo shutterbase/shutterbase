@@ -6,10 +6,10 @@
           <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-100">
             Upload <b>{{ upload.name }}</b>
           </h2>
-          <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">Edit this upload</p>
-          <FileDropzone :multiple="true" @files="handleFiles" />
+          <p v-if="showUploadEdit(upload)" class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">Edit this upload</p>
+          <FileDropzone v-if="showUploadEdit(upload)" :multiple="true" @files="handleFiles" />
         </div>
-        <ImageUploadList :upload="upload" :files="inputFiles" />
+        <ImageUploadList :allow-edit="showUploadEdit(upload)" :upload="upload" :files="inputFiles" />
       </div>
     </main>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -31,6 +31,7 @@ import { dateTimeFromUnix } from "src/util/dateTimeUtil";
 import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { TimeOffsetResult } from "src/util/fileProcessor";
 import ImageUploadList, { InputFile } from "src/components/upload/ImageUploadList.vue";
+import { isUploadReadOnly, showUploadEdit } from "./uploadUtil";
 
 const router = useRouter();
 const route = useRoute();

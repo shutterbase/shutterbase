@@ -1,4 +1,4 @@
-import { ImageTagAssignmentsResponse, ImageTagsResponse, ImagesResponse, ProjectsResponse, UsersResponse } from "src/types/pocketbase";
+import { ImageTagAssignmentsResponse, ImageTagsResponse, ImagesResponse, ProjectsResponse, UsersResponse, RolesResponse, ProjectAssignmentsResponse } from "src/types/pocketbase";
 
 export type DownloadUrls = {
   256: string;
@@ -25,5 +25,18 @@ export type ImageWithTagsType = ImagesResponse & {
 export type ProjectWithTagsType = ProjectsResponse & {
   expand: {
     image_tags_via_project: ImageTagsResponse[];
+  };
+};
+
+export type ProjectAssignmentWithRoleType = ProjectAssignmentsResponse & {
+  expand: {
+    role: RolesResponse;
+  };
+};
+
+export type UserWithProjectAssignmentsType = UsersResponse & {
+  expand: {
+    role: RolesResponse;
+    projectAssignments: ProjectAssignmentWithRoleType[];
   };
 };

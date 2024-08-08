@@ -1,9 +1,30 @@
 <template>
   <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
     <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
-      <DetailEditGroup @edit-save="saveItem" headline="Project Information" subtitle="General information concerning this project" :fields="informationFields" :item="item" />
-      <DetailEditGroup @edit-save="saveItem" headline="Copyright Data" subtitle="Copyright information to be embedded into the EXIF data" :fields="copyrightFields" :item="item" />
-      <DetailEditGroup @edit-save="saveItem" headline="AI Options" subtitle="Options for AI image tagging" :fields="aiFields" :item="item" />
+      <DetailEditGroup
+        :allow-edit="userStore.isProjectAdminOrHigher()"
+        @edit-save="saveItem"
+        headline="Project Information"
+        subtitle="General information concerning this project"
+        :fields="informationFields"
+        :item="item"
+      />
+      <DetailEditGroup
+        :allow-edit="userStore.isProjectAdminOrHigher()"
+        @edit-save="saveItem"
+        headline="Copyright Data"
+        subtitle="Copyright information to be embedded into the EXIF data"
+        :fields="copyrightFields"
+        :item="item"
+      />
+      <DetailEditGroup
+        :allow-edit="userStore.isProjectAdminOrHigher()"
+        @edit-save="saveItem"
+        headline="AI Options"
+        subtitle="Options for AI image tagging"
+        :fields="aiFields"
+        :item="item"
+      />
     </div>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -18,7 +39,10 @@ import { ProjectsResponse } from "src/types/pocketbase";
 import pb from "src/boot/pocketbase";
 import { showNotificationToast } from "src/boot/mitt";
 import { capitalize } from "src/util/stringUtils";
+import { useUserStore } from "src/stores/user-store";
 const route = useRoute();
+
+const userStore = useUserStore();
 
 type ITEM_TYPE = ProjectsResponse;
 const ITEM_COLLECTION = "projects";

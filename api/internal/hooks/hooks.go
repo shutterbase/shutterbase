@@ -48,7 +48,12 @@ func RegisterHooks(context *util.Context) error {
 		aiImageQueue: []*AiDetectionObject{},
 	}
 
-	hookExecutor.registerAuthorizationHooks()
+	hookExecutor.registerProjectAuthorizationHooks()
+	hookExecutor.registerProjectAssignmentAuthorizationHooks()
+	hookExecutor.registerImageTagAuthorizationHooks()
+	hookExecutor.registerUploadAuthorizationHooks()
+	hookExecutor.registerImageAuthorizationHooks()
+	hookExecutor.registerImageTagAssignmentAuthorizationHooks()
 
 	hookExecutor.registerProjectAssignmentHooks()
 	hookExecutor.registerUserHooks()

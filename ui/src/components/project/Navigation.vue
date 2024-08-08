@@ -22,8 +22,11 @@
 
 <script setup lang="ts">
 import { ExclamationTriangleIcon, PresentationChartLineIcon, RectangleStackIcon, TagIcon, UserGroupIcon } from "@heroicons/vue/24/outline";
+import { useUserStore } from "src/stores/user-store";
 import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+
+const userStore = useUserStore();
 
 const route = useRoute();
 const router = useRouter();
@@ -44,9 +47,15 @@ function updateNavigationItems() {
     { name: "General", icon: PresentationChartLineIcon, href: `${BASE_URL}/${itemId}/general`, current: false },
     { name: "Tags", icon: TagIcon, href: `${BASE_URL}/${itemId}/tags`, current: false },
     { name: "Statistics", icon: RectangleStackIcon, href: `${BASE_URL}/${itemId}/statistics`, current: false },
-    { name: "Members", icon: UserGroupIcon, href: `${BASE_URL}/${itemId}/members`, current: false },
-    { name: "Danger Zone", icon: ExclamationTriangleIcon, href: `${BASE_URL}/${itemId}/danger-zone`, current: false },
   ];
+
+  if (userStore.isProjectAdminOrHigher()) {
+    items.push({ name: "Members", icon: UserGroupIcon, href: `${BASE_URL}/${itemId}/members`, current: false });
+  }
+
+  if (userStore.isAdmin()) {
+    items.push({ name: "Danger Zone", icon: ExclamationTriangleIcon, href: `${BASE_URL}/${itemId}/danger-zone`, current: false });
+  }
 
   items.forEach((item) => {
     item.current = item.href === route.path;

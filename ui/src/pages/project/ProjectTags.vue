@@ -1,6 +1,13 @@
 <template>
   <div class="mx-auto max-w-7xl w-full">
-    <Table dense :items="item?.expand.image_tags_via_project" :columns="imageTagColumns" name="Project Tag" :add-callback="startTagCreate"></Table>
+    <Table
+      dense
+      :items="item?.expand?.image_tags_via_project || []"
+      :columns="imageTagColumns"
+      name="Project Tag"
+      :allow-add="userStore.isProjectAdminOrHigher()"
+      :add-callback="startTagCreate"
+    ></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
     <TagDialog :show="showTagDialog" :create="createTag" :tag="editTagData" @add="addTag" @edit="editTag" @bulk="switchToBulkDialog" @closed="() => (showTagDialog = false)" />
     <BulkTagCreationDialog :show="showBulkTagDialog" @add="addBulkTags" @closed="() => (showBulkTagDialog = false)" />
@@ -173,6 +180,10 @@ function deleteTag(tag: ImageTagsResponse) {
   }
 }
 
+function showTagEdit() {
+  return userStore.isProjectAdminOrHigher();
+}
+
 const imageTagColumns: TableColumn<ImageTagsResponse>[] = [
   { key: "name", label: "Name" },
   { key: "description", label: "Description" },
@@ -181,11 +192,12 @@ const imageTagColumns: TableColumn<ImageTagsResponse>[] = [
     key: "actions",
     label: "Actions",
     actions: [
-      { key: "edit", label: "Edit", callback: startTagEdit, type: TableRowActionType.EDIT },
+      { key: "edit", label: "Edit", showCallback: showTagEdit, callback: startTagEdit, type: TableRowActionType.EDIT },
 
       {
         key: "delete",
         label: "Delete",
+        showCallback: showTagEdit,
         callback: deleteTag,
         type: TableRowActionType.DELETE,
       },

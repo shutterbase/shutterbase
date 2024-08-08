@@ -5,7 +5,7 @@
         <h1 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100">{{ capitalize(pluralName) }}</h1>
         <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ subtitle }}</p>
       </div>
-      <div v-if="addCallback" class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
+      <div v-if="addCallback && allowAdd" class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
         <button
           @click="addCallback"
           type="button"
@@ -46,7 +46,11 @@
                     <span>{{ getValue(item, column) }}</span>
                   </span>
                   <span v-else class="flex">
-                    <span v-for="(action, actionIndex) in column.actions" :key="actionIndex" @click="() => action.callback(item)">
+                    <span
+                      v-for="(action, actionIndex) in column.actions?.filter((action) => (action.showCallback ? action.showCallback(item) : true))"
+                      :key="actionIndex"
+                      @click="() => action.callback(item)"
+                    >
                       <button
                         v-if="action.type === 'edit'"
                         :class="[
@@ -118,7 +122,7 @@ const props = withDefaults(defineProps<Props>(), {
   title: () => "",
   subtitle: () => "",
   name: () => "item",
-  allowAdd: () => false,
+  allowAdd: () => true,
   dense: () => false,
   columns: () => [],
   items: () => [],
@@ -167,6 +171,7 @@ export type TableRowAction<T> = {
   key: string;
   label: string;
   type: TableRowActionType;
+  showCallback?: (item: T) => boolean;
   callback: (item: T) => void;
 };
 export enum TableRowActionType {

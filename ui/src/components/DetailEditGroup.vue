@@ -5,7 +5,7 @@
         <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">{{ headline }}</h2>
         <p v-if="subtitle !== ''" class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-300">{{ subtitle }}</p>
       </div>
-      <div class="border-b border-gray-200 dark:border-gray-600" v-if="alwaysEdit === false">
+      <div class="" v-if="alwaysEdit === false && allowEdit">
         <button
           v-if="edit"
           type="button"
@@ -76,6 +76,7 @@ interface Props {
   item: T | null;
   fields: Field<T>[];
   alwaysEdit?: boolean;
+  allowEdit?: boolean;
 }
 
 const _item = computed(() => props.item as T);
@@ -83,6 +84,7 @@ const _item = computed(() => props.item as T);
 const props = withDefaults(defineProps<Props>(), {
   subtitle: () => "",
   alwaysEdit: false,
+  allowEdit: true,
 });
 
 const editData: UnwrapNestedRefs<EditData<T>> = reactive({} as EditData<T>);
@@ -120,8 +122,9 @@ function setEditData() {
 
 function checkEdits() {
   if (!props.item) return false;
+  if (!editData) return false;
   for (const field of props.fields) {
-    if (props.item[field.key] !== editData.value[field.key]) {
+    if (props.item[field.key] !== editData[field.key]) {
       return true;
     }
   }
@@ -130,7 +133,7 @@ function checkEdits() {
 
 function saveEdit() {
   edit.value = false;
-  emit("editSave", editData.value);
+  emit("editSave", editData);
 }
 </script>
 
