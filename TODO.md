@@ -2,11 +2,14 @@
 
 ## Very bad
 
-- hourly auto backup
+- hotkeys blocking inputs in text fields
 
 ## Bad
 
-- tag table broken when no tags available in backend
+- closing tag search when clicking outside of it
+- close tagging dialog when clicking outside of it
+- multiselect in grid view
+- filter for upload with query parameter, etc
 
 ## Not so bad
 
@@ -14,5 +17,3 @@
 - add pagination or infiniscroll to project tags
 - tag ui broken when tag description too long
 - applied tag shows up locally as "manual" even though it might be "custom"
-- closing tag search when clicking outside of it
-- close tagging dialog when clicking outside of it

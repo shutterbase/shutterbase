@@ -83,7 +83,7 @@ func (c *Client) GetImages(ctx context.Context, projectId string, tags []string)
 
 	expandParameter := Parameter{Key: "expand", Value: "user, camera, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag"}
 	perPageParameter := Parameter{Key: "perPage", Value: "100"}
-	filterParameter := Parameter{Key: "filter", Value: fmt.Sprintf(`(project="%s"&&(%s))`, projectId, strings.Join(tagFilters, "&&"))}
+	filterParameter := Parameter{Key: "filter", Value: fmt.Sprintf(`(project='%s'&&(%s))`, projectId, strings.Join(tagFilters, "&&"))}
 	totalPages := 1
 
 	for page := 1; page <= totalPages+1; page++ {

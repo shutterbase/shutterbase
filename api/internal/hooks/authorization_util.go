@@ -205,7 +205,7 @@ func (h *HookExecutor) getFilteredId(c echo.Context, filterName string) (string,
 	}
 
 	// "(project='tqlqqanaf3qajtl')"
-	re := regexp.MustCompile(fmt.Sprintf("%s='(.*?)'", filterName))
+	re := regexp.MustCompile(fmt.Sprintf(`%s=['|"](.*?)['|"]`, filterName))
 	matches := re.FindStringSubmatch(filter)
 	if len(matches) != 2 {
 		return "", errors.New("no definitive project id found in filter")
