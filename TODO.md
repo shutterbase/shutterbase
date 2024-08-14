@@ -6,7 +6,6 @@
 
 ## Bad
 
-- closing tag search when clicking outside of it
 - close tagging dialog when clicking outside of it
 - multiselect in grid view
 - filter for upload with query parameter, etc
