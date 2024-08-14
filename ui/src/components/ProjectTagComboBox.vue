@@ -1,16 +1,21 @@
 <template>
   <div>
+    <!-- <q-select use-input @filter="filterFn" v-model="selection" multiple :options="filteredProjectTags" :option-label="(opt) => opt.name" label="Filter tags" style="width: 250px" /> -->
     <label for="combobox" class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100">Tags</label>
-    <div class="relative mt-2">
+    <div ref="selectBox" class="relative mt-2">
       <input
         v-model="searchText"
         :placeholder="computedPlaceholder"
+        autocomplete="off"
         id="combobox"
         type="text"
         class="w-full rounded-md border-0 py-1.5 pl-3 pr-12 shadow-sm ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 text-gray-900 placeholder:text-gray-400 focus:ring-primary-600 ring-gray-300 dark:ring-primary-600 focus:dark:ring-gray-400 dark:text-gray-100 dark:bg-primary-700"
         role="combobox"
         aria-controls="options"
         aria-expanded="false"
+        @focus="comboboxVisible = true"
+        @focusin="emitter.emit('block-hotkeys')"
+        @focusout="emitter.emit('unblock-hotkeys')"
       />
       <button @click="toggleCombobox" type="button" class="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 focus:outline-none">
         <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -70,7 +75,16 @@
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { ImageTagsResponse, ImageTagsTypeOptions } from "src/types/pocketbase";
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onMounted, onUnmounted } from "vue";
+import { emitter } from "src/boot/mitt";
+
+const selectBox = ref(null);
+onMounted(() => {
+  document.addEventListener("click", (e: MouseEvent) => {
+    if (e.target == selectBox.value || e.target.parentNode == selectBox.value) return;
+    comboboxVisible.value = false;
+  });
+});
 
 const emit = defineEmits<{
   selected: [ImageTagsResponse[]];
@@ -127,4 +141,12 @@ function toggleCombobox() {
 
 const selectedTags = ref([] as ImageTagsResponse[]);
 watch(selectedTags, () => emit("selected", selectedTags.value));
+
+function setFilteredTags(tags: ImageTagsResponse[]) {
+  selectedTags.value = tags;
+}
+
+defineExpose({
+  setFilteredTags,
+});
 </script>

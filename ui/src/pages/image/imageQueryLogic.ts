@@ -35,8 +35,8 @@ export function updateSearchText(text: string) {
   searchText.value = text;
 }
 
-export const filterTags = ref<string[]>([]);
-export function updateFilterTags(tags: string[]) {
+export const filterTags = ref<ImageTagsResponse[]>([]);
+export function updateFilterTags(tags: ImageTagsResponse[]) {
   filterTags.value = tags;
 }
 
@@ -63,7 +63,7 @@ function getFilter() {
   if (filterTags.value.length > 0) {
     const tagFilters = [];
     for (const tag of filterTags.value) {
-      tagFilters.push(`imageTags?~"${tag}"`);
+      tagFilters.push(`imageTags?~"${tag.id}"`);
     }
     and.push(`(${tagFilters.join(" && ")})`);
   }

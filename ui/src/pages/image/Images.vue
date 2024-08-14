@@ -1,7 +1,13 @@
 <template>
   <div class="">
     <div class="mx-auto max-w-7xl w-full overflow-hidden sm:px-6 lg:px-8">
-      <ImagesHeader :total-image-count="totalImageCount" :show-filter="displayMode === DisplayMode.GRID" @search="updateSearchText" @filter-tags="updateFilterTags" />
+      <ImagesHeader
+        ref="imagesHeader"
+        :total-image-count="totalImageCount"
+        :show-filter="displayMode === DisplayMode.GRID"
+        @search="updateSearchText"
+        @filter-tags="updateFilterTags"
+      />
       <div v-if="displayMode === DisplayMode.GRID">
         <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4">
           <ImageGridTile v-for="(image, index) in images" :image="image" :key="image.id" :selected="index === imageIndex" @select="selectImage" />
@@ -55,6 +61,8 @@ const router = useRouter();
 
 const displayMode = ref(DisplayMode.GRID);
 
+const imagesHeader = ref<any>(null);
+
 window.onscroll = async function (ev) {
   if (window.innerHeight + window.scrollY + 100 >= document.body.scrollHeight) {
     triggerInfiniteScroll();
@@ -81,6 +89,9 @@ function toggleGridDetail(event: HotkeyEvent) {
     displayMode.value = DisplayMode.GRID;
     nextTick(() => {
       scrollToSelectedImage();
+      if (imagesHeader.value) {
+        imagesHeader.value.setFilteredTags(filterTags.value);
+      }
     });
   }
 }

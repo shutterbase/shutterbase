@@ -10,7 +10,7 @@
       </div>
     </div>
     <div v-if="showFilter" class="lg:ml-4 flex">
-      <ProjectTagComboBox class="mr-5" @selected="emitFilterTags" />
+      <ProjectTagComboBox ref="projectTagComboBox" class="mr-5" @selected="emitFilterTags" />
       <div class="sm:col-span-3 mr-5">
         <label for="search" class="block text-sm font-medium leading-6 text-gray-900 dark:text-gray-100">Search</label>
         <div class="mt-2">
@@ -65,7 +65,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   search: [string];
-  filterTags: [string[]];
+  filterTags: [ImageTagsResponse[]];
 }>();
 
 const { activeProject, preferredImageSortOrder } = storeToRefs(useUserStore());
@@ -74,11 +74,19 @@ const searchText = ref("");
 watch(searchText, () => emit("search", searchText.value));
 
 function emitFilterTags(tags: ImageTagsResponse[]) {
-  emit(
-    "filterTags",
-    tags.map((tag) => tag.id)
-  );
+  emit("filterTags", tags);
 }
+
+const projectTagComboBox = ref<any>(null);
+function setFilteredTags(tags: ImageTagsResponse[]) {
+  if (projectTagComboBox.value) {
+    projectTagComboBox.value.setFilteredTags(tags);
+  }
+}
+
+defineExpose({
+  setFilteredTags,
+});
 </script>
 <script lang="ts">
 export enum SORT_ORDER {
