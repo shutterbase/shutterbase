@@ -1,5 +1,5 @@
 <template>
-  <div :id="`grid-tile-${image.id}`" @click="emit('select', image.id)" :class="[`cursor-pointer group relative p-4 sm:p-6`, selectedClasses]">
+  <div :id="`grid-tile-${image.id}`" @click="(e) => emit('select', image.id, e)" :class="[`cursor-pointer group relative p-4 sm:p-6`, selectedClasses]">
     <div class="aspect-h-1 aspect-w-1 overflow-hidden rounded-lg group-hover:opacity-75">
       <img :src="image.downloadUrls[`256`]" :alt="image.computedFileName" class="max-h-44 w-full object-cover object-center" />
     </div>
@@ -39,7 +39,7 @@ const selectedClasses = computed(() => {
 });
 
 const emit = defineEmits<{
-  select: [string];
+  select: [string, MouseEvent];
 }>();
 
 function getTagsList(image: ImageWithTagsType) {

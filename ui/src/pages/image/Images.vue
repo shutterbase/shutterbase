@@ -9,8 +9,8 @@
         @filter-tags="updateFilterTags"
       />
       <div v-if="displayMode === DisplayMode.GRID">
-        <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4">
-          <ImageGridTile v-for="(image, index) in images" :image="image" :key="image.id" :selected="index === imageIndex" @select="selectImage" />
+        <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4 select-none">
+          <ImageGridTile v-for="(image, index) in images" :image="image" :key="image.id" :selected="index === imageIndex || imageIndices.includes(index)" @select="selectImage" />
         </div>
         <ImagesFooter :current-image-count="images.length" :total-image-count="totalImageCount" :filtered="filtered" @load-more="() => loadImages(false)" />
       </div>
@@ -50,7 +50,7 @@ import { useDebounceFn } from "@vueuse/core";
 
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
 import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, filtered } from "./imageQueryLogic";
-import { totalImageCount, images, imageIndex } from "./imageQueryLogic";
+import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
 import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
 import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
@@ -97,6 +97,9 @@ function toggleGridDetail(event: HotkeyEvent) {
 }
 
 function showDetail() {
+  multiselectStart.value = null;
+  multiselectEnd.value = null;
+  imageIndices.value = [];
   if (imageIndex.value === -1) {
     imageIndex.value = 0;
   }
@@ -152,10 +155,33 @@ function resetTaggingDialog() {
   });
 }
 
-function selectImage(imageId: string) {
+function selectImage(imageId: string, event: MouseEvent) {
   const index = images.value.findIndex((image) => image.id === imageId);
-  imageIndex.value = index;
-  showDetail();
+  if (event.shiftKey) {
+    if (multiselectStart.value !== null && multiselectEnd.value !== null) {
+      multiselectStart.value = null;
+      multiselectEnd.value = null;
+      imageIndices.value = [];
+    }
+
+    if (multiselectStart.value === null) {
+      multiselectStart.value = index;
+    } else {
+      multiselectEnd.value = index;
+    }
+    imageIndex.value = index;
+  } else {
+    imageIndex.value = index;
+    showDetail();
+  }
+
+  if (multiselectStart.value !== null && multiselectEnd.value !== null) {
+    const start = Math.min(multiselectStart.value, multiselectEnd.value);
+    const end = Math.max(multiselectStart.value, multiselectEnd.value);
+    for (let i = start; i <= end; i++) {
+      imageIndices.value.push(i);
+    }
+  }
 }
 
 emitter.on("update-image-grid-scroll-position", scrollToSelectedImage);

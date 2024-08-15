@@ -22,7 +22,12 @@ export const unexpectedError = ref(null);
 export const taggingDialogVisible = ref(false);
 
 export const images = ref<ImageWithTagsType[]>([]);
+
 export const imageIndex = ref(-1);
+export const imageIndices = ref<number[]>([]);
+export const multiselectStart = ref<number | null>(null);
+export const multiselectEnd = ref<number | null>(null);
+
 export const totalImageCount = ref(0);
 const page = ref(1);
 export const loading = ref(false);
@@ -72,7 +77,18 @@ function getFilter() {
 }
 
 function getSort() {
-  return preferredImageSortOrder.value === SORT_ORDER.LATEST_FIRST ? "-capturedAtCorrected" : "capturedAtCorrected";
+  switch (preferredImageSortOrder.value) {
+    case SORT_ORDER.LATEST_FIRST:
+      return "-capturedAtCorrected";
+    case SORT_ORDER.OLDEST_FIRST:
+      return "capturedAtCorrected";
+    case SORT_ORDER.MOST_RECENTLY_UPDATED:
+      return "-updated";
+    case SORT_ORDER.LEAST_RECENTLY_UPDATED:
+      return "updated";
+    default:
+      return "-capturedAtCorrected";
+  }
 }
 
 export async function loadImages(reload: boolean) {
@@ -101,11 +117,7 @@ export async function loadImages(reload: boolean) {
 }
 
 export async function addImageTag(image: ImageWithTagsType, tag: ImageTagsResponse) {
-  if (!image) {
-    return;
-  }
-
-  try {
+  const applyTag = async (image: ImageWithTagsType, tag: ImageTagsResponse) => {
     const result = await pb.collection("image_tag_assignments").create<ImageTagAssignmentType>({
       image: image.id,
       imageTag: tag.id,
@@ -115,6 +127,23 @@ export async function addImageTag(image: ImageWithTagsType, tag: ImageTagsRespon
     const editedImageIndex = images.value.findIndex((i) => i.id === image.id);
     images.value[editedImageIndex].expand.image_tag_assignments_via_image.push(result);
     images.value[editedImageIndex].updated = dateTimeToBackendString(new Date());
+  };
+
+  try {
+    let imageApplyList: ImageWithTagsType[] = [];
+    for (const imageIndex of imageIndices.value) {
+      const i = images.value[imageIndex];
+      if (!i.expand.image_tag_assignments_via_image.some((imageTagAssignment) => imageTagAssignment.imageTag === tag.id)) {
+        imageApplyList.push(images.value[imageIndex]);
+      }
+    }
+    if (image !== null && !imageApplyList.includes(image)) {
+      imageApplyList.push(image);
+    }
+
+    for (const image of imageApplyList) {
+      await applyTag(image, tag);
+    }
     emitter.emit("reset-tagging-dialog");
   } catch (error: any) {
     unexpectedError.value = error;

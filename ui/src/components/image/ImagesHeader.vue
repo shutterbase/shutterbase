@@ -19,6 +19,8 @@
             v-model="searchText"
             placeholder="Search text"
             type="text"
+            @focusin="emitter.emit('block-hotkeys')"
+            @focusout="emitter.emit('unblock-hotkeys')"
             :class="[
               `block w-full rounded-md border-0 py-1.5 focus:ring-2 focus:ring-inset shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6`,
               `text-gray-900 placeholder:text-gray-400 focus:ring-primary-600 ring-gray-300 dark:ring-primary-600 focus:dark:ring-gray-400 dark:text-gray-100 dark:bg-primary-700`,
@@ -37,6 +39,8 @@
           >
             <option value="latestFirst">Latest images first</option>
             <option value="oldestFirst">Oldest images first</option>
+            <option value="mostRecentlyUpdated">Most recently updated</option>
+            <option value="leastRecentlyUpdated">Least recently updated</option>
           </select>
         </div>
       </div>
@@ -47,6 +51,7 @@
 import { PhotoIcon } from "@heroicons/vue/24/outline";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
+import { emitter } from "src/boot/mitt";
 import { onMounted, ref, watch } from "vue";
 import ProjectTagComboBox from "../ProjectTagComboBox.vue";
 import { ImageTagsResponse } from "src/types/pocketbase";
@@ -92,5 +97,7 @@ defineExpose({
 export enum SORT_ORDER {
   LATEST_FIRST = "latestFirst",
   OLDEST_FIRST = "oldestFirst",
+  MOST_RECENTLY_UPDATED = "mostRecentlyUpdated",
+  LEAST_RECENTLY_UPDATED = "leastRecentlyUpdated",
 }
 </script>
