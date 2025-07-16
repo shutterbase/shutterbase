@@ -49,6 +49,8 @@ export type Image = {
   downloadUrls?: { [key: string]: string };
   size: number;
   exifData?: any;
+  width?: number;
+  height?: number;
 };
 
 export class FileProcessor {
@@ -222,6 +224,8 @@ export class FileProcessor {
         image.computedFileName = processingResult.computed_file_name;
         image.thumbnail = processingResult.thumbnail;
         image.exifData = Object.fromEntries(processingResult.metadata);
+        image.width = processingResult.original_width;
+        image.height = processingResult.original_height;
 
         resolve();
       } catch (err: any) {
@@ -240,6 +244,8 @@ export class FileProcessor {
           fileName: image.originalFileName,
           computedFileName: image.computedFileName,
           size: image.size,
+          width: image.width,
+          height: image.height,
           capturedAt: image.cameraTime?.toISO(),
           capturedAtCorrected: image.correctedTime?.toISO(),
           user: pb.authStore.model?.id,
