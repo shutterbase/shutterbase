@@ -38,7 +38,7 @@ func (h *HookExecutor) StartImageDetectionProcessor() {
 				if imageId != "" {
 					err := h.runImageDetection(imageId)
 					if err != nil {
-						h.context.App.Logger().Error("Error running image detection: %v", err)
+						h.context.App.Logger().Error(fmt.Sprintf("Error running image detection: %v", err))
 						backoffTimeUntil := time.Now().Add(30 * time.Second)
 						h.aiBackoffUntil = &backoffTimeUntil
 					} else {
@@ -111,7 +111,7 @@ func (h *HookExecutor) runImageDetection(imageId string) error {
 	)
 
 	if err != nil {
-		h.context.App.Logger().Error("OpenAI error running detection: %v", err)
+		h.context.App.Logger().Error(fmt.Sprintf("OpenAI error running detection: %v", err))
 		return err
 	}
 
