@@ -19,16 +19,30 @@ pub fn calculate_new_dimensions(width: u32, height: u32, max_width: u32, max_hei
     (new_width, new_height)
 }
 
-pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
-    let source_image = match get_dynamic_image_from_bytes(&source_image_data) {
+pub fn get_image_size(image_data: Vec<u8>) -> Option<(image::DynamicImage, u32, u32)> {
+    let image = match get_dynamic_image_from_bytes(&image_data) {
         Ok(image) => image,
         Err(_) => {
             error("Error getting dynamic image from bytes");
             return None;
         }
     };
+    let width = image.width();
+    let height = image.height();
 
-    let (width, height) = calculate_new_dimensions(source_image.width(), source_image.height(), size, size);
+    Some((image, width, height))
+}
+
+pub fn resize_image(source_image_data: Vec<u8>, size: u32) -> Option<Vec<u8>> {
+    let (source_image, source_width, source_height) = match get_image_size(source_image_data) {
+        Some((image, width, height)) => (image, width, height),
+        None => {
+            error("Error getting image size");
+            return None;
+        }
+    };
+
+    let (width, height) = calculate_new_dimensions(source_width, source_height, size, size);
     debug(&format!("Resizing to {}x{}", width, height));
 
     let src_width = match NonZeroU32::new(source_image.width()) {

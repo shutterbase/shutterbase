@@ -3,13 +3,13 @@ mod image;
 mod qr_code_util;
 mod util;
 
-use crate::api::upload::{get_upload_url, upload_file, upload_file_with_progress};
+use crate::api::upload::{get_upload_url, upload_file_with_progress};
 use crate::image::metadata::read_image_metadata;
-use crate::image::resizing::resize_image;
+use crate::image::resizing::{get_image_size, resize_image};
 use crate::image::util::get_image_from_array_buffer;
 use crate::qr_code_util::generator::get_time_qr_code;
 use crate::qr_code_util::reader::decode_qr_code;
-use crate::util::logger::{debug, error, info, warn};
+use crate::util::logger::{debug, error, info};
 
 use crate::util::callback_util::{send_callback, CallbackStatus};
 use crate::util::time_offset::{calculate_qr_code_time_offset, get_camera_time};
@@ -40,6 +40,8 @@ pub struct FileProcessorResult {
     corrected_camera_time_unix_seconds: u32,
     computed_file_name: String,
     metadata: HashMap<String, String>,
+    original_width: u32,
+    original_height: u32,
 }
 
 #[wasm_bindgen]
@@ -111,6 +113,13 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
 
     let object_id = Uuid::new_v4();
     let object_id_prefix = object_id.to_string()[..2].to_string();
+    let (_source_image, source_width, source_height) = match get_image_size(data.clone()) {
+        Some((image, width, height)) => (image, width, height),
+        None => {
+            error("Error getting image size");
+            return Err("Error getting image size".into());
+        }
+    };
     let mut processed_files = FileProcessorResult {
         storage_id: object_id.to_string(),
         thumbnail: "".to_string(),
@@ -119,6 +128,8 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
         corrected_camera_time_unix_seconds,
         computed_file_name,
         metadata: metadata.tags,
+        original_width: source_width,
+        original_height: source_height,
     };
 
     let mut upload_images: HashMap<String, Vec<u8>> = HashMap::new();

@@ -45,6 +45,12 @@ export function updateFilterTags(tags: ImageTagsResponse[]) {
   filterTags.value = tags;
 }
 
+export const aspectRatioFilter = ref("neutral");
+export function updateAspectRatioFilter(aspectRatioState: string) {
+  console.log("Updating aspect ratio filter to:", aspectRatioState);
+  aspectRatioFilter.value = aspectRatioState;
+}
+
 export async function triggerInfiniteScroll() {
   if (totalImageCount.value > 0 && images.value.length < totalImageCount.value) {
     loadImages(false);
@@ -55,7 +61,7 @@ function getFilter() {
   const and = [];
   and.push(`project='${activeProject.value.id}'`);
 
-  if (searchText.value || filterTags.value.length > 0) {
+  if (searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral") {
     filtered.value = true;
   } else {
     filtered.value = false;
@@ -71,6 +77,17 @@ function getFilter() {
       tagFilters.push(`imageTags?~"${tag.id}"`);
     }
     and.push(`(${tagFilters.join(" && ")})`);
+  }
+
+  if (aspectRatioFilter.value !== "neutral") {
+    switch (aspectRatioFilter.value) {
+      case "portrait":
+        and.push("width < height");
+        break;
+      case "landscape":
+        and.push("width > height");
+        break;
+    }
   }
 
   return `(${and.join(" && ")})`;

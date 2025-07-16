@@ -7,6 +7,7 @@
         :show-filter="displayMode === DisplayMode.GRID"
         @search="updateSearchText"
         @filter-tags="updateFilterTags"
+        @aspect-ratio-filter="updateAspectRatioFilter"
       />
       <div v-if="displayMode === DisplayMode.GRID">
         <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4 select-none">
@@ -49,7 +50,7 @@ import { useRouter } from "vue-router";
 import { useDebounceFn } from "@vueuse/core";
 
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
-import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, filtered } from "./imageQueryLogic";
+import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, aspectRatioFilter, updateAspectRatioFilter, filtered } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
 import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
@@ -74,6 +75,7 @@ const reloadDebounced = useDebounceFn(() => loadImages(true), 500);
 watch(preferredImageSortOrder, () => loadImages(true));
 watch(searchText, reloadDebounced);
 watch(filterTags, reloadDebounced);
+watch(aspectRatioFilter, reloadDebounced);
 
 onHotkey({ key: "g", modifierKeys: [] }, toggleGridDetail);
 function toggleGridDetail(event: HotkeyEvent) {
