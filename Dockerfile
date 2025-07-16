@@ -1,4 +1,4 @@
-FROM rust:1.77.1 as wasm-builder
+FROM rust:1.88.0 as wasm-builder
 WORKDIR /usr/src
 RUN rustup target add wasm32-unknown-unknown
 RUN cargo install wasm-pack
@@ -14,7 +14,7 @@ COPY image-wasm/src /usr/src/image-wasm/src
 
 RUN wasm-pack build --target web --release
 
-FROM oven/bun:1.0.29 as ui 
+FROM oven/bun:1.2.18 as ui 
 
 WORKDIR /usr/src
 
@@ -38,7 +38,7 @@ COPY ui/tsconfig.json /usr/src/tsconfig.json
 RUN bun run build
 
 
-FROM golang:1.22.3-alpine3.18 AS builder
+FROM golang:1.24.5-alpine3.22 AS builder
 
 WORKDIR /usr/src
 COPY api/go.mod /usr/src/go.mod
@@ -52,7 +52,7 @@ COPY api/migrations /usr/src/migrations
 RUN go test ./...
 RUN go build -o server -ldflags="-s -w" cmd/server/main.go 
 
-FROM alpine:3.18
+FROM alpine:3.22
 WORKDIR /usr/app
 RUN chown -R 1000:1000 /usr/app
 COPY --chown=1000:1000 --from=builder /usr/src/server /usr/app/server
