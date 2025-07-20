@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"log/slog"
+
 	"github.com/labstack/echo/v5"
 
 	"github.com/pocketbase/pocketbase/apis"
@@ -28,7 +30,7 @@ func (h *HookExecutor) imageTagAssignmentCreateOrDeleteAuthorization(c echo.Cont
 	imageId := record.GetString("image")
 	image, err := h.getImage(imageId)
 	if err != nil {
-		h.context.App.Logger().Error("Error getting image for authorization check", err)
+		h.context.App.Logger().Error("Error getting image for authorization check", slog.Any("err", err))
 		return err
 	}
 

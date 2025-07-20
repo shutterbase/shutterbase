@@ -1,6 +1,8 @@
 package server
 
 import (
+	"log/slog"
+
 	"github.com/labstack/echo/v5"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -12,7 +14,7 @@ func (s *Server) registerSyncImageTagsEndpoint() {
 		e.Router.GET("/api/sync-image-tags", func(c echo.Context) error {
 			records, err := s.App.Dao().FindRecordsByExpr("images")
 			if err != nil {
-				s.App.Logger().Error("Error finding records", err)
+				s.App.Logger().Error("Error finding records", slog.Any("err", err))
 			}
 
 			for _, record := range records {

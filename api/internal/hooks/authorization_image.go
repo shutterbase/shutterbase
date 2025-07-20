@@ -1,6 +1,8 @@
 package hooks
 
 import (
+	"log/slog"
+
 	"github.com/labstack/echo/v5"
 
 	"github.com/pocketbase/pocketbase/apis"
@@ -82,7 +84,7 @@ func (h *HookExecutor) readListImageAuthorizationHook(e *core.RecordsListEvent) 
 	if uploadIdErr == nil {
 		upload, err := h.getUpload(c, uploadId)
 		if err != nil {
-			h.context.App.Logger().Error("Error getting upload for authorization check", err)
+			h.context.App.Logger().Error("Error getting upload for authorization check", slog.Any("err", err))
 			return err
 		}
 
