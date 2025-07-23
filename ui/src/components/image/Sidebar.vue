@@ -8,15 +8,24 @@
       <div class="border-b py-6 dark:border-primary-400">
         <div class="pb-2">
           <p class="text-sm font-medium">Name</p>
-          <p class="text-sm">{{ item.computedFileName }}</p>
+          <p class="text-sm">
+            {{ item.computedFileName }}
+            <Clipboard class="h-4" :text="item.computedFileName" />
+          </p>
         </div>
         <div class="pb-2">
           <p class="text-sm font-medium">ID</p>
-          <p class="text-sm">{{ item.id }}</p>
+          <p class="text-sm">
+            {{ item.id }}
+            <Clipboard class="h-4" :text="item.id" />
+          </p>
         </div>
         <div class="pb-2">
           <p class="text-sm font-medium">Original file name</p>
-          <p class="text-sm">{{ item.fileName }}</p>
+          <p class="text-sm">
+            {{ item.fileName }}
+            <Clipboard class="h-4" :text="item.fileName" />
+          </p>
         </div>
         <div class="pb-2">
           <p class="text-sm font-medium">Corrected capture time</p>
@@ -35,6 +44,7 @@
           <p class="text-sm font-medium">Updated</p>
           <p class="text-sm">{{ dateTimeFromBackend(item.updated) }}</p>
         </div>
+        <p v-if="imageCanBeDeleted()" @click="showDeleteImageDialog" class="text-sm text-bold underline cursor-pointer">delete</p>
       </div>
 
       <div class="border-b pb-6 dark:border-primary-400">
@@ -117,6 +127,15 @@
         </div>
       </div>
     </div>
+    <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
+    <ModalMessage
+      :show="showDeleteDialog"
+      :type="MessageType.CONFIRM_WARNING"
+      @closed="showDeleteDialog = false"
+      headline="Delete Image"
+      :message="`Are you sure you want to delete image '${deleteCandidate?.computedFileName}'?`"
+      @confirmed="confirmDeleteImage"
+    />
   </div>
 </template>
 
@@ -124,14 +143,24 @@
 import { ImageTagAssignmentType, ImageWithTagsType } from "src/types/custom";
 import { dateTimeFromBackend } from "src/util/dateTimeUtil";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
-import { computed } from "vue";
-import { emitter } from "src/boot/mitt";
+import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
+import { ref, computed } from "vue";
+import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
+import { emitter, showNotificationToast } from "src/boot/mitt";
 import { downloadImage } from "src/util/download";
 import pb from "src/boot/pocketbase";
 import { dateTimeToBackendString } from "src/util/dateTimeUtil";
 import { useUserStore } from "src/stores/user-store";
+import { ImagesResponse } from "src/types/pocketbase";
+import Clipboard from "src/components/Clipboard.vue";
 
 const userStore = useUserStore();
+
+const showDeleteDialog = ref(false);
+const deleteCandidate = ref<ImageWithTagsType | null>(null);
+
+const showUnexpectedErrorMessage = ref(false);
+const unexpectedError = ref(null);
 
 interface Props {
   item: ImageWithTagsType | null;
@@ -153,6 +182,10 @@ function removable(tagAssignment: ImageTagAssignmentType): boolean {
 }
 
 function tagsCanBeAdded(): boolean {
+  return userStore.isProjectAdminOrHigher() || props.item?.user === userStore.user.id;
+}
+
+function imageCanBeDeleted(): boolean {
   return userStore.isProjectAdminOrHigher() || props.item?.user === userStore.user.id;
 }
 
@@ -178,6 +211,29 @@ async function removeTag(tagAssignment: ImageTagAssignmentType) {
       headline: `Error removing tag ${tagAssignment.expand.imageTag.name}`,
       type: "error",
     });
+  }
+}
+
+function showDeleteImageDialog() {
+  showDeleteDialog.value = true;
+  deleteCandidate.value = props.item;
+}
+function confirmDeleteImage() {
+  showDeleteDialog.value = false;
+
+  if (!deleteCandidate.value) {
+    console.error("No image selected for deletion");
+    return;
+  }
+
+  try {
+    pb.collection<ImagesResponse>("images").delete(deleteCandidate.value.id);
+    showNotificationToast({ headline: `Image deleted`, type: "success" });
+    emitter.emit("current-image-deleted", deleteCandidate.value.id);
+  } catch (error: any) {
+    error("error deleting image", error);
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
   }
 }
 </script>

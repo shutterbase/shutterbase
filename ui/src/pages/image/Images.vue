@@ -157,6 +157,15 @@ function resetTaggingDialog() {
   });
 }
 
+emitter.on("current-image-deleted", handleCurrentImageDeleted);
+function handleCurrentImageDeleted(deletedImageId: string) {
+  const index = images.value.findIndex((image) => image.id === deletedImageId);
+  if (index !== -1) {
+    images.value.splice(index, 1);
+  }
+  imageIndex.value = Math.max(0, imageIndex.value - 1);
+}
+
 function selectImage(imageId: string, event: MouseEvent) {
   const index = images.value.findIndex((image) => image.id === imageId);
   if (event.shiftKey) {
