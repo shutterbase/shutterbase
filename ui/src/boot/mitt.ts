@@ -9,6 +9,7 @@ type Events = {
   "show-tagging-dialog": void;
   "reset-tagging-dialog": void;
   "update-image-grid-scroll-position": void;
+  "current-image-deleted": string; // ID of the deleted image
 };
 
 export const emitter: Emitter<Events> = mitt<Events>();
