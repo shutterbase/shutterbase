@@ -17,9 +17,9 @@ func (h *HookExecutor) addDefaultTags(image *models.Record) error {
 		return err
 	}
 
-	for _, defaultTag := range defaultTagTemplates {
-		tagName := defaultTag.GetString("name")
-		switch tagName {
+	for _, defaultTagTemplate := range defaultTagTemplates {
+		defaultTagTemplateName := defaultTagTemplate.GetString("name")
+		switch defaultTagTemplateName {
 		case "$PROJECT":
 			err = h.addProjectDefaultTag(image)
 			if err != nil {
@@ -41,7 +41,15 @@ func (h *HookExecutor) addDefaultTags(image *models.Record) error {
 				return err
 			}
 		default:
-			h.context.App.Logger().Warn(fmt.Sprintf("Unknown default tag '%s'", tagName))
+			if strings.HasPrefix(defaultTagTemplateName, "$") {
+				defaultTagName := strings.TrimPrefix(defaultTagTemplateName, "$")
+				err = h.addStaticStringTag(image, defaultTagName)
+				if err != nil {
+					return err
+				}
+			} else {
+				h.context.App.Logger().Warn(fmt.Sprintf("Default template tag '%s' does not start with a '$'", defaultTagTemplateName))
+			}
 		}
 	}
 
@@ -270,4 +278,47 @@ func (h *HookExecutor) getProjectDefaultTagTemplates(projectId string) ([]*model
 
 	h.caches.projectDefaultTagsCache.Add(projectId, templateTags)
 	return templateTags, nil
+}
+
+func (h *HookExecutor) addStaticStringTag(image *models.Record, tagName string) error {
+	staticStringTag, err := h.getStaticStringTag(image.GetString("project"), tagName)
+	if err != nil {
+		return err
+	}
+
+	return h.addTagToImage(image, staticStringTag, "default")
+}
+
+func (h *HookExecutor) getStaticStringTag(projectId, tagName string) (*models.Record, error) {
+	tagCacheKey := fmt.Sprintf("%s-%s", projectId, tagName)
+
+	staticStringTag, ok := h.caches.tagCache.Get(tagCacheKey)
+	if ok {
+		return staticStringTag, nil
+	}
+
+	staticStringTag, _ = h.context.App.Dao().FindFirstRecordByFilter(
+		"image_tags", "type = 'default' && project = {:projectId} && name = {:tagName}",
+		dbx.Params{"projectId": projectId, "tagName": tagName},
+	)
+
+	if staticStringTag != nil {
+		h.caches.tagCache.Add(tagCacheKey, staticStringTag)
+		return staticStringTag, nil
+	}
+
+	staticStringTag, err := h.createImageTag(&ImageTagCreateInput{
+		Name:        tagName,
+		Description: fmt.Sprintf("The static string tag '%s'", tagName),
+		IsAlbum:     false,
+		Type:        "default",
+		Project:     projectId,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	h.caches.tagCache.Add(tagCacheKey, staticStringTag)
+	return staticStringTag, nil
 }
