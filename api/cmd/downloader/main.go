@@ -82,6 +82,16 @@ func main() {
 				Usage:   "file with list of image names to ignore. one filename per line",
 				EnvVars: []string{"SHUTTERBASE_BLOCKLIST"},
 			},
+			&cli.StringFlag{
+				Name:    "blacklist",
+				Usage:   "comma-separated list of tags to ignore. logically concatenated with OR",
+				EnvVars: []string{"SHUTTERBASE_BLACKLIST"},
+			},
+			&cli.StringFlag{
+				Name:    "whitelist",
+				Usage:   "comma-separated list of tags to include. logically concatenated with AND",
+				EnvVars: []string{"SHUTTERBASE_WHITELIST"},
+			},
 			&cli.IntFlag{
 				Name:    "parallelism",
 				Usage:   "number of parallel downloads",
@@ -121,12 +131,16 @@ func main() {
 }
 
 func download(c *cli.Context, properties DownloadProperties) error {
-	if c.Args().Len() != 1 {
-		log.Fatal().Msg("Please specify a single tag to download")
+	whitelistTagsString := c.String("whitelist")
+	whitelistTags := strings.Split(whitelistTagsString, ",")
+
+	outputDir := filepath.Join("downloads", "all_images")
+	if len(whitelistTags) > 0 {
+		outputDir = filepath.Join("downloads", strings.Join(whitelistTags, "_"))
 	}
-	filterTagsString := c.Args().First()
-	filterTags := strings.Split(filterTagsString, ",")
-	outputDir := filepath.Join("downloads", strings.Join(filterTags, "_"))
+
+	blacklistTagsString := c.String("blacklist")
+	blacklistTags := strings.Split(blacklistTagsString, ",")
 
 	if c.String("url") == "" {
 		log.Fatal().Msg("Please specify a shutterbase API URL")
@@ -168,7 +182,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		syncWindowStartTime = syncWindowStartTime.Add(time.Minute * -5)
 	}
 
-	log.Info().Msgf("Downloading images with tags '%s' to '%s'", filterTags, outputDir)
+	log.Info().Msgf("Downloading images with tags '%s' to '%s'", whitelistTags, outputDir)
 	if properties.Type == DownloadTypeDelta {
 		log.Info().Msgf("Only downloading images newer than '%s'", syncWindowStartTime.Format(time.RFC3339))
 	}
@@ -216,7 +230,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		log.Fatal().Err(err).Msg("Failed to login")
 	}
 
-	images, err := apiClient.GetImages(c.Context, c.String("project"), filterTags)
+	images, err := apiClient.GetImages(c.Context, c.String("project"), whitelistTags, blacklistTags)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to fetch images list")
 	}
@@ -233,26 +247,8 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		return result
 	}
 
-	filterByInternalTag := func(input []client.Image) []client.Image {
-		result := []client.Image{}
-		for _, image := range input {
-			isInternal := false
-			for _, tagAssignment := range image.Expand.ImageTagAssignmentsViaImage {
-				if tagAssignment.Expand.ImageTag.Name == "internal" {
-					log.Debug().Msgf("Ignoring image '%s' as it is internal", image.ComputedFileName)
-					isInternal = true
-					break
-				}
-			}
-			if !isInternal {
-				result = append(result, image)
-			}
-		}
-		return result
-	}
-
-	notBlockedImages := filterByInternalTag(filterByBlocklist(images))
-	log.Info().Msgf("Found %d images. %d images are internal or on the blocklist", len(notBlockedImages), len(images)-len(notBlockedImages))
+	notBlockedImages := filterByBlocklist(images)
+	log.Info().Msgf("Found %d images. %d images are on the blocklist", len(notBlockedImages), len(images)-len(notBlockedImages))
 
 	filteredImages := []client.Image{}
 	if properties.Type == DownloadTypeFull {

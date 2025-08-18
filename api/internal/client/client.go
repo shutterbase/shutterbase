@@ -63,7 +63,7 @@ func (c *Client) GetImage(ctx context.Context, id string) (*Image, error) {
 	}, &Image{})
 }
 
-func (c *Client) GetImages(ctx context.Context, projectId string, tags []string) ([]Image, error) {
+func (c *Client) GetImages(ctx context.Context, projectId string, whitelistTags []string, blacklistTags []string) ([]Image, error) {
 
 	imageTags, err := c.GetProjectTags(ctx, projectId)
 	if err != nil {
@@ -71,9 +71,9 @@ func (c *Client) GetImages(ctx context.Context, projectId string, tags []string)
 	}
 
 	tagFilters := []string{}
-	for _, tag := range tags {
+	for _, whitelistTag := range whitelistTags {
 		for _, imageTag := range imageTags {
-			if imageTag.Name == tag {
+			if imageTag.Name == whitelistTag {
 				tagFilters = append(tagFilters, fmt.Sprintf(`imageTags?~"%s"`, imageTag.Id))
 			}
 		}
@@ -104,7 +104,36 @@ func (c *Client) GetImages(ctx context.Context, projectId string, tags []string)
 	}
 
 	log.Debug().Msgf("Got %d images", len(result))
-	return result, nil
+
+	filteredResult := []Image{}
+	if len(blacklistTags) > 0 {
+		for _, image := range result {
+			blacklisted := false
+			triggeredBlacklistTagName := ""
+			for _, backlistTagName := range blacklistTags {
+				for _, imageTagAssignment := range image.Expand.ImageTagAssignmentsViaImage {
+					if imageTagAssignment.Expand.ImageTag.Name == backlistTagName {
+						blacklisted = true
+						triggeredBlacklistTagName = backlistTagName
+						break
+					}
+				}
+				if blacklisted {
+					break
+				}
+			}
+			if !blacklisted {
+				filteredResult = append(filteredResult, image)
+			} else {
+				log.Debug().Msgf("Image '%s' is blacklisted by tag '%s'", image.ComputedFileName, triggeredBlacklistTagName)
+			}
+		}
+	} else {
+		filteredResult = result
+		log.Debug().Msgf("No blacklist tags provided, returning all %d images", len(filteredResult))
+	}
+
+	return filteredResult, nil
 }
 
 func (c *Client) GetProjectTags(ctx context.Context, projectId string) ([]ImageTag, error) {
