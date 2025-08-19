@@ -153,6 +153,7 @@ import { dateTimeToBackendString } from "src/util/dateTimeUtil";
 import { useUserStore } from "src/stores/user-store";
 import { ImagesResponse } from "src/types/pocketbase";
 import Clipboard from "src/components/Clipboard.vue";
+import { onHotkey } from "src/util/keyEvents";
 
 const userStore = useUserStore();
 
@@ -189,6 +190,13 @@ function imageCanBeDeleted(): boolean {
   return userStore.isProjectAdminOrHigher() || props.item?.user === userStore.user.id;
 }
 
+// remove review tag if set 
+onHotkey({ key: "p", modifierKeys: [] }, () => {
+  const reviewTag = tagAssignments.value.find((ta) => ta.expand.imageTag.name === "review");
+  if (reviewTag) {
+    removeTag(reviewTag);
+  }
+});
 async function removeTag(tagAssignment: ImageTagAssignmentType) {
   if (!removable(tagAssignment)) {
     return;
