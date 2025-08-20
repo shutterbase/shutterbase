@@ -52,6 +52,15 @@
               My Uploads
             </a>
           </li>
+          <li>
+            <router-link
+              :to="`/users/${pb.authStore.model?.id || ''}/hotkeys`"
+              class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
+            >
+              <KeyIcon class="mr-2 w-5 h-5 text-gray-400" />
+              My Hotkeys
+            </router-link>
+          </li>
         </ul>
         <ul class="py-1 text-gray-700 dark:text-gray-300">
           <li v-if="activeProjectId">
@@ -65,10 +74,7 @@
             >
           </li>
           <li v-else>
-            <router-link
-              :to="`/projects`"
-              class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
-            >
+            <router-link :to="`/projects`" class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
               Select a project
             </router-link>
           </li>
@@ -85,7 +91,7 @@
 
 <script setup lang="ts">
 import { Menu, MenuButton, MenuItems } from "@headlessui/vue";
-import { CameraIcon, CloudArrowUpIcon, UserIcon } from "@heroicons/vue/24/solid";
+import { CameraIcon, CloudArrowUpIcon, UserIcon, KeyIcon } from "@heroicons/vue/24/solid";
 import { onMounted, ref } from "vue";
 import { initFlowbite } from "flowbite";
 import pb from "src/boot/pocketbase";
@@ -98,7 +104,6 @@ const userMenuAvatar = ref<HTMLImageElement>();
 const firstName = ref(pb.authStore.model?.firstName);
 const lastName = ref(pb.authStore.model?.lastName);
 const headshotUrl = ref("");
-
 
 const userStore = useUserStore();
 const { activeProjectId } = storeToRefs(userStore);

@@ -29,6 +29,11 @@ export const userRoutes = [
         path: "cameras",
         component: () => import("pages/user/Cameras.vue"),
       },
+      {
+        name: "hotkeys",
+        path: "hotkeys",
+        component: () => import("pages/user/Hotkeys.vue"),
+      },
       // {
       //   name: "camera",
       //   path: "cameras/:cameraid",

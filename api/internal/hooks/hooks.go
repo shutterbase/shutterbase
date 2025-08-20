@@ -61,5 +61,10 @@ func RegisterHooks(context *util.Context) error {
 	hookExecutor.registerImageTagAssignmentHooks()
 
 	hookExecutor.StartImageDetectionProcessor()
+
+	go func() {
+		time.Sleep(5 * time.Second)
+		hookExecutor.addDefaultHotkeys()
+	}()
 	return nil
 }

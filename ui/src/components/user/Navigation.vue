@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { UserIcon, CameraIcon } from "@heroicons/vue/24/outline";
+import { UserIcon, CameraIcon, KeyIcon } from "@heroicons/vue/24/outline";
 import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -43,6 +43,7 @@ function updateNavigationItems() {
   const items = [
     { name: "General", icon: UserIcon, href: `${BASE_URL}/${itemId}/general`, current: false },
     { name: "Cameras", icon: CameraIcon, href: `${BASE_URL}/${itemId}/cameras`, current: false },
+    { name: "Hotkeys", icon: KeyIcon, href: `${BASE_URL}/${itemId}/hotkeys`, current: false },
   ];
 
   items.forEach((item) => {
