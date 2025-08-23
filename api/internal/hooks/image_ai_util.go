@@ -24,31 +24,34 @@ func (h *HookExecutor) queueImageDetection(imageId string) {
 func (h *HookExecutor) StartImageDetectionProcessor() {
 	go func() {
 		for {
-			if h.aiBackoffUntil != nil && time.Now().Before(*h.aiBackoffUntil) {
-				h.context.App.Logger().Warn("AI backoff in effect for 30 seconds")
-				time.Sleep(10 * time.Second)
-			} else if len(h.aiImageQueue) > 0 {
-				h.lock.Lock()
-				imageId := ""
-				if len(h.aiImageQueue) > 0 {
-					imageId = h.aiImageQueue[0].ImageId
-				}
-				h.lock.Unlock()
+			time.Sleep(250 * time.Millisecond)
 
-				if imageId != "" {
-					err := h.runImageDetection(imageId)
-					if err != nil {
-						h.context.App.Logger().Error(fmt.Sprintf("Error running image detection: %v", err))
-						backoffTimeUntil := time.Now().Add(30 * time.Second)
-						h.aiBackoffUntil = &backoffTimeUntil
-					} else {
-						h.lock.Lock()
-						h.aiImageQueue = h.aiImageQueue[1:]
-						h.lock.Unlock()
-					}
-				}
+			if h.aiBackoffUntil != nil && time.Now().Before(*h.aiBackoffUntil) {
+				h.context.App.Logger().Warn(fmt.Sprintf("AI backoff in effect until %v. Waiting for 30 seconds", h.aiBackoffUntil))
+				time.Sleep(10 * time.Second)
+				continue
+			}
+
+			h.lock.Lock()
+			imageId := ""
+			if len(h.aiImageQueue) > 0 {
+				imageId = h.aiImageQueue[0].ImageId
+			}
+			h.lock.Unlock()
+
+			if imageId == "" {
+				continue
+			}
+
+			err := h.runImageDetection(imageId)
+			if err != nil {
+				h.context.App.Logger().Error(fmt.Sprintf("Error running image detection: %v", err))
+				backoffTimeUntil := time.Now().Add(30 * time.Second)
+				h.aiBackoffUntil = &backoffTimeUntil
 			} else {
-				time.Sleep(250 * time.Millisecond)
+				h.lock.Lock()
+				h.aiImageQueue = h.aiImageQueue[1:]
+				h.lock.Unlock()
 			}
 		}
 	}()
@@ -110,23 +113,32 @@ func (h *HookExecutor) runImageDetection(imageId string) error {
 		},
 	)
 
+	logRateLimits := func(rateLimits openai.RateLimitHeaders) {
+		h.context.App.Logger().Info(fmt.Sprintf("[OpenAI] [%s]: rate limits: [Remaining Requests: %d | reset: %s] [Remaining Tokens: %d | reset: %s]",
+			image.GetString("computedFileName"),
+			rateLimits.RemainingRequests, rateLimits.ResetRequests.String(),
+			rateLimits.RemainingTokens, rateLimits.ResetTokens.String()))
+	}
+
 	if err != nil {
-		h.context.App.Logger().Error(fmt.Sprintf("OpenAI error running detection: %v", err))
+		h.context.App.Logger().Error(fmt.Sprintf("[OpenAI] [%s]: error running detection: %v", image.GetString("computedFileName"), err))
+		logRateLimits(resp.GetRateLimitHeaders())
 		return err
 	}
 
-	h.context.App.Logger().Debug(fmt.Sprintf("ran detection for image '%s'. Total Tokens: %d", image.GetString("computedFileName"), resp.Usage.TotalTokens))
+	h.context.App.Logger().Debug(fmt.Sprintf("[OpenAI] [%s]: ran detection. Total Tokens: %d", image.GetString("computedFileName"), resp.Usage.TotalTokens))
+	logRateLimits(resp.GetRateLimitHeaders())
 	for _, choice := range resp.Choices {
 		tagText := choice.Message.Content
 		if tagText == "none" {
-			h.context.App.Logger().Debug(fmt.Sprintf("detection for image '%s' did not yield a car number ('none')", image.GetString("computedFileName")))
+			h.context.App.Logger().Debug(fmt.Sprintf("[OpenAI] [%s]: detection did not yield a car number ('none')", image.GetString("computedFileName")))
 			break
 		}
 
-		h.context.App.Logger().Debug(fmt.Sprintf("detection for image '%s' yielded '%s'", image.GetString("computedFileName"), tagText))
+		h.context.App.Logger().Debug(fmt.Sprintf("[OpenAI] [%s]: detection yielded '%s'", image.GetString("computedFileName"), tagText))
 		records, err := h.context.App.Dao().FindRecordsByExpr("image_tags", dbx.NewExp("project = {:project}", dbx.Params{"project": projectId}), dbx.NewExp("name = {:name}", dbx.Params{"name": tagText}))
 		if err != nil {
-			h.context.App.Logger().Error(fmt.Sprintf("error finding ai yielded tag '%s' for project '%s': %v", tagText, projectId, err))
+			h.context.App.Logger().Error(fmt.Sprintf("[OpenAI] [%s]: error finding ai yielded tag '%s' for project '%s': %v", image.GetString("computedFileName"), tagText, projectId, err))
 			return err
 		}
 
@@ -134,7 +146,7 @@ func (h *HookExecutor) runImageDetection(imageId string) error {
 			imageTag := records[0]
 			h.addTagToImage(image, imageTag, "inferred")
 		} else {
-			h.context.App.Logger().Debug(fmt.Sprintf("detection for image '%s' yielded '%s' but no tag was found", image.GetString("computedFileName"), tagText))
+			h.context.App.Logger().Debug(fmt.Sprintf("[OpenAI] [%s]: detection yielded '%s' but no tag was found", image.GetString("computedFileName"), tagText))
 		}
 		break
 	}
