@@ -65,3 +65,9 @@ bun install
 bun run dev
 ```
 This will start the UI server on [http://localhost:9000](http://localhost:9000)
+
+### Generating TS types from pocketbase
+In the `api/` directory, run
+```
+npx pocketbase-typegen@1.2.1 --db ./pb_data/data.db --out ../ui/src/types/pocketbase.ts
+```

@@ -1,104 +1,195 @@
 <template>
   <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-    <div class="sm:flex sm:items-center">
+    <div class="sm:flex sm:items-center mb-6">
       <div class="sm:flex-auto">
         <h1 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100">
-          <span v-if="userId === pb.authStore.model?.id">Your cameras</span>
-          <span v-else>Cameras of {{ fullName() }}</span>
+          <span v-if="isOwnProfile">Your Hotkeys</span>
+          <span v-else>Hotkeys of {{ fullName() }}</span>
         </h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">Add and manage cameras here</p>
+        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">View and customize hotkey mappings. Clearing a custom mapping restores the default.</p>
       </div>
-      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
-        <button
-          @click="addItem"
-          type="button"
-          class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
-        >
-          Add Camera
-        </button>
-      </div>
+      <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none"></div>
     </div>
-    <div class="my-10 space-y-6 divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-600"></div>
-    <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
-      <div v-for="camera in items" :key="camera.id">
-        <CameraEdit :item="camera" @edit-save="saveItem" />
-        <CameraTimeOffsets :camera="camera" />
-      </div>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-300 dark:divide-gray-700 text-sm">
+        <thead>
+          <tr class="bg-gray-50 dark:bg-gray-800">
+            <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Description</th>
+            <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Event</th>
+            <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Default</th>
+            <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">Your Hotkey</th>
+            <th class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 w-40">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+          <tr v-for="row in rows" :key="row.eventId" class="hover:bg-gray-50 dark:hover:bg-gray-800">
+            <td class="px-3 py-2">
+              <div class="text-gray-900 dark:text-gray-100">{{ row.description }}</div>
+            </td>
+            <td class="px-3 py-2 font-mono text-xs text-gray-600 dark:text-gray-400">{{ row.event }}</td>
+            <td class="px-3 py-2">
+              <span v-if="row.defaultHotkey" class="inline-block rounded bg-gray-200 dark:bg-gray-700 px-2 py-0.5 text-xs font-mono">
+                {{ row.defaultHotkey }}
+              </span>
+              <span v-else class="text-xs italic text-gray-400">—</span>
+            </td>
+            <td class="px-3 py-2">
+              <span
+                v-if="row.userHotkey"
+                class="inline-block rounded bg-secondary-200 dark:bg-secondary-700 px-2 py-0.5 text-xs font-mono"
+                :title="row.userHotkeyDiffers ? 'Overrides default' : ''"
+              >
+                {{ row.userHotkey }}
+              </span>
+              <span v-else class="text-xs italic text-gray-400">—</span>
+            </td>
+            <td class="px-3 py-2 space-x-2">
+              <button
+                type="button"
+                class="rounded-md bg-secondary-600 hover:bg-secondary-500 dark:hover:bg-secondary-700 px-2 py-1 text-xs font-medium text-white shadow-sm"
+                @click="openCapture(row)"
+              >
+                {{ row.userHotkey ? "Change" : "Set" }}
+              </button>
+              <button
+                v-if="row.mappingId"
+                type="button"
+                class="rounded-md bg-error-600 hover:bg-error-500 px-2 py-1 text-xs font-medium text-white shadow-sm"
+                @click="clearMapping(row)"
+              >
+                Clear
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="rows.length === 0" class="text-center py-12 text-gray-500 dark:text-gray-400">No hotkey events found.</div>
     </div>
   </main>
+
+  <HotkeyCaptureDialog
+    :show="captureDialogVisible"
+    :initialHotkey="activeRow?.userHotkey || activeRow?.defaultHotkey || ''"
+    @closed="captureDialogVisible = false"
+    @save="saveCapturedHotkey"
+  />
+
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 
 <script setup lang="ts">
-import { Ref, computed, onMounted, ref, watch } from "vue";
+import { ref, onMounted, computed } from "vue";
 import pb from "src/boot/pocketbase";
-import { CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
+import { HotkeyEventsResponse, HotkeyMappingsResponse, Collections } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
-import CameraEdit, { CameraEditData } from "src/components/user/CameraEdit.vue";
-import CameraTimeOffsets from "src/components/user/CameraTimeOffsets.vue";
-import { storeToRefs } from "pinia";
-import { useUserStore } from "src/stores/user-store";
-import { useRouter, useRoute } from "vue-router";
+import HotkeyCaptureDialog from "src/components/user/HotkeyCaptureDialog.vue";
+import { useRoute } from "vue-router";
 import { showNotificationToast } from "src/boot/mitt";
-import { capitalize } from "src/util/stringUtils";
 import { fullName } from "src/util/userUtil";
 
-const router = useRouter();
 const route = useRoute();
-
-const userStore = useUserStore();
-
-type ITEM_TYPE = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
-const ITEM_COLLECTION = "cameras";
-const ITEM_NAME = "camera";
-
 const userId: string = `${route.params.userid}`;
+const isOwnProfile = computed(() => userId === pb.authStore.model?.id);
 
+interface HotkeyRow {
+  eventId: string;
+  event: string;
+  description: string;
+  defaultHotkey: string;
+  mappingId?: string;
+  userHotkey?: string;
+  userHotkeyDiffers: boolean;
+}
+
+const rows = ref<HotkeyRow[]>([]);
 const showUnexpectedErrorMessage = ref(false);
-const unexpectedError = ref(null);
+const unexpectedError = ref<any>(null);
 
-const limit = ref(50);
-const offset = ref(0);
-const items: Ref<ITEM_TYPE[]> = ref([]);
+const captureDialogVisible = ref(false);
+const activeRow = ref<HotkeyRow | null>(null);
 
-async function requestItems() {
+async function loadData() {
   try {
-    const resultList = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getList(1, 50, {
-      filter: `user='${userId}'`,
-      expand: "time_offsets_via_camera",
+    const events = await pb.collection<HotkeyEventsResponse>(Collections.HotkeyEvents).getFullList({
+      sort: "event",
     });
-    items.value = resultList.items;
+    const mappings = await pb.collection<HotkeyMappingsResponse>(Collections.HotkeyMappings).getFullList({
+      filter: `user='${userId}'`,
+    });
+
+    const mappingByEvent: Record<string, HotkeyMappingsResponse> = {};
+    for (const m of mappings) {
+      if (m.event) {
+        mappingByEvent[m.event] = m as HotkeyMappingsResponse;
+      }
+    }
+
+    rows.value = events.map((e) => {
+      const map = mappingByEvent[e.id];
+      const userHotkey = map?.hotkey;
+      return {
+        eventId: e.id,
+        event: e.event,
+        description: e.description,
+        defaultHotkey: e.defaultHotkey || "",
+        mappingId: map?.id,
+        userHotkey,
+        userHotkeyDiffers: !!userHotkey && userHotkey !== (e.defaultHotkey || ""),
+      } as HotkeyRow;
+    });
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   }
 }
 
-async function saveItem(item: CamerasResponse, editData: CameraEditData) {
-  if (!item) {
-    console.log("No item to save");
-    return;
-  }
-  const rollbackData = { ...item };
-  const data = { ...item, ...editData };
+function openCapture(row: HotkeyRow) {
+  activeRow.value = row;
+  captureDialogVisible.value = true;
+}
 
+async function saveCapturedHotkey(hotkey: string) {
+  if (!activeRow.value) return;
+  const row = activeRow.value;
   try {
-    console.log(`Saving item ${item.id}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).update(data.id, data);
-    const index = items.value.findIndex((i) => i.id === item.id);
-    items.value[index] = response;
-    showNotificationToast({ headline: `${capitalize(ITEM_NAME)} saved`, type: "success" });
+    if (row.mappingId) {
+      const updated = await pb.collection<HotkeyMappingsResponse>(Collections.HotkeyMappings).update(row.mappingId, {
+        hotkey,
+      });
+      row.userHotkey = updated.hotkey;
+    } else {
+      const created = await pb.collection<HotkeyMappingsResponse>(Collections.HotkeyMappings).create({
+        user: userId,
+        event: row.eventId,
+        hotkey,
+      });
+      row.mappingId = created.id;
+      row.userHotkey = created.hotkey;
+    }
+    row.userHotkeyDiffers = !!row.userHotkey && row.userHotkey !== row.defaultHotkey;
+    showNotificationToast({ headline: "Hotkey saved", type: "success" });
+    captureDialogVisible.value = false;
   } catch (error: any) {
-    item = rollbackData;
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   }
 }
 
-function addItem() {
-  router.push({ name: `camera-create`, params: { userid: userId } });
+async function clearMapping(row: HotkeyRow) {
+  if (!row.mappingId) return;
+  const mappingId = row.mappingId;
+  try {
+    await pb.collection(Collections.HotkeyMappings).delete(mappingId);
+    row.mappingId = undefined;
+    row.userHotkey = undefined;
+    row.userHotkeyDiffers = false;
+    showNotificationToast({ headline: "Hotkey cleared", type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
 }
 
-onMounted(requestItems);
-watch([limit, offset], requestItems);
+onMounted(loadData);
 </script>
