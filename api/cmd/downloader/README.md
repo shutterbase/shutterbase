@@ -40,3 +40,25 @@ Additionally to the whitelist, a `--blacklist` of tags can be specified. The lis
 ```
 ./downloader --url https://shutterbase.fsg.one --email <email> --password <password> --project qagr042y62aeptz --whitelist vbo --blacklist internal,review download delta
 ```
+
+### Mode
+
+With `--mode`, the download mode can be set.
+
+`default` or if no mode provided
+Photos are downloaded into a folder with the tag(s) as folder name.
+
+`check-existing`
+Same as default, but new photos are uploaded into folders with extension "_new" and existing photos in folders with extension "_update"
+
+`upload`
+The upload mode sorts photos into folders with date and weekday. Additionally, new photos are put into a fodler with the extension "_new". Updated photos are overwritten.
+If executed again, and there are still photos in "_new", then those photos are overwritten.
+
+
+### Retry Mechanism
+
+The downloader includes a built-in retry mechanism to handle network issues or temporary server errors.  
+If a download fails, it will automatically retry the request before giving up.  
+`--retry-count` specifies how many times a failed download will be retried. Default is `3`.
+`--retry-wait` specifies the time between tries in seconds. Default is `5`.

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -31,6 +32,14 @@ const (
 type DownloadProperties struct {
 	Type DownloadType
 }
+
+type Mode string
+
+const (
+	ModeDefault       Mode = "default"
+	ModeCheckExisting Mode = "check-existing"
+	ModeUpload        Mode = "upload"
+)
 
 func main() {
 	app := &cli.App{
@@ -97,6 +106,24 @@ func main() {
 				Usage:   "number of parallel downloads",
 				EnvVars: []string{"SHUTTERBASE_PARALLELISM"},
 			},
+			&cli.IntFlag{
+				Name:    "retry-count",
+				Usage:   "Number of times to retry a failed download",
+				Value:   3,
+				EnvVars: []string{"SHUTTERBASE_RETRY_COUNT"},
+			},
+			&cli.IntFlag{
+				Name:    "retry-wait",
+				Usage:   "Seconds to wait between retries",
+				Value:   5,
+				EnvVars: []string{"SHUTTERBASE_RETRY_WAIT"},
+			},
+			&cli.StringFlag{
+				Name:    "mode",
+				Usage:   "download mode: default | check-existing | upload",
+				Value:   "default",
+				EnvVars: []string{"SHUTTERBASE_MODE"},
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -131,10 +158,20 @@ func main() {
 }
 
 func download(c *cli.Context, properties DownloadProperties) error {
+
+	runStartTime := time.Now()
+	syncWindowStartTime, _ := time.Parse(time.RFC3339, "2000-01-01T00:00:00Z")
+
+	// Validate mode
+	mode := Mode(c.String("mode"))
+	if mode != ModeDefault && mode != ModeCheckExisting && mode != ModeUpload {
+		log.Fatal().Msgf("Invalid mode '%s'. Must be one of: default, check-existing, upload", mode)
+	}
+
 	whitelistTagsString := c.String("whitelist")
 	whitelistTags := strings.Split(whitelistTagsString, ",")
 
-	outputDir := filepath.Join("downloads", "all_images")
+	outputDir := filepath.Join("downloads", "all_images") // default, if no whitelist tags are supplied
 	if len(whitelistTags) > 0 {
 		outputDir = filepath.Join("downloads", strings.Join(whitelistTags, "_"))
 	}
@@ -157,8 +194,6 @@ func download(c *cli.Context, properties DownloadProperties) error {
 	if c.String("project") == "" {
 		log.Fatal().Msg("Please specify a shutterbase project id")
 	}
-
-	syncWindowStartTime, _ := time.Parse(time.RFC3339, "2000-01-01T00:00:00Z")
 
 	if properties.Type == DownloadTypeDelta {
 		// check if output dir exists
@@ -186,6 +221,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 	if properties.Type == DownloadTypeDelta {
 		log.Info().Msgf("Only downloading images newer than '%s'", syncWindowStartTime.Format(time.RFC3339))
 	}
+
 	// check if output dir exists
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		log.Info().Msgf("Creating output directory '%s'", outputDir)
@@ -216,16 +252,8 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		}
 	}
 
-	runStartTime := time.Now()
-	// write timestamp file
-	timestampFile := filepath.Join(outputDir, ".timestamp")
-	err := os.WriteFile(timestampFile, []byte(runStartTime.Format(time.RFC3339)), 0644)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to write timestamp file '%s'", timestampFile)
-	}
-
 	apiClient := client.NewClient(c.String("url"))
-	err = apiClient.Login(c.Context, c.String("email"), c.String("password"))
+	err := apiClient.Login(c.Context, c.String("email"), c.String("password"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to login")
 	}
@@ -251,18 +279,37 @@ func download(c *cli.Context, properties DownloadProperties) error {
 	log.Info().Msgf("Found %d images. %d images are on the blocklist", len(notBlockedImages), len(images)-len(notBlockedImages))
 
 	filteredImages := []client.Image{}
-	if properties.Type == DownloadTypeFull {
+
+	switch properties.Type {
+	case DownloadTypeFull:
 		filteredImages = notBlockedImages
 		log.Info().Msgf("Downloading %d images", len(filteredImages))
-	} else {
+	case DownloadTypeDelta:
+
 		for _, image := range notBlockedImages {
-			if _, err := os.Stat(filepath.Join(outputDir, getFileName(image.ComputedFileName))); errors.Is(err, os.ErrNotExist) {
+
+			weekdayDir, err := getWeekdayDirFromFilename(image.ComputedFileName)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to parse date from filename '%s'", image.ComputedFileName)
+				weekdayDir = "unknown"
+			}
+
+			targetFile := filepath.Join(outputDir, weekdayDir, getFileName(image.ComputedFileName))
+			_, err = os.Stat(targetFile)
+
+			if errors.Is(err, os.ErrNotExist) {
+				// File not present locally -> download
 				filteredImages = append(filteredImages, image)
-			} else if properties.Type == DownloadTypeDelta && image.Updated.After(syncWindowStartTime) {
+				log.Debug().Msgf("Downloading NEW image '%s'", image.ComputedFileName)
+
+			} else if image.Updated.After(syncWindowStartTime) {
+				// File exists but has newer updates -> re-download
 				filteredImages = append(filteredImages, image)
-				log.Debug().Msgf("Downloading image '%s' as it received updates after '%s'", image.ComputedFileName, syncWindowStartTime.Format(time.RFC3339))
+				log.Debug().Msgf("Downloading UPDATED image '%s' (after %s)", image.ComputedFileName, syncWindowStartTime.Format(time.RFC3339))
+
 			} else {
-				log.Debug().Msgf("Skipping image '%s' as it already exists in its latest version", image.ComputedFileName)
+				// File exists and not updated -> skip
+				log.Debug().Msgf("Skipping image '%s' (already latest)", image.ComputedFileName)
 			}
 		}
 		log.Info().Msgf("Downloading %d images. Skipping %d existing images", len(filteredImages), len(images)-len(filteredImages))
@@ -280,7 +327,13 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		Error  error
 	}
 
-	bar := progressbar.Default(int64(len(filteredImages)))
+	bar := progressbar.NewOptions(int(len(filteredImages)),
+		progressbar.OptionSetWriter(os.Stdout), // bar goes to stdout
+		progressbar.OptionShowCount(),          // show count
+		progressbar.OptionShowIts(),            // iterations/s
+		progressbar.OptionSetWidth(69),         // nicer width
+	)
+
 	lock := sync.Mutex{}
 	incrementBar := func() {
 		lock.Lock()
@@ -310,7 +363,54 @@ func download(c *cli.Context, properties DownloadProperties) error {
 
 				log.Debug().Msgf("Downloading image '%s'", image.ComputedFileName)
 				incrementBar()
-				err := downloadFile(c, apiClient, &image, filepath.Join(outputDir, getFileName(image.ComputedFileName)))
+
+				targetFile := filepath.Join(outputDir, getFileName(image.ComputedFileName))
+				finalOutputDir := outputDir
+
+				switch mode {
+				case ModeCheckExisting:
+					alreadyExisted := false
+					if _, err := os.Stat(targetFile); err == nil {
+						alreadyExisted = true
+					}
+					if alreadyExisted {
+						finalOutputDir = outputDir + "_update"
+					} else {
+						finalOutputDir = outputDir + "_new"
+					}
+
+				case ModeUpload:
+					weekdayDir, err := getWeekdayDirFromFilename(image.ComputedFileName)
+					if err != nil {
+						log.Error().Err(err).Msgf("Failed to parse date from filename '%s'", image.ComputedFileName)
+						weekdayDir = "unknown"
+					}
+					alreadyExisted := false
+					targetFile := filepath.Join(outputDir, weekdayDir, getFileName(image.ComputedFileName))
+					if _, err := os.Stat(targetFile); err == nil {
+						alreadyExisted = true
+					}
+					if alreadyExisted {
+						finalOutputDir = filepath.Join(outputDir, weekdayDir)
+					} else {
+						finalOutputDir = filepath.Join(outputDir, weekdayDir+"_new")
+					}
+
+				case ModeDefault:
+					// nothing
+				}
+
+				// Ensure directory exists
+				if _, err := os.Stat(finalOutputDir); os.IsNotExist(err) {
+					if mkErr := os.MkdirAll(finalOutputDir, os.ModePerm); mkErr != nil {
+						log.Fatal().Err(mkErr).Msgf("Failed to create directory '%s'", finalOutputDir)
+					}
+				}
+
+				finalOutputFile := filepath.Join(finalOutputDir, getFileName(image.ComputedFileName))
+				log.Debug().Msgf("Downloading image '%s' to '%s'", image.ComputedFileName, finalOutputFile)
+				err := downloadFileWithRetry(c, apiClient, &image, finalOutputFile)
+
 				if err != nil {
 					log.Error().Err(err).Msgf("Failed to download image '%s'", image.ComputedFileName)
 					downloadResults <- DownloadResult{Status: DownloadStatusError, Image: image, Error: err}
@@ -353,6 +453,18 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		for _, errorImageName := range errorImageNames {
 			log.Error().Msgf("  - %s", errorImageName)
 		}
+	}
+
+	// Update timestamp only if no errors
+	if errorCount == 0 {
+		timestampFile := filepath.Join(outputDir, ".timestamp")
+		err := os.WriteFile(timestampFile, []byte(runStartTime.Format(time.RFC3339)), 0644)
+		if err != nil {
+			log.Fatal().Err(err).Msgf("Failed to write timestamp file '%s'", timestampFile)
+		}
+		log.Info().Msgf("Updated timestamp file '%s'", timestampFile)
+	} else {
+		log.Warn().Msg("Not updating timestamp file due to download errors")
 	}
 
 	return nil
@@ -399,14 +511,85 @@ func downloadFile(c *cli.Context, client *client.Client, image *client.Image, ou
 	return nil
 }
 
+func downloadFileWithRetry(c *cli.Context, client *client.Client, image *client.Image, outputFile string) error {
+	retries := c.Int("retry-count")
+	wait := time.Duration(c.Int("retry-wait")) * time.Second
+
+	var err error
+	for attempt := 1; attempt <= retries; attempt++ {
+		err = downloadFile(c, client, image, outputFile)
+		if err == nil {
+			return nil
+		}
+
+		// cleanup: remove partial file if it exists
+		if _, statErr := os.Stat(outputFile); statErr == nil {
+			_ = os.Remove(outputFile)
+			log.Info().Msgf("Removed partially downloaded file '%s'", outputFile)
+		}
+
+		// Log error + retry as two separate entries
+		log.Error().Err(err).Msgf("Attempt %d/%d failed for image '%s'", attempt, retries, image.ComputedFileName)
+
+		if attempt < retries {
+			log.Info().Msgf("Retrying in %s...", wait)
+			fmt.Print("\033[0m") // ANSI reset - avoiding color corruption in shell
+			time.Sleep(wait)
+		}
+	}
+	return err
+}
+
+// getWeekdayDirFromFilename parses filenames like "20250820_15-56-20.jpg"
+// and returns a folder name "YYYYMMDD Weekday". If before 03:00 → previous day.
+func getWeekdayDirFromFilename(filename string) (string, error) {
+	if len(filename) < 8 {
+		return "", fmt.Errorf("filename too short to contain date: %s", filename)
+	}
+	datePart := filename[:8]
+	t, err := time.Parse("20060102", datePart)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse date from '%s': %w", filename, err)
+	}
+
+	// Extract time-of-day if possible
+	// hour := 12
+	// if len(filename) >= 13 { // "20250820_15-56-20"
+	// 	timePart := filename[9:11]
+	// 	if parsedHour, err := time.Parse("15", timePart); err == nil {
+	// 		hour = parsedHour.Hour()
+	// 	} else {
+	// 		if h, parseErr := strconv.Atoi(timePart); parseErr == nil {
+	// 			hour = h
+	// 		}
+	// 	}
+	// }
+
+	hour := 12
+	if len(filename) >= 13 { // "20250820_15-56-20"
+		timePart := filename[9:11] // -> "15"
+		if h, err := strconv.Atoi(timePart); err == nil {
+			hour = h
+		}
+	}
+
+	// Before 03:00 → previous day
+	if hour <= 3 {
+		t = t.AddDate(0, 0, -1)
+	}
+
+	return fmt.Sprintf("%s %s", t.Format("20060102"), t.Weekday()), nil
+}
+
 func initLogger(c *cli.Context) error {
 	setLogOutput()
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	if c.Bool("very-verbose") {
-		applyLogLevel("trace")
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}).Level(zerolog.TraceLevel)
 	} else if c.Bool("verbose") {
-		applyLogLevel("debug")
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}).Level(zerolog.DebugLevel)
 	} else {
-		applyLogLevel("info")
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}).Level(zerolog.InfoLevel)
 	}
 	log.Info().Msgf("Logger initialized on level '%s'", zerolog.GlobalLevel().String())
 	return nil
@@ -414,7 +597,11 @@ func initLogger(c *cli.Context) error {
 
 func setLogOutput() {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02T15:04:05.000Z"})
+	// Write logs to stderr, progressbar uses stdout
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: "2006-01-02T15:04:05.000Z",
+	})
 }
 
 func applyLogLevel(logLevel string) {
@@ -453,5 +640,9 @@ func getHumanReadableSize(size int64) string {
 }
 
 func getFileName(computedFileName string) string {
+	lower := strings.ToLower(computedFileName)
+	if strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg") {
+		return computedFileName
+	}
 	return fmt.Sprintf("%s.jpg", computedFileName)
 }
