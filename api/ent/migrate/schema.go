@@ -20,6 +20,7 @@ var (
 		{Name: "object_type", Type: field.TypeString, Nullable: true},
 		{Name: "object_id", Type: field.TypeString, Nullable: true},
 		{Name: "actor", Type: field.TypeUUID, Nullable: true},
+		{Name: "impersonated_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "data", Type: field.TypeJSON, Nullable: true},
 	}
 	// AuditLogsTable holds the schema information for the "audit_logs" table.

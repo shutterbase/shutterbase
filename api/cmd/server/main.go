@@ -29,13 +29,14 @@ func main() {
 	defer databaseConnection.Close()
 
 	srv, err := server.NewServer(&server.Options{
-		Port:                 config.Get().Int("PORT"),
-		ApiBaseURL:           config.Get().String("API_BASE_URL"),
-		DevMode:              config.Get().Bool("DEV"),
-		Database:             databaseConnection,
-		SessionSecretKey:     config.Get().String("SESSION_SECRET_KEY"),
-		DefaultAdminUsername: config.Get().String("DEFAULT_ADMIN_USERNAME"),
-		DefaultAdminPassword: config.Get().String("DEFAULT_ADMIN_PASSWORD"),
+		Port:                  config.Get().Int("PORT"),
+		ApiBaseURL:            config.Get().String("API_BASE_URL"),
+		DevMode:               config.Get().Bool("DEV"),
+		Database:              databaseConnection,
+		SessionSecretKey:      config.Get().String("SESSION_SECRET_KEY"),
+		DefaultAdminUsername:  config.Get().String("DEFAULT_ADMIN_USERNAME"),
+		DefaultAdminPassword:  config.Get().String("DEFAULT_ADMIN_PASSWORD"),
+		ImpersonationReadOnly: config.Get().Bool("IMPERSONATION_READ_ONLY"),
 	})
 	if err != nil {
 		log.Panic().Err(err).Msg("error initializing server")

@@ -28,9 +28,10 @@ type Options struct {
 
 	// Auth (S7). SessionSecretKey is the raw secret; the 64/32-byte session keys
 	// are derived from it. DefaultAdmin* seeds an admin when none exists.
-	SessionSecretKey     string
-	DefaultAdminUsername string
-	DefaultAdminPassword string
+	SessionSecretKey      string
+	DefaultAdminUsername  string
+	DefaultAdminPassword  string
+	ImpersonationReadOnly bool // S8: block mutations while impersonating
 
 	// S3Client presigns image download URLs and deletes objects. When nil (the
 	// production path) NewServer builds it from config; the harness injects the
@@ -107,13 +108,14 @@ func NewServer(options *Options) (*Server, error) {
 	// Setup installs the auth middleware (RequireAuth) and the auth routes;
 	// everything registered after this inherits the middleware.
 	if err := authentication.Setup(&authentication.Options{
-		Engine:               engine,
-		Repository:           repo,
-		ApiBaseURL:           options.ApiBaseURL,
-		IsDev:                options.DevMode,
-		SessionSecretKey:     options.SessionSecretKey,
-		DefaultAdminUsername: options.DefaultAdminUsername,
-		DefaultAdminPassword: options.DefaultAdminPassword,
+		Engine:                engine,
+		Repository:            repo,
+		ApiBaseURL:            options.ApiBaseURL,
+		IsDev:                 options.DevMode,
+		SessionSecretKey:      options.SessionSecretKey,
+		DefaultAdminUsername:  options.DefaultAdminUsername,
+		DefaultAdminPassword:  options.DefaultAdminPassword,
+		ImpersonationReadOnly: options.ImpersonationReadOnly,
 	}); err != nil {
 		return nil, err
 	}

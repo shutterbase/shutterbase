@@ -29,6 +29,8 @@ const (
 	FieldObjectId = "object_id"
 	// FieldActor holds the string denoting the actor field in the database.
 	FieldActor = "actor"
+	// FieldImpersonatedBy holds the string denoting the impersonatedby field in the database.
+	FieldImpersonatedBy = "impersonated_by"
 	// FieldData holds the string denoting the data field in the database.
 	FieldData = "data"
 	// Table holds the table name of the auditlog in the database.
@@ -46,6 +48,7 @@ var Columns = []string{
 	FieldObjectType,
 	FieldObjectId,
 	FieldActor,
+	FieldImpersonatedBy,
 	FieldData,
 }
 
@@ -120,4 +123,9 @@ func ByObjectId(opts ...sql.OrderTermOption) OrderOption {
 // ByActor orders the results by the actor field.
 func ByActor(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActor, opts...).ToFunc()
+}
+
+// ByImpersonatedBy orders the results by the impersonatedBy field.
+func ByImpersonatedBy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImpersonatedBy, opts...).ToFunc()
 }

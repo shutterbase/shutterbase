@@ -125,6 +125,20 @@ func (_c *AuditLogCreate) SetNillableActor(v *uuid.UUID) *AuditLogCreate {
 	return _c
 }
 
+// SetImpersonatedBy sets the "impersonatedBy" field.
+func (_c *AuditLogCreate) SetImpersonatedBy(v uuid.UUID) *AuditLogCreate {
+	_c.mutation.SetImpersonatedBy(v)
+	return _c
+}
+
+// SetNillableImpersonatedBy sets the "impersonatedBy" field if the given value is not nil.
+func (_c *AuditLogCreate) SetNillableImpersonatedBy(v *uuid.UUID) *AuditLogCreate {
+	if v != nil {
+		_c.SetImpersonatedBy(*v)
+	}
+	return _c
+}
+
 // SetData sets the "data" field.
 func (_c *AuditLogCreate) SetData(v map[string]interface{}) *AuditLogCreate {
 	_c.mutation.SetData(v)
@@ -281,6 +295,10 @@ func (_c *AuditLogCreate) createSpec() (*AuditLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Actor(); ok {
 		_spec.SetField(auditlog.FieldActor, field.TypeUUID, value)
 		_node.Actor = value
+	}
+	if value, ok := _c.mutation.ImpersonatedBy(); ok {
+		_spec.SetField(auditlog.FieldImpersonatedBy, field.TypeUUID, value)
+		_node.ImpersonatedBy = &value
 	}
 	if value, ok := _c.mutation.Data(); ok {
 		_spec.SetField(auditlog.FieldData, field.TypeJSON, value)

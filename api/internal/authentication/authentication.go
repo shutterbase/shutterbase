@@ -23,13 +23,14 @@ import (
 )
 
 type Options struct {
-	Engine               *gin.Engine
-	Repository           *repository.Repository
-	ApiBaseURL           string
-	IsDev                bool
-	SessionSecretKey     string // raw config secret; the 64/32-byte keys are derived from it
-	DefaultAdminUsername string
-	DefaultAdminPassword string
+	Engine                *gin.Engine
+	Repository            *repository.Repository
+	ApiBaseURL            string
+	IsDev                 bool
+	SessionSecretKey      string // raw config secret; the 64/32-byte keys are derived from it
+	DefaultAdminUsername  string
+	DefaultAdminPassword  string
+	ImpersonationReadOnly bool // S8: support-only mode blocks mutations while impersonating
 }
 
 // handler carries the dependencies the custom auth routes (change-password,
@@ -103,6 +104,11 @@ func Setup(options *Options) error {
 		return fmt.Errorf("error registering auth routes: %w", err)
 	}
 
+	// Impersonation resolution (S8): runs after RequireAuth, swaps the effective
+	// user to the impersonated target when the real user re-checks as admin.
+	im := newImpersonator(secretKey, encKey, options.Repository, api, options.IsDev, options.ImpersonationReadOnly)
+	options.Engine.Use(im.resolve())
+
 	// Force-password-change guard runs after RequireAuth so it sees the user.
 	options.Engine.Use(forcePasswordChangeMiddleware(api))
 
@@ -110,6 +116,8 @@ func Setup(options *Options) error {
 	// Registered after RequireAuth's engine.Use -> these inherit the auth middleware.
 	options.Engine.PUT(api+"/auth/change-password", h.handleChangePassword)
 	options.Engine.GET(api+"/users/me", h.handleMe)
+	options.Engine.POST(api+"/auth/impersonate/:userId", im.handleStart)
+	options.Engine.DELETE(api+"/auth/impersonate", im.handleStop)
 
 	if err := ensureDefaultAdmin(options); err != nil {
 		return fmt.Errorf("error ensuring default admin: %w", err)

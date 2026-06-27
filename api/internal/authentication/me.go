@@ -16,12 +16,27 @@ import (
 // role{id,key,description}, activeProject{id,name}|null and projectAssignments[].
 // The impersonating block (S8) is intentionally absent.
 func (h *handler) handleMe(c *gin.Context) {
-	u := util.GetUser(c.Request.Context())
+	ctx := c.Request.Context()
+	u := util.GetUser(ctx)
 	if u == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized", "message": "not authenticated"})
 		return
 	}
-	c.JSON(http.StatusOK, buildMeResponse(c.Request.Context(), h.repo, u))
+	c.JSON(http.StatusOK, meWithImpersonation(ctx, h.repo, u, util.GetRealUser(ctx)))
+}
+
+// meWithImpersonation builds the /users/me shape for the effective user and adds
+// the impersonating:{realUserId,realUserName} block ONLY when the real user
+// differs from the effective one (S8). The key is omitted otherwise.
+func meWithImpersonation(ctx context.Context, repo *repository.Repository, effective, real *ent.User) gin.H {
+	resp := buildMeResponse(ctx, repo, effective)
+	if real != nil && real.ID != effective.ID {
+		resp["impersonating"] = gin.H{
+			"realUserId":   real.ID,
+			"realUserName": real.Username,
+		}
+	}
+	return resp
 }
 
 // BuildUserResponse serializes a user in the §4.2 /users/me shape minus the

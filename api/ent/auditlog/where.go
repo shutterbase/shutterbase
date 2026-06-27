@@ -105,6 +105,11 @@ func Actor(v uuid.UUID) predicate.AuditLog {
 	return predicate.AuditLog(sql.FieldEQ(FieldActor, v))
 }
 
+// ImpersonatedBy applies equality check predicate on the "impersonatedBy" field. It's identical to ImpersonatedByEQ.
+func ImpersonatedBy(v uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldEQ(FieldImpersonatedBy, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "createdAt" field.
 func CreatedAtEQ(v time.Time) predicate.AuditLog {
 	return predicate.AuditLog(sql.FieldEQ(FieldCreatedAt, v))
@@ -548,6 +553,56 @@ func ActorIsNil() predicate.AuditLog {
 // ActorNotNil applies the NotNil predicate on the "actor" field.
 func ActorNotNil() predicate.AuditLog {
 	return predicate.AuditLog(sql.FieldNotNull(FieldActor))
+}
+
+// ImpersonatedByEQ applies the EQ predicate on the "impersonatedBy" field.
+func ImpersonatedByEQ(v uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldEQ(FieldImpersonatedBy, v))
+}
+
+// ImpersonatedByNEQ applies the NEQ predicate on the "impersonatedBy" field.
+func ImpersonatedByNEQ(v uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldNEQ(FieldImpersonatedBy, v))
+}
+
+// ImpersonatedByIn applies the In predicate on the "impersonatedBy" field.
+func ImpersonatedByIn(vs ...uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldIn(FieldImpersonatedBy, vs...))
+}
+
+// ImpersonatedByNotIn applies the NotIn predicate on the "impersonatedBy" field.
+func ImpersonatedByNotIn(vs ...uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldNotIn(FieldImpersonatedBy, vs...))
+}
+
+// ImpersonatedByGT applies the GT predicate on the "impersonatedBy" field.
+func ImpersonatedByGT(v uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldGT(FieldImpersonatedBy, v))
+}
+
+// ImpersonatedByGTE applies the GTE predicate on the "impersonatedBy" field.
+func ImpersonatedByGTE(v uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldGTE(FieldImpersonatedBy, v))
+}
+
+// ImpersonatedByLT applies the LT predicate on the "impersonatedBy" field.
+func ImpersonatedByLT(v uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldLT(FieldImpersonatedBy, v))
+}
+
+// ImpersonatedByLTE applies the LTE predicate on the "impersonatedBy" field.
+func ImpersonatedByLTE(v uuid.UUID) predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldLTE(FieldImpersonatedBy, v))
+}
+
+// ImpersonatedByIsNil applies the IsNil predicate on the "impersonatedBy" field.
+func ImpersonatedByIsNil() predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldIsNull(FieldImpersonatedBy))
+}
+
+// ImpersonatedByNotNil applies the NotNil predicate on the "impersonatedBy" field.
+func ImpersonatedByNotNil() predicate.AuditLog {
+	return predicate.AuditLog(sql.FieldNotNull(FieldImpersonatedBy))
 }
 
 // DataIsNil applies the IsNil predicate on the "data" field.

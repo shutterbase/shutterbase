@@ -23,6 +23,10 @@ func (AuditLog) Fields() []ent.Field {
 		field.String("objectType").Immutable().Optional().StructTag(`json:"objectType"`),
 		field.String("objectId").Immutable().Optional().StructTag(`json:"objectId"`),
 		field.UUID("actor", uuid.UUID{}).Immutable().Optional().StructTag(`json:"actor"`),
+		// impersonatedBy: the REAL admin's uuid when actor was an impersonated
+		// effective user (S8). Nil when no impersonation was active. Nillable so it
+		// serializes as a *uuid.UUID and is omitted on direct (non-impersonated) acts.
+		field.UUID("impersonatedBy", uuid.UUID{}).Immutable().Optional().Nillable().StructTag(`json:"impersonatedBy,omitempty"`),
 		field.JSON("data", map[string]any{}).Immutable().Optional().StructTag(`json:"data"`),
 	}
 }

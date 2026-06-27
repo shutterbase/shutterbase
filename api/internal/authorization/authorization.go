@@ -97,6 +97,15 @@ func IsAdmin() *Checker {
 	}}
 }
 
+// IsRealAdmin passes when the REAL logged-in user is an active global admin,
+// ignoring any active impersonation (S8). The impersonation control endpoints
+// gate on this so an impersonated viewer cannot re-escalate.
+func IsRealAdmin() *Checker {
+	return &Checker{check: func(c *gin.Context) bool {
+		return isAdmin(util.GetRealUser(c.Request.Context()))
+	}}
+}
+
 // HasUserID passes when the effective user is active and has the given id
 // (owner-can-access-own-resource).
 func HasUserID(id uuid.UUID) *Checker {

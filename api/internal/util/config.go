@@ -20,6 +20,9 @@ func InitConfig() error {
 		config.String("SESSION_SECRET_KEY").NotEmpty().Sensitive(),
 		config.String("DEFAULT_ADMIN_USERNAME").NotEmpty().Default("admin"),
 		config.String("DEFAULT_ADMIN_PASSWORD").Sensitive().Default("changeme123"),
+		// IMPERSONATION_READ_ONLY flips impersonation to support-only (S8): when true,
+		// mutating requests are blocked (403) while an admin is impersonating.
+		config.Bool("IMPERSONATION_READ_ONLY").Default(false),
 
 		// ui
 		config.String("UI_PROXY_URL").NotEmpty().Default("http://localhost:9000"),

@@ -51,22 +51,23 @@ const (
 // AuditLogMutation represents an operation that mutates the AuditLog nodes in the graph.
 type AuditLogMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *string
-	createdAt     *time.Time
-	updatedAt     *time.Time
-	createdBy     *uuid.UUID
-	updatedBy     *uuid.UUID
-	action        *string
-	objectType    *string
-	objectId      *string
-	actor         *uuid.UUID
-	data          *map[string]interface{}
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*AuditLog, error)
-	predicates    []predicate.AuditLog
+	op             Op
+	typ            string
+	id             *string
+	createdAt      *time.Time
+	updatedAt      *time.Time
+	createdBy      *uuid.UUID
+	updatedBy      *uuid.UUID
+	action         *string
+	objectType     *string
+	objectId       *string
+	actor          *uuid.UUID
+	impersonatedBy *uuid.UUID
+	data           *map[string]interface{}
+	clearedFields  map[string]struct{}
+	done           bool
+	oldValue       func(context.Context) (*AuditLog, error)
+	predicates     []predicate.AuditLog
 }
 
 var _ ent.Mutation = (*AuditLogMutation)(nil)
@@ -526,6 +527,55 @@ func (m *AuditLogMutation) ResetActor() {
 	delete(m.clearedFields, auditlog.FieldActor)
 }
 
+// SetImpersonatedBy sets the "impersonatedBy" field.
+func (m *AuditLogMutation) SetImpersonatedBy(u uuid.UUID) {
+	m.impersonatedBy = &u
+}
+
+// ImpersonatedBy returns the value of the "impersonatedBy" field in the mutation.
+func (m *AuditLogMutation) ImpersonatedBy() (r uuid.UUID, exists bool) {
+	v := m.impersonatedBy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImpersonatedBy returns the old "impersonatedBy" field's value of the AuditLog entity.
+// If the AuditLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuditLogMutation) OldImpersonatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImpersonatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImpersonatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImpersonatedBy: %w", err)
+	}
+	return oldValue.ImpersonatedBy, nil
+}
+
+// ClearImpersonatedBy clears the value of the "impersonatedBy" field.
+func (m *AuditLogMutation) ClearImpersonatedBy() {
+	m.impersonatedBy = nil
+	m.clearedFields[auditlog.FieldImpersonatedBy] = struct{}{}
+}
+
+// ImpersonatedByCleared returns if the "impersonatedBy" field was cleared in this mutation.
+func (m *AuditLogMutation) ImpersonatedByCleared() bool {
+	_, ok := m.clearedFields[auditlog.FieldImpersonatedBy]
+	return ok
+}
+
+// ResetImpersonatedBy resets all changes to the "impersonatedBy" field.
+func (m *AuditLogMutation) ResetImpersonatedBy() {
+	m.impersonatedBy = nil
+	delete(m.clearedFields, auditlog.FieldImpersonatedBy)
+}
+
 // SetData sets the "data" field.
 func (m *AuditLogMutation) SetData(value map[string]interface{}) {
 	m.data = &value
@@ -609,7 +659,7 @@ func (m *AuditLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AuditLogMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.createdAt != nil {
 		fields = append(fields, auditlog.FieldCreatedAt)
 	}
@@ -633,6 +683,9 @@ func (m *AuditLogMutation) Fields() []string {
 	}
 	if m.actor != nil {
 		fields = append(fields, auditlog.FieldActor)
+	}
+	if m.impersonatedBy != nil {
+		fields = append(fields, auditlog.FieldImpersonatedBy)
 	}
 	if m.data != nil {
 		fields = append(fields, auditlog.FieldData)
@@ -661,6 +714,8 @@ func (m *AuditLogMutation) Field(name string) (ent.Value, bool) {
 		return m.ObjectId()
 	case auditlog.FieldActor:
 		return m.Actor()
+	case auditlog.FieldImpersonatedBy:
+		return m.ImpersonatedBy()
 	case auditlog.FieldData:
 		return m.Data()
 	}
@@ -688,6 +743,8 @@ func (m *AuditLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldObjectId(ctx)
 	case auditlog.FieldActor:
 		return m.OldActor(ctx)
+	case auditlog.FieldImpersonatedBy:
+		return m.OldImpersonatedBy(ctx)
 	case auditlog.FieldData:
 		return m.OldData(ctx)
 	}
@@ -755,6 +812,13 @@ func (m *AuditLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetActor(v)
 		return nil
+	case auditlog.FieldImpersonatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImpersonatedBy(v)
+		return nil
 	case auditlog.FieldData:
 		v, ok := value.(map[string]interface{})
 		if !ok {
@@ -807,6 +871,9 @@ func (m *AuditLogMutation) ClearedFields() []string {
 	if m.FieldCleared(auditlog.FieldActor) {
 		fields = append(fields, auditlog.FieldActor)
 	}
+	if m.FieldCleared(auditlog.FieldImpersonatedBy) {
+		fields = append(fields, auditlog.FieldImpersonatedBy)
+	}
 	if m.FieldCleared(auditlog.FieldData) {
 		fields = append(fields, auditlog.FieldData)
 	}
@@ -838,6 +905,9 @@ func (m *AuditLogMutation) ClearField(name string) error {
 		return nil
 	case auditlog.FieldActor:
 		m.ClearActor()
+		return nil
+	case auditlog.FieldImpersonatedBy:
+		m.ClearImpersonatedBy()
 		return nil
 	case auditlog.FieldData:
 		m.ClearData()
@@ -873,6 +943,9 @@ func (m *AuditLogMutation) ResetField(name string) error {
 		return nil
 	case auditlog.FieldActor:
 		m.ResetActor()
+		return nil
+	case auditlog.FieldImpersonatedBy:
+		m.ResetImpersonatedBy()
 		return nil
 	case auditlog.FieldData:
 		m.ResetData()
