@@ -9,6 +9,46 @@ import (
 )
 
 var (
+	// APIKeysColumns holds the columns for the "api_keys" table.
+	APIKeysColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "key_id", Type: field.TypeString, Unique: true},
+		{Name: "secret_hash", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+		{Name: "last_used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "revoked", Type: field.TypeBool, Default: false},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// APIKeysTable holds the schema information for the "api_keys" table.
+	APIKeysTable = &schema.Table{
+		Name:       "api_keys",
+		Columns:    APIKeysColumns,
+		PrimaryKey: []*schema.Column{APIKeysColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "api_keys_users_apiKeys",
+				Columns:    []*schema.Column{APIKeysColumns[10]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "apikey_key_id",
+				Unique:  true,
+				Columns: []*schema.Column{APIKeysColumns[5]},
+			},
+			{
+				Name:    "apikey_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{APIKeysColumns[10]},
+			},
+		},
+	}
 	// AuditLogsColumns holds the columns for the "audit_logs" table.
 	AuditLogsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -489,6 +529,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		APIKeysTable,
 		AuditLogsTable,
 		CamerasTable,
 		ImagesTable,
@@ -504,6 +545,7 @@ var (
 )
 
 func init() {
+	APIKeysTable.ForeignKeys[0].RefTable = UsersTable
 	CamerasTable.ForeignKeys[0].RefTable = UsersTable
 	ImagesTable.ForeignKeys[0].RefTable = CamerasTable
 	ImagesTable.ForeignKeys[1].RefTable = ProjectsTable

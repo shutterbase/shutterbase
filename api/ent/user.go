@@ -71,9 +71,11 @@ type UserEdges struct {
 	ProjectAssignments []*ProjectAssignment `json:"projectAssignments,omitempty"`
 	// ActiveProject holds the value of the activeProject edge.
 	ActiveProject *Project `json:"activeProject,omitempty"`
+	// ApiKeys holds the value of the apiKeys edge.
+	ApiKeys []*ApiKey `json:"apiKeys,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // CamerasOrErr returns the Cameras value or an error if the edge
@@ -121,6 +123,15 @@ func (e UserEdges) ActiveProjectOrErr() (*Project, error) {
 		return nil, &NotFoundError{label: project.Label}
 	}
 	return nil, &NotLoadedError{edge: "activeProject"}
+}
+
+// ApiKeysOrErr returns the ApiKeys value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) ApiKeysOrErr() ([]*ApiKey, error) {
+	if e.loadedTypes[5] {
+		return e.ApiKeys, nil
+	}
+	return nil, &NotLoadedError{edge: "apiKeys"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -300,6 +311,11 @@ func (_m *User) QueryProjectAssignments() *ProjectAssignmentQuery {
 // QueryActiveProject queries the "activeProject" edge of the User entity.
 func (_m *User) QueryActiveProject() *ProjectQuery {
 	return NewUserClient(_m.config).QueryActiveProject(_m)
+}
+
+// QueryApiKeys queries the "apiKeys" edge of the User entity.
+func (_m *User) QueryApiKeys() *ApiKeyQuery {
+	return NewUserClient(_m.config).QueryApiKeys(_m)
 }
 
 // Update returns a builder for updating this User.

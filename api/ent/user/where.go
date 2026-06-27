@@ -1066,6 +1066,29 @@ func HasActiveProjectWith(preds ...predicate.Project) predicate.User {
 	})
 }
 
+// HasApiKeys applies the HasEdge predicate on the "apiKeys" edge.
+func HasApiKeys() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ApiKeysTable, ApiKeysColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasApiKeysWith applies the HasEdge predicate on the "apiKeys" edge with a given conditions (other predicates).
+func HasApiKeysWith(preds ...predicate.ApiKey) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newApiKeysStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.User) predicate.User {
 	return predicate.User(sql.AndPredicates(predicates...))

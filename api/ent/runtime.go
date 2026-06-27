@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
@@ -24,6 +25,41 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	apikeyMixin := schema.ApiKey{}.Mixin()
+	apikeyMixinFields0 := apikeyMixin[0].Fields()
+	_ = apikeyMixinFields0
+	apikeyMixinFields1 := apikeyMixin[1].Fields()
+	_ = apikeyMixinFields1
+	apikeyFields := schema.ApiKey{}.Fields()
+	_ = apikeyFields
+	// apikeyDescCreatedAt is the schema descriptor for createdAt field.
+	apikeyDescCreatedAt := apikeyMixinFields1[0].Descriptor()
+	// apikey.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	apikey.DefaultCreatedAt = apikeyDescCreatedAt.Default.(func() time.Time)
+	// apikeyDescUpdatedAt is the schema descriptor for updatedAt field.
+	apikeyDescUpdatedAt := apikeyMixinFields1[1].Descriptor()
+	// apikey.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	apikey.DefaultUpdatedAt = apikeyDescUpdatedAt.Default.(func() time.Time)
+	// apikey.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	apikey.UpdateDefaultUpdatedAt = apikeyDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// apikeyDescKeyId is the schema descriptor for keyId field.
+	apikeyDescKeyId := apikeyFields[0].Descriptor()
+	// apikey.KeyIdValidator is a validator for the "keyId" field. It is called by the builders before save.
+	apikey.KeyIdValidator = apikeyDescKeyId.Validators[0].(func(string) error)
+	// apikeyDescName is the schema descriptor for name field.
+	apikeyDescName := apikeyFields[2].Descriptor()
+	// apikey.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	apikey.NameValidator = apikeyDescName.Validators[0].(func(string) error)
+	// apikeyDescRevoked is the schema descriptor for revoked field.
+	apikeyDescRevoked := apikeyFields[5].Descriptor()
+	// apikey.DefaultRevoked holds the default value on creation for the revoked field.
+	apikey.DefaultRevoked = apikeyDescRevoked.Default.(bool)
+	// apikeyDescID is the schema descriptor for id field.
+	apikeyDescID := apikeyMixinFields0[0].Descriptor()
+	// apikey.DefaultID holds the default value on creation for the id field.
+	apikey.DefaultID = apikeyDescID.Default.(func() string)
+	// apikey.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	apikey.IDValidator = apikeyDescID.Validators[0].(func(string) error)
 	auditlogMixin := schema.AuditLog{}.Mixin()
 	auditlogMixinFields0 := auditlogMixin[0].Fields()
 	_ = auditlogMixinFields0

@@ -45,6 +45,7 @@ func (User) Edges() []ent.Edge {
 		edge.To("images", Image.Type),
 		edge.To("projectAssignments", ProjectAssignment.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("activeProject", Project.Type).Field("active_project_id").Unique(),
+		edge.To("apiKeys", ApiKey.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }
 
