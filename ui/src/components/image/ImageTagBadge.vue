@@ -1,6 +1,6 @@
 <template>
   <span @click="emit('remove', tagAssignment)" :class="[`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset`, tagColor, removableClasses()]">{{
-    tagAssignment.expand.imageTag.name
+    tagAssignment.tag.name
   }}</span>
 </template>
 <script lang="ts" setup>
@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<Props>(), {
   removable: false,
 });
 
-const tagType = props.tagAssignment.expand.imageTag.type;
+const tagType = props.tagAssignment.tag.type;
 
 const emit = defineEmits<{
   remove: [ImageTagAssignmentType];

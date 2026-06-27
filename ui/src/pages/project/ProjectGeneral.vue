@@ -36,7 +36,7 @@ import { useRoute } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import DetailEditGroup, { Field, FieldType, EditData } from "src/components/DetailEditGroup.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { capitalize } from "src/util/stringUtils";
 import { useUserStore } from "src/stores/user-store";
@@ -62,7 +62,7 @@ async function loadItem() {
 
   try {
     console.log(`Loading ${ITEM_NAME} ${itemId}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getOne(itemId);
+    const response = await api.projects.get(itemId);
     item.value = response;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -81,7 +81,7 @@ async function saveItem(editData: EditData<ITEM_TYPE>) {
 
   try {
     console.log(`Saving ${ITEM_NAME} ${item.value.id}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).update(item.value.id, editData);
+    const response = await api.projects.update(item.value.id, editData as Partial<ITEM_TYPE>);
     item.value = response;
     showNotificationToast({ headline: `${capitalize(ITEM_NAME)} saved`, type: "success" });
   } catch (error: any) {

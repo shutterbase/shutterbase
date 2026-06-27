@@ -3,7 +3,7 @@
     <div class="sm:flex sm:items-center">
       <div class="sm:flex-auto">
         <h1 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100">
-          <span v-if="userId === pb.authStore.model?.id">Your cameras</span>
+          <span v-if="userId === userStore.user?.id">Your cameras</span>
           <span v-else>Cameras of {{ fullName() }}</span>
         </h1>
         <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">Add and manage cameras here</p>
@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import { Ref, computed, onMounted, ref, watch } from "vue";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import CameraEdit, { CameraEditData } from "src/components/user/CameraEdit.vue";
@@ -48,8 +48,7 @@ const route = useRoute();
 
 const userStore = useUserStore();
 
-type ITEM_TYPE = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
-const ITEM_COLLECTION = "cameras";
+type ITEM_TYPE = CamerasResponse;
 const ITEM_NAME = "camera";
 
 const userId: string = `${route.params.userid}`;
@@ -63,10 +62,7 @@ const items: Ref<ITEM_TYPE[]> = ref([]);
 
 async function requestItems() {
   try {
-    const resultList = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getList(1, 50, {
-      filter: `user='${userId}'`,
-      expand: "time_offsets_via_camera",
-    });
+    const resultList = await api.cameras.list({ userId, limit: 50 });
     items.value = resultList.items;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -84,7 +80,7 @@ async function saveItem(item: CamerasResponse, editData: CameraEditData) {
 
   try {
     console.log(`Saving item ${item.id}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).update(data.id, data);
+    const response = await api.cameras.update(data.id, { name: data.name });
     const index = items.value.findIndex((i) => i.id === item.id);
     items.value[index] = response;
     showNotificationToast({ headline: `${capitalize(ITEM_NAME)} saved`, type: "success" });

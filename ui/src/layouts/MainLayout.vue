@@ -1,5 +1,12 @@
 <template>
   <div class="bg-gray-50 dark:bg-primary-950 min-h-screen flex flex-col">
+    <div v-if="userStore.isImpersonating" class="bg-amber-400 text-amber-950 text-sm font-medium px-4 py-2 flex items-center justify-center gap-x-3 z-40">
+      <span>
+        Impersonating <b>{{ userStore.user?.firstName }} {{ userStore.user?.lastName }}</b>
+        &mdash; signed in as {{ userStore.impersonating?.realUserName }}
+      </span>
+      <button @click="stopImpersonate" class="rounded-md bg-amber-950 text-amber-50 px-3 py-1 text-xs font-semibold hover:bg-amber-900">Stop impersonating</button>
+    </div>
     <Disclosure as="nav" class="bg-gray-50 dark:bg-primary-900" v-slot="{ open }">
       <div class="mx-auto max-w-7xl w-full px-2 sm:px-6 lg:px-8">
         <div class="relative flex h-16 items-center justify-between">
@@ -90,6 +97,11 @@ const route = useRoute();
 
 type NavigationItem = { name: string; href: string; current: boolean };
 const navigation: Ref<NavigationItem[]> = ref([]);
+
+async function stopImpersonate() {
+  await userStore.stopImpersonate();
+  router.go(0); // reload to refresh effective-user-scoped data
+}
 
 function calculateNavigationItems() {
   const navigationItems = [] as NavigationItem[];

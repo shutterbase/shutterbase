@@ -3,7 +3,7 @@ import { RouteRecordName, createMemoryHistory, createRouter, createWebHashHistor
 
 import routes from "./routes";
 
-import pb from "src/boot/pocketbase";
+import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
 
 /*
@@ -32,7 +32,20 @@ export default route(function (/* { store, ssrContext } */) {
   Router.beforeEach(async (to, from) => {
     emitter.emit("router:change", { to, from });
     const toName = to.name || "";
-    if (!pb.authStore.isValid && !PUBLIC_PAGES.includes(toName)) {
+    if (PUBLIC_PAGES.includes(toName)) {
+      return;
+    }
+    const userStore = useUserStore();
+    if (!userStore.isAuthenticated) {
+      // Cookie session may exist server-side even though the SPA just booted —
+      // probe /users/me once before bouncing to login.
+      try {
+        await userStore.load();
+      } catch {
+        // not authenticated
+      }
+    }
+    if (!userStore.isAuthenticated) {
       return { name: "login" };
     }
   });

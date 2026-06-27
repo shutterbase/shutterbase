@@ -27,10 +27,10 @@ import { dateTimeFromBackend } from "src/util/dateTimeUtil";
 import { ClockIcon } from "@heroicons/vue/24/outline";
 import { CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
 import { onMounted, ref, watch } from "vue";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 
-type CameraType = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
+type CameraType = CamerasResponse;
 
 interface Props {
   camera: CameraType;
@@ -42,8 +42,12 @@ const timeOffsets = ref<TimeOffsetsResponse[]>([]);
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
 
-function setTimeOffsets() {
-  timeOffsets.value = props.camera.expand?.time_offsets_via_camera || [];
+async function setTimeOffsets() {
+  if (!props.camera?.id) {
+    timeOffsets.value = [];
+    return;
+  }
+  timeOffsets.value = (await api.timeOffsets.list({ cameraId: props.camera.id, limit: 100 })).items;
 }
 
 async function deleteTimeOffset(timeOffset: TimeOffsetsResponse) {
@@ -53,7 +57,7 @@ async function deleteTimeOffset(timeOffset: TimeOffsetsResponse) {
   }
 
   try {
-    await pb.collection<TimeOffsetsResponse>("time_offsets").delete(timeOffset.id);
+    await api.timeOffsets.remove(timeOffset.id);
     timeOffsets.value = timeOffsets.value.filter((e) => e.id !== timeOffset.id);
     showNotificationToast({ headline: `Time offset deleted`, type: "success" });
   } catch (error: any) {

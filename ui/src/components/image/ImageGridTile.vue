@@ -43,7 +43,6 @@ const emit = defineEmits<{
 }>();
 
 function getTagsList(image: ImageWithTagsType) {
-  const imageTagAssignments = image.expand?.image_tag_assignments_via_image || [];
-  return imageTagAssignments.map((imageTagAssignment: ImageTagAssignmentType) => imageTagAssignment.expand.imageTag.name).join(", ");
+  return (image.tags || []).map((assignment: ImageTagAssignmentType) => assignment.tag.name).join(", ");
 }
 </script>

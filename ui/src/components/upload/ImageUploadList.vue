@@ -66,8 +66,9 @@
 import { Ref, computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
-import { UploadsResponse, CamerasResponse, TimeOffsetsResponse, UsersResponse, ImagesResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { UploadsResponse } from "src/types/pocketbase";
+import { TimeOffset } from "src/types/api";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
@@ -81,8 +82,7 @@ const tableHeaderClasses =
 
 const tableCellClasses = "whitespace-nowrap border-b border-gray-200 px-2 py-2 pr-3 text-sm font-medium text-gray-900 dark:text-gray-100 sm:pl-6 lg:pl-8";
 
-type CameraType = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
-type UploadType = UploadsResponse & { expand?: { camera: CameraType; user: UsersResponse; images_via_upload: ImagesResponse[] } };
+type UploadType = UploadsResponse;
 
 interface Props {
   upload: UploadType;
@@ -104,14 +104,20 @@ const displayedImages = computed(() => {
   return [...uploadedImages.value, ...images.value];
 });
 
+const cameraTimeOffsets = ref<TimeOffset[]>([]);
 const timeOffsets = computed(() => {
-  const cameraTimeOffsets = props.upload.expand?.camera.expand?.time_offsets_via_camera || [];
-  return cameraTimeOffsets.map((timeOffset) => ({
+  return cameraTimeOffsets.value.map((timeOffset) => ({
     free: (): void => {},
     time_offset: BigInt(timeOffset.timeOffset),
     server_time: BigInt(dateTimeUtil.parseBackendTime(timeOffset.serverTime).getTime() / 1000),
     camera_time: BigInt(dateTimeUtil.parseBackendTime(timeOffset.cameraTime).getTime() / 1000),
   }));
+});
+
+onMounted(async () => {
+  if (props.upload.camera?.id) {
+    cameraTimeOffsets.value = (await api.timeOffsets.list({ cameraId: props.upload.camera.id, limit: 50 })).items;
+  }
 });
 
 const fileProcessor = new FileProcessor(upload, images, timeOffsets);
@@ -133,9 +139,7 @@ async function updateFiles(files: File[]) {
 onMounted(requestImages);
 async function requestImages() {
   try {
-    const resultList = await pb.collection<ImagesResponse>("images").getList(1, 1000, {
-      filter: `(upload='${upload.value.id}')`,
-    });
+    const resultList = await api.images.list({ projectId: upload.value.project.id, uploadId: upload.value.id, limit: 1000 });
     uploadedImages.value = resultList.items.map(newImageFromBackendImage);
   } catch (error: any) {
     unexpectedError.value = error;
@@ -163,7 +167,7 @@ function deleteItem(item: Image): void {
   }
 
   try {
-    pb.collection<ImagesResponse>("images").delete(item.id);
+    api.images.remove(item.id);
     uploadedImages.value = uploadedImages.value.filter((i) => i.id !== item.id);
     images.value = images.value.filter((i) => i.id !== item.id);
     showNotificationToast({ headline: `Image deleted`, type: "success" });

@@ -17,7 +17,7 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
 
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 const route = useRoute();
 
 type ProjectStatistics = {
@@ -40,8 +40,7 @@ async function loadData() {
 
   try {
     console.log(`Loading project statistics for  ${projectId}`);
-    const response = await pb.send<ProjectStatistics>(`/api/statistics/${projectId}`, {});
-    console.log(response);
+    const response = (await api.statistics.project(projectId)) as ProjectStatistics;
     response.tags.sort((a, b) => b.count - a.count);
     response.tags = response.tags.map(trimTagDescription);
     imageTagStatistics.value = response.tags;

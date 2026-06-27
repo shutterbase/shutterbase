@@ -110,7 +110,6 @@
 </template>
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import pb from "src/boot/pocketbase";
 import * as EmailValidator from "email-validator";
 import { zxcvbn } from "zxcvbn-typescript";
 import { useRouter } from "vue-router";
@@ -215,39 +214,12 @@ function validate() {
   return valid;
 }
 
+// Self-signup is removed in the REST rewrite (§4.12: POST /users is admin-only).
+// Accounts are provisioned by an administrator; this form now points users there.
 async function signup() {
   if (!validate()) {
     return;
   }
-
-  const data = {
-    email: email.value,
-    emailVisibility: true,
-    password: password.value,
-    passwordConfirm: passwordConfirmation.value,
-    firstName: firstName.value,
-    lastName: lastName.value,
-  };
-
-  try {
-    const record = await pb.collection("users").create(data);
-    await pb.collection("users").requestVerification(email.value);
-    if (record) {
-      showSuccessMessage.value = true;
-    }
-  } catch (error: any) {
-    if (error.originalError?.data?.data?.email) {
-      emailErrorMessage.value = error.originalError?.data?.data?.email.message;
-      return;
-    }
-    if (error.originalError?.data?.data?.firstName?.code === "validation_not_unique" && error.originalError?.data?.data?.lastName?.code === "validation_not_unique") {
-      firstNameErrorMessage.value = "A user with this name already exists";
-      lastNameErrorMessage.value = "A user with this name already exists";
-      return;
-    }
-
-    unexpectedError.value = error;
-    showUnexpectedErrorMessage.value = true;
-  }
+  emailErrorMessage.value = "Self-signup is disabled. Please ask an administrator to create your account.";
 }
 </script>

@@ -1,18 +1,21 @@
-import pb from "src/boot/pocketbase";
 import { useUserStore } from "src/stores/user-store";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
-import { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
-import { ImageTagAssignmentType, ImageWithTagsType } from "src/types/custom";
-import { ImageTagsResponse } from "src/types/pocketbase";
+import { api } from "src/api";
+import { ImageTag } from "src/types/api";
+import { ImageWithTagsType } from "src/types/custom";
+import { buildImageListParams } from "src/pages/image/imageListParams";
 import { emitter } from "src/boot/mitt";
 import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
-import { dateTimeToBackendString } from "src/util/dateTimeUtil";
+
+export { buildImageListParams };
 
 export enum DisplayMode {
   GRID = "grid",
   DETAIL = "detail",
 }
+
+const PAGE_SIZE = 20;
 
 export const { activeProject, preferredImageSortOrder, tagStack } = storeToRefs(useUserStore());
 
@@ -40,14 +43,13 @@ export function updateSearchText(text: string) {
   searchText.value = text;
 }
 
-export const filterTags = ref<ImageTagsResponse[]>([]);
-export function updateFilterTags(tags: ImageTagsResponse[]) {
+export const filterTags = ref<ImageTag[]>([]);
+export function updateFilterTags(tags: ImageTag[]) {
   filterTags.value = tags;
 }
 
 export const aspectRatioFilter = ref("neutral");
 export function updateAspectRatioFilter(aspectRatioState: string) {
-  console.log("Updating aspect ratio filter to:", aspectRatioState);
   aspectRatioFilter.value = aspectRatioState;
 }
 
@@ -57,68 +59,26 @@ export async function triggerInfiniteScroll() {
   }
 }
 
-function getFilter() {
-  const and = [];
-  and.push(`project='${activeProject.value.id}'`);
-
-  if (searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral") {
-    filtered.value = true;
-  } else {
-    filtered.value = false;
-  }
-
-  if (searchText.value) {
-    and.push(`(computedFileName ~ '${searchText.value}' || fileName ~ '%${searchText.value}%')`);
-  }
-
-  if (filterTags.value.length > 0) {
-    const tagFilters = [];
-    for (const tag of filterTags.value) {
-      tagFilters.push(`imageTags?~"${tag.id}"`);
-    }
-    and.push(`(${tagFilters.join(" && ")})`);
-  }
-
-  if (aspectRatioFilter.value !== "neutral") {
-    switch (aspectRatioFilter.value) {
-      case "portrait":
-        and.push("width < height");
-        break;
-      case "landscape":
-        and.push("width > height");
-        break;
-    }
-  }
-
-  return `(${and.join(" && ")})`;
-}
-
-function getSort() {
-  switch (preferredImageSortOrder.value) {
-    case SORT_ORDER.LATEST_FIRST:
-      return "-capturedAtCorrected";
-    case SORT_ORDER.OLDEST_FIRST:
-      return "capturedAtCorrected";
-    case SORT_ORDER.MOST_RECENTLY_UPDATED:
-      return "-updated";
-    case SORT_ORDER.LEAST_RECENTLY_UPDATED:
-      return "updated";
-    default:
-      return "-capturedAtCorrected";
-  }
-}
-
 export async function loadImages(reload: boolean) {
   if (loading.value) return;
   loading.value = true;
   try {
     if (reload) page.value = 1;
-    const result = await pb.collection<ImageWithTagsType>("images").getList(page.value, 20, {
-      filter: getFilter(),
-      sort: getSort(),
-      expand: "camera, user, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag",
+
+    filtered.value = !!searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral";
+
+    const params = buildImageListParams({
+      projectId: activeProject.value.id,
+      search: searchText.value,
+      tags: filterTags.value,
+      orientation: aspectRatioFilter.value,
+      sortOrder: preferredImageSortOrder.value,
+      limit: PAGE_SIZE,
+      offset: (page.value - 1) * PAGE_SIZE,
     });
-    totalImageCount.value = result.totalItems;
+
+    const result = await api.images.list(params);
+    totalImageCount.value = result.total;
     page.value++;
 
     if (reload) {
@@ -133,33 +93,32 @@ export async function loadImages(reload: boolean) {
   }
 }
 
-export async function addImageTag(image: ImageWithTagsType, tag: ImageTagsResponse) {
-  const applyTag = async (image: ImageWithTagsType, tag: ImageTagsResponse) => {
-    const result = await pb.collection("image_tag_assignments").create<ImageTagAssignmentType>({
-      image: image.id,
-      imageTag: tag.id,
+export async function addImageTag(image: ImageWithTagsType, tag: ImageTag) {
+  const applyTag = async (image: ImageWithTagsType, tag: ImageTag) => {
+    const assignment = await api.imageTagAssignments.create({
+      imageId: image.id,
+      imageTagId: tag.id,
       type: "manual",
     });
-    result.expand = { imageTag: tag };
     const editedImageIndex = images.value.findIndex((i) => i.id === image.id);
-    images.value[editedImageIndex].expand.image_tag_assignments_via_image.push(result);
-    images.value[editedImageIndex].updated = dateTimeToBackendString(new Date());
+    images.value[editedImageIndex].tags.push(assignment);
+    images.value[editedImageIndex].updatedAt = new Date().toISOString();
   };
 
   try {
-    let imageApplyList: ImageWithTagsType[] = [];
-    for (const imageIndex of imageIndices.value) {
-      const i = images.value[imageIndex];
-      if (!i.expand.image_tag_assignments_via_image.some((imageTagAssignment) => imageTagAssignment.imageTag === tag.id)) {
-        imageApplyList.push(images.value[imageIndex]);
+    const imageApplyList: ImageWithTagsType[] = [];
+    for (const idx of imageIndices.value) {
+      const i = images.value[idx];
+      if (!i.tags.some((a) => a.tag.id === tag.id)) {
+        imageApplyList.push(images.value[idx]);
       }
     }
     if (image !== null && !imageApplyList.includes(image)) {
       imageApplyList.push(image);
     }
 
-    for (const image of imageApplyList) {
-      await applyTag(image, tag);
+    for (const img of imageApplyList) {
+      await applyTag(img, tag);
     }
     emitter.emit("reset-tagging-dialog");
   } catch (error: any) {
@@ -246,7 +205,7 @@ function repeatLastTagAssignment(event: HotkeyEvent) {
     return;
   }
 
-  if (image.expand.image_tag_assignments_via_image.some((i) => i.imageTag === lastAppliedTag.id)) {
+  if (image.tags.some((a) => a.tag.id === lastAppliedTag.id)) {
     return;
   }
   addImageTag(image, lastAppliedTag);

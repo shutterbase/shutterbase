@@ -37,12 +37,12 @@
         </div>
         <div class="pb-2">
           <p class="text-sm font-medium">Uploaded</p>
-          <p class="text-sm">{{ dateTimeFromBackend(item.created) }}</p>
-          <p class="text-sm">by {{ item.expand.user.firstName }} {{ item.expand.user.lastName }}</p>
+          <p class="text-sm">{{ dateTimeFromBackend(item.createdAt) }}</p>
+          <p class="text-sm">by {{ item.user.firstName }} {{ item.user.lastName }}</p>
         </div>
         <div class="pb-2">
           <p class="text-sm font-medium">Updated</p>
-          <p class="text-sm">{{ dateTimeFromBackend(item.updated) }}</p>
+          <p class="text-sm">{{ dateTimeFromBackend(item.updatedAt) }}</p>
         </div>
         <p v-if="imageCanBeDeleted()" @click="showDeleteImageDialog" class="text-sm text-bold underline cursor-pointer">delete</p>
       </div>
@@ -148,8 +148,7 @@ import { ref, computed } from "vue";
 import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 import { emitter, showNotificationToast } from "src/boot/mitt";
 import { downloadImage } from "src/util/download";
-import pb from "src/boot/pocketbase";
-import { dateTimeToBackendString } from "src/util/dateTimeUtil";
+import { api } from "src/api";
 import { useUserStore } from "src/stores/user-store";
 import { ImagesResponse } from "src/types/pocketbase";
 import Clipboard from "src/components/Clipboard.vue";
@@ -169,13 +168,13 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {});
 
 const tagAssignments = computed(() => {
-  return props.item?.expand.image_tag_assignments_via_image || [];
+  return props.item?.tags || [];
 });
 
 function removable(tagAssignment: ImageTagAssignmentType): boolean {
-  const isOwnImage = props.item?.user === userStore.user.id;
+  const isOwnImage = props.item?.user.id === userStore.user?.id;
   const isProjectAdminOrHigher = userStore.isProjectAdminOrHigher();
-  if (tagAssignment.expand.imageTag.type === "default") {
+  if (tagAssignment.tag.type === "default") {
     return isProjectAdminOrHigher;
   } else {
     return isOwnImage || isProjectAdminOrHigher;
@@ -183,16 +182,16 @@ function removable(tagAssignment: ImageTagAssignmentType): boolean {
 }
 
 function tagsCanBeAdded(): boolean {
-  return userStore.isProjectAdminOrHigher() || props.item?.user === userStore.user.id;
+  return userStore.isProjectAdminOrHigher() || props.item?.user.id === userStore.user?.id;
 }
 
 function imageCanBeDeleted(): boolean {
-  return userStore.isProjectAdminOrHigher() || props.item?.user === userStore.user.id;
+  return userStore.isProjectAdminOrHigher() || props.item?.user.id === userStore.user?.id;
 }
 
-// remove review tag if set 
+// remove review tag if set
 onHotkey({ key: "p", modifierKeys: [] }, () => {
-  const reviewTag = tagAssignments.value.find((ta) => ta.expand.imageTag.name === "review");
+  const reviewTag = tagAssignments.value.find((ta) => ta.tag.name === "review");
   if (reviewTag) {
     removeTag(reviewTag);
   }
@@ -202,21 +201,21 @@ async function removeTag(tagAssignment: ImageTagAssignmentType) {
     return;
   }
   try {
-    await pb.collection("image_tag_assignments").delete(tagAssignment.id);
+    await api.imageTagAssignments.remove(tagAssignment.id);
     emitter.emit(`notification`, {
-      headline: `Tag ${tagAssignment.expand.imageTag.name} removed`,
+      headline: `Tag ${tagAssignment.tag.name} removed`,
       type: "success",
     });
     if (props.item) {
-      props.item.expand.image_tag_assignments_via_image.splice(
-        props.item.expand.image_tag_assignments_via_image.findIndex((ta) => ta.id === tagAssignment.id),
+      props.item.tags.splice(
+        props.item.tags.findIndex((ta) => ta.id === tagAssignment.id),
         1
       );
-      props.item.updated = dateTimeToBackendString(new Date());
+      props.item.updatedAt = new Date().toISOString();
     }
   } catch (error: any) {
     emitter.emit(`notification`, {
-      headline: `Error removing tag ${tagAssignment.expand.imageTag.name}`,
+      headline: `Error removing tag ${tagAssignment.tag.name}`,
       type: "error",
     });
   }
@@ -235,7 +234,7 @@ function confirmDeleteImage() {
   }
 
   try {
-    pb.collection<ImagesResponse>("images").delete(deleteCandidate.value.id);
+    api.images.remove(deleteCandidate.value.id);
     showNotificationToast({ headline: `Image deleted`, type: "success" });
     emitter.emit("current-image-deleted", deleteCandidate.value.id);
   } catch (error: any) {

@@ -22,8 +22,8 @@ import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import FileDropzone from "src/components/FileDropzone.vue";
 import CreateGroup, { Field, FieldType, CreateData } from "src/components/CreateGroup.vue";
-import { UploadsResponse, CamerasResponse, TimeOffsetsResponse, UsersResponse, ImagesResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { UploadsResponse } from "src/types/pocketbase";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
@@ -36,12 +36,12 @@ import { isUploadReadOnly, showUploadEdit } from "./uploadUtil";
 const router = useRouter();
 const route = useRoute();
 
-const { activeProject } = storeToRefs(useUserStore());
-const userId: string = pb.authStore.model?.id;
+const userStore = useUserStore();
+const { activeProject } = storeToRefs(userStore);
+const userId: string = userStore.user?.id || "";
 const id: string = `${route.params.id}`;
 
-type CameraType = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
-type UploadType = UploadsResponse & { expand?: { camera: CameraType; user: UsersResponse; images_via_upload: ImagesResponse[] } };
+type UploadType = UploadsResponse;
 const upload = ref<UploadType | null>(null);
 
 const showUnexpectedErrorMessage = ref(false);
@@ -49,9 +49,7 @@ const unexpectedError = ref(null);
 
 async function getUpload() {
   try {
-    const result = await pb.collection<UploadType>("uploads").getOne(id, {
-      expand: "camera,camera.time_offsets_via_camera,user,images_via_upload",
-    });
+    const result = await api.uploads.get(id);
     upload.value = result;
   } catch (error: any) {
     unexpectedError.value = error;

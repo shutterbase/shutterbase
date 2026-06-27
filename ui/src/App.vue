@@ -11,10 +11,13 @@ const userStore = useUserStore();
 
 onMounted(async () => {
   document.addEventListener("keydown", keyEventHandler);
+  // load the effective user first so the active project is known, then tags
+  if (!userStore.isAuthenticated) {
+    await userStore.loadUser();
+  }
+  userStore.startUserFetching();
   await userStore.loadProjectTags();
   userStore.startProjectTagFetching();
-  await userStore.loadUser();
-  userStore.startUserFetching();
 });
 onUnmounted(() => {
   document.removeEventListener("keydown", keyEventHandler);

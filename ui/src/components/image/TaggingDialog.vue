@@ -162,9 +162,9 @@ import { emitter } from "src/boot/mitt";
 import { debug } from "src/util/logger";
 import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
 import { Image } from "src/util/fileProcessor";
-import { ImageTagsRecord, ImageTagsResponse } from "src/types/pocketbase";
+import { ImageTagsResponse } from "src/types/pocketbase";
 import { tagStack } from "src/pages/image/imageQueryLogic";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 
 interface Props {
   image: ImageWithTagsType | null;
@@ -197,7 +197,7 @@ const filteredTags = computed(() => {
     if (tag.type === "default" && !userStore.isProjectAdminOrHigher()) {
       return false;
     }
-    if (props.image?.expand.image_tag_assignments_via_image?.some((assignment) => assignment.imageTag === tag.id)) {
+    if (props.image?.tags?.some((assignment) => assignment.tag.id === tag.id)) {
       return false;
     }
     if (tag.name.toLowerCase().includes(searchText.value.toLowerCase())) {
@@ -221,7 +221,7 @@ const recentTags = computed(() => {
     if (tag.type === "default" || tag.type === "template") {
       return false;
     }
-    if (props.image?.expand.image_tag_assignments_via_image?.some((assignment) => assignment.imageTag === tag.id)) {
+    if (props.image?.tags?.some((assignment) => assignment.tag.id === tag.id)) {
       return false;
     }
     return true;
@@ -286,11 +286,11 @@ async function createCustomTag() {
     return;
   }
   try {
-    const createdTag = await pb.collection<ImageTagsResponse>("image_tags").create({
+    const createdTag = await api.imageTags.create({
       name: searchText.value,
       description: `Custom tag '${searchText.value}'`,
       type: "custom",
-      project: props.image.project,
+      projectId: props.image.project.id,
     });
     userStore.projectTags.push(createdTag);
     acceptTag(createdTag);

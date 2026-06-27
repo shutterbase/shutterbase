@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { Ref, computed, onMounted, ref, watch } from "vue";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { ProjectsResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { storeToRefs } from "pinia";
@@ -54,7 +54,7 @@ const activeProjectText = computed(() => {
 
 async function requestItems() {
   try {
-    const resultList = await pb.collection<ProjectsResponse>("projects").getList(1, 50, {});
+    const resultList = await api.projects.list({ limit: 50 });
     items.value = resultList.items;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -63,13 +63,8 @@ async function requestItems() {
 }
 
 async function activateProject(item: ProjectsResponse) {
-  const userId = pb.authStore.model?.id;
-  if (!userId) {
-    return;
-  }
-
   try {
-    await pb.collection("users").update(userId, { activeProject: item.id });
+    await api.users.setActiveProject(item.id);
     userStore.setProject(item);
   } catch (error: any) {
     unexpectedError.value = error;
