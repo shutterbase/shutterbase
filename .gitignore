@@ -154,6 +154,9 @@ docs/_book
 
 # TODO: where does this rule come from?
 test/
+# but the Go API test harness lives at api/test/ and must be tracked
+!api/test/
+!api/test/**
 
 ### Vuejs ###
 # Recommended template: Node.gitignore

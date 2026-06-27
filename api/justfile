@@ -1,0 +1,30 @@
+# Shutterbase API test/dev recipes. Run from the api/ directory.
+# Tiers per REWRITE-SPEC "Test harness": unit (no containers), e2e (testcontainers),
+# ui (Playwright — lands with the frontend story).
+
+# default: list recipes
+default:
+    @just --list
+
+# Unit tier: no containers. ent enttest+SQLite + mocked S3/inference where relevant.
+test-unit:
+    go test ./...
+
+# API e2e tier: testcontainers psql + rustfs (minio fallback). Requires Docker.
+test-e2e:
+    go test -tags e2e -count=1 -timeout 600s ./test/e2e/...
+
+# Full Go test run: unit + e2e.
+test: test-unit test-e2e
+
+# UI e2e tier (Playwright). Placeholder — lands with the frontend story (S13/S14).
+test-ui:
+    @echo "test-ui: Playwright UI e2e arrives with the frontend story (cmd/testserver is ready)."
+
+# go build sanity.
+build:
+    go build ./...
+
+# Seed the configured Postgres with the time-relative fixtures (dev quick-action).
+seed:
+    go run ./cmd/seed
