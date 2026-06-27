@@ -4,24 +4,31 @@ use js_sys::Uint8Array;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Blob, Request, RequestInit, RequestMode, Response, XmlHttpRequest, XmlHttpRequestUpload};
+use web_sys::{Blob, Request, RequestCredentials, RequestInit, RequestMode, Response, XmlHttpRequest, XmlHttpRequestUpload};
 
 #[derive(Serialize, Deserialize)]
 pub struct UploadUrlResponse {
     url: String,
 }
 
+// api_url is "/api/v1" (S13), so this resolves to "/api/v1/upload-url?name=...".
+fn upload_url_endpoint(api_url: &str, file_name: &str) -> String {
+    format!("{}/upload-url?name={}", api_url, file_name)
+}
+
 pub async fn get_upload_url(api_url: &str, auth_token: &str, file_name: &str) -> Result<String, JsValue> {
+    let _ = auth_token; // dead: cookie-session auth; param removed in Phase 2
     debug(&format!("Getting upload url for {}", file_name));
 
     let mut opts = RequestInit::new();
     opts.method("GET");
     opts.mode(RequestMode::Cors);
+    // Send the same-origin session cookie instead of a bearer header (REWRITE-SPEC §4.13).
+    opts.credentials(RequestCredentials::Include);
 
-    let url = format!("{}/upload-url?name={}", api_url, file_name);
+    let url = upload_url_endpoint(api_url, file_name);
 
     let request = Request::new_with_str_and_init(&url, &opts)?;
-    request.headers().set("Authorization", auth_token)?;
 
     let window = web_sys::window().unwrap();
     let response: Response = match JsFuture::from(window.fetch_with_request(&request)).await {
@@ -144,4 +151,22 @@ pub async fn upload_file_with_progress(data: &Vec<u8>, total_upload_size: &usize
     JsFuture::from(promise).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // S14: with api_url="/api/v1" (S13) the request hits the cookie-auth presigned endpoint.
+    #[test]
+    fn endpoint_targets_api_v1_upload_url() {
+        assert_eq!(
+            upload_url_endpoint("/api/v1", "ab/00000000-0000-0000-0000-000000000000.jpg"),
+            "/api/v1/upload-url?name=ab/00000000-0000-0000-0000-000000000000.jpg"
+        );
+    }
+
+    // DEFERRED (S14, browser-bound): asserting RequestInit carries credentials:include and
+    // no Authorization header needs wasm-bindgen-test with a headless browser, absent here.
+    // The header set was removed and opts.credentials(RequestCredentials::Include) added above.
 }
