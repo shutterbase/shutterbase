@@ -58,6 +58,24 @@ func (r *Repository) SetImageTags(ctx context.Context, imageID string) error {
 	return tx.Commit()
 }
 
+// SyncImageTags rebuilds the denormalized images.imageTags list for EVERY image
+// from its assignment rows and returns how many images were synced. Backs the
+// maintenance route GET /sync-image-tags (the old util.SyncImageTags). ponytail:
+// one tx per image (reuses SetImageTags); a single bulk statement is the upgrade
+// if image counts ever make this slow.
+func (r *Repository) SyncImageTags(ctx context.Context) (int, error) {
+	ids, err := r.Client.Image.Query().IDs(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for _, id := range ids {
+		if err := r.SetImageTags(ctx, id); err != nil {
+			return 0, err
+		}
+	}
+	return len(ids), nil
+}
+
 func (r *Repository) GetImageTagAssignment(ctx context.Context, id string) (*ent.ImageTagAssignment, error) {
 	item, err := r.Client.ImageTagAssignment.Query().Where(imagetagassignment.IDEQ(id)).Only(ctx)
 	if err != nil && !ent.IsNotFound(err) {

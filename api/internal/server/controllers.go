@@ -18,4 +18,5 @@ func (s *Server) registerAPIRoutes() {
 	s.registerTimeOffsetRoutes(api)
 	s.registerRoleRoutes(api)
 	s.registerUserRoutes(api)
+	s.registerCustomRoutes(api)
 }
