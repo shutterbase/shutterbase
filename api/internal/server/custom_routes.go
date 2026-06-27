@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"regexp"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/exif"
+	"github.com/shutterbase/shutterbase/internal/s3"
 )
 
 // registerCustomRoutes wires the four endpoints PocketBase didn't give for free
@@ -34,7 +36,9 @@ func validUploadKey(name string) bool {
 }
 
 func (s *Server) getUploadURL(c *gin.Context) {
-	// authz (S10): per-user rate limit + ownership binding of the key. Seam only.
+	// S10: per-user rate limit applied in rateLimitMiddleware. Per-upload ownership
+	// binding of the key (the key must belong to the caller's in-flight upload)
+	// remains a Phase-2 seam.
 	name := c.Query("name")
 	if name == "" {
 		apiError(c, http.StatusBadRequest, "missing_name", "name is required")
@@ -62,8 +66,9 @@ var validResolutions = map[string]int{
 	"2048":     2048,
 }
 
-// downloadExifTimeout bounds the exiftool shell-out. ponytail: fixed ctx deadline
-// now; the concurrency semaphore + response-size cap are S10 hardening.
+// downloadExifTimeout bounds the exiftool shell-out (exec.CommandContext kills it
+// when it fires). The concurrency semaphore lives in exif.InjectMetadata and the
+// object-size cap in s3.GetObject (S10 hardening).
 const downloadExifTimeout = 30 * time.Second
 
 func (s *Server) downloadImage(c *gin.Context) {
@@ -87,8 +92,12 @@ func (s *Server) downloadImage(c *gin.Context) {
 	}
 
 	key := GetObjectIds(img.StorageId, s.thumbnailSizes)[size]
-	jpegData, err := s.s3Client.GetObject(c.Request.Context(), key)
+	jpegData, err := s.s3Client.GetObject(c.Request.Context(), key, s.downloadMaxBytes)
 	if err != nil {
+		if errors.Is(err, s3.ErrObjectTooLarge) {
+			apiError(c, http.StatusRequestEntityTooLarge, "object_too_large", "image exceeds the download size cap")
+			return
+		}
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}

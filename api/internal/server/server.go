@@ -14,6 +14,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/authentication"
 	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/event"
+	"github.com/shutterbase/shutterbase/internal/exif"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/s3"
 	"github.com/shutterbase/shutterbase/internal/service"
@@ -54,6 +55,11 @@ type Server struct {
 	thumbnailSizes []int
 	tagCountCache  *expirable.LRU[string, []repository.TagStatistic]
 	bgCancel       context.CancelFunc
+
+	// S10 hardening: CSRF allow-list + token-bucket rate limiters + the /download
+	// object-size cap.
+	hardening        *hardening
+	downloadMaxBytes int64
 }
 
 func NewServer(options *Options) (*Server, error) {
@@ -99,11 +105,21 @@ func NewServer(options *Options) (*Server, error) {
 		ai:             aiService,
 		thumbnailSizes: util.GetThumbnailSizes(),
 		// statistics LRU, 5-min TTL (SPEC §4.13 TagCountCache).
-		tagCountCache: expirable.NewLRU[string, []repository.TagStatistic](256, nil, 5*time.Minute),
+		tagCountCache:    expirable.NewLRU[string, []repository.TagStatistic](256, nil, 5*time.Minute),
+		hardening:        buildHardening(options.ApiBaseURL),
+		downloadMaxBytes: int64(config.Get().Int("DOWNLOAD_MAX_OBJECT_BYTES")),
 	}
+
+	// S10: bound simultaneous exiftool shell-outs (/download) so a burst can't
+	// exhaust the worker pool / memory.
+	exif.SetConcurrency(config.Get().Int("EXIF_MAX_CONCURRENCY"))
 
 	// Public routes are registered before the auth middleware so they bypass it.
 	s.registerPublicRoutes()
+
+	// S10 security middleware (CSRF, dev-gate, default body cap, login rate limit)
+	// installed BEFORE auth so it wraps the login/auth routes too.
+	engine.Use(s.securityMiddleware(options.ApiBaseURL))
 
 	// Setup installs the auth middleware (RequireAuth) and the auth routes;
 	// everything registered after this inherits the middleware.
@@ -120,10 +136,14 @@ func NewServer(options *Options) (*Server, error) {
 		return nil, err
 	}
 
+	// S10 per-user rate limits, installed AFTER auth so util.GetUser is resolved.
+	engine.Use(s.rateLimitMiddleware())
+
 	// CRUD controllers + the WS route, registered after RequireAuth so they are
-	// authenticated. /ws is marked private in the auth path rules.
+	// authenticated. /ws is marked private in the auth path rules. CheckOrigin
+	// plugs the S10 CSRF allow-list into the upgrade (S9 hook).
 	s.registerAPIRoutes()
-	s.ws = event.RegisterWebsocket(engine, &event.Options{})
+	s.ws = event.RegisterWebsocket(engine, &event.Options{CheckOrigin: s.hardening.wsOriginOK})
 
 	// Start the background services (AI drain + WS time-tick) under a server-owned
 	// context cancelled on Shutdown. AIService.Start returns immediately; the WS

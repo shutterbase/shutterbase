@@ -58,7 +58,7 @@ func TestUploadURLRoundTrip(t *testing.T) {
 	require.Equal(t, http.StatusOK, put.StatusCode)
 	put.Body.Close()
 
-	got, err := stack.S3.Client.GetObject(ctx, key)
+	got, err := stack.S3.Client.GetObject(ctx, key, 0)
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }

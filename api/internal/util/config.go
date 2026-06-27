@@ -27,6 +27,24 @@ func InitConfig() error {
 		// ui
 		config.String("UI_PROXY_URL").NotEmpty().Default("http://localhost:9000"),
 
+		// S10 hardening. CSRF_ALLOWED_ORIGINS is an extra comma-separated allow-list
+		// of browser origins (scheme://host[:port] or bare host) layered on top of
+		// the always-allowed same-origin + DOMAIN_NAME + UI_PROXY_URL (DEV Quasar proxy).
+		config.String("CSRF_ALLOWED_ORIGINS").Default(""),
+		// In-memory token-bucket rate limits, requests/minute per user (or per IP for
+		// the unauthenticated login). burst == the per-minute budget. ponytail:
+		// per-instance limiter; swap for a shared store only if multi-replica.
+		config.Int("RATE_LIMIT_LOGIN_PER_MINUTE").Default(20),
+		config.Int("RATE_LIMIT_UPLOAD_URL_PER_MINUTE").Default(300),
+		config.Int("RATE_LIMIT_IMAGE_CREATE_PER_MINUTE").Default(600),
+		config.Int("RATE_LIMIT_DOWNLOAD_PER_MINUTE").Default(120),
+		config.Int("RATE_LIMIT_WS_PER_MINUTE").Default(60),
+		// EXIF_MAX_CONCURRENCY bounds simultaneous exiftool processes (/download).
+		config.Int("EXIF_MAX_CONCURRENCY").Default(4),
+		// DOWNLOAD_MAX_OBJECT_BYTES caps the object /download will read into memory
+		// before shelling it through exiftool (default 128 MiB).
+		config.Int("DOWNLOAD_MAX_OBJECT_BYTES").Default(128 << 20),
+
 		// database (psql for prod, sqlite for unit tests)
 		config.String("DATABASE_TYPE").NotEmpty().Default("psql"), // "psql" or "sqlite"
 		config.String("DATABASE_HOST").Default("localhost"),

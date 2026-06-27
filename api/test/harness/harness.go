@@ -186,6 +186,13 @@ func StartServer(db *database.Connection, s3Client *s3.S3Client) (*httptest.Serv
 	// SESSION_SECRET_KEY is the only config value without a default; everything
 	// else (AI_PROVIDER=stub, THUMBNAIL_SIZES, DATE_TAG_HOUR_OFFSET) defaults.
 	_ = os.Setenv("SESSION_SECRET_KEY", "harness-test-session-secret")
+	// S10: the suite makes many logins from the same loopback IP (login is per-IP
+	// rate-limited), so raise that limit far above the suite's volume. Per-user
+	// limits (upload-url/image/download) keep their defaults — each test uses a
+	// throwaway user, so the rate-limit e2e can still trip them in isolation.
+	if _, ok := os.LookupEnv("RATE_LIMIT_LOGIN_PER_MINUTE"); !ok {
+		_ = os.Setenv("RATE_LIMIT_LOGIN_PER_MINUTE", "100000")
+	}
 	if err := util.InitConfig(); err != nil {
 		return nil, err
 	}
