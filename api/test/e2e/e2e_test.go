@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 	stack = s
 	fmt.Printf("HARNESS_S3_IMPL=%s\n", stack.S3.Impl)
 
-	server, err = harness.StartServer(stack.DB)
+	server, err = harness.StartServer(stack.DB, stack.S3.Client)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "start server failed: %v\n", err)
 		stack.Close(ctx)
