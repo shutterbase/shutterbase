@@ -294,60 +294,33 @@ index.Fields("imageTags").Annotations(entsql.IndexType("GIN"), entsql.OpClass("j
 
 ---
 
-# 3. Atlas migration setup + policy (FROZEN)
+# 3. Schema migrations — ent auto-migrate (FROZEN, amended)
 
-Replace the template's `ent.Client.Schema.Create` auto-migrate with **ent-generated, Atlas-diffed, versioned SQL** applied at boot via **golang-migrate**. Postgres = versioned; SQLite (unit tests) = keep auto-migrate.
+**Decision (amended from Atlas):** use **ent auto-migration** (`client.Schema.Create`), NOT Atlas/golang-migrate versioned migrations. Rationale: v3 migrates into a **fresh empty Postgres** (the importer loads it) so there is no existing data to endanger at create time; the app is small and single-team; Atlas's generator + throwaway dev-DB + `golang-migrate` dep + hand-reviewed SQL are machinery this app does not need before the deadline. This is also the template's default (undivergent).
 
-## 3.1 Enable feature
-`ent/generate.go`: add `--feature sql/versioned-migration` (alongside `sql/lock`, `sql/execquery`), `go generate ./...`. Atlas (`ariga.io/atlas`) is already a transitive dep of ent — no new generation dep.
+## 3.1 Boot apply
+`internal/database` runs `client.Schema.Create(ctx, opts...)` at server boot for **both** Postgres and SQLite. Options pinned for safety:
+- `migrate.WithDropIndex(false)`, `migrate.WithDropColumn(false)` (the defaults) — **additive-only**; auto-migrate never drops data. A destructive change (drop/rename a column) is a **deliberate manual SQL step** when it is actually needed, not automated.
+- `migrate.WithForeignKeys(true)`.
+- Fail-closed: a `Schema.Create` error -> `log.Panic` (do not serve a half-migrated schema).
+`// ponytail: auto-migrate is additive-only via these opts; the rare destructive change is a hand-written one-off, cheaper than carrying Atlas for a single-team app.`
 
-## 3.2 Layout
-```
-api/ent/migrate/main.go                 # //go:build ignore — diff generator
-api/ent/migrate/migrations/embed.go     # //go:embed *.sql
-api/ent/migrate/migrations/NNNNNN_<name>.{up,down}.sql   # golang-migrate format, append-only
-api/cmd/migrate/main.go                  # standalone apply CLI + Docker `migrate` target
-api/internal/database/connection.go      # boot-apply wiring
-```
-**Format = golang-migrate** (`NNNNNN_name.up.sql`+`.down.sql`), **not** Atlas `.sum`. Rationale: golang-migrate `iofs`+pgx applies an `embed.FS` at boot in ~10 lines with no `atlas` binary at runtime. Atlas does all heavy lifting at **generation** time only. New direct dep: `github.com/golang-migrate/migrate/v4` (`source/iofs`, `database/pgx/v5`). Pick **one** pg driver (`pgx/v5/stdlib`) across otelsql DSN, generator, and golang-migrate.
+## 3.2 GIN jsonb index
+The `images.imageTags` jsonb GIN (`jsonb_path_ops`) index is declared on the ent schema (`entsql.IndexType("GIN")`, `entsql.OpClass("jsonb_path_ops")`). ent auto-migrate applies it. **Verify** after `Schema.Create` on real Postgres that `pg_indexes` shows the GIN index; if the pinned ent version does not emit the opclass via auto-migrate, run ONE idempotent statement right after `Schema.Create`:
+`CREATE INDEX IF NOT EXISTS image_image_tags ON images USING GIN ("imageTags" jsonb_path_ops);`
 
-## 3.3 Generator — `ent/migrate/main.go` (`//go:build ignore`)
-Diffs the current Ent schema against the replayed migration history on a clean throwaway Postgres (`ATLAS_DEV_URL`). Uses `sqltool.NewGolangMigrateDir`, `schema.ModeReplay`, `dialect.Postgres`, `sqltool.GolangMigrateFormatter`, `WithDropColumn(true)`, `WithDropIndex(true)`, then `migrate.NamedDiff(ctx, devURL, name, opts...)`.
-- `ATLAS_DEV_URL` must be **clean and disposable** — Atlas creates/drops objects in it. Never a real DB.
-- `WithDropColumn/Index(true)` only controls what the diff may **emit into the file** — the file is human-reviewed before prod.
-- After generation **read the `.up.sql`/`.down.sql`** and hand-fix unsafe paths (rename emitted as drop+add → data loss; rewrite to `ALTER ... RENAME` or expand-backfill-contract).
+## 3.3 Removed
+Delete the Atlas apparatus: `ent/migrate/` (generator `main.go`/`migrate.go`/`schema.go` + `migrations/` + `embed.go`), the `--feature sql/versioned-migration` flag in `ent/generate.go` (then regenerate ent), and the `github.com/golang-migrate/migrate/v4` dependency (`go mod tidy`).
 
-## 3.4 Boot apply — `internal/database/connection.go`
-Delete `Schema.Create` for Postgres. `embed.go`: `//go:embed *.sql var FS embed.FS`. Add `applyMigrations(db *sql.DB)`:
-- `iofs.New(migrations.FS, ".")` → `pgx.WithInstance(db, &pgx.Config{MigrationsTable:"schema_migrations", SchemaName:d.Options.Schema})` → `migrate.NewWithInstance(...)` → `m.Up()`.
-- Reuse the **same `*sql.DB`** otelsql opened (shared pool/observability), then open the ent driver on it.
-- **Fail closed:** `m.Up()` error (other than `ErrNoChange`) → `log.Panic`; server does not serve a half-migrated schema.
-- golang-migrate takes a Postgres **advisory lock** → concurrent replicas don't double-apply.
-- **Dirty state** (crash mid-file) → golang-migrate refuses to proceed; surface in panic log; recovery is `cmd/migrate force <version>` then `up`.
-- `ErrNoChange` = normal steady state, not an error.
+## 3.4 cmd/migrate (thin)
+Keep a minimal `cmd/migrate`: `create` (= `Schema.Create`, idempotent; the Dockerfile `migrate` target uses this) and a **DEV-gated** `drop` (drop all tables — for the importer fresh-start and `just migrate-reset`). No versioned up/down/force/version.
 
-`initSQLite()` **keeps** `d.Client.Schema.Create(ctx)`. ⚠️ Consequence: jsonb-containment / GIN / `ForUpdate` cannot be unit-tested on SQLite — those assertions live in the **API-e2e tier** against real Postgres with the real migrations. The test harness `Migrate` step calls the **same** `applyMigrations` against testcontainers Postgres.
+## 3.5 Harness + importer
+- Test harness `Migrate` step = the **same** `Schema.Create` call as boot, against the testcontainers Postgres.
+- Importer = `drop` -> `Schema.Create` -> import into the fresh DB (re-runnable). S3 untouched.
 
-## 3.5 CLI — `cmd/migrate/main.go`
-Thin wrapper over the same `*migrate.Migrate`. Subcommands: `up` (default), `down N`, `version`, `force V` (clear dirty), `drop` (DEV-only, `DEV=true` gate). Used by Docker `migrate` target and the importer's `drop`→`up`→import flow.
-
-## 3.6 justfile
-`_dev-db`/`_dev-db-down` (ephemeral `postgres:16-alpine` on :5433), `migrate-gen NAME` (→ `generate` + `_dev-db` + run generator), `migrate-lint` (atlas CLI, dev/CI-only, `--dir file://...?format=golang-migrate --latest 1`), `migrate-up`, `migrate-version`, `migrate-reset` (`drop`→`up`). The `atlas` CLI is **never** in the runtime image.
-
-## 3.7 Generation workflow & CI gate
-Edit schema → `just generate` → `just migrate-gen <name>` → **review** `.up/.down.sql` (hand-fix destructive/rename) → `just migrate-lint` → commit migration **with** the schema change. **Append-only:** never edit an applied file; fix-forward.
-CI per migration PR: (1) `migrate-lint` fails build on destructive/irreversible/data-dependent changes (treat `DS*`/`MF*` as errors, allow-list with inline justification); (2) replay full set `000001..N` from empty on testcontainers Postgres; (3) human reviews raw SQL.
-
-The **initial migration `000001_init`** is generated from an empty dir against the final §2 schema (no `inferences`, no `downloadUrls`). There is no PB→Ent rename migration — the importer loads into the already-migrated fresh schema. Confirm `000001` contains: GIN index on `imageTags`, unique constraints on `computedFileName`, `storageId`, `(image_id,image_tag_id)`, `(project_id,user_id)`, `(name,user_id)`, `(name,project_id)`, `(firstName,lastName)`.
-
-## 3.8 Expand–backfill–contract (destructive changes)
-**No migration destroys/rewrites data in one step on prod.** Split across 3 migrations / ≥2 deploys: **Expand** (add nullable/defaulted column, dual-write in repo) → **Backfill** (batched, re-runnable `UPDATE ... WHERE new IS NULL`) → **Contract** (drop old, add `NOT NULL`, only after `count(* WHERE new IS NULL)=0`). Name phases legibly (`0007_expand_*`, `0008_backfill_*`, `0009_contract_*`). Roll-forward is default recovery; `.down.sql` is kept and CI-tested for the current PR but prod never auto-runs a down.
-GIN index on a populated `images` table: own migration, plain `CREATE INDEX` (small DB). `// ponytail: plain index is fine at this row count; revisit CONCURRENTLY only if an index build measurably locks prod.` (golang-migrate wraps each file in a tx → `CREATE INDEX CONCURRENTLY` can't be used there.)
-
-## 3.9 Backup/restore
-Deploy pipeline (not the server) takes `pg_dump -Fc` immediately before `cmd/migrate up`, tagged with target version, to the existing S3/minio bucket; retain last 7 + provider PITR. Restore runbook: stop new app → `pg_restore` pre-migration dump (restores schema **and** `schema_migrations` together) → redeploy previous app version → fix-forward. Importer target is empty/re-creatable → needs no backup.
-
----
+## 3.6 Backup
+The deploy pipeline takes `pg_dump -Fc` before each deploy (operational, not server-side). For a single-team app this plus provider PITR is sufficient; there is no migration-version state to coordinate.
 
 # 4. REST API contract (FROZEN)
 
