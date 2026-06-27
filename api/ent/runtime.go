@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -23,6 +24,33 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	auditlogMixin := schema.AuditLog{}.Mixin()
+	auditlogMixinFields0 := auditlogMixin[0].Fields()
+	_ = auditlogMixinFields0
+	auditlogMixinFields1 := auditlogMixin[1].Fields()
+	_ = auditlogMixinFields1
+	auditlogFields := schema.AuditLog{}.Fields()
+	_ = auditlogFields
+	// auditlogDescCreatedAt is the schema descriptor for createdAt field.
+	auditlogDescCreatedAt := auditlogMixinFields1[0].Descriptor()
+	// auditlog.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	auditlog.DefaultCreatedAt = auditlogDescCreatedAt.Default.(func() time.Time)
+	// auditlogDescUpdatedAt is the schema descriptor for updatedAt field.
+	auditlogDescUpdatedAt := auditlogMixinFields1[1].Descriptor()
+	// auditlog.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	auditlog.DefaultUpdatedAt = auditlogDescUpdatedAt.Default.(func() time.Time)
+	// auditlog.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	auditlog.UpdateDefaultUpdatedAt = auditlogDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// auditlogDescAction is the schema descriptor for action field.
+	auditlogDescAction := auditlogFields[0].Descriptor()
+	// auditlog.ActionValidator is a validator for the "action" field. It is called by the builders before save.
+	auditlog.ActionValidator = auditlogDescAction.Validators[0].(func(string) error)
+	// auditlogDescID is the schema descriptor for id field.
+	auditlogDescID := auditlogMixinFields0[0].Descriptor()
+	// auditlog.DefaultID holds the default value on creation for the id field.
+	auditlog.DefaultID = auditlogDescID.Default.(func() string)
+	// auditlog.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	auditlog.IDValidator = auditlogDescID.Validators[0].(func(string) error)
 	cameraMixin := schema.Camera{}.Mixin()
 	cameraMixinFields0 := cameraMixin[0].Fields()
 	_ = cameraMixinFields0

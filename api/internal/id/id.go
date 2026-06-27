@@ -1,4 +1,7 @@
-package util
+// Package id generates 15-char PocketBase-style string PKs. It is a leaf
+// package (only crypto/rand) so ent/schema can import it while internal/util
+// is free to import ent (GetUser/GetActorID) without an import cycle.
+package id
 
 import "crypto/rand"
 

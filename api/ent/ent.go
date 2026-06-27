@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -82,6 +83,7 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			auditlog.Table:           auditlog.ValidColumn,
 			camera.Table:             camera.ValidColumn,
 			image.Table:              image.ValidColumn,
 			imagetag.Table:           imagetag.ValidColumn,
