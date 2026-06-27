@@ -18,6 +18,8 @@ func InitConfig() error {
 
 		// basicauth / session
 		config.String("SESSION_SECRET_KEY").NotEmpty().Sensitive(),
+		config.String("DEFAULT_ADMIN_USERNAME").NotEmpty().Default("admin"),
+		config.String("DEFAULT_ADMIN_PASSWORD").Sensitive().Default("changeme123"),
 
 		// ui
 		config.String("UI_PROXY_URL").NotEmpty().Default("http://localhost:9000"),
