@@ -82,6 +82,37 @@ func TestPrimitives(t *testing.T) {
 	assert.False(t, HasUserID(uuid.New()).Check(ctxFor(plain)))
 }
 
+// ctxForReal wraps an effective + real user pair (S8 impersonation): UserKey
+// holds the effective user, RealUserKey the real one.
+func ctxForReal(effective, real *ent.User) *gin.Context {
+	c := ctxFor(effective)
+	if real != nil {
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), util.RealUserKey, real))
+	}
+	return c
+}
+
+// --- IsRealAdmin + effective-vs-real resolution (S8) ---
+
+func TestIsRealAdmin(t *testing.T) {
+	admin := usr(user.RoleAdmin)
+	viewer := usr(user.RoleUser, pa(proj, RoleProjectViewer))
+
+	// Plain (no impersonation): IsRealAdmin tracks the only user present.
+	assert.True(t, IsRealAdmin().Check(ctxFor(admin)))
+	assert.False(t, IsRealAdmin().Check(ctxFor(viewer)))
+	assert.False(t, IsRealAdmin().Check(ctxFor(nil)))
+
+	// Admin impersonating a viewer: effective=viewer, real=admin. The effective
+	// checker sees the viewer (no admin powers), but IsRealAdmin sees the admin —
+	// so control endpoints stay open and the viewer's perms otherwise apply.
+	imp := ctxForReal(viewer, admin)
+	assert.True(t, IsRealAdmin().Check(imp), "real admin is still admin while impersonating")
+	assert.False(t, IsAdmin().Check(imp), "effective viewer has no admin powers")
+	assert.False(t, IsRealAdmin().Check(ctxForReal(admin, viewer)),
+		"a non-admin real user cannot pass IsRealAdmin even if effective is admin")
+}
+
 // --- hasRoleInProject hierarchy ---
 
 func TestHasRoleInProject(t *testing.T) {

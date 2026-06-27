@@ -126,6 +126,9 @@ func (_u *AuditLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.ActorCleared() {
 		_spec.ClearField(auditlog.FieldActor, field.TypeUUID)
 	}
+	if _u.mutation.ImpersonatedByCleared() {
+		_spec.ClearField(auditlog.FieldImpersonatedBy, field.TypeUUID)
+	}
 	if _u.mutation.DataCleared() {
 		_spec.ClearField(auditlog.FieldData, field.TypeJSON)
 	}
@@ -275,6 +278,9 @@ func (_u *AuditLogUpdateOne) sqlSave(ctx context.Context) (_node *AuditLog, err 
 	}
 	if _u.mutation.ActorCleared() {
 		_spec.ClearField(auditlog.FieldActor, field.TypeUUID)
+	}
+	if _u.mutation.ImpersonatedByCleared() {
+		_spec.ClearField(auditlog.FieldImpersonatedBy, field.TypeUUID)
 	}
 	if _u.mutation.DataCleared() {
 		_spec.ClearField(auditlog.FieldData, field.TypeJSON)

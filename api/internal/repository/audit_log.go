@@ -27,6 +27,11 @@ func (r *Repository) CreateAuditLog(ctx context.Context, parameters *CreateAudit
 		SetCreatedBy(util.GetActorID(ctx)).
 		SetUpdatedBy(util.GetActorID(ctx))
 
+	// actor = effective user; impersonatedBy = the real admin when impersonating (S8).
+	if impersonatorID, ok := util.GetImpersonatorID(ctx); ok {
+		create = create.SetImpersonatedBy(impersonatorID)
+	}
+
 	if parameters.ObjectType != nil {
 		create = create.SetObjectType(*parameters.ObjectType)
 	}

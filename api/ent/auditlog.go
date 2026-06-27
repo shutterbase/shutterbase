@@ -35,6 +35,8 @@ type AuditLog struct {
 	ObjectId string `json:"objectId"`
 	// Actor holds the value of the "actor" field.
 	Actor uuid.UUID `json:"actor"`
+	// ImpersonatedBy holds the value of the "impersonatedBy" field.
+	ImpersonatedBy *uuid.UUID `json:"impersonatedBy,omitempty"`
 	// Data holds the value of the "data" field.
 	Data         map[string]interface{} `json:"data"`
 	selectValues sql.SelectValues
@@ -45,7 +47,7 @@ func (*AuditLog) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case auditlog.FieldCreatedBy, auditlog.FieldUpdatedBy:
+		case auditlog.FieldCreatedBy, auditlog.FieldUpdatedBy, auditlog.FieldImpersonatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case auditlog.FieldData:
 			values[i] = new([]byte)
@@ -126,6 +128,13 @@ func (_m *AuditLog) assignValues(columns []string, values []any) error {
 			} else if value != nil {
 				_m.Actor = *value
 			}
+		case auditlog.FieldImpersonatedBy:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field impersonatedBy", values[i])
+			} else if value.Valid {
+				_m.ImpersonatedBy = new(uuid.UUID)
+				*_m.ImpersonatedBy = *value.S.(*uuid.UUID)
+			}
 		case auditlog.FieldData:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field data", values[i])
@@ -197,6 +206,11 @@ func (_m *AuditLog) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("actor=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Actor))
+	builder.WriteString(", ")
+	if v := _m.ImpersonatedBy; v != nil {
+		builder.WriteString("impersonatedBy=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("data=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Data))
