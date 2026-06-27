@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { TimeOffsetsResponse } from "src/types/pocketbase";
+import { TimeOffset } from "src/types/api";
 
 export function dateFromUnix(unixTime: number): string {
   const date = new Date(unixTime * 1000);
@@ -36,7 +36,7 @@ export function parseBackendTime(backendTime: string): Date {
   return new Date(Date.parse(backendTime));
 }
 
-export function timeOffsetUpToDate(timeOffset: TimeOffsetsResponse): boolean {
+export function timeOffsetUpToDate(timeOffset: TimeOffset): boolean {
   const serverTime = parseBackendTime(timeOffset.serverTime);
   return DateTime.fromJSDate(serverTime) > DateTime.now().minus({ hours: 24 });
 }

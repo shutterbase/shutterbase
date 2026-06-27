@@ -97,7 +97,7 @@ import { useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import AlertBanner, { AlertBannerType } from "src/components/AlertBanner.vue";
 import { UploadsResponse, CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
@@ -105,14 +105,15 @@ import { dateTimeFromUnix, parseBackendTime, timeOffsetUpToDate } from "src/util
 
 const router = useRouter();
 
-const { activeProject } = storeToRefs(useUserStore());
-const userId: string = pb.authStore.model?.id;
+const userStore = useUserStore();
+const { activeProject } = storeToRefs(userStore);
+const userId: string = userStore.user?.id || "";
 
 const upload = ref<UploadsResponse | null>(null);
 
 const loading = ref(true);
 
-type CamerasType = CamerasResponse & { expand?: { time_offsets_via_camera: TimeOffsetsResponse[] } };
+type CamerasType = CamerasResponse;
 const cameras = ref<(CamerasType & { disabled: boolean })[]>([]);
 const camera = ref<CamerasType | null>();
 
@@ -136,24 +137,23 @@ const outdatedTimeOffsetFound = ref(false);
 
 async function getCameras() {
   try {
-    const resultList = await pb.collection<CamerasType>("cameras").getList(1, 50, {
-      filter: `user='${userId}'`,
-      expand: "time_offsets_via_camera",
-    });
-    cameras.value = resultList.items.map((item) => {
-      const timeOffsets = item.expand?.time_offsets_via_camera || [];
-      let disabled = true;
-      for (const timeOffset of timeOffsets) {
-        if (timeOffsetUpToDate(timeOffset)) {
-          disabled = false;
-          break;
+    const resultList = await api.cameras.list({ userId, limit: 50 });
+    cameras.value = await Promise.all(
+      resultList.items.map(async (item) => {
+        const timeOffsets = (await api.timeOffsets.list({ cameraId: item.id, limit: 50 })).items;
+        let disabled = true;
+        for (const timeOffset of timeOffsets) {
+          if (timeOffsetUpToDate(timeOffset)) {
+            disabled = false;
+            break;
+          }
         }
-      }
-      if (disabled) {
-        outdatedTimeOffsetFound.value = true;
-      }
-      return { ...item, disabled };
-    });
+        if (disabled) {
+          outdatedTimeOffsetFound.value = true;
+        }
+        return { ...item, disabled };
+      })
+    );
     loading.value = false;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -164,11 +164,11 @@ async function getCameras() {
 async function createUpload() {
   try {
     console.log(`Creating upload ${uploadName.value} for camera ${camera.value?.name} in project ${activeProject.value.name}`);
-    const response = await pb.collection<UploadsResponse>("uploads").create({
+    const response = await api.uploads.create({
       name: uploadName.value,
-      project: activeProject.value.id,
-      camera: camera.value?.id,
-      user: userId,
+      projectId: activeProject.value.id,
+      cameraId: camera.value!.id,
+      userId,
     });
     const itemId = response.id;
     console.log(`upload created with ID ${itemId}`);

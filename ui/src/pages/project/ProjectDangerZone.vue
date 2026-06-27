@@ -40,7 +40,7 @@ import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 const route = useRoute();
 const router = useRouter();
@@ -61,7 +61,7 @@ async function loadData() {
 
   try {
     console.log(`Loading project ${itemId}`);
-    const response = await pb.collection<ProjectsResponse>("projects").getOne(itemId);
+    const response = await api.projects.get(itemId);
     project.value = response;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -76,7 +76,7 @@ async function deleteItem() {
   }
 
   try {
-    await pb.collection<ProjectsResponse>("projects").delete(project.value.id);
+    await api.projects.remove(project.value.id);
     await router.push({ name: "projects" });
   } catch (error: any) {
     unexpectedError.value = error;

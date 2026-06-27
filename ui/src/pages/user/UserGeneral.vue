@@ -13,7 +13,7 @@ import { useRoute } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import DetailEditGroup, { Field, FieldType, EditData } from "src/components/DetailEditGroup.vue";
 import { UsersResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { capitalize } from "src/util/stringUtils";
 const route = useRoute();
@@ -36,7 +36,7 @@ async function loadItem() {
 
   try {
     console.log(`Loading ${ITEM_NAME} ${itemId}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getOne(itemId);
+    const response = await api.users.get(itemId);
     item.value = response;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -55,7 +55,7 @@ async function saveItem(editData: EditData<ITEM_TYPE>) {
 
   try {
     console.log(`Saving item ${item.value.id}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).update(item.value.id, editData);
+    const response = await api.users.update(item.value.id, editData as Record<string, any>);
     item.value = response;
     showNotificationToast({ headline: `${capitalize(ITEM_NAME)} saved`, type: "success" });
   } catch (error: any) {

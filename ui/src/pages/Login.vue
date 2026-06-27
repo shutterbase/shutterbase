@@ -68,12 +68,13 @@
 </template>
 <script setup lang="ts">
 import { ref } from "vue";
-import pb from "src/boot/pocketbase";
+import { useUserStore } from "src/stores/user-store";
 import { useRouter } from "vue-router";
 import * as EmailValidator from "email-validator";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 
 const router = useRouter();
+const userStore = useUserStore();
 
 const email = ref("");
 const emailErrorMessage = ref("");
@@ -118,19 +119,23 @@ async function login() {
   }
 
   try {
-    const authData = await pb.collection("users").authWithPassword(email.value, password.value);
-    if (authData) {
-      router.push("/");
+    const user = await userStore.login(email.value, password.value);
+    if (user.forcePasswordChange) {
+      router.push({ name: "change-password" });
+      return;
     }
+    router.push("/");
   } catch (error: any) {
-    if (error.status === 400) {
+    const status = error.response?.status;
+    if (status === 400 || status === 401) {
       passwordErrorMessage.value = "Invalid username or password";
       return;
     }
 
-    if (error.response?.message) {
+    const message = error.response?.data?.message || error.response?.data?.error;
+    if (message) {
       unexpectedErrorHeadline.value = "Error";
-      unexpectedErrorMessage.value = error.response.message;
+      unexpectedErrorMessage.value = message;
     }
 
     unexpectedError.value = error;

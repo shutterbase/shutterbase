@@ -38,7 +38,6 @@
 </template>
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import pb from "src/boot/pocketbase";
 import ImageGridTile from "src/components/image/ImageGridTile.vue";
 import ImagesHeader, { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
 import ImagesFooter from "src/components/image/ImagesFooter.vue";

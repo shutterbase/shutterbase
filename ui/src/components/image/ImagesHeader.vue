@@ -101,10 +101,5 @@ defineExpose({
 });
 </script>
 <script lang="ts">
-export enum SORT_ORDER {
-  LATEST_FIRST = "latestFirst",
-  OLDEST_FIRST = "oldestFirst",
-  MOST_RECENTLY_UPDATED = "mostRecentlyUpdated",
-  LEAST_RECENTLY_UPDATED = "leastRecentlyUpdated",
-}
+export { SORT_ORDER } from "./sortOrder";
 </script>

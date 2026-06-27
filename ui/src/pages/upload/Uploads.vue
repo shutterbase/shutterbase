@@ -24,7 +24,7 @@
 <script setup lang="ts">
 import { Ref, computed, onMounted, ref, watch } from "vue";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { UploadsResponse, ProjectsResponse, UsersResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { storeToRefs } from "pinia";
@@ -49,7 +49,7 @@ const offset = ref(0);
 const items: Ref<UploadsResponse[]> = ref([]);
 const columns: TableColumn<UploadsResponse>[] = [
   { key: "name", label: "Name" },
-  { key: ["expand", "user"], label: "User", formatter: (user) => `${user.firstName} ${user.lastName}` },
+  { key: "user", label: "User", formatter: (user) => `${user.firstName} ${user.lastName}` },
   {
     key: "actions",
     label: "Actions",
@@ -88,10 +88,7 @@ const columns: TableColumn<UploadsResponse>[] = [
 
 async function requestItems() {
   try {
-    const resultList = await pb.collection<UploadsResponse>("uploads").getList(1, 500, {
-      filter: `(project='${activeProjectId.value}')`,
-      expand: "user",
-    });
+    const resultList = await api.uploads.list({ projectId: activeProjectId.value, limit: 500 });
     items.value = resultList.items;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -110,7 +107,7 @@ async function confirmDelete() {
   }
   const item = deleteCandidate.value;
   try {
-    await pb.collection<UploadsResponse>("uploads").delete(item.id);
+    await api.uploads.remove(item.id);
     items.value = items.value.filter((i) => i.id !== item.id);
     deleteCandidate.value = null;
     showDeleteDialog.value = false;

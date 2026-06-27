@@ -14,7 +14,7 @@ import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 const route = useRoute();
 
 const project: Ref<ProjectsResponse | null> = ref(null);
@@ -31,7 +31,7 @@ async function loadData() {
 
   try {
     console.log(`Loading project ${itemId}`);
-    const response = await pb.collection<ProjectsResponse>("projects").getOne(itemId);
+    const response = await api.projects.get(itemId);
     project.value = response;
   } catch (error: any) {
     unexpectedError.value = error;

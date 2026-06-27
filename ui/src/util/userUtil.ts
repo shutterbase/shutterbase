@@ -1,8 +1,9 @@
-import pb from "src/boot/pocketbase";
-import { UsersResponse } from "src/types/pocketbase";
+import { useUserStore } from "src/stores/user-store";
 
-export function fullName(user?: UsersResponse): string {
-  const userModel = user || pb.authStore.model;
+type NamedUser = { firstName: string; lastName: string };
+
+export function fullName(user?: NamedUser | null): string {
+  const userModel = user || useUserStore().user;
   if (userModel) {
     return userModel.firstName + " " + userModel.lastName;
   } else {
@@ -10,7 +11,7 @@ export function fullName(user?: UsersResponse): string {
   }
 }
 
-export function fullNamePossessive(user?: UsersResponse): string {
+export function fullNamePossessive(user?: NamedUser | null): string {
   const userFullName = fullName(user);
   return `${userFullName}'s`;
 }

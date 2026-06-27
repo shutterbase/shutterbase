@@ -3,12 +3,12 @@
     <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
       <div v-if="camera" class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
         <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">
-          Creating a new time offset for <span class="font-bold">{{ actingUserId === camera.expand.user.id ? "Your" : fullNamePossessive(camera.expand.user) }}</span> camera
+          Creating a new time offset for <span class="font-bold">{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }}</span> camera
           <span class="font-bold">{{ camera.name }}</span>
         </h2>
         <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-300">
           Photograph the QR code below with
-          <span class="font-bold">{{ actingUserId === camera.expand.user.id ? "Your" : fullNamePossessive(camera.expand.user) }} {{ camera.name }}</span> as JPEG and upload the
+          <span class="font-bold">{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }} {{ camera.name }}</span> as JPEG and upload the
           resulting image here.
         </p>
       </div>
@@ -71,9 +71,10 @@ import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import QrTimeCode from "src/components/QrTimeCode.vue";
 import FileDropzone from "src/components/FileDropzone.vue";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
+import { useUserStore } from "src/stores/user-store";
 import { showNotificationToast } from "src/boot/mitt";
-import { CamerasResponse, TimeOffsetsRecord, UsersResponse } from "src/types/pocketbase";
+import { CamerasResponse } from "src/types/pocketbase";
 import { fullNamePossessive } from "src/util/userUtil";
 import init, { get_image_metadata, get_time_offset, parse_qr_code, TimeOffsetResult } from "image-wasm";
 import * as fileUtil from "src/util/fileUtil";
@@ -84,12 +85,12 @@ import { TimeOffsetsResponse } from "src/types/pocketbase";
 const router = useRouter();
 const route = useRoute();
 
-type ITEM_TYPE = CamerasResponse & { expand: { user: UsersResponse } };
+type ITEM_TYPE = CamerasResponse;
 
 const cameraId = ref<string>(`${route.params.cameraid}`);
 const camera = ref<ITEM_TYPE>();
 
-const actingUserId = pb.authStore.model?.id;
+const actingUserId = useUserStore().user?.id;
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
@@ -109,11 +110,8 @@ const timeOffsetResult = ref<TimeOffsetMetadata>();
 async function getCamera() {
   try {
     console.log(`Getting camera ${cameraId.value}`);
-    const response = await pb.collection<ITEM_TYPE>("cameras").getOne(cameraId.value, {
-      expand: "user",
-    });
+    const response = await api.cameras.get(cameraId.value);
     console.log(`Camera retrieved with ID ${cameraId.value}`);
-    console.log(response);
     camera.value = response;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -161,14 +159,12 @@ async function saveTimeOffset() {
     return;
   }
   try {
-    const timeOffsetRecord: TimeOffsetsRecord = {
-      timeOffset: timeOffsetResult.value.timeOffset,
+    // server computes timeOffset = serverTime - cameraTime (§4.10)
+    const response = await api.timeOffsets.create({
+      cameraId: cameraId.value,
       cameraTime: new Date(timeOffsetResult.value.cameraTime).toISOString(),
       serverTime: new Date(timeOffsetResult.value.serverTime).toISOString(),
-      camera: cameraId.value,
-    };
-
-    const response = await pb.collection<TimeOffsetsResponse>("time_offsets").create(timeOffsetRecord);
+    });
     const itemId = response.id;
     console.log(`Time offset created with ID ${itemId}`);
     showNotificationToast({ headline: `Time offset created`, type: "success" });

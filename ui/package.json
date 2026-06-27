@@ -7,7 +7,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "echo \"No test specified\" && exit 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "dev": "quasar dev",
     "build": "quasar build",
     "format": "prettier --config ./.prettierrc --write ./src index.html package.json postcss.config.cjs quasar.config.ts README.md tailwind.config.js tsconfig.json",
@@ -23,6 +24,7 @@
     "@types/zxcvbn": "^4.4.4",
     "@vueuse/core": "^10.7.2",
     "avatar-initials": "^6.0.0",
+    "axios": "^1.7.2",
     "dependency-cruiser": "^16.2.1",
     "email-validator": "^2.0.4",
     "flowbite": "^2.3.0",
@@ -32,7 +34,6 @@
     "nanoid": "^5.0.6",
     "pinia": "^2.0.11",
     "pluralize": "^8.0.0",
-    "pocketbase": "^0.21.1",
     "quasar": "^2.6.0",
     "urlencode": "^2.0.0",
     "vue": "^3.4.18",
@@ -44,9 +45,11 @@
     "@quasar/app-vite": "^2.0.0-beta.1",
     "@types/node": "^20.5.9",
     "autoprefixer": "^10.4.17",
+    "jsdom": "^24.1.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vitest": "^1.6.0"
   },
   "engines": {
     "node": "^24 || ^22 || ^20 || ^18",

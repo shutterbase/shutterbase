@@ -23,7 +23,8 @@ import { useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import CreateGroup, { Field, FieldType, CreateData } from "src/components/CreateGroup.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
+import { ProjectCreate } from "src/api/projects";
 import { showNotificationToast } from "src/boot/mitt";
 
 const router = useRouter();
@@ -40,7 +41,7 @@ function updateData(editData: CreateData<ProjectsResponse>) {
 async function createProject() {
   try {
     console.log(`Creating project ${project.value.name}`);
-    const response = await pb.collection<ProjectsResponse>("projects").create(project.value);
+    const response = await api.projects.create(project.value as unknown as ProjectCreate);
     const itemId = response.id;
     console.log(`Project created with ID ${itemId}`);
     showNotificationToast({ headline: `Project created`, type: "success" });

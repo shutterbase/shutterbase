@@ -21,7 +21,7 @@ import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import CreateGroup, { Field, FieldType, CreateData } from "src/components/CreateGroup.vue";
 import { CamerasResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { capitalize } from "src/util/stringUtils";
 
@@ -46,7 +46,7 @@ function updateData(editData: CreateData<ITEM_TYPE>) {
 async function createItem() {
   try {
     console.log(`Creating ${ITEM_NAME} ${item.value.name}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).create({ ...item.value, user: userId.value });
+    const response = await api.cameras.create({ name: item.value.name, userId: userId.value });
     const itemId = response.id;
     console.log(`Project created with ID ${itemId}`);
     showNotificationToast({ headline: `${capitalize(ITEM_NAME)} created`, type: "success" });

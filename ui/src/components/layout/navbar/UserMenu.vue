@@ -23,12 +23,12 @@
       >
         <div class="py-3 px-4">
           <span class="block text-sm font-semibold text-gray-900 dark:text-white">{{ firstName }} {{ lastName }}</span>
-          <span class="block text-sm text-gray-900 truncate dark:text-white">INSERT ROLE HERE</span>
+          <span class="block text-sm text-gray-900 truncate dark:text-white">{{ userStore.user?.role?.description || userStore.user?.role?.key }}</span>
         </div>
         <ul class="py-1 text-gray-700 dark:text-gray-300">
           <li>
             <router-link
-              :to="`/users/${pb.authStore.model?.id || ''}/general`"
+              :to="`/users/${userStore.user?.id || ''}/general`"
               class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
             >
               <UserIcon class="mr-2 w-5 h-5 text-gray-400" />
@@ -39,7 +39,7 @@
         <ul class="py-1 text-gray-700 dark:text-gray-300">
           <li>
             <router-link
-              :to="`/users/${pb.authStore.model?.id || ''}/cameras`"
+              :to="`/users/${userStore.user?.id || ''}/cameras`"
               class="flex items-center py-2 px-4 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
             >
               <CameraIcon class="mr-2 w-5 h-5 text-gray-400" />
@@ -88,20 +88,18 @@ import { Menu, MenuButton, MenuItems } from "@headlessui/vue";
 import { CameraIcon, CloudArrowUpIcon, UserIcon } from "@heroicons/vue/24/solid";
 import { onMounted, ref } from "vue";
 import { initFlowbite } from "flowbite";
-import pb from "src/boot/pocketbase";
 import { useUserStore } from "src/stores/user-store";
 import Avatar from "avatar-initials";
 import { storeToRefs } from "pinia";
 
 const userMenuAvatar = ref<HTMLImageElement>();
 
-const firstName = ref(pb.authStore.model?.firstName);
-const lastName = ref(pb.authStore.model?.lastName);
-const headshotUrl = ref("");
-
-
 const userStore = useUserStore();
 const { activeProjectId } = storeToRefs(userStore);
+
+const firstName = ref(userStore.user?.firstName);
+const lastName = ref(userStore.user?.lastName);
+const headshotUrl = ref("");
 
 function clearProjectSelection() {
   userStore.clearActiveProject();
@@ -116,7 +114,7 @@ onMounted(() => {
   }
   const avatar = Avatar.from(userMenuAvatar.value, {
     useGravatar: true,
-    email: pb.authStore.model?.email,
+    email: userStore.user?.email,
     initials: `${firstName.value?.charAt(0) ?? ""}${lastName.value?.charAt(0) ?? ""}`,
     color: "#FFFFFF",
     background: "#37465D",

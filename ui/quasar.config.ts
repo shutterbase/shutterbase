@@ -13,7 +13,7 @@ export default configure((/* ctx */) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ["pocketbase", "mitt"],
+    boot: ["axios", "mitt"],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ["app.sass", "tailwind.css"],
@@ -69,6 +69,12 @@ export default configure((/* ctx */) => {
       open: true, // opens browser window automatically
       fs: {
         allow: [".."],
+      },
+      // ponytail: dev proxy to the single-binary REST backend; change target if it
+      // doesn't run on :8080 locally. Keeps cookies same-origin (no CORS).
+      proxy: {
+        "/api": { target: "http://127.0.0.1:8080", changeOrigin: true },
+        "/ws": { target: "http://127.0.0.1:8080", ws: true, changeOrigin: true },
       },
     },
 
