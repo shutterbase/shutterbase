@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
@@ -44,6 +45,11 @@ func (s *Server) listCameras(c *gin.Context) {
 		}
 		params.UserID = &uid
 	}
+	// Non-admins only ever see their own cameras (§4.8), regardless of userId.
+	if !authorization.IsAdminUser(authUser(c)) {
+		me := authUser(c).ID
+		params.UserID = &me
+	}
 	if v := c.Query("search"); v != "" {
 		params.Search = &v
 	}
@@ -68,6 +74,9 @@ func (s *Server) getCamera(c *gin.Context) {
 	if abortGetError(c, err) {
 		return
 	}
+	if !allow(c, authorization.CanModifyCamera(authUser(c), cam)) {
+		return
+	}
 	c.JSON(http.StatusOK, s.cameraResponse(c.Request.Context(), cam))
 }
 
@@ -88,6 +97,10 @@ func (s *Server) createCamera(c *gin.Context) {
 		uid, err := uuid.Parse(*payload.UserID)
 		if err != nil {
 			apiError(c, http.StatusBadRequest, "invalid_user_id", "invalid userId")
+			return
+		}
+		// Only admins may create a camera owned by another user (§4.8).
+		if uid != userID && !allow(c, authorization.IsAdminUser(authUser(c))) {
 			return
 		}
 		userID = uid
@@ -112,6 +125,13 @@ func (s *Server) updateCamera(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	existing, err := s.Repository.GetCamera(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanModifyCamera(authUser(c), existing)) {
+		return
+	}
 	cam, err := s.Repository.UpdateCamera(c.Request.Context(), id, &repository.UpdateCameraParameters{Name: payload.Name})
 	if abortMutationError(c, err) {
 		return
@@ -123,6 +143,13 @@ func (s *Server) deleteCamera(c *gin.Context) {
 	// authz (S8): admin or owner; cascades time_offsets.
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	cam, err := s.Repository.GetCamera(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanModifyCamera(authUser(c), cam)) {
 		return
 	}
 	if err := s.Repository.DeleteCamera(c.Request.Context(), id); err != nil {

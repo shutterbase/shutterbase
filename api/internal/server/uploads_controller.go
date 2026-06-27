@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
@@ -56,6 +57,16 @@ func (s *Server) listUploads(c *gin.Context) {
 		}
 		params.UserID = &uid
 	}
+	// §4.9 scoping: admin sees all; a projectAdmin sees all uploads in that
+	// project; everyone else only their own.
+	u := authUser(c)
+	if !authorization.IsAdminUser(u) {
+		projectAdmin := params.ProjectID != nil && authorization.HasRoleInProject(u, *params.ProjectID, authorization.RoleProjectAdmin)
+		if !projectAdmin {
+			me := u.ID
+			params.UserID = &me
+		}
+	}
 	items, total, err := s.Repository.GetUploads(c.Request.Context(), params)
 	if abortRepoListError(c, err) {
 		return
@@ -76,6 +87,9 @@ func (s *Server) getUpload(c *gin.Context) {
 	if abortGetError(c, err) {
 		return
 	}
+	if !allow(c, authorization.CanModifyUpload(authUser(c), up)) {
+		return
+	}
 	c.JSON(http.StatusOK, s.uploadResponse(c.Request.Context(), up))
 }
 
@@ -93,11 +107,18 @@ func (s *Server) createUpload(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	if !allow(c, authorization.CanCreateUpload(authUser(c), payload.ProjectID)) {
+		return
+	}
 	userID := util.GetUser(c.Request.Context()).ID
 	if payload.UserID != nil {
 		uid, err := uuid.Parse(*payload.UserID)
 		if err != nil {
 			apiError(c, http.StatusBadRequest, "invalid_user_id", "invalid userId")
+			return
+		}
+		// Only admins may create an upload owned by another user (§4.9).
+		if uid != userID && !allow(c, authorization.IsAdminUser(authUser(c))) {
 			return
 		}
 		userID = uid
@@ -127,6 +148,13 @@ func (s *Server) updateUpload(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	existing, err := s.Repository.GetUpload(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanModifyUpload(authUser(c), existing)) {
+		return
+	}
 	up, err := s.Repository.UpdateUpload(c.Request.Context(), id, &repository.UpdateUploadParameters{Name: payload.Name})
 	if abortMutationError(c, err) {
 		return
@@ -138,6 +166,13 @@ func (s *Server) deleteUpload(c *gin.Context) {
 	// authz (S8): admin/projectAdmin/owner; cascades images.
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	up, err := s.Repository.GetUpload(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanModifyUpload(authUser(c), up)) {
 		return
 	}
 	if err := s.Repository.DeleteUpload(c.Request.Context(), id); err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/user"
 	"github.com/shutterbase/shutterbase/internal/authentication"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
@@ -69,6 +70,9 @@ func (s *Server) roleEnumFromID(ctx context.Context, roleID string) (user.Role, 
 
 func (s *Server) listUsers(c *gin.Context) {
 	// authz (S8): admin (or projectAdmin for pickers).
+	if !allow(c, authorization.IsAdminUser(authUser(c)) || authorization.HasAnyProjectAdmin(authUser(c))) {
+		return
+	}
 	pagination, ok := getPagination(c)
 	if !ok {
 		return
@@ -94,6 +98,10 @@ func (s *Server) getUser(c *gin.Context) {
 	if !ok {
 		return
 	}
+	me := authUser(c)
+	if !allow(c, authorization.IsAdminUser(me) || authorization.IsSelf(me, id)) {
+		return
+	}
 	u, err := s.Repository.GetUser(c.Request.Context(), id)
 	if abortGetError(c, err) {
 		return
@@ -115,6 +123,9 @@ type createUserPayload struct {
 
 func (s *Server) createUser(c *gin.Context) {
 	// authz (S8): admin only (no self-signup).
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	var payload createUserPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -178,6 +189,17 @@ func (s *Server) updateUser(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	me := authUser(c)
+	isAdmin := authorization.IsAdminUser(me)
+	if !allow(c, isAdmin || authorization.IsSelf(me, id)) {
+		return
+	}
+	// Admin-only fields: a non-admin sending any of them is forbidden (§4.12).
+	if !isAdmin && (payload.Active != nil || payload.RoleID != nil ||
+		payload.ForcePasswordChange != nil || payload.ActiveProjectID != nil) {
+		forbid(c)
+		return
+	}
 	params := &repository.UpdateUserParameters{
 		FirstName:           payload.FirstName,
 		LastName:            payload.LastName,
@@ -216,6 +238,9 @@ func (s *Server) updateUser(c *gin.Context) {
 
 func (s *Server) deleteUser(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	id, ok := getUserIdParam(c)
 	if !ok {
 		return
@@ -241,6 +266,10 @@ func (s *Server) setActiveProject(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	// The target project must be one the user is assigned to (§4.12), admin aside.
+	if !allow(c, authorization.IsAdminUser(u) || authorization.IsAssigned(u, payload.ProjectID)) {
 		return
 	}
 	updated, err := s.Repository.UpdateUser(c.Request.Context(), u.ID, &repository.UpdateUserParameters{ActiveProjectID: &payload.ProjectID})

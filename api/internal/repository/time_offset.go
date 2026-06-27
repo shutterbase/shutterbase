@@ -4,9 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
 	"github.com/shutterbase/shutterbase/internal/util"
@@ -26,7 +28,10 @@ func (r *Repository) GetTimeOffset(ctx context.Context, id string) (*ent.TimeOff
 }
 
 type GetTimeOffsetParameters struct {
-	CameraID             *string
+	CameraID *string
+	// CameraOwnerID, when set, restricts the result to offsets whose camera is
+	// owned by this user (scopes a non-admin's list to their cameras, §4.10).
+	CameraOwnerID        *uuid.UUID
 	PaginationParameters *PaginationParameters
 }
 
@@ -34,6 +39,9 @@ func (r *Repository) GetTimeOffsets(ctx context.Context, parameters *GetTimeOffs
 	predicates := []predicate.TimeOffset{}
 	if parameters.CameraID != nil {
 		predicates = append(predicates, timeoffset.CameraID(*parameters.CameraID))
+	}
+	if parameters.CameraOwnerID != nil {
+		predicates = append(predicates, timeoffset.HasCameraWith(camera.UserIDEQ(*parameters.CameraOwnerID)))
 	}
 	where := timeoffset.And(predicates...)
 

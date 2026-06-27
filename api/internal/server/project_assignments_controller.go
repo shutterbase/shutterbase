@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
 
@@ -87,6 +88,9 @@ type createProjectAssignmentPayload struct {
 
 func (s *Server) createProjectAssignment(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	var payload createProjectAssignmentPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -110,6 +114,9 @@ func (s *Server) createProjectAssignment(c *gin.Context) {
 
 func (s *Server) updateProjectAssignment(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return
@@ -130,6 +137,9 @@ func (s *Server) updateProjectAssignment(c *gin.Context) {
 
 func (s *Server) deleteProjectAssignment(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return

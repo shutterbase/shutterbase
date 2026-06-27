@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,11 +9,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/user"
 	"github.com/shutterbase/shutterbase/internal/repository"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 // upload-url key-format validator: the /upload-url guard that rejects path
@@ -76,6 +81,10 @@ func TestStatisticsCacheHit(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/statistics/proj1", nil)
+	// authz (S8): getStatistics gates on admin-or-assigned; inject an admin so the
+	// cache-hit path under test is reached.
+	admin := &ent.User{ID: uuid.New(), Role: user.RoleAdmin, Active: true}
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), util.UserKey, admin))
 	c.Params = gin.Params{{Key: "projectId", Value: "proj1"}}
 
 	s.getStatistics(c)

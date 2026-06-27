@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/service"
 	"github.com/shutterbase/shutterbase/internal/util"
@@ -33,6 +34,9 @@ func (s *Server) listImages(c *gin.Context) {
 	projectID := c.Query("projectId")
 	if projectID == "" {
 		apiError(c, http.StatusBadRequest, "missing_project", "projectId is required")
+		return
+	}
+	if !allow(c, authorization.CanViewProject(authUser(c), projectID)) {
 		return
 	}
 	params := &repository.GetImageParameters{ProjectID: projectID, PaginationParameters: pagination}
@@ -85,6 +89,9 @@ func (s *Server) getImage(c *gin.Context) {
 	if abortGetError(c, err) {
 		return
 	}
+	if !allow(c, authorization.CanViewImage(authUser(c), img)) {
+		return
+	}
 	c.JSON(http.StatusOK, ToImageResponse(c.Request.Context(), img, s.s3Client, s.thumbnailSizes))
 }
 
@@ -108,6 +115,9 @@ func (s *Server) createImage(c *gin.Context) {
 	var payload createImagePayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if !allow(c, authorization.CanCreateImage(authUser(c), payload.ProjectID)) {
 		return
 	}
 	img, err := s.imageService.CreateImage(c.Request.Context(), &service.CreateImageParameters{
@@ -151,6 +161,18 @@ func (s *Server) updateImage(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	existing, err := s.Repository.GetImage(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanEditImage(authUser(c), existing)) {
+		return
+	}
+	// Re-parenting (camera/upload) is admin/projectAdmin only (§4.3).
+	if (payload.CameraID != nil || payload.UploadID != nil) &&
+		!allow(c, authorization.CanReparentImage(authUser(c), existing)) {
+		return
+	}
 	img, err := s.Repository.UpdateImage(c.Request.Context(), id, &repository.UpdateImageParameters{
 		FileName:   payload.FileName,
 		CapturedAt: payload.CapturedAt,
@@ -172,6 +194,9 @@ func (s *Server) deleteImage(c *gin.Context) {
 	}
 	img, err := s.Repository.GetImage(c.Request.Context(), id)
 	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanDeleteImage(authUser(c), img)) {
 		return
 	}
 	// Drop the S3 objects (original + thumbnails) by storageId prefix, then the row

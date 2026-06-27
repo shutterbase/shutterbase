@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
 
@@ -44,10 +45,11 @@ func (s *Server) listProjects(c *gin.Context) {
 	if v := c.Query("search"); v != "" {
 		search = &v
 	}
-	items, total, err := s.Repository.GetProjects(c.Request.Context(), &repository.GetProjectParameters{
-		Search:               search,
-		PaginationParameters: pagination,
-	})
+	params := &repository.GetProjectParameters{Search: search, PaginationParameters: pagination}
+	if !authorization.IsAdminUser(authUser(c)) {
+		params.IDs = authorization.AssignedProjectIDs(authUser(c)) // non-nil -> scoped
+	}
+	items, total, err := s.Repository.GetProjects(c.Request.Context(), params)
 	if abortRepoListError(c, err) {
 		return
 	}
@@ -62,6 +64,9 @@ func (s *Server) getProject(c *gin.Context) {
 	// authz (S8): admin or assigned member.
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanViewProject(authUser(c), id)) {
 		return
 	}
 	p, err := s.Repository.GetProject(c.Request.Context(), id)
@@ -84,6 +89,9 @@ type createProjectPayload struct {
 
 func (s *Server) createProject(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.CanManageProject(authUser(c))) {
+		return
+	}
 	var payload createProjectPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -118,6 +126,9 @@ type updateProjectPayload struct {
 
 func (s *Server) updateProject(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.CanManageProject(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return
@@ -145,6 +156,9 @@ func (s *Server) updateProject(c *gin.Context) {
 
 func (s *Server) deleteProject(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.CanManageProject(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return

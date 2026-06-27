@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
 
@@ -58,6 +59,9 @@ type rolePayload struct {
 
 func (s *Server) createRole(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	var payload rolePayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -72,6 +76,9 @@ func (s *Server) createRole(c *gin.Context) {
 
 func (s *Server) updateRole(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return
@@ -93,6 +100,9 @@ func (s *Server) updateRole(c *gin.Context) {
 
 func (s *Server) deleteRole(c *gin.Context) {
 	// authz (S8): admin only. DELETE 409 if the role is still referenced (FK).
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return
