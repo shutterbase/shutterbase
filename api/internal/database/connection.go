@@ -8,15 +8,12 @@ import (
 	"time"
 
 	entsql "entgo.io/ent/dialect/sql"
-	"github.com/golang-migrate/migrate/v4"
-	migratepgx "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
 
 	"github.com/shutterbase/shutterbase/ent"
-	"github.com/shutterbase/shutterbase/ent/migrate/migrations"
+	"github.com/shutterbase/shutterbase/ent/migrate"
 )
 
 type Connection struct {
@@ -64,6 +61,17 @@ func (d *Connection) dsn() string {
 		d.Options.Host, d.Options.Username, d.Options.Password, d.Options.Database, d.Options.Port, d.Options.SSLMode, d.Options.Schema, d.Options.TimeZone)
 }
 
+// createSchema runs ent auto-migrate for both dialects. It is additive-only.
+// ponytail: auto-migrate is additive-only via these opts; the rare destructive
+// change is a hand-written one-off, cheaper than carrying Atlas for a single-team app.
+func (d *Connection) createSchema(ctx context.Context) error {
+	return d.Client.Schema.Create(ctx,
+		migrate.WithDropIndex(false),
+		migrate.WithDropColumn(false),
+		migrate.WithForeignKeys(true),
+	)
+}
+
 func (d *Connection) initPostgres() error {
 	db, err := sql.Open("pgx", d.dsn())
 	if err != nil {
@@ -71,38 +79,42 @@ func (d *Connection) initPostgres() error {
 	}
 	configureConnectionPool(db)
 
-	// Apply versioned migrations on the same *sql.DB pool. Fail closed: the
-	// server must not serve a half-migrated schema.
-	if err := d.applyMigrations(db); err != nil {
-		log.Panic().Err(err).Msg("failed to apply database migrations")
-	}
-
 	drv := entsql.OpenDB("postgres", db)
 	d.Client = ent.NewClient(ent.Driver(drv))
+
+	// Fail closed: never serve a half-migrated schema.
+	if err := d.createSchema(context.Background()); err != nil {
+		log.Panic().Err(err).Msg("failed to apply database schema")
+	}
+	if err := ensureGINIndex(context.Background(), db); err != nil {
+		log.Panic().Err(err).Msg("failed to ensure images.imageTags GIN index")
+	}
+
 	log.Info().Msg("PostgreSQL database client initialized")
 	return nil
 }
 
-func (d *Connection) applyMigrations(db *sql.DB) error {
-	src, err := iofs.New(migrations.FS, ".")
-	if err != nil {
-		return fmt.Errorf("failed to load embedded migrations: %w", err)
+// ensureGINIndex verifies the images.imageTags jsonb_path_ops GIN index exists
+// after auto-migrate. If the pinned ent version did not emit the opclass, it
+// installs the idempotent fallback (SPEC §3.2).
+func ensureGINIndex(ctx context.Context, db *sql.DB) error {
+	var def string
+	err := db.QueryRowContext(ctx,
+		`SELECT indexdef FROM pg_indexes WHERE tablename = 'images' AND indexdef ILIKE '%using gin%jsonb_path_ops%'`).Scan(&def)
+	if err == nil {
+		log.Info().Str("index", def).Msg("images.imageTags GIN(jsonb_path_ops) index present")
+		return nil
 	}
-	driver, err := migratepgx.WithInstance(db, &migratepgx.Config{
-		MigrationsTable: "schema_migrations",
-		SchemaName:      d.Options.Schema,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to init migrate driver: %w", err)
+	if !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("failed to verify GIN index: %w", err)
 	}
-	m, err := migrate.NewWithInstance("iofs", src, "pgx", driver)
-	if err != nil {
-		return fmt.Errorf("failed to init migrator: %w", err)
+	// ent auto-migrate omitted the jsonb_path_ops opclass; install the fallback.
+	// ent snake_cases the JSON field to column image_tags (not "imageTags").
+	if _, err := db.ExecContext(ctx,
+		`CREATE INDEX IF NOT EXISTS image_image_tags ON images USING GIN (image_tags jsonb_path_ops)`); err != nil {
+		return fmt.Errorf("failed to create GIN fallback index: %w", err)
 	}
-	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("failed to apply migrations: %w", err)
-	}
-	log.Info().Msg("database migrations applied")
+	log.Warn().Msg("ent auto-migrate omitted jsonb_path_ops opclass; installed fallback GIN index image_image_tags")
 	return nil
 }
 
@@ -119,8 +131,7 @@ func (d *Connection) initSQLite() error {
 	d.Client = ent.NewClient(ent.Driver(drv))
 	log.Info().Str("file", d.Options.File).Msg("SQLite database client initialized")
 
-	// SQLite (unit tests) keeps ent auto-migrate.
-	if err := d.Client.Schema.Create(context.Background()); err != nil {
+	if err := d.createSchema(context.Background()); err != nil {
 		return fmt.Errorf("failed to run sqlite schema create: %w", err)
 	}
 	return nil
@@ -136,31 +147,21 @@ func (d *Connection) Close() {
 	d.Client.Close()
 }
 
-// NewMigrator builds a golang-migrate migrator over a fresh pgx connection for
-// the standalone migrate CLI. Caller closes db.
-func NewMigrator(options *Options) (*migrate.Migrate, *sql.DB, error) {
+// DropAll drops every table in the configured schema by recreating the schema.
+// DEV-only helper for the importer fresh-start and `just migrate-reset`.
+func DropAll(options *Options) error {
 	d := &Connection{Options: options}
 	db, err := sql.Open("pgx", d.dsn())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open postgres connection: %w", err)
+		return fmt.Errorf("failed to open postgres connection: %w", err)
 	}
-	src, err := iofs.New(migrations.FS, ".")
-	if err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("failed to load embedded migrations: %w", err)
+	defer db.Close()
+	schema := options.Schema
+	if schema == "" {
+		schema = "public"
 	}
-	driver, err := migratepgx.WithInstance(db, &migratepgx.Config{
-		MigrationsTable: "schema_migrations",
-		SchemaName:      options.Schema,
-	})
-	if err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("failed to init migrate driver: %w", err)
+	if _, err := db.Exec(fmt.Sprintf(`DROP SCHEMA IF EXISTS %q CASCADE; CREATE SCHEMA %q;`, schema, schema)); err != nil {
+		return fmt.Errorf("failed to drop schema %q: %w", schema, err)
 	}
-	m, err := migrate.NewWithInstance("iofs", src, "pgx", driver)
-	if err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("failed to init migrator: %w", err)
-	}
-	return m, db, nil
+	return nil
 }
