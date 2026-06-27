@@ -42,7 +42,13 @@ func InitConfig() error {
 		config.String("S3_ACCESS_KEY").Default(""),
 		config.String("S3_SECRET_KEY").Sensitive().Default(""),
 
-		// ai inference
+		// ai inference (S6). AI_PROVIDER selects the ImageInference impl:
+		// "stub" (deterministic echo, dev/test), "openai", "openrouter", "http".
+		// Model is config-driven — never hardcoded in the call.
+		config.String("AI_PROVIDER").Default("stub"),
+		config.String("AI_MODEL").Default("gpt-4o"),
+		config.String("AI_API_KEY").Sensitive().Default(""),
+		config.String("AI_TIMEOUT").Default("60s"),
 		config.String("OPENAI_API_KEY").Sensitive().Default(""),
 
 		// image processing
