@@ -41,6 +41,7 @@ features = [
   'ProgressEvent',
   'Headers',
   'Request',
+  'RequestCredentials',
   'RequestInit',
   'RequestMode',
   'Response',
