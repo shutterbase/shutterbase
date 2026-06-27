@@ -99,6 +99,11 @@ func Setup(options *Options) error {
 		return fmt.Errorf("error creating basicauth handler: %w", err)
 	}
 
+	// API-key auth (S11) MUST be installed before RegisterRoutes so it runs ahead
+	// of RequireAuth (see apikey.go "global middleware shadowing"). On a valid key
+	// it marks the request authenticated so RequireAuth passes through.
+	options.Engine.Use(apiKeyMiddleware(options.Repository, settings.SessionName))
+
 	// RegisterRoutes installs RequireAuth (engine.Use) and /auth/{login,logout,me,register}.
 	if err := baHandler.RegisterRoutes(); err != nil {
 		return fmt.Errorf("error registering auth routes: %w", err)

@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/predicate"
@@ -35,6 +36,7 @@ type UserQuery struct {
 	withImages             *ImageQuery
 	withProjectAssignments *ProjectAssignmentQuery
 	withActiveProject      *ProjectQuery
+	withApiKeys            *ApiKeyQuery
 	modifiers              []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -175,6 +177,28 @@ func (_q *UserQuery) QueryActiveProject() *ProjectQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(project.Table, project.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, user.ActiveProjectTable, user.ActiveProjectColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryApiKeys chains the current query on the "apiKeys" edge.
+func (_q *UserQuery) QueryApiKeys() *ApiKeyQuery {
+	query := (&ApiKeyClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(apikey.Table, apikey.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.ApiKeysTable, user.ApiKeysColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -379,6 +403,7 @@ func (_q *UserQuery) Clone() *UserQuery {
 		withImages:             _q.withImages.Clone(),
 		withProjectAssignments: _q.withProjectAssignments.Clone(),
 		withActiveProject:      _q.withActiveProject.Clone(),
+		withApiKeys:            _q.withApiKeys.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -437,6 +462,17 @@ func (_q *UserQuery) WithActiveProject(opts ...func(*ProjectQuery)) *UserQuery {
 		opt(query)
 	}
 	_q.withActiveProject = query
+	return _q
+}
+
+// WithApiKeys tells the query-builder to eager-load the nodes that are connected to
+// the "apiKeys" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithApiKeys(opts ...func(*ApiKeyQuery)) *UserQuery {
+	query := (&ApiKeyClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withApiKeys = query
 	return _q
 }
 
@@ -518,12 +554,13 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withCameras != nil,
 			_q.withUploads != nil,
 			_q.withImages != nil,
 			_q.withProjectAssignments != nil,
 			_q.withActiveProject != nil,
+			_q.withApiKeys != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -580,6 +617,13 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	if query := _q.withActiveProject; query != nil {
 		if err := _q.loadActiveProject(ctx, query, nodes, nil,
 			func(n *User, e *Project) { n.Edges.ActiveProject = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withApiKeys; query != nil {
+		if err := _q.loadApiKeys(ctx, query, nodes,
+			func(n *User) { n.Edges.ApiKeys = []*ApiKey{} },
+			func(n *User, e *ApiKey) { n.Edges.ApiKeys = append(n.Edges.ApiKeys, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -735,6 +779,36 @@ func (_q *UserQuery) loadActiveProject(ctx context.Context, query *ProjectQuery,
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *UserQuery) loadApiKeys(ctx context.Context, query *ApiKeyQuery, nodes []*User, init func(*User), assign func(*User, *ApiKey)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(apikey.FieldUserID)
+	}
+	query.Where(predicate.ApiKey(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.ApiKeysColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

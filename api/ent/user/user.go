@@ -60,6 +60,8 @@ const (
 	EdgeProjectAssignments = "projectAssignments"
 	// EdgeActiveProject holds the string denoting the activeproject edge name in mutations.
 	EdgeActiveProject = "activeProject"
+	// EdgeApiKeys holds the string denoting the apikeys edge name in mutations.
+	EdgeApiKeys = "apiKeys"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// CamerasTable is the table that holds the cameras relation/edge.
@@ -97,6 +99,13 @@ const (
 	ActiveProjectInverseTable = "projects"
 	// ActiveProjectColumn is the table column denoting the activeProject relation/edge.
 	ActiveProjectColumn = "active_project_id"
+	// ApiKeysTable is the table that holds the apiKeys relation/edge.
+	ApiKeysTable = "api_keys"
+	// ApiKeysInverseTable is the table name for the ApiKey entity.
+	// It exists in this package in order to avoid circular dependency with the "apikey" package.
+	ApiKeysInverseTable = "api_keys"
+	// ApiKeysColumn is the table column denoting the apiKeys relation/edge.
+	ApiKeysColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -360,6 +369,20 @@ func ByActiveProjectField(field string, opts ...sql.OrderTermOption) OrderOption
 		sqlgraph.OrderByNeighborTerms(s, newActiveProjectStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByApiKeysCount orders the results by apiKeys count.
+func ByApiKeysCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newApiKeysStep(), opts...)
+	}
+}
+
+// ByApiKeys orders the results by apiKeys terms.
+func ByApiKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newApiKeysStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newCamerasStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -393,5 +416,12 @@ func newActiveProjectStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ActiveProjectInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, ActiveProjectTable, ActiveProjectColumn),
+	)
+}
+func newApiKeysStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ApiKeysInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ApiKeysTable, ApiKeysColumn),
 	)
 }
