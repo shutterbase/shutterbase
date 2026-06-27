@@ -4,6 +4,7 @@ go 1.26.4
 
 require (
 	entgo.io/ent v0.14.5
+	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/mxcd/go-config v1.5.1
