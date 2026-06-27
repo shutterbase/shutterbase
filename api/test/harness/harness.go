@@ -193,6 +193,12 @@ func StartServer(db *database.Connection, s3Client *s3.S3Client) (*httptest.Serv
 	if _, ok := os.LookupEnv("RATE_LIMIT_LOGIN_PER_MINUTE"); !ok {
 		_ = os.Setenv("RATE_LIMIT_LOGIN_PER_MINUTE", "100000")
 	}
+	// Trust the loopback proxy so the security-review e2e can exercise the per-IP
+	// api-key limiter under a distinct X-Forwarded-For without polluting the
+	// loopback bucket the other api-key tests share (and proves TRUSTED_PROXIES).
+	if _, ok := os.LookupEnv("TRUSTED_PROXIES"); !ok {
+		_ = os.Setenv("TRUSTED_PROXIES", "127.0.0.1,::1")
+	}
 	if err := util.InitConfig(); err != nil {
 		return nil, err
 	}

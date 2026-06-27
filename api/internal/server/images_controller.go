@@ -115,6 +115,13 @@ func (s *Server) createImage(c *gin.Context) {
 	if !allow(c, authorization.CanCreateImage(authUser(c), payload.ProjectID)) {
 		return
 	}
+	// Integrity (S-review #5): never trust the client's upload/camera refs.
+	if !s.validateUploadRef(c, payload.ProjectID, payload.UploadID) {
+		return
+	}
+	if !s.validateCameraRef(c, payload.ProjectID, payload.CameraID) {
+		return
+	}
 	img, err := s.imageService.CreateImage(c.Request.Context(), &service.CreateImageParameters{
 		FileName:   payload.FileName,
 		StorageID:  payload.StorageID,
@@ -167,6 +174,14 @@ func (s *Server) updateImage(c *gin.Context) {
 		!allow(c, authorization.CanReparentImage(authUser(c), existing)) {
 		return
 	}
+	// Integrity (S-review #5): a re-parent target must be a valid same-project
+	// upload / a camera the caller may reference.
+	if payload.UploadID != nil && !s.validateUploadRef(c, existing.ProjectID, *payload.UploadID) {
+		return
+	}
+	if payload.CameraID != nil && !s.validateCameraRef(c, existing.ProjectID, *payload.CameraID) {
+		return
+	}
 	img, err := s.Repository.UpdateImage(c.Request.Context(), id, &repository.UpdateImageParameters{
 		FileName:   payload.FileName,
 		CapturedAt: payload.CapturedAt,
@@ -178,6 +193,39 @@ func (s *Server) updateImage(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ToImageResponse(c.Request.Context(), img, s.s3Client, s.thumbnailSizes))
+}
+
+// validateUploadRef asserts the upload exists and belongs to projectID, so a
+// client cannot attach an image to another project's upload (S-review #5).
+func (s *Server) validateUploadRef(c *gin.Context, projectID, uploadID string) bool {
+	up, err := s.Repository.GetUpload(c.Request.Context(), uploadID)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_upload", "uploadId does not exist")
+		return false
+	}
+	if up.ProjectID != projectID {
+		apiError(c, http.StatusBadRequest, "cross_project_upload", "uploadId belongs to a different project")
+		return false
+	}
+	return true
+}
+
+// validateCameraRef asserts the camera exists and is a valid reference for the
+// caller: owned by the effective user, or the caller is admin / projectAdmin of
+// projectID. A foreign camera is rejected 403 (S-review #5).
+func (s *Server) validateCameraRef(c *gin.Context, projectID, cameraID string) bool {
+	cam, err := s.Repository.GetCamera(c.Request.Context(), cameraID)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_camera", "cameraId does not exist")
+		return false
+	}
+	u := authUser(c)
+	if authorization.IsAdminUser(u) || authorization.IsSelf(u, cam.UserID) ||
+		authorization.HasRoleInProject(u, projectID, authorization.RoleProjectAdmin) {
+		return true
+	}
+	forbid(c)
+	return false
 }
 
 func (s *Server) deleteImage(c *gin.Context) {

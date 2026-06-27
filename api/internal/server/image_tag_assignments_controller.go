@@ -36,17 +36,40 @@ func (s *Server) registerImageTagAssignmentRoutes(api *gin.RouterGroup) {
 }
 
 func (s *Server) listImageTagAssignments(c *gin.Context) {
-	// authz (S8): any authed.
+	// authz: scope through the related image's (or tag's) project and require
+	// membership (S-review #2: this list was unscoped, leaking other projects'
+	// assignments). A non-admin MUST supply an imageId/tagId we can gate on.
 	pagination, ok := getPagination(c)
 	if !ok {
 		return
 	}
 	params := &repository.GetImageTagAssignmentParameters{PaginationParameters: pagination}
+	gateProject := ""
 	if v := c.Query("imageId"); v != "" {
+		img, err := s.Repository.GetImage(c.Request.Context(), v)
+		if abortGetError(c, err) {
+			return
+		}
+		gateProject = img.ProjectID
 		params.ImageID = &v
 	}
 	if v := c.Query("tagId"); v != "" {
+		t, err := s.Repository.GetImageTag(c.Request.Context(), v)
+		if abortGetError(c, err) {
+			return
+		}
+		if gateProject == "" {
+			gateProject = t.ProjectID
+		}
 		params.TagID = &v
+	}
+	if gateProject == "" {
+		// No scoping param to gate on => only an admin may enumerate globally.
+		if !allow(c, authorization.IsAdminUser(authUser(c))) {
+			return
+		}
+	} else if !allow(c, authorization.CanViewProject(authUser(c), gateProject)) {
+		return
 	}
 	items, total, err := s.Repository.GetImageTagAssignments(c.Request.Context(), params)
 	if abortRepoListError(c, err) {
@@ -66,6 +89,15 @@ func (s *Server) getImageTagAssignment(c *gin.Context) {
 	}
 	a, err := s.Repository.GetImageTagAssignment(c.Request.Context(), id)
 	if abortGetError(c, err) {
+		return
+	}
+	// authz: gate on the assignment's image -> project (S-review #2: by-id had
+	// no authz). Non-member of that project -> 403.
+	img, err := s.Repository.GetImage(c.Request.Context(), a.ImageID)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanViewImage(authUser(c), img)) {
 		return
 	}
 	c.JSON(http.StatusOK, s.imageTagAssignmentResponse(c.Request.Context(), a))
@@ -95,6 +127,17 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 		return
 	}
 	if !allow(c, authorization.CanManageImageTagAssignment(authUser(c), img.ProjectID)) {
+		return
+	}
+	// Integrity (S-review #4): the tag must belong to the SAME project as the
+	// image — a client must not cross-link a foreign project's tag.
+	tag, err := s.Repository.GetImageTag(c.Request.Context(), payload.ImageTagID)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_tag", "imageTagId does not exist")
+		return
+	}
+	if tag.ProjectID != img.ProjectID {
+		apiError(c, http.StatusBadRequest, "cross_project_tag", "imageTagId belongs to a different project than the image")
 		return
 	}
 	item, created, err := s.Repository.CreateImageTagAssignment(c.Request.Context(), &repository.CreateImageTagAssignmentParameters{

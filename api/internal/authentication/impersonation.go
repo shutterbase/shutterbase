@@ -33,6 +33,10 @@ import (
 const (
 	impersonationSessionName = "impersonation_session"
 	impersonationValueKey    = "impersonated_user_id"
+	// impersonationRealKey binds the cookie to the admin who started it (S-review
+	// #8). On every request the resolved real login user must match this, else the
+	// cookie was minted by a different session and is ignored + cleared.
+	impersonationRealKey = "real_user_id"
 )
 
 type impersonator struct {
@@ -53,22 +57,30 @@ func newImpersonator(secretKey, encKey []byte, repo *repository.Repository, apiP
 	return &impersonator{store: store, repo: repo, apiPath: apiPath, readOnly: readOnly}
 }
 
-func (im *impersonator) get(c *gin.Context) (uuid.UUID, bool) {
+// get returns the impersonated target id and the real-user id the cookie is
+// bound to. realID is uuid.Nil for legacy cookies that predate the binding.
+func (im *impersonator) get(c *gin.Context) (target, realID uuid.UUID, ok bool) {
 	session, _ := im.store.Get(c.Request, impersonationSessionName)
 	raw, ok := session.Values[impersonationValueKey].(string)
 	if !ok || raw == "" {
-		return uuid.Nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
 	id, err := uuid.Parse(raw)
 	if err != nil {
-		return uuid.Nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
-	return id, true
+	if rawReal, ok := session.Values[impersonationRealKey].(string); ok {
+		if r, err := uuid.Parse(rawReal); err == nil {
+			realID = r
+		}
+	}
+	return id, realID, true
 }
 
-func (im *impersonator) set(c *gin.Context, id uuid.UUID) error {
+func (im *impersonator) set(c *gin.Context, target, realID uuid.UUID) error {
 	session, _ := im.store.Get(c.Request, impersonationSessionName)
-	session.Values[impersonationValueKey] = id.String()
+	session.Values[impersonationValueKey] = target.String()
+	session.Values[impersonationRealKey] = realID.String()
 	return session.Save(c.Request, c.Writer)
 }
 
@@ -107,8 +119,18 @@ func (im *impersonator) resolve() gin.HandlerFunc {
 		ctx = context.WithValue(ctx, util.RealUserKey, real)
 		c.Request = c.Request.WithContext(ctx)
 
-		impID, ok := im.get(c)
+		impID, boundReal, ok := im.get(c)
 		if !ok {
+			c.Next()
+			return
+		}
+
+		// Bind the cookie to the originating admin (S-review #8): if it was minted
+		// by a different login session (boundReal != the current real user), it is
+		// not ours — ignore + clear so a stolen/leaked cookie can't impersonate
+		// under someone else's session. Legacy unbound cookies (Nil) are dropped too.
+		if boundReal != real.ID {
+			im.clear(c)
 			c.Next()
 			return
 		}
@@ -175,12 +197,12 @@ func (im *impersonator) handleStart(c *gin.Context) {
 		return
 	}
 
-	if err := im.set(c, targetID); err != nil {
+	real := util.GetRealUser(ctx)
+	if err := im.set(c, targetID, real.ID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal", "message": "failed to start impersonation"})
 		return
 	}
 
-	real := util.GetRealUser(ctx)
 	im.auditControl(ctx, real, "impersonate.start", targetID)
 	c.JSON(http.StatusOK, meWithImpersonation(ctx, im.repo, target, real))
 }
@@ -194,7 +216,7 @@ func (im *impersonator) handleStop(c *gin.Context) {
 	ctx := c.Request.Context()
 	real := util.GetRealUser(ctx)
 
-	if impID, ok := im.get(c); ok {
+	if impID, _, ok := im.get(c); ok {
 		im.auditControl(ctx, real, "impersonate.stop", impID)
 	}
 	im.clear(c)

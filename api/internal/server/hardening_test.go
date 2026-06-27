@@ -83,6 +83,15 @@ func TestRateLimiterAllowsThenBlocks(t *testing.T) {
 	}
 }
 
+// S-review #6: TRUSTED_PROXIES parsing. Blank/whitespace entries are dropped and
+// an empty config yields nil (so gin trusts no proxy and ClientIP == RemoteAddr).
+func TestParseTrustedProxies(t *testing.T) {
+	assert.Nil(t, parseTrustedProxies(""), "empty => nil (trust none)")
+	assert.Nil(t, parseTrustedProxies("  ,  , "), "all-blank => nil")
+	assert.Equal(t, []string{"127.0.0.1", "::1"}, parseTrustedProxies(" 127.0.0.1 , ::1 "), "trimmed")
+	assert.Equal(t, []string{"10.0.0.0/8"}, parseTrustedProxies("10.0.0.0/8"), "single CIDR")
+}
+
 // Body-cap enforcement: an over-cap body surfaces as 413 through bindJSON; an
 // under-cap body binds cleanly.
 func TestBodyCapEnforcement(t *testing.T) {

@@ -1,6 +1,7 @@
 package authentication
 
 import (
+	"strings"
 	"testing"
 
 	basicauth "github.com/mxcd/go-basicauth"
@@ -59,4 +60,19 @@ func TestApiKeySecretHashRoundtrip(t *testing.T) {
 	hash2, err := basicauth.HashPassword(secret, basicauth.DefaultPasswordHashingParams)
 	require.NoError(t, err)
 	assert.NotEqual(t, hash, hash2)
+}
+
+// S-review #9: the keyId-not-found path verifies against a fixed dummy argon2
+// hash so it does the SAME argon2 work as a found key (no timing oracle). Prove
+// the dummy hash is a real verifiable argon2 hash and that VerifyPassword runs
+// to a clean (false) result against it — i.e. the timing path actually executes.
+func TestApiKeyDummyHashTimingPath(t *testing.T) {
+	require.NotEmpty(t, dummyApiKeyHash, "dummy hash must be initialized at package init")
+	require.True(t, strings.HasPrefix(dummyApiKeyHash, "$argon2"), "dummy must be an argon2 hash, got %q", dummyApiKeyHash)
+
+	// Any secret against the dummy hash verifies false WITHOUT error — the same
+	// argon2 derivation a real (wrong-secret) verify performs.
+	ok, _, err := basicauth.VerifyPassword("whatever-the-attacker-sent", dummyApiKeyHash)
+	require.NoError(t, err)
+	assert.False(t, ok)
 }

@@ -35,7 +35,8 @@ func (s *Server) registerImageTagRoutes(api *gin.RouterGroup) {
 }
 
 func (s *Server) listImageTags(c *gin.Context) {
-	// authz (S8): any authed.
+	// authz: caller must be admin or assigned to projectId (S-review #1: a
+	// non-member must not enumerate another project's tags).
 	pagination, ok := getPagination(c)
 	if !ok {
 		return
@@ -45,6 +46,9 @@ func (s *Server) listImageTags(c *gin.Context) {
 		return
 	}
 	projectID := c.Query("projectId")
+	if !allow(c, authorization.CanViewProject(authUser(c), projectID)) {
+		return
+	}
 	params := &repository.GetImageTagParameters{ProjectID: &projectID, PaginationParameters: pagination}
 	if v := c.Query("search"); v != "" {
 		params.Search = &v
@@ -75,6 +79,10 @@ func (s *Server) getImageTag(c *gin.Context) {
 	}
 	t, err := s.Repository.GetImageTag(c.Request.Context(), id)
 	if abortGetError(c, err) {
+		return
+	}
+	// authz: gate on the tag's project (S-review #1: by-id had no authz).
+	if !allow(c, authorization.CanViewProject(authUser(c), t.ProjectID)) {
 		return
 	}
 	c.JSON(http.StatusOK, s.imageTagResponse(c.Request.Context(), t))
