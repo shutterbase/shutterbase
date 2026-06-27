@@ -1,99 +1,75 @@
 package main
 
 import (
+	"context"
 	"os"
-	"path/filepath"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/labstack/echo/v5"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
-	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-	"github.com/shutterbase/shutterbase/internal/hooks"
-	"github.com/shutterbase/shutterbase/internal/s3"
+	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/server"
-	"github.com/shutterbase/shutterbase/internal/timeoffset"
 	"github.com/shutterbase/shutterbase/internal/util"
-
-	_ "github.com/shutterbase/shutterbase/migrations"
 )
 
 func main() {
-
-	err := util.InitConfig()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize config")
+	if err := util.InitConfig(); err != nil {
+		log.Panic().Err(err).Msg("error initializing config")
 	}
 	config.Print()
 
-	err = util.InitLogger()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize logger")
+	if err := util.InitLogger(); err != nil {
+		log.Panic().Err(err).Msg("error initializing logger")
 	}
 
-	s3Client, err := s3.NewClient(&s3.S3ClientOptions{
-		Endpoint:  config.Get().String("S3_ENDPOINT"),
-		Port:      config.Get().Int("S3_PORT"),
-		SSL:       config.Get().Bool("S3_SSL"),
-		Bucket:    config.Get().String("S3_BUCKET"),
-		AccessKey: config.Get().String("S3_ACCESS_KEY"),
-		SecretKey: config.Get().String("S3_SECRET_KEY"),
+	databaseConnection := initDatabaseConnection()
+	defer databaseConnection.Close()
+
+	srv, err := server.NewServer(&server.Options{
+		Port:       config.Get().Int("PORT"),
+		ApiBaseURL: config.Get().String("API_BASE_URL"),
+		DevMode:    config.Get().Bool("DEV"),
+		Database:   databaseConnection,
 	})
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize s3 client")
+		log.Panic().Err(err).Msg("error initializing server")
 	}
 
-	app := pocketbase.New()
+	go func() {
+		if err := srv.Run(); err != nil {
+			log.Panic().Err(err).Msg("error running server")
+		}
+	}()
 
-	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		e.Router.GET("/*", func(c echo.Context) error {
-			root := "./web"
-			path := filepath.Clean(c.Request().URL.Path)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Info().Str("signal", sig.String()).Msg("received shutdown signal")
 
-			if _, err := os.Stat(filepath.Join(root, path)); os.IsNotExist(err) {
-				c.Response().Header().Set("Cache-Control", "no-cache")
-				return c.File(filepath.Join(root, "index.html"))
-			}
-
-			return c.File(filepath.Join(root, path))
-		})
-		return nil
-	})
-
-	context := &util.Context{
-		App:      app,
-		S3Client: s3Client,
-	}
-
-	if config.Get().Bool("DEV") {
-		registerMigrateCmd(context)
-	}
-
-	hooks.RegisterHooks(context)
-
-	server := server.NewServer(&server.ServerOptions{
-		S3Client: s3Client,
-		App:      app,
-	})
-	server.RegisterRoutes()
-
-	timeoffset.StartWebsocketTrigger(server)
-
-	// serves static files from the provided public dir (if exists)
-	// app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-	//     e.Router.GET("/*", apis.StaticDirectoryHandler(os.DirFS("./pb_public"), false))
-	//     return nil
-	// })
-
-	if err := app.Start(); err != nil {
-		log.Fatal().Err(err)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
+	log.Info().Msg("server shutdown complete")
 }
 
-func registerMigrateCmd(context *util.Context) {
-	migratecmd.MustRegister(context.App, context.App.RootCmd, migratecmd.Config{
-		Automigrate: true,
+func initDatabaseConnection() *database.Connection {
+	connection, err := database.NewConnection(&database.Options{
+		DatabaseType: config.Get().String("DATABASE_TYPE"),
+		Host:         config.Get().String("DATABASE_HOST"),
+		Port:         config.Get().Int("DATABASE_PORT"),
+		Username:     config.Get().String("DATABASE_USERNAME"),
+		Password:     config.Get().String("DATABASE_PASSWORD"),
+		Database:     config.Get().String("DATABASE_NAME"),
+		Schema:       config.Get().String("DATABASE_SCHEMA"),
+		SSLMode:      config.Get().String("DATABASE_SSL_MODE"),
+		TimeZone:     config.Get().String("DATABASE_TIMEZONE"),
+		File:         config.Get().String("DATABASE_FILE"),
 	})
+	if err != nil {
+		log.Panic().Err(err).Msg("error initializing database connection")
+	}
+	return connection
 }
