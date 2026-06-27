@@ -8,7 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
+	"github.com/shutterbase/shutterbase/internal/authentication"
 	"github.com/shutterbase/shutterbase/internal/database"
+	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
 
@@ -17,10 +19,17 @@ type Options struct {
 	ApiBaseURL string
 	DevMode    bool
 	Database   *database.Connection
+
+	// Auth (S7). SessionSecretKey is the raw secret; the 64/32-byte session keys
+	// are derived from it. DefaultAdmin* seeds an admin when none exists.
+	SessionSecretKey     string
+	DefaultAdminUsername string
+	DefaultAdminPassword string
 }
 
 type Server struct {
 	Engine     *gin.Engine
+	Repository *repository.Repository
 	options    *Options
 	httpServer *http.Server
 }
@@ -32,12 +41,34 @@ func NewServer(options *Options) (*Server, error) {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 
-	s := &Server{Engine: engine, options: options}
-	s.registerRoutes()
+	repo, err := repository.NewRepository(&repository.Options{DatabaseConnection: options.Database})
+	if err != nil {
+		return nil, err
+	}
+
+	s := &Server{Engine: engine, Repository: repo, options: options}
+
+	// Public routes are registered before the auth middleware so they bypass it.
+	s.registerPublicRoutes()
+
+	// Setup installs the auth middleware (RequireAuth) and the auth routes;
+	// everything registered after this inherits the middleware.
+	if err := authentication.Setup(&authentication.Options{
+		Engine:               engine,
+		Repository:           repo,
+		ApiBaseURL:           options.ApiBaseURL,
+		IsDev:                options.DevMode,
+		SessionSecretKey:     options.SessionSecretKey,
+		DefaultAdminUsername: options.DefaultAdminUsername,
+		DefaultAdminPassword: options.DefaultAdminPassword,
+	}); err != nil {
+		return nil, err
+	}
+
 	return s, nil
 }
 
-func (s *Server) registerRoutes() {
+func (s *Server) registerPublicRoutes() {
 	api := s.Engine.Group(s.options.ApiBaseURL)
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

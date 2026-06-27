@@ -178,9 +178,12 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*see
 // StartServer wraps the gin engine in an in-process httptest.Server for e2e.
 func StartServer(db *database.Connection) (*httptest.Server, error) {
 	srv, err := server.NewServer(&server.Options{
-		ApiBaseURL: "/api/v1",
-		DevMode:    false,
-		Database:   db,
+		ApiBaseURL:           "/api/v1",
+		DevMode:              false,
+		Database:             db,
+		SessionSecretKey:     "harness-test-session-secret",
+		DefaultAdminUsername: "admin",
+		DefaultAdminPassword: "HarnessAdmin123",
 	})
 	if err != nil {
 		return nil, err
