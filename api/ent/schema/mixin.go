@@ -8,7 +8,7 @@ import (
 	"entgo.io/ent/schema/mixin"
 	"github.com/google/uuid"
 
-	"github.com/shutterbase/shutterbase/internal/util" // util.NewID
+	"github.com/shutterbase/shutterbase/internal/id" // id.NewID
 )
 
 // StringIDMixin: 15-char PB-style string PK. Used by every entity EXCEPT User.
@@ -17,7 +17,7 @@ type StringIDMixin struct{ mixin.Schema }
 func (StringIDMixin) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("id").MaxLen(15).Immutable().
-			DefaultFunc(util.NewID).StructTag(`json:"id"`),
+			DefaultFunc(id.NewID).StructTag(`json:"id"`),
 	}
 }
 

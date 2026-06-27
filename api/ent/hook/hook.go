@@ -9,6 +9,18 @@ import (
 	"github.com/shutterbase/shutterbase/ent"
 )
 
+// The AuditLogFunc type is an adapter to allow the use of ordinary
+// function as AuditLog mutator.
+type AuditLogFunc func(context.Context, *ent.AuditLogMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AuditLogMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuditLogMutation", m)
+}
+
 // The CameraFunc type is an adapter to allow the use of ordinary
 // function as Camera mutator.
 type CameraFunc func(context.Context, *ent.CameraMutation) (ent.Value, error)

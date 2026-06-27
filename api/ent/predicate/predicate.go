@@ -6,6 +6,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// AuditLog is the predicate function for auditlog builders.
+type AuditLog func(*sql.Selector)
+
 // Camera is the predicate function for camera builders.
 type Camera func(*sql.Selector)
 

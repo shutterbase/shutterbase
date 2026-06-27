@@ -16,6 +16,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -35,6 +36,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// AuditLog is the client for interacting with the AuditLog builders.
+	AuditLog *AuditLogClient
 	// Camera is the client for interacting with the Camera builders.
 	Camera *CameraClient
 	// Image is the client for interacting with the Image builders.
@@ -66,6 +69,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.AuditLog = NewAuditLogClient(c.config)
 	c.Camera = NewCameraClient(c.config)
 	c.Image = NewImageClient(c.config)
 	c.ImageTag = NewImageTagClient(c.config)
@@ -168,6 +172,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	return &Tx{
 		ctx:                ctx,
 		config:             cfg,
+		AuditLog:           NewAuditLogClient(cfg),
 		Camera:             NewCameraClient(cfg),
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
@@ -197,6 +202,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	return &Tx{
 		ctx:                ctx,
 		config:             cfg,
+		AuditLog:           NewAuditLogClient(cfg),
 		Camera:             NewCameraClient(cfg),
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
@@ -213,7 +219,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		Camera.
+//		AuditLog.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -236,7 +242,7 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment, c.Project,
+		c.AuditLog, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment, c.Project,
 		c.ProjectAssignment, c.Role, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Use(hooks...)
@@ -247,7 +253,7 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment, c.Project,
+		c.AuditLog, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment, c.Project,
 		c.ProjectAssignment, c.Role, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Intercept(interceptors...)
@@ -257,6 +263,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *AuditLogMutation:
+		return c.AuditLog.mutate(ctx, m)
 	case *CameraMutation:
 		return c.Camera.mutate(ctx, m)
 	case *ImageMutation:
@@ -279,6 +287,139 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.User.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// AuditLogClient is a client for the AuditLog schema.
+type AuditLogClient struct {
+	config
+}
+
+// NewAuditLogClient returns a client for the AuditLog from the given config.
+func NewAuditLogClient(c config) *AuditLogClient {
+	return &AuditLogClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `auditlog.Hooks(f(g(h())))`.
+func (c *AuditLogClient) Use(hooks ...Hook) {
+	c.hooks.AuditLog = append(c.hooks.AuditLog, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `auditlog.Intercept(f(g(h())))`.
+func (c *AuditLogClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AuditLog = append(c.inters.AuditLog, interceptors...)
+}
+
+// Create returns a builder for creating a AuditLog entity.
+func (c *AuditLogClient) Create() *AuditLogCreate {
+	mutation := newAuditLogMutation(c.config, OpCreate)
+	return &AuditLogCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AuditLog entities.
+func (c *AuditLogClient) CreateBulk(builders ...*AuditLogCreate) *AuditLogCreateBulk {
+	return &AuditLogCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AuditLogClient) MapCreateBulk(slice any, setFunc func(*AuditLogCreate, int)) *AuditLogCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AuditLogCreateBulk{err: fmt.Errorf("calling to AuditLogClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AuditLogCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AuditLogCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AuditLog.
+func (c *AuditLogClient) Update() *AuditLogUpdate {
+	mutation := newAuditLogMutation(c.config, OpUpdate)
+	return &AuditLogUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AuditLogClient) UpdateOne(_m *AuditLog) *AuditLogUpdateOne {
+	mutation := newAuditLogMutation(c.config, OpUpdateOne, withAuditLog(_m))
+	return &AuditLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AuditLogClient) UpdateOneID(id string) *AuditLogUpdateOne {
+	mutation := newAuditLogMutation(c.config, OpUpdateOne, withAuditLogID(id))
+	return &AuditLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AuditLog.
+func (c *AuditLogClient) Delete() *AuditLogDelete {
+	mutation := newAuditLogMutation(c.config, OpDelete)
+	return &AuditLogDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AuditLogClient) DeleteOne(_m *AuditLog) *AuditLogDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AuditLogClient) DeleteOneID(id string) *AuditLogDeleteOne {
+	builder := c.Delete().Where(auditlog.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AuditLogDeleteOne{builder}
+}
+
+// Query returns a query builder for AuditLog.
+func (c *AuditLogClient) Query() *AuditLogQuery {
+	return &AuditLogQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAuditLog},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AuditLog entity by its id.
+func (c *AuditLogClient) Get(ctx context.Context, id string) (*AuditLog, error) {
+	return c.Query().Where(auditlog.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AuditLogClient) GetX(ctx context.Context, id string) *AuditLog {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *AuditLogClient) Hooks() []Hook {
+	return c.hooks.AuditLog
+}
+
+// Interceptors returns the client interceptors.
+func (c *AuditLogClient) Interceptors() []Interceptor {
+	return c.inters.AuditLog
+}
+
+func (c *AuditLogClient) mutate(ctx context.Context, m *AuditLogMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AuditLogCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AuditLogUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AuditLogUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AuditLogDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AuditLog mutation op: %q", m.Op())
 	}
 }
 
@@ -2127,12 +2268,12 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Camera, Image, ImageTag, ImageTagAssignment, Project, ProjectAssignment, Role,
-		TimeOffset, Upload, User []ent.Hook
+		AuditLog, Camera, Image, ImageTag, ImageTagAssignment, Project,
+		ProjectAssignment, Role, TimeOffset, Upload, User []ent.Hook
 	}
 	inters struct {
-		Camera, Image, ImageTag, ImageTagAssignment, Project, ProjectAssignment, Role,
-		TimeOffset, Upload, User []ent.Interceptor
+		AuditLog, Camera, Image, ImageTag, ImageTagAssignment, Project,
+		ProjectAssignment, Role, TimeOffset, Upload, User []ent.Interceptor
 	}
 )
 

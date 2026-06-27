@@ -9,6 +9,37 @@ import (
 )
 
 var (
+	// AuditLogsColumns holds the columns for the "audit_logs" table.
+	AuditLogsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "action", Type: field.TypeString},
+		{Name: "object_type", Type: field.TypeString, Nullable: true},
+		{Name: "object_id", Type: field.TypeString, Nullable: true},
+		{Name: "actor", Type: field.TypeUUID, Nullable: true},
+		{Name: "data", Type: field.TypeJSON, Nullable: true},
+	}
+	// AuditLogsTable holds the schema information for the "audit_logs" table.
+	AuditLogsTable = &schema.Table{
+		Name:       "audit_logs",
+		Columns:    AuditLogsColumns,
+		PrimaryKey: []*schema.Column{AuditLogsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "auditlog_object_type_object_id",
+				Unique:  false,
+				Columns: []*schema.Column{AuditLogsColumns[6], AuditLogsColumns[7]},
+			},
+			{
+				Name:    "auditlog_actor",
+				Unique:  false,
+				Columns: []*schema.Column{AuditLogsColumns[8]},
+			},
+		},
+	}
 	// CamerasColumns holds the columns for the "cameras" table.
 	CamerasColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -457,6 +488,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		AuditLogsTable,
 		CamerasTable,
 		ImagesTable,
 		ImageTagsTable,
