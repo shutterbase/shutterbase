@@ -39,6 +39,7 @@ type hardening struct {
 	allowedHosts map[string]bool // browser Origin hosts allowed for CSRF / WS upgrade
 
 	loginRL    *rateLimiter
+	apiKeyRL   *rateLimiter
 	uploadRL   *rateLimiter
 	imageRL    *rateLimiter
 	downloadRL *rateLimiter
@@ -50,6 +51,7 @@ func buildHardening(apiBaseURL string) *hardening {
 	return &hardening{
 		allowedHosts: buildAllowedHosts(),
 		loginRL:      newRateLimiter(config.Get().Int("RATE_LIMIT_LOGIN_PER_MINUTE")),
+		apiKeyRL:     newRateLimiter(config.Get().Int("RATE_LIMIT_APIKEY_PER_MINUTE")),
 		uploadRL:     newRateLimiter(config.Get().Int("RATE_LIMIT_UPLOAD_URL_PER_MINUTE")),
 		imageRL:      newRateLimiter(config.Get().Int("RATE_LIMIT_IMAGE_CREATE_PER_MINUTE")),
 		downloadRL:   newRateLimiter(config.Get().Int("RATE_LIMIT_DOWNLOAD_PER_MINUTE")),
@@ -164,6 +166,17 @@ func (s *Server) securityMiddleware(apiBaseURL string) gin.HandlerFunc {
 				return
 			}
 		}
+
+		// S-review #7: API-key requests are authenticated by the api-key middleware
+		// (downstream) and never hit the per-user limiter on a bad key, so a flood of
+		// invalid keys would otherwise hammer the argon2 verifier unbounded. Cap it
+		// pre-auth, per IP, here — before the key is ever looked up / verified.
+		if strings.HasPrefix(c.GetHeader("Authorization"), "ApiKey ") {
+			if !s.hardening.apiKeyRL.allow("apikey-ip:" + c.ClientIP()) {
+				tooMany(c)
+				return
+			}
+		}
 		c.Next()
 	}
 }
@@ -208,6 +221,22 @@ func userOrIPKey(c *gin.Context) string {
 
 func tooMany(c *gin.Context) {
 	apiError(c, http.StatusTooManyRequests, "rate_limited", "too many requests")
+}
+
+// parseTrustedProxies splits the comma-separated TRUSTED_PROXIES config into the
+// []string gin.SetTrustedProxies wants. Empty/blank entries are dropped; an empty
+// result returns nil so gin trusts NO proxy (ClientIP == real RemoteAddr).
+func parseTrustedProxies(raw string) []string {
+	out := []string{}
+	for _, p := range strings.Split(raw, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // rateLimiter is a per-key token bucket. Keys are evicted by an LRU so memory is

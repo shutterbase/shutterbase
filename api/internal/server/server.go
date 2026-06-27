@@ -69,6 +69,13 @@ func NewServer(options *Options) (*Server, error) {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 
+	// S-review #6: by default gin trusts every proxy, so a forged X-Forwarded-For
+	// would spoof ClientIP() and defeat the per-IP login/api-key limits. Trust only
+	// the configured proxies (empty => trust none, ClientIP == real RemoteAddr).
+	if err := engine.SetTrustedProxies(parseTrustedProxies(config.Get().String("TRUSTED_PROXIES"))); err != nil {
+		return nil, err
+	}
+
 	repo, err := repository.NewRepository(&repository.Options{DatabaseConnection: options.Database})
 	if err != nil {
 		return nil, err

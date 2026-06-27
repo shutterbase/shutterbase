@@ -40,7 +40,9 @@ func (s *Server) registerProjectAssignmentRoutes(api *gin.RouterGroup) {
 }
 
 func (s *Server) listProjectAssignments(c *gin.Context) {
-	// authz (S8): any authed.
+	// authz: restrict to what the caller may see (S-review #3: this list was
+	// ungated). admin -> all; otherwise the caller must scope the query to
+	// their own userId (self) or to a project they administer (projectAdmin).
 	pagination, ok := getPagination(c)
 	if !ok {
 		return
@@ -56,6 +58,15 @@ func (s *Server) listProjectAssignments(c *gin.Context) {
 			return
 		}
 		params.UserID = &uid
+	}
+	caller := authUser(c)
+	if !authorization.IsAdminUser(caller) {
+		selfScoped := params.UserID != nil && *params.UserID == caller.ID
+		projectScoped := params.ProjectID != nil &&
+			authorization.HasRoleInProject(caller, *params.ProjectID, authorization.RoleProjectAdmin)
+		if !allow(c, selfScoped || projectScoped) {
+			return
+		}
 	}
 	items, total, err := s.Repository.GetProjectAssignments(c.Request.Context(), params)
 	if abortRepoListError(c, err) {
@@ -75,6 +86,15 @@ func (s *Server) getProjectAssignment(c *gin.Context) {
 	}
 	a, err := s.Repository.GetProjectAssignment(c.Request.Context(), id)
 	if abortGetError(c, err) {
+		return
+	}
+	// authz: admin, the assignment's own user (self), or a projectAdmin of the
+	// assignment's project (S-review #3: by-id had no authz).
+	caller := authUser(c)
+	allowed := authorization.IsAdminUser(caller) ||
+		authorization.IsSelf(caller, a.UserID) ||
+		authorization.HasRoleInProject(caller, a.ProjectID, authorization.RoleProjectAdmin)
+	if !allow(c, allowed) {
 		return
 	}
 	c.JSON(http.StatusOK, s.projectAssignmentResponse(c.Request.Context(), a))

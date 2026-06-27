@@ -26,6 +26,17 @@ import (
 // existing UserTransformer loads the effective user (project roles, impersonation
 // resolution) for free. No util.UserKey plumbing is duplicated here.
 
+// dummyApiKeyHash is a fixed argon2 hash verified against when keyId lookup
+// fails, so an unknown keyId costs the same argon2 work as a known one — closing
+// the timing oracle that let an attacker enumerate valid keyIds (S-review #9).
+var dummyApiKeyHash string
+
+func init() {
+	if h, err := basicauth.HashPassword("timing-oracle-dummy-secret", basicauth.DefaultPasswordHashingParams); err == nil {
+		dummyApiKeyHash = h
+	}
+}
+
 // parseApiKeyToken splits "ApiKey <keyId>.<secret>". Returns ok=false for any
 // non-ApiKey scheme or malformed token (so cookie auth still gets its turn).
 func parseApiKeyToken(header string) (keyId, secret string, ok bool) {
@@ -51,6 +62,9 @@ func apiKeyMiddleware(repo *repository.Repository, sessionName string) gin.Handl
 
 		key, err := repo.GetApiKeyByKeyId(c.Request.Context(), keyId)
 		if err != nil {
+			// Run a verify against a fixed dummy hash so an unknown keyId takes the
+			// same time as a known one (S-review #9: no fast-abort timing oracle).
+			_, _, _ = basicauth.VerifyPassword(secret, dummyApiKeyHash)
 			abortUnauthorized(c)
 			return
 		}

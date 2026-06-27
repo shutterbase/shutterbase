@@ -31,10 +31,18 @@ func InitConfig() error {
 		// of browser origins (scheme://host[:port] or bare host) layered on top of
 		// the always-allowed same-origin + DOMAIN_NAME + UI_PROXY_URL (DEV Quasar proxy).
 		config.String("CSRF_ALLOWED_ORIGINS").Default(""),
+		// TRUSTED_PROXIES is the comma-separated CIDR/IP allow-list of reverse
+		// proxies whose X-Forwarded-For gin.ClientIP() may trust (S-review #6).
+		// Empty (default) => trust no proxy, so ClientIP() uses the real RemoteAddr
+		// and the login/api-key per-IP limits can't be spoofed via a forged header.
+		config.String("TRUSTED_PROXIES").Default(""),
 		// In-memory token-bucket rate limits, requests/minute per user (or per IP for
 		// the unauthenticated login). burst == the per-minute budget. ponytail:
 		// per-instance limiter; swap for a shared store only if multi-replica.
 		config.Int("RATE_LIMIT_LOGIN_PER_MINUTE").Default(20),
+		// Pre-auth per-IP limit on the API-key middleware path (S-review #7): a
+		// bad-key flood is capped before it can hammer the argon2 verifier.
+		config.Int("RATE_LIMIT_APIKEY_PER_MINUTE").Default(60),
 		config.Int("RATE_LIMIT_UPLOAD_URL_PER_MINUTE").Default(300),
 		config.Int("RATE_LIMIT_IMAGE_CREATE_PER_MINUTE").Default(600),
 		config.Int("RATE_LIMIT_DOWNLOAD_PER_MINUTE").Default(120),
