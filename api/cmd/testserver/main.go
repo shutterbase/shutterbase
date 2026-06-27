@@ -25,6 +25,12 @@ func main() {
 	if err := util.InitLogger(); err != nil {
 		log.Fatal().Err(err).Msg("error initializing logger")
 	}
+	// NewServer's service constructors read config; SESSION_SECRET_KEY is the only
+	// value without a default. The S3 client is injected from the stack below.
+	_ = os.Setenv("SESSION_SECRET_KEY", "testserver-session-secret")
+	if err := util.InitConfig(); err != nil {
+		log.Fatal().Err(err).Msg("error initializing config")
+	}
 
 	port := 8080
 	if p := os.Getenv("PORT"); p != "" {
@@ -55,10 +61,14 @@ func main() {
 		Msg("test stack ready")
 
 	srv, err := server.NewServer(&server.Options{
-		Port:       port,
-		ApiBaseURL: "/api/v1",
-		DevMode:    true,
-		Database:   stack.DB,
+		Port:                 port,
+		ApiBaseURL:           "/api/v1",
+		DevMode:              true,
+		Database:             stack.DB,
+		SessionSecretKey:     "testserver-session-secret",
+		DefaultAdminUsername: "admin",
+		DefaultAdminPassword: "TestserverAdmin123",
+		S3Client:             stack.S3.Client,
 	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("error initializing server")

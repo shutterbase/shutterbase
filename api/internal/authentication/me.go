@@ -24,6 +24,14 @@ func (h *handler) handleMe(c *gin.Context) {
 	c.JSON(http.StatusOK, buildMeResponse(c.Request.Context(), h.repo, u))
 }
 
+// BuildUserResponse serializes a user in the §4.2 /users/me shape minus the
+// impersonating block (which buildMeResponse already omits). The /users CRUD
+// controllers reuse it so list/get/create/update return the same user object
+// (SPEC §4.12: "Object = /users/me minus impersonating").
+func BuildUserResponse(ctx context.Context, repo *repository.Repository, u *ent.User) gin.H {
+	return buildMeResponse(ctx, repo, u)
+}
+
 // buildMeResponse assembles the §4.2 shape. Exported indirectly via handleMe;
 // kept as a function so the serialization shape is unit-testable.
 func buildMeResponse(ctx context.Context, repo *repository.Repository, u *ent.User) gin.H {

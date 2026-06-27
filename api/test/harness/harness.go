@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
+	"os"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -20,6 +21,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/s3"
 	"github.com/shutterbase/shutterbase/internal/seed"
 	"github.com/shutterbase/shutterbase/internal/server"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 const (
@@ -176,7 +178,17 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*see
 }
 
 // StartServer wraps the gin engine in an in-process httptest.Server for e2e.
-func StartServer(db *database.Connection) (*httptest.Server, error) {
+// It initializes config (the service constructors NewServer calls read it) and
+// injects the testcontainer-backed S3 client so presigned URLs target the mapped
+// host:port. The returned srv's background services (AI drain, WS tick) run under
+// a server-owned context; httptest.Server.Close stops the listener.
+func StartServer(db *database.Connection, s3Client *s3.S3Client) (*httptest.Server, error) {
+	// SESSION_SECRET_KEY is the only config value without a default; everything
+	// else (AI_PROVIDER=stub, THUMBNAIL_SIZES, DATE_TAG_HOUR_OFFSET) defaults.
+	_ = os.Setenv("SESSION_SECRET_KEY", "harness-test-session-secret")
+	if err := util.InitConfig(); err != nil {
+		return nil, err
+	}
 	srv, err := server.NewServer(&server.Options{
 		ApiBaseURL:           "/api/v1",
 		DevMode:              false,
@@ -184,6 +196,7 @@ func StartServer(db *database.Connection) (*httptest.Server, error) {
 		SessionSecretKey:     "harness-test-session-secret",
 		DefaultAdminUsername: "admin",
 		DefaultAdminPassword: "HarnessAdmin123",
+		S3Client:             s3Client,
 	})
 	if err != nil {
 		return nil, err

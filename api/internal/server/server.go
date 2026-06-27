@@ -6,11 +6,15 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/internal/authentication"
 	"github.com/shutterbase/shutterbase/internal/database"
+	"github.com/shutterbase/shutterbase/internal/event"
 	"github.com/shutterbase/shutterbase/internal/repository"
+	"github.com/shutterbase/shutterbase/internal/s3"
+	"github.com/shutterbase/shutterbase/internal/service"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
 
@@ -25,6 +29,11 @@ type Options struct {
 	SessionSecretKey     string
 	DefaultAdminUsername string
 	DefaultAdminPassword string
+
+	// S3Client presigns image download URLs and deletes objects. When nil (the
+	// production path) NewServer builds it from config; the harness injects the
+	// testcontainer-backed client so presigns target the mapped host:port.
+	S3Client *s3.S3Client
 }
 
 type Server struct {
@@ -32,6 +41,15 @@ type Server struct {
 	Repository *repository.Repository
 	options    *Options
 	httpServer *http.Server
+
+	// S7 wiring: image side-effect orchestration + presigning + the background
+	// services (AI drain, WS time-tick) started in NewServer and stopped on Shutdown.
+	s3Client       *s3.S3Client
+	imageService   *service.ImageService
+	ai             *service.AIService
+	ws             *event.Manager
+	thumbnailSizes []int
+	bgCancel       context.CancelFunc
 }
 
 func NewServer(options *Options) (*Server, error) {
@@ -46,7 +64,37 @@ func NewServer(options *Options) (*Server, error) {
 		return nil, err
 	}
 
-	s := &Server{Engine: engine, Repository: repo, options: options}
+	s3Client := options.S3Client
+	if s3Client == nil {
+		s3Client, err = s3.NewClient(&s3.S3ClientOptions{
+			Endpoint:  config.Get().String("S3_ENDPOINT"),
+			Port:      config.Get().Int("S3_PORT"),
+			SSL:       config.Get().Bool("S3_SSL"),
+			Bucket:    config.Get().String("S3_BUCKET"),
+			AccessKey: config.Get().String("S3_ACCESS_KEY"),
+			SecretKey: config.Get().String("S3_SECRET_KEY"),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	inference, err := service.NewInference()
+	if err != nil {
+		return nil, err
+	}
+	aiService := service.NewAIService(repo, s3Client, inference)
+	imageService := service.NewImageService(repo, aiService)
+
+	s := &Server{
+		Engine:         engine,
+		Repository:     repo,
+		options:        options,
+		s3Client:       s3Client,
+		imageService:   imageService,
+		ai:             aiService,
+		thumbnailSizes: util.GetThumbnailSizes(),
+	}
 
 	// Public routes are registered before the auth middleware so they bypass it.
 	s.registerPublicRoutes()
@@ -64,6 +112,19 @@ func NewServer(options *Options) (*Server, error) {
 	}); err != nil {
 		return nil, err
 	}
+
+	// CRUD controllers + the WS route, registered after RequireAuth so they are
+	// authenticated. /ws is marked private in the auth path rules.
+	s.registerAPIRoutes()
+	s.ws = event.RegisterWebsocket(engine, &event.Options{})
+
+	// Start the background services (AI drain + WS time-tick) under a server-owned
+	// context cancelled on Shutdown. AIService.Start returns immediately; the WS
+	// Manager.Start blocks, so it runs in its own goroutine.
+	bgCtx, cancel := context.WithCancel(context.Background())
+	s.bgCancel = cancel
+	s.ai.Start(bgCtx)
+	go s.ws.Start(bgCtx)
 
 	return s, nil
 }
@@ -91,6 +152,9 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) Shutdown(ctx context.Context) {
+	if s.bgCancel != nil {
+		s.bgCancel()
+	}
 	if s.httpServer != nil {
 		if err := s.httpServer.Shutdown(ctx); err != nil {
 			log.Error().Err(err).Msg("error during server shutdown")
