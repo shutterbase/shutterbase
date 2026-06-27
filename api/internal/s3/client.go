@@ -3,6 +3,7 @@ package s3
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
@@ -61,6 +62,18 @@ func (s *S3Client) GetSignedDownloadUrl(ctx context.Context, objectName string) 
 	}
 	s.DownloadUrlCache.Add(objectName, url.String())
 	return url.String(), nil
+}
+
+// GetObject reads a whole object into memory. Used by the /download route which
+// must shell the bytes through exiftool on disk. ponytail: whole-object read; the
+// response-size cap + streaming live in S10 hardening.
+func (s *S3Client) GetObject(ctx context.Context, objectName string) ([]byte, error) {
+	obj, err := s.Client.GetObject(ctx, s.Options.Bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, err
+	}
+	defer obj.Close()
+	return io.ReadAll(obj)
 }
 
 func (s *S3Client) DeleteImages(ctx context.Context, storageId string) error {

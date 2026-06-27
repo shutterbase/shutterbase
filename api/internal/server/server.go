@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
@@ -49,6 +51,7 @@ type Server struct {
 	ai             *service.AIService
 	ws             *event.Manager
 	thumbnailSizes []int
+	tagCountCache  *expirable.LRU[string, []repository.TagStatistic]
 	bgCancel       context.CancelFunc
 }
 
@@ -94,6 +97,8 @@ func NewServer(options *Options) (*Server, error) {
 		imageService:   imageService,
 		ai:             aiService,
 		thumbnailSizes: util.GetThumbnailSizes(),
+		// statistics LRU, 5-min TTL (SPEC §4.13 TagCountCache).
+		tagCountCache: expirable.NewLRU[string, []repository.TagStatistic](256, nil, 5*time.Minute),
 	}
 
 	// Public routes are registered before the auth middleware so they bypass it.
