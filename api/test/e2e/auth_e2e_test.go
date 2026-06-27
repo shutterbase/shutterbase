@@ -46,6 +46,9 @@ func doJSON(t *testing.T, client *http.Client, method, path string, body any) *h
 	req, err := http.NewRequest(method, server.URL+path, rdr)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
+	// S10 CSRF: mutating requests must carry a same-origin Origin header. The test
+	// client sends one on every request (harmless on safe methods).
+	req.Header.Set("Origin", server.URL)
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	return resp

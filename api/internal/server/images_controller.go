@@ -13,10 +13,6 @@ import (
 	"github.com/shutterbase/shutterbase/internal/util"
 )
 
-// imageBodyCap bounds the image-create body. SPEC §0.10 raises it to >=2 MB
-// (PB exifData max was 2 MB); 16 MB leaves generous headroom.
-const imageBodyCap = 16 << 20
-
 func (s *Server) registerImageRoutes(api *gin.RouterGroup) {
 	api.GET("/images", s.listImages)
 	api.GET("/images/:id", s.getImage)
@@ -113,8 +109,7 @@ func (s *Server) createImage(c *gin.Context) {
 	// (computes computedFileName/capturedAtCorrected, default tags, AI enqueue).
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, imageBodyCap)
 	var payload createImagePayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
+	if !bindJSON(c, &payload) {
 		return
 	}
 	if !allow(c, authorization.CanCreateImage(authUser(c), payload.ProjectID)) {
@@ -157,8 +152,7 @@ func (s *Server) updateImage(c *gin.Context) {
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, imageBodyCap)
 	var payload updateImagePayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.AbortWithError(http.StatusBadRequest, err)
+	if !bindJSON(c, &payload) {
 		return
 	}
 	existing, err := s.Repository.GetImage(c.Request.Context(), id)

@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -10,6 +11,9 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
+
+// ErrObjectTooLarge is returned by GetObject when the object exceeds maxBytes.
+var ErrObjectTooLarge = errors.New("s3 object exceeds size cap")
 
 type S3Client struct {
 	Options          *S3ClientOptions
@@ -64,16 +68,29 @@ func (s *S3Client) GetSignedDownloadUrl(ctx context.Context, objectName string) 
 	return url.String(), nil
 }
 
-// GetObject reads a whole object into memory. Used by the /download route which
-// must shell the bytes through exiftool on disk. ponytail: whole-object read; the
-// response-size cap + streaming live in S10 hardening.
-func (s *S3Client) GetObject(ctx context.Context, objectName string) ([]byte, error) {
+// GetObject reads an object into memory, capped at maxBytes (S10: a huge object
+// must not exhaust memory / the exiftool pool on /download). maxBytes <= 0 means
+// uncapped. Returns ErrObjectTooLarge if the object exceeds the cap. ponytail:
+// whole-object read into RAM (exiftool needs it on disk anyway); the cap is the
+// guard, streaming is a later upgrade if originals ever dwarf the cap.
+func (s *S3Client) GetObject(ctx context.Context, objectName string, maxBytes int64) ([]byte, error) {
 	obj, err := s.Client.GetObject(ctx, s.Options.Bucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
 	}
 	defer obj.Close()
-	return io.ReadAll(obj)
+	if maxBytes <= 0 {
+		return io.ReadAll(obj)
+	}
+	// Read one extra byte to detect overflow without trusting Content-Length.
+	data, err := io.ReadAll(io.LimitReader(obj, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, ErrObjectTooLarge
+	}
+	return data, nil
 }
 
 func (s *S3Client) DeleteImages(ctx context.Context, storageId string) error {

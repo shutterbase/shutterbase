@@ -26,6 +26,22 @@ func apiError(c *gin.Context, status int, code, message string) {
 	c.AbortWithStatusJSON(status, gin.H{"message": message, "code": code})
 }
 
+// bindJSON binds the request body, mapping an over-cap body (the MaxBytesReader
+// installed by the body-cap middleware / controller) to 413 and any other bind
+// error to 400. Returns false after aborting on error.
+func bindJSON(c *gin.Context, obj any) bool {
+	if err := c.ShouldBindJSON(obj); err != nil {
+		var mbe *http.MaxBytesError
+		if errors.As(err, &mbe) {
+			apiError(c, http.StatusRequestEntityTooLarge, "body_too_large", "request body too large")
+			return false
+		}
+		c.AbortWithError(http.StatusBadRequest, err)
+		return false
+	}
+	return true
+}
+
 // forbid writes a 403 with the error envelope and aborts (authz failure, S8).
 func forbid(c *gin.Context) {
 	apiError(c, http.StatusForbidden, "forbidden", "insufficient permissions")

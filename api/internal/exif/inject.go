@@ -7,20 +7,57 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	"github.com/shutterbase/shutterbase/ent"
 )
+
+// sem bounds simultaneous exiftool processes (S10): a burst of /download requests
+// for huge objects can otherwise fork enough exiftool processes to exhaust CPU
+// and memory. SetConcurrency resizes it at startup from EXIF_MAX_CONCURRENCY.
+// ponytail: per-instance buffered-channel semaphore; default 4.
+var (
+	semMu sync.Mutex
+	sem   = make(chan struct{}, 4)
+)
+
+// SetConcurrency resizes the exiftool semaphore. Call once at startup before any
+// InjectMetadata; n <= 0 is ignored (keeps the current bound).
+func SetConcurrency(n int) {
+	if n <= 0 {
+		return
+	}
+	semMu.Lock()
+	sem = make(chan struct{}, n)
+	semMu.Unlock()
+}
+
+func currentSem() chan struct{} {
+	semMu.Lock()
+	defer semMu.Unlock()
+	return sem
+}
 
 // InjectMetadata writes Shutterbase's EXIF/IPTC fields into jpegData via an
 // exiftool shell-out and returns the rewritten bytes. Ported from the old
 // ApplyExifData (which read the PB client.Image); this reads an eager-loaded
 // ent.Image (User, Project, ImageTagAssignments->ImageTag edges required).
 //
-// Concurrency semaphore + response-size cap are S10 hardening. The caller passes
-// a ctx with a deadline; exec.CommandContext kills exiftool when it fires.
-// ponytail: per-request temp dir + full in-memory round-trip; bounded streaming
-// is the S10 upgrade.
+// A package semaphore (SetConcurrency) bounds simultaneous exiftool processes
+// (S10). The caller passes a ctx with a deadline; exec.CommandContext kills
+// exiftool when it fires. ponytail: per-request temp dir + full in-memory
+// round-trip; bounded streaming is a later upgrade.
 func InjectMetadata(ctx context.Context, jpegData []byte, image *ent.Image) ([]byte, error) {
+	// Acquire a slot, honouring the caller's deadline so a saturated pool fails
+	// fast instead of queueing unboundedly.
+	slot := currentSem()
+	select {
+	case slot <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-slot }()
+
 	dir, err := os.MkdirTemp("", "sb-exif-*")
 	if err != nil {
 		return nil, err
