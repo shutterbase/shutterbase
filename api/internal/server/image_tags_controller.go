@@ -8,6 +8,7 @@ import (
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
 
@@ -103,6 +104,9 @@ func (s *Server) createImageTag(c *gin.Context) {
 		apiError(c, http.StatusBadRequest, "invalid_type", "template tags are not creatable via the API")
 		return
 	}
+	if !allow(c, authorization.CanCreateImageTag(authUser(c), payload.ProjectID, string(t))) {
+		return
+	}
 	item, err := s.Repository.CreateImageTag(c.Request.Context(), &repository.CreateImageTagParameters{
 		Name:        payload.Name,
 		Description: payload.Description,
@@ -132,7 +136,12 @@ func (s *Server) updateImageTag(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	existing, err := s.Repository.GetImageTag(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
 	params := &repository.UpdateImageTagParameters{Name: payload.Name, Description: payload.Description, IsAlbum: payload.IsAlbum}
+	resultingType := string(existing.Type)
 	if payload.Type != nil {
 		t := imagetag.Type(*payload.Type)
 		if err := imagetag.TypeValidator(t); err != nil || t == imagetag.TypeTemplate {
@@ -140,6 +149,11 @@ func (s *Server) updateImageTag(c *gin.Context) {
 			return
 		}
 		params.Type = &t
+		resultingType = string(t)
+	}
+	// authz by the resulting type, scoped to the tag's project (§4.4).
+	if !allow(c, authorization.CanEditImageTag(authUser(c), existing.ProjectID, resultingType)) {
+		return
 	}
 	item, err := s.Repository.UpdateImageTag(c.Request.Context(), id, params)
 	if abortMutationError(c, err) {
@@ -152,6 +166,13 @@ func (s *Server) deleteImageTag(c *gin.Context) {
 	// authz (S8): admin/projectAdmin; repairs denormalized images.imageTags.
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	tag, err := s.Repository.GetImageTag(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanDeleteImageTag(authUser(c), tag.ProjectID)) {
 		return
 	}
 	if err := s.Repository.DeleteImageTag(c.Request.Context(), id); err != nil {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/internal/repository"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 // ListResponse is the list envelope every collection endpoint returns (SPEC §1).
@@ -23,6 +24,24 @@ type ListResponse[T any] struct {
 // apiError writes the controller error envelope {message,code} and aborts.
 func apiError(c *gin.Context, status int, code, message string) {
 	c.AbortWithStatusJSON(status, gin.H{"message": message, "code": code})
+}
+
+// forbid writes a 403 with the error envelope and aborts (authz failure, S8).
+func forbid(c *gin.Context) {
+	apiError(c, http.StatusForbidden, "forbidden", "insufficient permissions")
+}
+
+// authUser returns the effective user from context (non-nil behind RequireAuth).
+func authUser(c *gin.Context) *ent.User {
+	return util.GetUser(c.Request.Context())
+}
+
+// deny aborts with 403 when allowed is false; returns allowed for `if !deny`.
+func allow(c *gin.Context, allowed bool) bool {
+	if !allowed {
+		forbid(c)
+	}
+	return allowed
 }
 
 // getIdParam reads a string PK from :id (SPEC §0.9: relaxed to a non-empty

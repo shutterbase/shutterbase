@@ -8,6 +8,7 @@ import (
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
 
@@ -88,6 +89,14 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 		apiError(c, http.StatusBadRequest, "invalid_type", "invalid assignment type")
 		return
 	}
+	// Resolve the project via the target image; projectEditor+ may assign (§4.5).
+	img, err := s.Repository.GetImage(c.Request.Context(), payload.ImageID)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanManageImageTagAssignment(authUser(c), img.ProjectID)) {
+		return
+	}
 	item, created, err := s.Repository.CreateImageTagAssignment(c.Request.Context(), &repository.CreateImageTagAssignmentParameters{
 		ImageID:    payload.ImageID,
 		ImageTagID: payload.ImageTagID,
@@ -107,6 +116,17 @@ func (s *Server) deleteImageTagAssignment(c *gin.Context) {
 	// authz (S8): projectEditor/projectAdmin/admin; repairs denormalized list.
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	a, err := s.Repository.GetImageTagAssignment(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	img, err := s.Repository.GetImage(c.Request.Context(), a.ImageID)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanManageImageTagAssignment(authUser(c), img.ProjectID)) {
 		return
 	}
 	if err := s.Repository.DeleteImageTagAssignment(c.Request.Context(), id); err != nil {

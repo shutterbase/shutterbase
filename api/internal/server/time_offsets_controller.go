@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
 
@@ -44,6 +45,11 @@ func (s *Server) listTimeOffsets(c *gin.Context) {
 	if v := c.Query("cameraId"); v != "" {
 		params.CameraID = &v
 	}
+	// Non-admins only see offsets for cameras they own (§4.10).
+	if !authorization.IsAdminUser(authUser(c)) {
+		me := authUser(c).ID
+		params.CameraOwnerID = &me
+	}
 	items, total, err := s.Repository.GetTimeOffsets(c.Request.Context(), params)
 	if abortRepoListError(c, err) {
 		return
@@ -56,6 +62,7 @@ func (s *Server) listTimeOffsets(c *gin.Context) {
 }
 
 func (s *Server) getTimeOffset(c *gin.Context) {
+	// authz (S8): admin or the offset's camera owner.
 	id, ok := getIdParam(c)
 	if !ok {
 		return
@@ -64,7 +71,21 @@ func (s *Server) getTimeOffset(c *gin.Context) {
 	if abortGetError(c, err) {
 		return
 	}
+	if !s.allowTimeOffsetCameraOwner(c, t.CameraID) {
+		return
+	}
 	c.JSON(http.StatusOK, s.timeOffsetResponse(c.Request.Context(), t))
+}
+
+// allowTimeOffsetCameraOwner gates on admin-or-camera-owner: loads the camera
+// and applies CanModifyCamera (admin/owner). Writes 403/404 + returns false on
+// failure.
+func (s *Server) allowTimeOffsetCameraOwner(c *gin.Context, cameraID string) bool {
+	cam, err := s.Repository.GetCamera(c.Request.Context(), cameraID)
+	if abortGetError(c, err) {
+		return false
+	}
+	return allow(c, authorization.CanModifyCamera(authUser(c), cam))
 }
 
 type createTimeOffsetPayload struct {
@@ -78,6 +99,9 @@ func (s *Server) createTimeOffset(c *gin.Context) {
 	var payload createTimeOffsetPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if !s.allowTimeOffsetCameraOwner(c, payload.CameraID) {
 		return
 	}
 	// Server computes timeOffset = serverTime - cameraTime, in whole seconds (§4.10).
@@ -96,6 +120,9 @@ func (s *Server) createTimeOffset(c *gin.Context) {
 
 func (s *Server) updateTimeOffset(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return
@@ -123,6 +150,9 @@ func (s *Server) updateTimeOffset(c *gin.Context) {
 
 func (s *Server) deleteTimeOffset(c *gin.Context) {
 	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	id, ok := getIdParam(c)
 	if !ok {
 		return

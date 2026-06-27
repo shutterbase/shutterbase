@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/exif"
 )
 
@@ -81,6 +82,9 @@ func (s *Server) downloadImage(c *gin.Context) {
 	if abortGetError(c, err) {
 		return
 	}
+	if !allow(c, authorization.CanViewImage(authUser(c), img)) {
+		return
+	}
 
 	key := GetObjectIds(img.StorageId, s.thumbnailSizes)[size]
 	jpegData, err := s.s3Client.GetObject(c.Request.Context(), key)
@@ -108,6 +112,9 @@ func (s *Server) getStatistics(c *gin.Context) {
 		apiError(c, http.StatusBadRequest, "missing_id", "no projectId provided")
 		return
 	}
+	if !allow(c, authorization.CanViewStatistics(authUser(c), projectID)) {
+		return
+	}
 
 	if cached, ok := s.tagCountCache.Get(projectID); ok {
 		c.JSON(http.StatusOK, gin.H{"tags": cached})
@@ -123,7 +130,10 @@ func (s *Server) getStatistics(c *gin.Context) {
 }
 
 func (s *Server) syncImageTags(c *gin.Context) {
-	// authz (S8): admin only. Authenticated-only for now.
+	// authz (S8): admin only.
+	if !allow(c, authorization.IsAdminUser(authUser(c))) {
+		return
+	}
 	n, err := s.Repository.SyncImageTags(c.Request.Context())
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)

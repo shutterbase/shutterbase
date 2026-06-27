@@ -86,7 +86,7 @@ func Setup(options *Options) error {
 		// UserTransformer loads the effective ent.User so util.GetUser(ctx) returns
 		// it for authz, queries and createdBy/updatedBy attribution.
 		UserTransformer: func(c *gin.Context, authUser *basicauth.User) any {
-			entUser, err := options.Repository.GetUser(c.Request.Context(), authUser.ID)
+			entUser, err := options.Repository.GetEffectiveUser(c.Request.Context(), authUser.ID)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to load ent user in UserTransformer")
 				return nil

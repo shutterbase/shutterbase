@@ -34,6 +34,20 @@ func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*e
 	return r.Client.User.Query().Where(user.UsernameEQ(username)).Only(ctx)
 }
 
+// GetEffectiveUser loads a user with project_assignments (+ role) eager-loaded,
+// so authorization helpers can read project-scoped roles off the effective user
+// the auth UserTransformer stores in context (S8).
+func (r *Repository) GetEffectiveUser(ctx context.Context, id uuid.UUID) (*ent.User, error) {
+	item, err := r.Client.User.Query().
+		Where(user.IDEQ(id)).
+		WithProjectAssignments(func(q *ent.ProjectAssignmentQuery) { q.WithRole() }).
+		Only(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		log.Error().Err(err).Msg("error getting effective user")
+	}
+	return item, err
+}
+
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*ent.User, error) {
 	return r.Client.User.Query().Where(user.EmailEQ(email)).Only(ctx)
 }

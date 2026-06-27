@@ -26,7 +26,11 @@ func (r *Repository) GetProject(ctx context.Context, id string) (*ent.Project, e
 }
 
 type GetProjectParameters struct {
-	Search               *string
+	Search *string
+	// IDs, when non-nil, restricts the result to these project ids (used to scope
+	// a non-admin's project list to their assignments, §4.6). A non-nil empty
+	// slice yields no rows.
+	IDs                  []string
 	PaginationParameters *PaginationParameters
 }
 
@@ -34,6 +38,9 @@ func (r *Repository) GetProjects(ctx context.Context, parameters *GetProjectPara
 	predicates := []predicate.Project{}
 	if parameters.Search != nil {
 		predicates = append(predicates, project.NameContainsFold(*parameters.Search))
+	}
+	if parameters.IDs != nil {
+		predicates = append(predicates, project.IDIn(parameters.IDs...))
 	}
 	where := project.And(predicates...)
 
