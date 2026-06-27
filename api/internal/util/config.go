@@ -53,6 +53,10 @@ func InitConfig() error {
 
 		// image processing
 		config.String("THUMBNAIL_SIZES").NotEmpty().Default("256,512,1024,2048"),
+		// DATE_TAG_HOUR_OFFSET shifts capturedAtCorrected before deriving the
+		// $DATE/$WEEKDAY default tags so a shoot running past midnight still tags
+		// to the event day (-3 => captures before 03:00 count as the previous day).
+		config.Int("DATE_TAG_HOUR_OFFSET").Default(-3),
 	})
 	return err
 }
