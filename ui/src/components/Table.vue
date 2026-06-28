@@ -18,8 +18,8 @@
     </div>
 
     <div class="mt-7 flow-root">
-      <div class="-mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-        <div class="inline-block min-w-full align-middle sm:px-6 lg:px-8">
+      <div class="overflow-x-auto">
+        <div class="inline-block min-w-full align-middle">
           <table class="min-w-full border-separate border-spacing-0">
             <thead>
               <tr>
@@ -27,7 +27,7 @@
                   v-for="column in columns"
                   :key="column.key"
                   scope="col"
-                  class="label-mono sticky top-0 z-10 border-b border-primary-200 bg-surface/85 px-3 py-3.5 text-left text-primary-500 backdrop-blur first:pl-1 dark:border-primary-800 dark:bg-surface-dark/85 dark:text-primary-400"
+                  class="label-mono sticky top-0 z-10 border-b border-primary-200 bg-surface/85 px-4 py-3.5 text-left text-primary-500 backdrop-blur dark:border-primary-800 dark:bg-surface-dark/85 dark:text-primary-400"
                 >
                   {{ column.label }}
                 </th>
@@ -35,7 +35,7 @@
             </thead>
             <tbody>
               <tr v-if="items.length === 0">
-                <td :colspan="columns.length" :class="[rowPadding, 'px-3 text-left text-sm text-primary-500 dark:text-primary-400']">No {{ pluralName }} found</td>
+                <td :colspan="columns.length" :class="[rowPadding, 'px-4 text-left text-sm text-primary-500 dark:text-primary-400']">No {{ pluralName }} found</td>
               </tr>
 
               <tr v-for="item in items" :key="item.id" class="group transition-colors hover:bg-primary-50 dark:hover:bg-primary-800/40">
@@ -44,7 +44,7 @@
                   :key="Array.isArray(column.key) ? column.key.join('.') : column.key"
                   :class="[
                     rowPadding,
-                    'whitespace-nowrap border-b border-primary-100 px-3 text-sm first:pl-1 dark:border-primary-800/70',
+                    'whitespace-nowrap border-b border-primary-100 px-4 text-sm dark:border-primary-800/70',
                     columnIndex === 0 ? 'font-medium text-primary-900 dark:text-white' : 'text-primary-700 dark:text-primary-300',
                   ]"
                 >
