@@ -212,3 +212,27 @@ func TestManageAndViewHelpers(t *testing.T) {
 	assert.True(t, HasAnyProjectAdmin(usr(user.RoleUser, pa(proj, RoleProjectAdmin))))
 	assert.False(t, HasAnyProjectAdmin(editor))
 }
+
+// --- deactivated user retains no project access (round-4 review) ---
+
+func TestInactiveUserHasNoProjectAccess(t *testing.T) {
+	// A user with real assignments (even projectAdmin) but Active=false must hold
+	// no effective project role — deactivation revokes access immediately, even
+	// on a still-valid session. Previously the project-role helpers keyed off the
+	// assignment rows alone and a deactivated member kept full access.
+	inactive := &ent.User{ID: uuid.New(), Role: user.RoleUser, Active: false}
+	inactive.Edges.ProjectAssignments = []*ent.ProjectAssignment{pa(proj, RoleProjectAdmin)}
+
+	assert.Equal(t, "", ProjectRole(inactive, proj), "inactive user has no project role")
+	assert.False(t, IsAssigned(inactive, proj), "inactive user is not assigned")
+	assert.False(t, HasRoleInProject(inactive, proj, RoleProjectViewer), "inactive user holds no role")
+	assert.False(t, CanViewProject(inactive, proj), "inactive user cannot view project")
+	assert.False(t, CanViewImage(inactive, &ent.Image{ProjectID: proj}), "inactive user cannot view image")
+	assert.False(t, CanManageImageTagAssignment(inactive, proj), "inactive user cannot assign tags")
+	assert.Empty(t, AssignedProjectIDs(inactive), "inactive user scopes to no projects")
+	assert.False(t, HasAnyProjectAdmin(inactive), "inactive user is no project admin")
+
+	// An inactive global admin is likewise denied (isAdmin already gates active).
+	inactiveAdmin := &ent.User{ID: uuid.New(), Role: user.RoleAdmin, Active: false}
+	assert.False(t, CanManageProject(inactiveAdmin), "inactive admin cannot manage projects")
+}
