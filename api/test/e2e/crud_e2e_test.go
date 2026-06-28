@@ -275,6 +275,14 @@ func TestCRUDRoundTrips(t *testing.T) {
 		require.Equal(t, http.StatusOK, resp.StatusCode, "re-link same pair -> 200 existing")
 		resp.Body.Close()
 
+		// "default"/"inferred" are service-owned provenance markers; the public
+		// create endpoint accepts only "manual".
+		resp = doJSON(t, client, http.MethodPost, "/api/v1/image-tag-assignments", map[string]any{
+			"imageId": imageID, "imageTagId": linkTagID, "type": "inferred",
+		})
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode, "non-manual type -> 400")
+		assert.Equal(t, "invalid_type", decodeBody(t, resp)["code"])
+
 		resp = doJSON(t, client, http.MethodDelete, "/api/v1/images/"+imageID, nil)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
 		resp.Body.Close()
