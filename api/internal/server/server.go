@@ -2,8 +2,11 @@ package server
 
 import (
 	"context"
+	"io/fs"
 	"net/http"
+	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,6 +20,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/exif"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/s3"
+	"github.com/shutterbase/shutterbase/internal/server/spa"
 	"github.com/shutterbase/shutterbase/internal/service"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
@@ -160,6 +164,9 @@ func NewServer(options *Options) (*Server, error) {
 	s.registerAPIRoutes()
 	s.ws = event.RegisterWebsocket(engine, &event.Options{CheckOrigin: s.hardening.wsOriginOK})
 
+	// Serve the embedded SPA for everything the API/WS/auth groups didn't claim.
+	s.registerSPA()
+
 	// Start the background services (AI drain + WS time-tick) under a server-owned
 	// context cancelled on Shutdown. AIService.Start returns immediately; the WS
 	// Manager.Start blocks, so it runs in its own goroutine.
@@ -178,6 +185,39 @@ func (s *Server) registerPublicRoutes() {
 	})
 	api.GET("/version", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"version": util.Version})
+	})
+}
+
+// registerSPA serves the embedded Quasar build for every route the API/WS/auth
+// groups didn't match (gin's NoRoute), with index.html fallback so client-side
+// deep links resolve. Unknown API paths still return a JSON 404 rather than the
+// SPA shell, so a typo'd endpoint fails loudly instead of returning HTML.
+//
+// All static paths live under the auth "/" public prefix, so RequireAuth lets
+// them through unauthenticated (the login page must load). The rate-limit switch
+// keys off c.FullPath() which is empty for NoRoute, so assets are never throttled.
+func (s *Server) registerSPA() {
+	sub, err := fs.Sub(spa.FS, "dist")
+	if err != nil {
+		log.Panic().Err(err).Msg("embedded SPA missing")
+	}
+	fileServer := http.FileServer(http.FS(sub))
+	s.Engine.NoRoute(func(c *gin.Context) {
+		reqPath := c.Request.URL.Path
+		if strings.HasPrefix(reqPath, s.options.ApiBaseURL) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		// Serve the requested asset if it exists; otherwise fall back to the SPA
+		// shell so the client router can handle the route.
+		clean := strings.TrimPrefix(path.Clean(reqPath), "/")
+		if clean == "" {
+			clean = "index.html"
+		}
+		if _, statErr := fs.Stat(sub, clean); statErr != nil {
+			c.Request.URL.Path = "/"
+		}
+		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
 }
 

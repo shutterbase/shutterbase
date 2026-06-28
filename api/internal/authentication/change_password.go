@@ -113,6 +113,13 @@ func forcePasswordChangeMiddleware(apiBaseURL string) gin.HandlerFunc {
 			return
 		}
 		path := c.Request.URL.Path
+		// Only gate the API surface. Static SPA assets (index.html + lazy-loaded
+		// route chunks) carry the session cookie too; blocking them would stop the
+		// frontend from ever rendering the change-password screen.
+		if !strings.HasPrefix(path, apiBaseURL) {
+			c.Next()
+			return
+		}
 		for _, a := range allowed {
 			if path == a || strings.HasPrefix(path, a+"/") {
 				c.Next()
