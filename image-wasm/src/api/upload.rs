@@ -11,12 +11,13 @@ pub struct UploadUrlResponse {
     url: String,
 }
 
-// api_url is "/api/v1" (S13), so this resolves to "/api/v1/upload-url?name=...".
-fn upload_url_endpoint(api_url: &str, file_name: &str) -> String {
-    format!("{}/upload-url?name={}", api_url, file_name)
+// api_url is "/api/v1" (S13), so this resolves to "/api/v1/upload-url?name=...&uploadId=...".
+// uploadId binds the presign to an upload the caller is authorized to write to (server-side).
+fn upload_url_endpoint(api_url: &str, file_name: &str, upload_id: &str) -> String {
+    format!("{}/upload-url?name={}&uploadId={}", api_url, file_name, upload_id)
 }
 
-pub async fn get_upload_url(api_url: &str, auth_token: &str, file_name: &str) -> Result<String, JsValue> {
+pub async fn get_upload_url(api_url: &str, auth_token: &str, file_name: &str, upload_id: &str) -> Result<String, JsValue> {
     let _ = auth_token; // dead: cookie-session auth; param removed in Phase 2
     debug(&format!("Getting upload url for {}", file_name));
 
@@ -26,7 +27,7 @@ pub async fn get_upload_url(api_url: &str, auth_token: &str, file_name: &str) ->
     // Send the same-origin session cookie instead of a bearer header (REWRITE-SPEC §4.13).
     opts.credentials(RequestCredentials::Include);
 
-    let url = upload_url_endpoint(api_url, file_name);
+    let url = upload_url_endpoint(api_url, file_name, upload_id);
 
     let request = Request::new_with_str_and_init(&url, &opts)?;
 
@@ -161,8 +162,8 @@ mod tests {
     #[test]
     fn endpoint_targets_api_v1_upload_url() {
         assert_eq!(
-            upload_url_endpoint("/api/v1", "ab/00000000-0000-0000-0000-000000000000.jpg"),
-            "/api/v1/upload-url?name=ab/00000000-0000-0000-0000-000000000000.jpg"
+            upload_url_endpoint("/api/v1", "ab/00000000-0000-0000-0000-000000000000.jpg", "up_abc123"),
+            "/api/v1/upload-url?name=ab/00000000-0000-0000-0000-000000000000.jpg&uploadId=up_abc123"
         );
     }
 

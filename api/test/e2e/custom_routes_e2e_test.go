@@ -44,7 +44,7 @@ func TestUploadURLRoundTrip(t *testing.T) {
 	client := adminClient(t)
 	key := "se/customuploadtest.jpg"
 
-	resp := doJSON(t, client, http.MethodGet, "/api/v1/upload-url?name="+key, nil)
+	resp := doJSON(t, client, http.MethodGet, "/api/v1/upload-url?name="+key+"&uploadId="+stack.Manifest.Upload, nil)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	url := decodeBody(t, resp)["url"].(string)
 	require.NotEmpty(t, url)
@@ -74,6 +74,16 @@ func TestUploadURLValidation(t *testing.T) {
 	resp = doJSON(t, client, http.MethodGet, "/api/v1/upload-url?name=../../etc/passwd", nil)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 	assert.Equal(t, "invalid_key", decodeBody(t, resp)["code"])
+
+	// A valid key with no uploadId is rejected: the presign must bind to an upload.
+	resp = doJSON(t, client, http.MethodGet, "/api/v1/upload-url?name=ab/novalidupload.jpg", nil)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, "missing_upload", decodeBody(t, resp)["code"])
+
+	// A project viewer may not mint a write URL for an upload they cannot modify.
+	viewer := roleClient(t, "projectViewer")
+	resp = doJSON(t, viewer, http.MethodGet, "/api/v1/upload-url?name=ab/novalidupload.jpg&uploadId="+stack.Manifest.Upload, nil)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
 
 // GET /download/:id/original streams a JPEG with EXIF/IPTC injected. Requires

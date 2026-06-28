@@ -110,6 +110,12 @@ func (s *Server) createUpload(c *gin.Context) {
 	if !allow(c, authorization.CanCreateUpload(authUser(c), payload.ProjectID)) {
 		return
 	}
+	// Integrity: never trust the client's camera ref. The camera must exist and be
+	// owned by the effective user (or caller is admin/projectAdmin of the project) —
+	// same check image creation applies.
+	if !s.validateCameraRef(c, payload.ProjectID, payload.CameraID) {
+		return
+	}
 	userID := util.GetUser(c.Request.Context()).ID
 	if payload.UserID != nil {
 		uid, err := uuid.Parse(*payload.UserID)

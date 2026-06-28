@@ -36,9 +36,9 @@ func validUploadKey(name string) bool {
 }
 
 func (s *Server) getUploadURL(c *gin.Context) {
-	// S10: per-user rate limit applied in rateLimitMiddleware. Per-upload ownership
-	// binding of the key (the key must belong to the caller's in-flight upload)
-	// remains a Phase-2 seam.
+	// S10: per-user rate limit applied in rateLimitMiddleware. The presign is bound to
+	// an existing upload the caller may write to (CanModifyUpload) — so a write URL can
+	// only be minted by an authorized member of a real upload, not any authenticated user.
 	name := c.Query("name")
 	if name == "" {
 		apiError(c, http.StatusBadRequest, "missing_name", "name is required")
@@ -46,6 +46,18 @@ func (s *Server) getUploadURL(c *gin.Context) {
 	}
 	if !validUploadKey(name) {
 		apiError(c, http.StatusBadRequest, "invalid_key", "name is not a valid object key")
+		return
+	}
+	uploadID := c.Query("uploadId")
+	if uploadID == "" {
+		apiError(c, http.StatusBadRequest, "missing_upload", "uploadId is required")
+		return
+	}
+	up, err := s.Repository.GetUpload(c.Request.Context(), uploadID)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanModifyUpload(authUser(c), up)) {
 		return
 	}
 	url, err := s.s3Client.GetSignedUploadUrl(c.Request.Context(), name)

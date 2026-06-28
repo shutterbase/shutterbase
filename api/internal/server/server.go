@@ -208,6 +208,12 @@ func (s *Server) registerSPA() {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
+		// Static SPA assets are read-only; a non-GET/HEAD to an unknown path is a
+		// routing mistake — return 405 rather than a 200 index.html shell.
+		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead {
+			c.AbortWithStatus(http.StatusMethodNotAllowed)
+			return
+		}
 		// Serve the requested asset if it exists; otherwise fall back to the SPA
 		// shell so the client router can handle the route.
 		clean := strings.TrimPrefix(path.Clean(reqPath), "/")

@@ -28,7 +28,7 @@ func (Project) Fields() []ent.Field {
 
 func (Project) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("uploads", Upload.Type),
+		edge.To("uploads", Upload.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("images", Image.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("imageTags", ImageTag.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("projectAssignments", ProjectAssignment.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
