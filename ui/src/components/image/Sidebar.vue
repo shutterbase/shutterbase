@@ -44,21 +44,23 @@
           <p class="label-mono text-primary-500 dark:text-primary-400">Updated</p>
           <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.updatedAt) }}</p>
         </div>
-        <p v-if="imageCanBeDeleted()" @click="showDeleteImageDialog" class="text-sm font-medium text-error-600 hover:text-error-500 dark:text-error-400 underline cursor-pointer">delete</p>
+        <p v-if="imageCanBeDeleted()" @click="showDeleteImageDialog" class="text-sm font-medium text-error-600 hover:text-error-500 dark:text-error-400 underline cursor-pointer">
+          delete
+        </p>
       </div>
 
       <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
         <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Image Tags</h3>
         <div class="flex flex-wrap gap-2">
-          <ImageTagBadge
-            v-for="tagAssignment in tagAssignments"
-            :key="tagAssignment.id"
-            :tagAssignment="tagAssignment"
-            :removable="removable(tagAssignment)"
-            @remove="removeTag"
-          />
+          <ImageTagBadge v-for="tagAssignment in tagAssignments" :key="tagAssignment.id" :tagAssignment="tagAssignment" :removable="removable(tagAssignment)" @remove="removeTag" />
         </div>
-        <p v-if="tagsCanBeAdded()" @click="() => emitter.emit('show-tagging-dialog')" class="mt-4 inline-block text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">add</p>
+        <p
+          v-if="tagsCanBeAdded()"
+          @click="() => emitter.emit('show-tagging-dialog')"
+          class="mt-4 inline-block text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer"
+        >
+          add
+        </p>
       </div>
       <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
         <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Download Links</h3>
@@ -205,7 +207,7 @@ async function removeTag(tagAssignment: ImageTagAssignmentType) {
     if (props.item) {
       props.item.tags.splice(
         props.item.tags.findIndex((ta) => ta.id === tagAssignment.id),
-        1
+        1,
       );
       props.item.updatedAt = new Date().toISOString();
     }
@@ -221,7 +223,7 @@ function showDeleteImageDialog() {
   showDeleteDialog.value = true;
   deleteCandidate.value = props.item;
 }
-function confirmDeleteImage() {
+async function confirmDeleteImage() {
   showDeleteDialog.value = false;
 
   if (!deleteCandidate.value) {
@@ -230,11 +232,10 @@ function confirmDeleteImage() {
   }
 
   try {
-    api.images.remove(deleteCandidate.value.id);
+    await api.images.remove(deleteCandidate.value.id);
     showNotificationToast({ headline: `Image deleted`, type: "success" });
     emitter.emit("current-image-deleted", deleteCandidate.value.id);
   } catch (error: any) {
-    error("error deleting image", error);
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   }

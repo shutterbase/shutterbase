@@ -54,7 +54,10 @@ test.describe.serial("smoke", () => {
     for (const [name, path] of routes) {
       const before = errors.length;
       await page.goto(path, { waitUntil: "networkidle" }).catch(() => {});
-      await page.waitForTimeout(500);
+      // wait for the SPA to actually paint content (and any client-side auth
+      // redirect to fire) instead of a blind sleep; bounded + caught so a route
+      // that legitimately renders empty still falls through to the assertions.
+      await page.waitForFunction(() => document.body.innerText.trim().length > 0, undefined, { timeout: 5000 }).catch(() => {});
       const actual = new URL(page.url()).pathname;
       const overlay = await page.locator("vite-error-overlay").count().catch(() => 0);
       const text = (await page.locator("body").innerText().catch(() => "")).trim();
