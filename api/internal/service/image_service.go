@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/ent"
+	entimage "github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
@@ -116,6 +117,35 @@ func (s *ImageService) CreateImage(ctx context.Context, params *CreateImageParam
 	s.ai.Enqueue(image.ID)
 
 	return s.repo.GetImage(ctx, image.ID)
+}
+
+// ReapplyDefaultTags re-runs default-tag derivation over every image of a
+// project (maintenance / DEV quick-action) and rebuilds each image's
+// denormalized imageTags list. Reuses the exact create-side path. Returns the
+// number of images processed.
+func (s *ImageService) ReapplyDefaultTags(ctx context.Context, projectID string) (int, error) {
+	images, err := s.repo.Client.Image.Query().
+		Where(entimage.ProjectID(projectID)).All(ctx)
+	if err != nil {
+		return 0, err
+	}
+	project, err := s.repo.GetProject(ctx, projectID)
+	if err != nil {
+		return 0, err
+	}
+	for _, img := range images {
+		user, err := s.repo.GetUser(ctx, img.UserID)
+		if err != nil {
+			return 0, err
+		}
+		if err := s.addDefaultTags(ctx, img, project, user, img.CapturedAtCorrected); err != nil {
+			return 0, err
+		}
+		if err := s.repo.SetImageTags(ctx, img.ID); err != nil {
+			return 0, err
+		}
+	}
+	return len(images), nil
 }
 
 // correctedCaptureTime returns capturedAt shifted by the camera's closest

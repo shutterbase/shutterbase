@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	entsql "entgo.io/ent/dialect/sql"
@@ -19,6 +20,9 @@ import (
 type Connection struct {
 	Options *Options
 	Client  *ent.Client
+	// DB is the raw handle behind Client, kept for the DEV-gated TruncateAll
+	// (ent has no truncate-all primitive).
+	DB *sql.DB
 }
 
 type Options struct {
@@ -81,6 +85,7 @@ func (d *Connection) initPostgres() error {
 
 	drv := entsql.OpenDB("postgres", db)
 	d.Client = ent.NewClient(ent.Driver(drv))
+	d.DB = db
 
 	// Fail closed: never serve a half-migrated schema.
 	if err := d.createSchema(context.Background()); err != nil {
@@ -129,6 +134,7 @@ func (d *Connection) initSQLite() error {
 
 	drv := entsql.OpenDB("sqlite3", db)
 	d.Client = ent.NewClient(ent.Driver(drv))
+	d.DB = db
 	log.Info().Str("file", d.Options.File).Msg("SQLite database client initialized")
 
 	if err := d.createSchema(context.Background()); err != nil {
@@ -145,6 +151,48 @@ func configureConnectionPool(db *sql.DB) {
 
 func (d *Connection) Close() {
 	d.Client.Close()
+}
+
+// TruncateAll wipes every row from every table in the configured schema,
+// CASCADE + RESTART IDENTITY, so the schema (tables, indexes, the GIN index)
+// survives and a fresh seed can re-run against an empty DB. Postgres-only: it
+// backs the DEV-gated /dev/reseed quick-action, which never runs against SQLite.
+//
+// ponytail: dynamic table discovery + one TRUNCATE beats hand-ordering deletes
+// around the user<->project FK cycle. CASCADE resolves the cycle for free.
+func (d *Connection) TruncateAll(ctx context.Context) error {
+	if d.Options.DatabaseType != "psql" {
+		return fmt.Errorf("TruncateAll is postgres-only (got %q)", d.Options.DatabaseType)
+	}
+	schema := d.Options.Schema
+	if schema == "" {
+		schema = "public"
+	}
+	rows, err := d.DB.QueryContext(ctx,
+		`SELECT tablename FROM pg_tables WHERE schemaname = $1`, schema)
+	if err != nil {
+		return fmt.Errorf("list tables: %w", err)
+	}
+	defer rows.Close()
+	var tables []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		tables = append(tables, fmt.Sprintf("%q.%q", schema, name))
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(tables) == 0 {
+		return nil
+	}
+	stmt := "TRUNCATE TABLE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE"
+	if _, err := d.DB.ExecContext(ctx, stmt); err != nil {
+		return fmt.Errorf("truncate all: %w", err)
+	}
+	return nil
 }
 
 // DropAll drops every table in the configured schema by recreating the schema.

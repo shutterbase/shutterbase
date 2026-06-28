@@ -183,6 +183,17 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*see
 // host:port. The returned srv's background services (AI drain, WS tick) run under
 // a server-owned context; httptest.Server.Close stops the listener.
 func StartServer(db *database.Connection, s3Client *s3.S3Client) (*httptest.Server, error) {
+	return startServer(db, s3Client, false)
+}
+
+// StartDevServer is StartServer with DevMode=true so the /api/v1/dev/* quick-
+// action routes are registered. Used by the DEV quick-action e2e against an
+// ISOLATED stack (the /dev/reseed action wipes the DB).
+func StartDevServer(db *database.Connection, s3Client *s3.S3Client) (*httptest.Server, error) {
+	return startServer(db, s3Client, true)
+}
+
+func startServer(db *database.Connection, s3Client *s3.S3Client, devMode bool) (*httptest.Server, error) {
 	// SESSION_SECRET_KEY is the only config value without a default; everything
 	// else (AI_PROVIDER=stub, THUMBNAIL_SIZES, DATE_TAG_HOUR_OFFSET) defaults.
 	_ = os.Setenv("SESSION_SECRET_KEY", "harness-test-session-secret")
@@ -204,7 +215,7 @@ func StartServer(db *database.Connection, s3Client *s3.S3Client) (*httptest.Serv
 	}
 	srv, err := server.NewServer(&server.Options{
 		ApiBaseURL:           "/api/v1",
-		DevMode:              false,
+		DevMode:              devMode,
 		Database:             db,
 		SessionSecretKey:     "harness-test-session-secret",
 		DefaultAdminUsername: "admin",

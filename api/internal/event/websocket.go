@@ -20,6 +20,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
+
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 const (
@@ -190,7 +192,8 @@ func (m *Manager) Start(ctx context.Context) {
 			Broadcast(m, WebsocketMessage[int64]{
 				Object: EventObjectTime,
 				Action: EventActionTick,
-				Data:   time.Now().Unix(),
+				// util.Now() honors the DEV /dev/clock freeze; live wall clock otherwise.
+				Data: util.Now().Unix(),
 			})
 		}
 	}

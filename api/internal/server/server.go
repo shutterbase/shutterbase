@@ -128,6 +128,14 @@ func NewServer(options *Options) (*Server, error) {
 	// installed BEFORE auth so it wraps the login/auth routes too.
 	engine.Use(s.securityMiddleware(options.ApiBaseURL))
 
+	// DEV password-less login is registered HERE — after the security middleware
+	// (so it keeps the dev-gate + CSRF check) but before authentication.Setup
+	// installs RequireAuth, so it can establish a session from nothing. Gated on
+	// DevMode: never registered in prod.
+	if options.DevMode {
+		s.registerDevAuthRoutes()
+	}
+
 	// Setup installs the auth middleware (RequireAuth) and the auth routes;
 	// everything registered after this inherits the middleware.
 	if err := authentication.Setup(&authentication.Options{

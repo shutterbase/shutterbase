@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -66,29 +67,37 @@ func (s *Server) createApiKey(c *gin.Context) {
 		userID = uid
 	}
 
-	// Token = "<keyId>.<secret>". keyId is the public lookup id; secret is shown
-	// once and stored only as an argon2 hash (30 chars, well under the 72-char cap).
-	keyId := id.NewID()
-	secret := id.NewID() + id.NewID()
-	hash, err := basicauth.HashPassword(secret, basicauth.DefaultPasswordHashingParams)
-	if err != nil {
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	key, err := s.Repository.CreateApiKey(c.Request.Context(), &repository.CreateApiKeyParameters{
-		KeyID:      keyId,
-		SecretHash: hash,
-		Name:       payload.Name,
-		UserID:     userID,
-	})
+	key, token, err := s.mintApiKey(c.Request.Context(), userID, payload.Name)
 	if abortMutationError(c, err) {
 		return
 	}
 
 	resp := apiKeyResponse(key)
-	resp["token"] = keyId + "." + secret // ONLY time the secret is returned
+	resp["token"] = token // ONLY time the secret is returned
 	c.JSON(http.StatusCreated, resp)
+}
+
+// mintApiKey creates an api key for userID and returns it plus the one-time
+// "<keyId>.<secret>" token. keyId is the public lookup id; secret is shown once
+// and stored only as an argon2 hash (30 chars, well under the 72-char cap).
+// Shared by POST /api-keys and the DEV /dev/api-key quick-action.
+func (s *Server) mintApiKey(ctx context.Context, userID uuid.UUID, name string) (*ent.ApiKey, string, error) {
+	keyId := id.NewID()
+	secret := id.NewID() + id.NewID()
+	hash, err := basicauth.HashPassword(secret, basicauth.DefaultPasswordHashingParams)
+	if err != nil {
+		return nil, "", err
+	}
+	key, err := s.Repository.CreateApiKey(ctx, &repository.CreateApiKeyParameters{
+		KeyID:      keyId,
+		SecretHash: hash,
+		Name:       name,
+		UserID:     userID,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return key, keyId + "." + secret, nil
 }
 
 func (s *Server) listApiKeys(c *gin.Context) {

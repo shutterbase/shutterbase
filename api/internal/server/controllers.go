@@ -20,4 +20,10 @@ func (s *Server) registerAPIRoutes() {
 	s.registerUserRoutes(api)
 	s.registerApiKeyRoutes(api)
 	s.registerCustomRoutes(api)
+
+	// DEV quick-actions are registered ONLY when DEV=true — the hard gate. The
+	// securityMiddleware dev-gate additionally 404s /api/v1/dev/* when DEV=false.
+	if s.options.DevMode {
+		s.registerDevRoutes(api)
+	}
 }
