@@ -27,7 +27,8 @@
           <div class="space-y-12">
             <div class="border-b border-primary-200 dark:border-primary-800 pb-12">
               <p class="mt-3 text-sm leading-6 text-primary-600 dark:text-primary-400">
-                This will create a new upload from a <b class="text-primary-800 dark:text-primary-200">single camera</b> for the currently active project <b class="text-primary-800 dark:text-primary-200">{{ activeProject.name }}</b>
+                This will create a new upload from a <b class="text-primary-800 dark:text-primary-200">single camera</b> for the currently active project
+                <b class="text-primary-800 dark:text-primary-200">{{ activeProject.name }}</b>
               </p>
 
               <AlertBanner
@@ -148,12 +149,13 @@ async function getCameras() {
           outdatedTimeOffsetFound.value = true;
         }
         return { ...item, disabled };
-      })
+      }),
     );
-    loading.value = false;
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
+  } finally {
+    loading.value = false;
   }
 }
 
