@@ -9,6 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "dev": "quasar dev",
     "build": "quasar build",
     "format": "prettier --config ./.prettierrc --write ./src index.html package.json postcss.config.cjs quasar.config.ts README.md tailwind.config.js tsconfig.json",
@@ -42,6 +44,7 @@
     "zxcvbn-typescript": "^5.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@quasar/app-vite": "^2.0.0-beta.1",
     "@types/node": "^20.5.9",
     "autoprefixer": "^10.4.17",
