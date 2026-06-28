@@ -1,0 +1,84 @@
+name: UI E2E
+
+# Playwright UI end-to-end suite. Boots the API via cmd/testserver (testcontainers
+# brings up Postgres + S3, seeds fixtures, DEV mode on :8080) and the Quasar dev
+# server (:9000, proxies /api -> :8080) — matching ui/playwright.config.ts.
+on:
+  push:
+    branches:
+      - main
+      - "feature/v3"
+      - "feature/v3-redesign"
+  pull_request:
+    branches:
+      - main
+      - "feature/v3"
+
+concurrency:
+  group: ui-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: Playwright e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.4"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+
+      # The SPA imports the WASM module via "image-wasm": "../image-wasm/pkg",
+      # so it must be built before `bun install` can resolve the dependency.
+      - name: Build WASM
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          cd image-wasm && wasm-pack build --target web --dev
+
+      - name: Install UI deps
+        run: cd ui && bun install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: cd ui && bunx playwright install --with-deps chromium
+
+      # cmd/testserver spins Postgres + S3 (testcontainers, Docker is preinstalled on
+      # ubuntu-latest), seeds fixtures and serves the API in DEV mode on :8080.
+      - name: Start backend (testserver)
+        run: cd api && nohup env PORT=8080 go run ./cmd/testserver > testserver.log 2>&1 &
+
+      # Quasar dev server serves the real SPA on :9000 and proxies /api,/ws -> :8080.
+      - name: Start UI (quasar dev)
+        run: cd ui && nohup bun run dev > quasar-dev.log 2>&1 &
+
+      - name: Wait for services
+        run: |
+          echo "waiting for backend on :8080 (testcontainers pull + boot)…"
+          for i in $(seq 1 120); do curl -fs http://localhost:8080/api/v1/health && break; sleep 2; done
+          curl -fs http://localhost:8080/api/v1/health || { echo "::error::backend never became healthy"; cat api/testserver.log; exit 1; }
+          echo "waiting for UI on :9000 (vite first compile)…"
+          for i in $(seq 1 90); do curl -fs http://localhost:9000/login >/dev/null && break; sleep 2; done
+          curl -fs http://localhost:9000/login >/dev/null || { echo "::error::quasar dev never became ready"; cat ui/quasar-dev.log; exit 1; }
+
+      - name: Run Playwright e2e
+        run: cd ui && bunx playwright test
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: ui/playwright-report
+          retention-days: 7
+
+      - name: Dump server logs on failure
+        if: ${{ failure() }}
+        run: |
+          echo "===== testserver.log ====="; cat api/testserver.log || true
+          echo "===== quasar-dev.log ====="; cat ui/quasar-dev.log || true
