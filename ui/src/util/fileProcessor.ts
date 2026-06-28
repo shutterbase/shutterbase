@@ -205,6 +205,8 @@ export class FileProcessor {
         // cookie-session: WASM uploads use credentials:include, no bearer token.
         auth_token: "",
         api_url: API_BASE,
+        // binds the presign request to this upload (server checks CanModifyUpload).
+        upload_id: this.upload.value.id,
       };
 
       try {

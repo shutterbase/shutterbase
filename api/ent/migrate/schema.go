@@ -453,7 +453,7 @@ var (
 				Symbol:     "uploads_projects_uploads",
 				Columns:    []*schema.Column{UploadsColumns[7]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "uploads_users_uploads",

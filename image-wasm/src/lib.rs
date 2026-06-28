@@ -54,6 +54,8 @@ pub struct FileProcessorOptions {
     thumbnail_size: u32,
     auth_token: String,
     api_url: String,
+    // Binds the presigned upload URL request to an upload the caller may write to.
+    upload_id: String,
 }
 
 #[wasm_bindgen]
@@ -174,7 +176,7 @@ pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callba
     let mut upload_offset_size: usize = 0;
 
     for (filename, image_data) in upload_images.into_iter() {
-        let upload_url = get_upload_url(&options.api_url, &options.auth_token, &filename).await?;
+        let upload_url = get_upload_url(&options.api_url, &options.auth_token, &filename, &options.upload_id).await?;
 
         debug(&format!("Queried upload url: {}", upload_url));
 

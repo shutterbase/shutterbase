@@ -169,7 +169,16 @@ func ensureDefaultAdmin(options *Options) error {
 		return fmt.Errorf("checking for default admin: %w", err)
 	}
 
-	hash, err := basicauth.HashPassword(options.DefaultAdminPassword, basicauth.DefaultPasswordHashingParams)
+	// Never ship a known default credential: when no password is configured, generate
+	// a random one-time password and log it once. ForcePasswordChange below still
+	// forces rotation on first login.
+	password := options.DefaultAdminPassword
+	if password == "" {
+		password = uuid.NewString()
+		log.Warn().Str("username", username).Str("password", password).
+			Msg("DEFAULT_ADMIN_PASSWORD unset — generated a one-time bootstrap password; sign in and change it immediately")
+	}
+	hash, err := basicauth.HashPassword(password, basicauth.DefaultPasswordHashingParams)
 	if err != nil {
 		return fmt.Errorf("hashing default admin password: %w", err)
 	}

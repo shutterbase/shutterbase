@@ -89,7 +89,7 @@ func TestUploadURLRateLimited(t *testing.T) {
 	client := adminClient(t)
 	got429 := false
 	for i := 0; i < 400; i++ {
-		resp := doJSON(t, client, http.MethodGet, "/api/v1/upload-url?name=ab/ratelimit.jpg", nil)
+		resp := doJSON(t, client, http.MethodGet, "/api/v1/upload-url?name=ab/ratelimit.jpg&uploadId="+stack.Manifest.Upload, nil)
 		code := resp.StatusCode
 		resp.Body.Close()
 		if code == http.StatusTooManyRequests {
