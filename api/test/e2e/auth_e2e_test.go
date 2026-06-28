@@ -194,3 +194,47 @@ func TestAuthFlow(t *testing.T) {
 		resp.Body.Close()
 	})
 }
+
+// A user deactivated mid-session must lose access immediately: the existing
+// session is rejected on both reads and mutations, and a fresh login is refused.
+// Regression guard for the deactivated-user access gap (requireActiveUser gate +
+// login-time rejection).
+func TestDeactivatedUserDenied(t *testing.T) {
+	ctx := context.Background()
+	c := stack.DB.Client
+
+	hash, err := basicauth.HashPassword("DeactPass123", basicauth.DefaultPasswordHashingParams)
+	require.NoError(t, err)
+	u, err := c.User.Create().
+		SetUsername("deactme").SetFirstName("De").SetLastName("Act").
+		SetEmail("deactme@shutterbase.test").SetActive(true).SetVerified(true).
+		SetPasswordHash(hash).Save(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.User.DeleteOneID(u.ID).Exec(ctx) })
+
+	// While active: login works and the session can read.
+	client := newClient(t)
+	resp := login(t, client, "deactme", "DeactPass123")
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	resp.Body.Close()
+	resp = doJSON(t, client, http.MethodGet, "/api/v1/users/me", nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode, "active user reads /users/me")
+	resp.Body.Close()
+
+	// Deactivate the account; the existing session cookie stays in the jar.
+	_, err = c.User.UpdateOneID(u.ID).SetActive(false).Save(ctx)
+	require.NoError(t, err)
+
+	// The existing session is now rejected on read AND on mutation.
+	resp = doJSON(t, client, http.MethodGet, "/api/v1/users/me", nil)
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "deactivated session may not read")
+	resp.Body.Close()
+	resp = doJSON(t, client, http.MethodPost, "/api/v1/cameras", map[string]any{"name": "ghost-cam"})
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "deactivated session may not create a camera")
+	resp.Body.Close()
+
+	// A fresh login is refused outright.
+	resp = login(t, newClient(t), "deactme", "DeactPass123")
+	assert.NotEqual(t, http.StatusOK, resp.StatusCode, "deactivated user cannot obtain a new session")
+	resp.Body.Close()
+}
