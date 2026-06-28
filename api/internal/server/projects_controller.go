@@ -125,12 +125,13 @@ type updateProjectPayload struct {
 }
 
 func (s *Server) updateProject(c *gin.Context) {
-	// authz (S8): admin only.
-	if !allow(c, authorization.CanManageProject(authUser(c))) {
-		return
-	}
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	// A projectAdmin of this project (or a global admin) may edit project fields;
+	// project create/delete remain global-admin-only.
+	if !allow(c, authorization.CanEditProject(authUser(c), id)) {
 		return
 	}
 	var payload updateProjectPayload

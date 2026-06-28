@@ -240,3 +240,31 @@ func TestSecurityReviewImpersonationCookieBinding(t *testing.T) {
 	_, hasBlock := me["impersonating"]
 	assert.False(t, hasBlock, "no impersonation block under a foreign-bound cookie")
 }
+
+// projectAdmin administers WITHIN a project: it may edit project fields, but the
+// project lifecycle (create/delete) stays global-admin-only, and a projectEditor
+// may not edit project fields.
+func TestProjectAdminEditsButCannotCreateProject(t *testing.T) {
+	m := stack.Manifest
+
+	padmin := roleClient(t, "projectAdmin")
+	resp := doJSON(t, padmin, http.MethodPut, "/api/v1/projects/"+m.Project,
+		map[string]any{"description": "edited by projectAdmin"})
+	require.Equal(t, http.StatusOK, resp.StatusCode, "projectAdmin edits its own project's fields")
+	resp.Body.Close()
+
+	resp = doJSON(t, padmin, http.MethodPost, "/api/v1/projects",
+		map[string]any{"name": "padmin-created", "description": "d", "copyright": "c"})
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode, "projectAdmin cannot create projects")
+	resp.Body.Close()
+
+	resp = doJSON(t, padmin, http.MethodDelete, "/api/v1/projects/"+m.Project, nil)
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode, "projectAdmin cannot delete projects")
+	resp.Body.Close()
+
+	editor := roleClient(t, "projectEditor")
+	resp = doJSON(t, editor, http.MethodPut, "/api/v1/projects/"+m.Project,
+		map[string]any{"description": "nope"})
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode, "projectEditor cannot edit project fields")
+	resp.Body.Close()
+}

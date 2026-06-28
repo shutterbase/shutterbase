@@ -209,6 +209,16 @@ func TestManageAndViewHelpers(t *testing.T) {
 	assert.True(t, CanManageProject(usr(user.RoleAdmin)))
 	assert.False(t, CanManageProject(editor))
 
+	// CanEditProject: global admin or a projectAdmin OF THIS project may edit
+	// fields; create/delete (CanManageProject) stay global-admin-only.
+	pAdmin := usr(user.RoleUser, pa(proj, RoleProjectAdmin))
+	assert.True(t, CanEditProject(usr(user.RoleAdmin), proj), "global admin edits any project")
+	assert.True(t, CanEditProject(pAdmin, proj), "projectAdmin edits own project")
+	assert.False(t, CanEditProject(pAdmin, "other"), "projectAdmin cannot edit a different project")
+	assert.False(t, CanEditProject(editor, proj), "projectEditor cannot edit project fields")
+	assert.False(t, CanEditProject(viewer, proj), "projectViewer cannot edit project fields")
+	assert.False(t, CanManageProject(pAdmin), "projectAdmin still cannot create/delete projects")
+
 	assert.True(t, HasAnyProjectAdmin(usr(user.RoleUser, pa(proj, RoleProjectAdmin))))
 	assert.False(t, HasAnyProjectAdmin(editor))
 }
