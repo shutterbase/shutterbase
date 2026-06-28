@@ -109,6 +109,15 @@ func Setup(options *Options) error {
 		return fmt.Errorf("error registering auth routes: %w", err)
 	}
 
+	// Reject any request whose authenticated user has been deactivated. RequireAuth
+	// + UserTransformer (and the API-key bridge) resolve the ent.User into the
+	// request context before this runs, so a single gate covers BOTH session and
+	// API-key auth across every private route — closing the window where a user
+	// deactivated mid-session, or an API key whose owner was later deactivated,
+	// retained access. Public routes carry no user and pass through. Runs before
+	// impersonation resolution so it gates on the real authenticated user.
+	options.Engine.Use(requireActiveUser())
+
 	// Impersonation resolution (S8): runs after RequireAuth, swaps the effective
 	// user to the impersonated target when the real user re-checks as admin.
 	im := newImpersonator(secretKey, encKey, options.Repository, api, options.IsDev, options.ImpersonationReadOnly)
@@ -212,6 +221,23 @@ type repositoryStorage struct {
 // CreateUser is unreachable (self-registration is blocked) but required by the
 // interface. ponytail: returning an error documents intent and fails loudly if
 // the block above ever regresses, instead of silently minting accounts.
+// requireActiveUser aborts an authenticated request whose resolved user is
+// deactivated. It is the single per-request gate for the deactivated-user case;
+// see the engine.Use call in Setup for why one gate covers session + API key.
+func requireActiveUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u := util.GetUser(c.Request.Context())
+		if u != nil && !u.Active {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error":   "unauthorized",
+				"message": "account is deactivated",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 func (s *repositoryStorage) CreateUser(_ *basicauth.User) error {
 	return fmt.Errorf("self-registration is disabled")
 }
@@ -221,6 +247,12 @@ func (s *repositoryStorage) GetUserByUsername(username string) (*basicauth.User,
 	if err != nil {
 		return nil, err
 	}
+	// Deny login to a deactivated account: never hand go-basicauth a user it would
+	// issue a session for. The per-request requireActiveUser gate is the backstop
+	// for already-issued sessions; this stops a fresh one.
+	if !u.Active {
+		return nil, fmt.Errorf("user is not active")
+	}
 	return toBasicAuthUser(u), nil
 }
 
@@ -228,6 +260,9 @@ func (s *repositoryStorage) GetUserByEmail(email string) (*basicauth.User, error
 	u, err := s.repo.GetUserByEmail(context.Background(), email)
 	if err != nil {
 		return nil, err
+	}
+	if !u.Active {
+		return nil, fmt.Errorf("user is not active")
 	}
 	return toBasicAuthUser(u), nil
 }
