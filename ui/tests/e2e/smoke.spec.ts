@@ -55,13 +55,17 @@ test.describe.serial("smoke", () => {
       const before = errors.length;
       await page.goto(path, { waitUntil: "networkidle" }).catch(() => {});
       await page.waitForTimeout(500);
+      const actual = new URL(page.url()).pathname;
       const overlay = await page.locator("vite-error-overlay").count().catch(() => 0);
       const text = (await page.locator("body").innerText().catch(() => "")).trim();
       const jsErrs = errors.slice(before);
       if (jsErrs.length) failures.push(`${name} (${path}): JS ${jsErrs.join("; ")}`);
       if (overlay > 0) failures.push(`${name} (${path}): vite error overlay present`);
+      // an authed admin should not be bounced off any of these routes (catches the
+      // vacuous "redirected to /login but still has body text" pass).
+      if (actual !== path) failures.push(`${name} (${path}): redirected to ${actual}`);
       if (text.length < 10) failures.push(`${name} (${path}): rendered empty (${text.length} chars)`);
-      console.log(`  ${name.padEnd(22)} -> ${path}  ${jsErrs.length || overlay ? "FAIL" : "ok"}`);
+      console.log(`  ${name.padEnd(22)} -> ${path}  ${jsErrs.length || overlay || actual !== path ? "FAIL" : "ok"}`);
     }
     expect(failures, `\n${failures.join("\n")}\n`).toHaveLength(0);
   });
