@@ -1,7 +1,13 @@
 <template>
-  <span @click="emit('remove', tagAssignment)" :class="[`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset`, tagColor, removableClasses()]">{{
-    tagAssignment.tag.name
-  }}</span>
+  <span
+    @click="emit('remove', tagAssignment)"
+    @keydown.enter="removable && emit('remove', tagAssignment)"
+    @keydown.space.prevent="removable && emit('remove', tagAssignment)"
+    :role="removable ? 'button' : undefined"
+    :tabindex="removable ? 0 : undefined"
+    :class="[`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset`, tagColor, removableClasses()]"
+    >{{ tagAssignment.tag.name }}</span
+  >
 </template>
 <script lang="ts" setup>
 import { ImageTagAssignmentType } from "src/types/custom";

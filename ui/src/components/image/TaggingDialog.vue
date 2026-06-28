@@ -45,7 +45,10 @@
           />
         </div>
 
-        <div v-if="(filteredTags.length !== 0 && searchText !== '') || (recentTags.length !== 0 && searchText === '')" class="flex transform-gpu divide-x divide-primary-200 dark:divide-primary-800">
+        <div
+          v-if="(filteredTags.length !== 0 && searchText !== '') || (recentTags.length !== 0 && searchText === '')"
+          class="flex transform-gpu divide-x divide-primary-200 dark:divide-primary-800"
+        >
           <!-- Preview Visible: "sm:h-96" -->
           <div class="max-h-96 min-w-0 flex-auto scroll-py-4 overflow-y-auto px-6 py-4 sm:h-96">
             <!-- Default state, show/hide based on command palette state. -->
@@ -53,10 +56,12 @@
             <ul v-if="filteredTags.length === 0 && searchText === ''" class="-mx-2 text-sm text-primary-700 dark:text-primary-200" id="options" role="listbox">
               <li
                 @click="() => acceptTag(tag)"
+                @keydown.enter="() => acceptTag(tag)"
+                @keydown.space.prevent="() => acceptTag(tag)"
                 v-for="(tag, index) in recentTags"
                 class="cursor-pointer group flex select-none items-center rounded-md p-2 transition-colors hover:bg-primary-100 dark:hover:bg-primary-800"
                 role="option"
-                tabindex="-1"
+                tabindex="0"
               >
                 <div>
                   <kbd
@@ -75,10 +80,12 @@
             <ul class="-mx-2 text-sm text-primary-700 dark:text-primary-200" id="options" role="listbox">
               <li
                 @click="() => acceptTag(tag)"
+                @keydown.enter="() => acceptTag(tag)"
+                @keydown.space.prevent="() => acceptTag(tag)"
                 v-for="(tag, index) in filteredTags"
                 class="cursor-pointer group flex select-none items-center rounded-md p-2 transition-colors hover:bg-primary-100 dark:hover:bg-primary-800"
                 role="option"
-                tabindex="-1"
+                tabindex="0"
               >
                 <div v-if="filteredTags.length === 1" class="h-6 w-6">
                   <kbd
@@ -100,7 +107,6 @@
               </li>
             </ul>
           </div>
-
         </div>
 
         <!-- Empty state, show/hide based on command palette state -->
@@ -108,7 +114,14 @@
           <TagIcon class="mx-auto h-6 w-6 text-primary-400 dark:text-primary-500" />
           <p class="mt-4 font-semibold text-primary-900 dark:text-white">No matching tags</p>
           <p class="mt-2 text-primary-500 dark:text-primary-400">No tag matching your search could be found. Please use a different keyword or create a 'custom' tag</p>
-          <p @click="createCustomTag" class="mt-4 font-semibold text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
+          <p
+            @click="createCustomTag"
+            @keydown.enter="createCustomTag"
+            @keydown.space.prevent="createCustomTag"
+            role="button"
+            tabindex="0"
+            class="mt-4 font-semibold text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer"
+          >
             Create custom tag '<b>{{ searchText }}</b
             >'
           </p>

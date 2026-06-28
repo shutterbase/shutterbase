@@ -4,7 +4,9 @@
       <div class="sm:flex sm:items-center">
         <div class="sm:flex-auto">
           <h1 class="text-lg font-semibold tracking-tight text-primary-900 dark:text-white">Uploaded images</h1>
-          <p class="mt-1.5 text-sm text-primary-500 dark:text-primary-400">These images have been added to the upload and are either waiting for processing or have been processed.</p>
+          <p class="mt-1.5 text-sm text-primary-500 dark:text-primary-400">
+            These images have been added to the upload and are either waiting for processing or have been processed.
+          </p>
         </div>
         <!-- <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
           <button
@@ -127,7 +129,7 @@ onMounted(async () => {
 });
 
 const fileProcessor = new FileProcessor(upload, images, timeOffsets);
-onUnmounted(() => fileProcessor.stop);
+onUnmounted(() => fileProcessor.stop());
 
 watch(props, (props) => {
   updateFiles(props.files);
@@ -166,20 +168,20 @@ function timeTableEntry(image: Image): string {
   return "-";
 }
 
-function deleteItem(item: Image): void {
+async function deleteItem(item: Image): Promise<void> {
   if (!item.id) {
     error("image cannot be deleted without an id");
     return;
   }
 
   try {
-    api.images.remove(item.id);
+    await api.images.remove(item.id);
     uploadedImages.value = uploadedImages.value.filter((i) => i.id !== item.id);
     images.value = images.value.filter((i) => i.id !== item.id);
     showNotificationToast({ headline: `Image deleted`, type: "success" });
-  } catch (error: any) {
-    error("error deleting image", error);
-    unexpectedError.value = error;
+  } catch (err: any) {
+    error("error deleting image", err);
+    unexpectedError.value = err;
     showUnexpectedErrorMessage.value = true;
   }
 }

@@ -52,7 +52,7 @@ import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import Sidebar from "src/components/image/Sidebar.vue";
 import TaggingDialog from "src/components/image/TaggingDialog.vue";
-import { onMounted, ref, computed, watch, nextTick } from "vue";
+import { onMounted, onUnmounted, ref, computed, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useDebounceFn, useStorage } from "@vueuse/core";
 
@@ -85,11 +85,12 @@ const gridClasses = computed(() => {
 
 const imagesHeader = ref<any>(null);
 
-window.onscroll = async function (ev) {
+async function onScroll() {
   if (window.innerHeight + window.scrollY + 100 >= document.body.scrollHeight) {
     triggerInfiniteScroll();
   }
-};
+}
+window.addEventListener("scroll", onScroll);
 
 onMounted(() => loadImages(true));
 const reloadDebounced = useDebounceFn(() => loadImages(true), 500);
@@ -223,4 +224,12 @@ function scrollToSelectedImage() {
     activeItem.scrollIntoView({ behavior: `instant`, block: `nearest` });
   }
 }
+
+onUnmounted(() => {
+  window.removeEventListener("scroll", onScroll);
+  emitter.off("show-tagging-dialog", showTaggingDialog);
+  emitter.off("reset-tagging-dialog", resetTaggingDialog);
+  emitter.off("current-image-deleted", handleCurrentImageDeleted);
+  emitter.off("update-image-grid-scroll-position", scrollToSelectedImage);
+});
 </script>
