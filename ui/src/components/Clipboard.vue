@@ -1,5 +1,6 @@
 <template>
   <button
+    aria-label="Copy"
     class="inline-flex items-center justify-center rounded p-0.5 text-primary-400 transition-colors hover:bg-primary-100 hover:text-primary-700 dark:text-primary-500 dark:hover:bg-primary-800 dark:hover:text-primary-200 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
     @click="copy"
   >

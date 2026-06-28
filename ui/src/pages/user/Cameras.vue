@@ -52,7 +52,7 @@ const userStore = useUserStore();
 type ITEM_TYPE = CamerasResponse;
 const ITEM_NAME = "camera";
 
-const userId: string = `${route.params.userid}`;
+const userId = computed(() => `${route.params.userid}`);
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
@@ -63,7 +63,7 @@ const items: Ref<ITEM_TYPE[]> = ref([]);
 
 async function requestItems() {
   try {
-    const resultList = await api.cameras.list({ userId, limit: 50 });
+    const resultList = await api.cameras.list({ userId: userId.value, limit: 50 });
     items.value = resultList.items;
   } catch (error: any) {
     unexpectedError.value = error;
@@ -93,9 +93,10 @@ async function saveItem(item: CamerasResponse, editData: CameraEditData) {
 }
 
 function addItem() {
-  router.push({ name: `camera-create`, params: { userid: userId } });
+  router.push({ name: `camera-create`, params: { userid: userId.value } });
 }
 
 onMounted(requestItems);
 watch([limit, offset], requestItems);
+watch(userId, requestItems);
 </script>

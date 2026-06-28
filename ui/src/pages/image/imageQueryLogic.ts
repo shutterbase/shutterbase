@@ -59,8 +59,16 @@ export async function triggerInfiniteScroll() {
   }
 }
 
+// latest-wins guard: every call gets an id; only the newest call's response is
+// allowed to mutate state, so a filter/search/sort change mid-flight is never
+// dropped and a stale in-flight response is discarded.
+let requestId = 0;
+
 export async function loadImages(reload: boolean) {
-  if (loading.value) return;
+  // pagination guard only: don't stack "load more" requests, but a reload
+  // (new filter/search/sort) must always issue a fresh query.
+  if (!reload && loading.value) return;
+  const myRequestId = ++requestId;
   loading.value = true;
   try {
     if (reload) page.value = 1;
@@ -78,6 +86,7 @@ export async function loadImages(reload: boolean) {
     });
 
     const result = await api.images.list(params);
+    if (myRequestId !== requestId) return; // superseded by a newer call, discard
     totalImageCount.value = result.total;
     page.value++;
 
@@ -86,10 +95,11 @@ export async function loadImages(reload: boolean) {
     }
     images.value.push(...result.items);
   } catch (error: any) {
+    if (myRequestId !== requestId) return;
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   } finally {
-    loading.value = false;
+    if (myRequestId === requestId) loading.value = false;
   }
 }
 

@@ -1,13 +1,6 @@
 <template>
   <div class="mx-auto max-w-7xl w-full">
-    <Table
-      dense
-      :items="item?.tags || []"
-      :columns="imageTagColumns"
-      name="Project Tag"
-      :allow-add="userStore.isProjectAdminOrHigher()"
-      :add-callback="startTagCreate"
-    ></Table>
+    <Table dense :items="item?.tags || []" :columns="imageTagColumns" name="Project Tag" :allow-add="userStore.isProjectAdminOrHigher()" :add-callback="startTagCreate"></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
     <TagDialog :show="showTagDialog" :create="createTag" :tag="editTagData" @add="addTag" @edit="editTag" @bulk="switchToBulkDialog" @closed="() => (showTagDialog = false)" />
     <BulkTagCreationDialog :show="showBulkTagDialog" @add="addBulkTags" @closed="() => (showBulkTagDialog = false)" />
@@ -105,6 +98,7 @@ async function addBulkTags(input: ImageTagsResponse[]) {
 
   console.log(`Adding ${input.length} tags to project ${item.value.name}`);
 
+  let created = 0;
   for (const tag of input) {
     try {
       const response = await api.imageTags.create({
@@ -116,19 +110,21 @@ async function addBulkTags(input: ImageTagsResponse[]) {
       });
       item.value.tags = [...(item.value.tags || []), response];
       projectTags.value?.push(response);
+      created++;
       console.log(`Tag with ID ${response.id} created`);
     } catch (error: any) {
       console.log(`Error creating tag ${tag.name}`);
-      showNotificationToast({ headline: `Error creatin tag ${tag.name}`, type: "error", timeout: 10000 });
+      showNotificationToast({ headline: `Error creating tag ${tag.name} (${created}/${input.length} created)`, type: "error", timeout: 10000 });
       unexpectedError.value = error;
       showUnexpectedErrorMessage.value = true;
-      break;
+      // keep the dialog open so the user can retry the remaining tags
+      return;
     }
   }
 
   showBulkTagDialog.value = false;
-  console.log(`${input.length} tags created`);
-  showNotificationToast({ headline: `${input.length} tags created`, type: "success" });
+  console.log(`${created} tags created`);
+  showNotificationToast({ headline: `${created} tags created`, type: "success" });
 }
 
 function startTagCreate() {
