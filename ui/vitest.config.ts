@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, configDefaults } from "vitest/config";
 import { fileURLToPath } from "node:url";
 
 export default defineConfig({
@@ -12,5 +12,7 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     include: ["tests/**/*.spec.ts"],
+    // Playwright e2e specs (tests/e2e) use the Playwright runner, not vitest.
+    exclude: [...configDefaults.exclude, "tests/e2e/**"],
   },
 });

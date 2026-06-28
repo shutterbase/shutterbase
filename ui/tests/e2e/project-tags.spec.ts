@@ -18,19 +18,25 @@ test.describe.serial("project tags CRUD", () => {
     await page.getByRole("button", { name: /Add Project Tag/i }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Add tag")).toBeVisible();
-    const textboxes = dialog.getByRole("textbox");
-    await textboxes.nth(0).fill(TAG); // Name
-    await textboxes.nth(1).fill("created by e2e"); // Description
+    await dialog.getByLabel("Name", { exact: true }).fill(TAG);
+    await dialog.getByLabel("Description", { exact: true }).fill("created by e2e");
     await dialog.getByRole("button", { name: "Save tag" }).click();
-
-    // dialog closes, new row appears
     await expect(dialog).toBeHidden();
-    const row = page.getByRole("row").filter({ hasText: TAG });
-    await expect(row).toBeVisible();
 
-    // --- delete (immediate) ---
+    // new row appears AND survives a reload — proves the backend create persisted,
+    // not just optimistic UI state.
+    await expect(page.getByRole("row").filter({ hasText: TAG })).toBeVisible();
+    await page.reload();
+    const row = page.getByRole("row").filter({ hasText: TAG });
+    await expect(row, "created tag must persist after reload").toBeVisible();
+
+    // --- delete ---
     await row.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("row").filter({ hasText: TAG })).toHaveCount(0);
+    // stays gone after reload — proves the backend DELETE persisted (guards the
+    // fire-and-forget regression where optimistic removal hides a failed delete).
+    await page.reload();
+    await expect(page.getByRole("row").filter({ hasText: TAG }), "deleted tag must stay gone after reload").toHaveCount(0);
 
     expect(errors, errors.join("\n")).toHaveLength(0);
   });
