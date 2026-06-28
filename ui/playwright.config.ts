@@ -17,7 +17,7 @@ export default defineConfig({
   expect: { timeout: 7_000 },
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
   use: {
-    baseURL: "http://localhost:9000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:9000",
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
     trace: "retain-on-failure",
