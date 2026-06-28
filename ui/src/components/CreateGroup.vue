@@ -2,32 +2,26 @@
   <div>
     <div class="flex justify-between">
       <div>
-        <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">{{ headline }}</h2>
-        <p v-if="subtitle !== ''" class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-300">{{ subtitle }}</p>
+        <h2 class="display text-xl text-primary-900 dark:text-white">{{ headline }}</h2>
+        <p v-if="subtitle !== ''" class="mt-1 text-sm text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
       </div>
     </div>
     <div>
-      <dl class="mt-6 space-y-6 divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm leading-6">
+      <dl class="mt-6 space-y-6 divide-y divide-primary-100 dark:divide-primary-800 border-t border-primary-200 dark:border-primary-800 text-sm leading-6">
         <div v-for="field in fields" :key="field.key" class="pt-3 sm:flex">
-          <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">{{ field.label }}</dt>
+          <dt class="label-mono text-primary-500 dark:text-primary-400 sm:w-64 sm:flex-none sm:pr-6 sm:pt-2.5">{{ field.label }}</dt>
           <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
             <div class="w-full">
               <input
                 v-if="field.type === FieldType.TEXT"
                 v-model="createData[field.key]"
                 type="text"
-                :class="[
-                  `block w-full rounded-md border-0 py-1.5 focus:ring-2 focus:ring-inset shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6`,
-                  `text-gray-900 placeholder:text-gray-400 focus:ring-primary-600 ring-gray-300 dark:ring-primary-600 focus:dark:ring-gray-400 dark:text-gray-100 dark:bg-primary-900`,
-                ]"
+                class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
               />
               <select
                 v-else-if="field.type === FieldType.SELECT"
                 v-model="createData[field.key]"
-                :class="[
-                  `block w-full rounded-md border-0 py-1.5 focus:ring-2 focus:ring-inset shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6`,
-                  `text-gray-900 placeholder:text-gray-400 focus:ring-primary-600 ring-gray-300 dark:ring-primary-600 focus:dark:ring-gray-400 dark:text-gray-100 dark:bg-primary-900`,
-                ]"
+                class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
               >
                 <option v-for="option in field.options" :key="option" :value="option" :selected="option === field.optionsDefault">{{ option }}</option>
               </select>

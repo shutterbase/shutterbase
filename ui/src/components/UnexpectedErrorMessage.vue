@@ -10,7 +10,7 @@
         leave-from="opacity-100"
         leave-to="opacity-0"
       >
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
+        <div class="fixed inset-0 bg-primary-950/60 backdrop-blur-sm transition-opacity"></div>
       </TransitionChild>
 
       <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
@@ -24,31 +24,40 @@
             leave-from="opacity-100 translate-y-0 sm:scale-100"
             leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
           >
-            <DialogPanel class="relative transform overflow-hidden rounded-lg bg-white dark:!bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl">
-              <div class="bg-white dark:!bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+            <DialogPanel class="relative transform overflow-hidden rounded-lg border border-primary-200 bg-surface text-left shadow-panel transition-all dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark sm:my-8 sm:w-full sm:max-w-3xl">
+              <button
+                type="button"
+                @click="emit('closed')"
+                class="absolute right-3 top-3 inline-flex rounded-md p-1.5 text-primary-400 transition-colors hover:bg-primary-100 hover:text-primary-700 dark:hover:bg-primary-800 dark:hover:text-primary-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+              >
+                <span class="sr-only">Close</span>
+                <XMarkIcon class="h-5 w-5" aria-hidden="true" />
+              </button>
+              <div class="px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
                 <div class="sm:flex sm:items-start">
-                  <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-error-100 dark:bg-error-900 sm:mx-0 sm:h-10 sm:w-10">
-                    <ExclamationTriangleIcon class="h-6 w-6 text-error-600" aria-hidden="true" />
+                  <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-error-100 dark:bg-error-950/40 sm:mx-0 sm:h-10 sm:w-10">
+                    <ExclamationTriangleIcon class="h-6 w-6 text-error-600 dark:text-error-400" aria-hidden="true" />
                   </div>
                   <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                    <DialogTitle as="h3" class="text-base font-semibold leading-6 text-primary-900 dark:text-primary-300">{{ computedHeadline }}</DialogTitle>
+                    <p class="label-mono text-error-600 dark:text-error-400">Error</p>
+                    <DialogTitle as="h3" class="display mt-1 text-lg text-primary-900 dark:text-white">{{ computedHeadline }}</DialogTitle>
                     <div class="mt-2">
-                      <p class="text-sm text-primary-500">
+                      <p class="text-sm text-primary-500 dark:text-primary-400">
                         {{ computedMessage }}
                       </p>
                     </div>
-                    <button v-if="!showDetails" @click="showDetails = true" class="font-medium text-primary-600 hover:underline dark:text-primary-500">Show details</button>
-                    <button v-if="showDetails" @click="showDetails = false" class="font-medium text-primary-600 hover:underline dark:text-primary-500">Hide details</button>
-                    <button v-if="showDetails" @click="copyError" class="font-medium text-primary-600 hover:underline dark:text-primary-500 ml-4">{{ copyErrorText }}</button>
+                    <button v-if="!showDetails" @click="showDetails = true" class="font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400">Show details</button>
+                    <button v-if="showDetails" @click="showDetails = false" class="font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400">Hide details</button>
+                    <button v-if="showDetails" @click="copyError" class="font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 ml-4">{{ copyErrorText }}</button>
                   </div>
                 </div>
-                <pre v-if="showDetails" class="bg-gray-200 dark:bg-gray-700 dark:text-gray-300 border text-sm font-mono p-4 text-wrap">{{ detailText }}</pre>
+                <pre v-if="showDetails" class="mt-3 rounded-md border border-primary-200 bg-surface-muted p-4 text-sm font-mono text-primary-700 dark:border-primary-800 dark:bg-surface-dark-muted dark:text-primary-300 text-wrap">{{ detailText }}</pre>
               </div>
 
-              <div class="bg-gray-50 dark:bg-gray-800 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+              <div class="border-t border-primary-200 bg-surface-muted px-4 py-3 dark:border-primary-800 dark:bg-surface-dark-muted sm:flex sm:flex-row-reverse sm:px-6">
                 <button
                   type="button"
-                  class="bg-error-600 hover:bg-error-500 inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto"
+                  class="inline-flex w-full justify-center rounded-md bg-accent-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface dark:focus-visible:ring-offset-primary-950 sm:ml-3 sm:w-auto"
                   @click="emit('closed')"
                 >
                   {{ buttonText }}
@@ -64,7 +73,7 @@
 
 <script setup lang="ts">
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from "@headlessui/vue";
-import { ExclamationTriangleIcon } from "@heroicons/vue/24/outline";
+import { ExclamationTriangleIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import { computed, ref } from "vue";
 
 interface Props {

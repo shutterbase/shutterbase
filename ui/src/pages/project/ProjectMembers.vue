@@ -1,9 +1,9 @@
 <template>
-  <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-    <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-      <div class="pb-2">
-        <h2 class="text-2xl font-semibold leading-7 text-gray-900 dark:text-primary-200">Project Members</h2>
-      </div>
+  <main class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="max-w-3xl">
+      <p class="label-mono text-accent-600 dark:text-accent-400">Project</p>
+      <h1 class="display mt-2 text-3xl text-primary-900 dark:text-white">Members</h1>
+      <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">People with access to this project.</p>
     </div>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />

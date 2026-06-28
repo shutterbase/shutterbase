@@ -1,7 +1,8 @@
 <template>
   <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
     <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-      <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">New Upload</h2>
+      <p class="label-mono text-accent-600 dark:text-accent-400">Upload</p>
+      <h2 class="display mt-2 text-2xl text-primary-900 dark:text-white">New Upload</h2>
       <div v-if="!activeProject.id">
         <AlertBanner
           :type="AlertBannerType.ERROR"
@@ -24,9 +25,9 @@
       <div v-else class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
         <div>
           <div class="space-y-12">
-            <div class="border-b border-gray-900/10 dark:border-gray-100/10 pb-12">
-              <p class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
-                This will create a new upload from a <b>single camera</b> for the currently active project <b>{{ activeProject.name }}</b>
+            <div class="border-b border-primary-200 dark:border-primary-800 pb-12">
+              <p class="mt-3 text-sm leading-6 text-primary-600 dark:text-primary-400">
+                This will create a new upload from a <b class="text-primary-800 dark:text-primary-200">single camera</b> for the currently active project <b class="text-primary-800 dark:text-primary-200">{{ activeProject.name }}</b>
               </p>
 
               <AlertBanner
@@ -39,20 +40,15 @@
 
               <div class="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
                 <div class="sm:col-span-3">
-                  <label for="upload-name" class="block text-sm font-medium leading-6 text-gray-900 dark:text-primary-200">Upload name</label>
+                  <label for="upload-name" class="label-mono block text-primary-500 dark:text-primary-400">Upload name</label>
                   <div class="mt-2">
-                    <div
-                      class="flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus-within:ring-2 focus-within:ring-inset focus-within:ring-primary-600 dark:focus-within:ring-primary-400 sm:max-w-md"
-                    >
+                    <div class="sm:max-w-md">
                       <input
                         type="text"
                         name="upload-name"
                         id="upload-name"
                         v-model="uploadNameOverride"
-                        :class="[
-                          `block w-full rounded-md border-0 py-1.5 focus:ring-2 focus:ring-inset shadow-sm ring-1 ring-inset sm:text-sm sm:leading-6`,
-                          `text-gray-900 placeholder:text-gray-900 dark:placeholder:text-gray-100 focus:ring-primary-600 ring-gray-300 dark:ring-primary-600 focus:dark:ring-gray-400 dark:text-gray-100 dark:bg-primary-900`,
-                        ]"
+                        class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
                         :placeholder="uploadName"
                       />
                     </div>
@@ -60,14 +56,14 @@
                 </div>
 
                 <div class="sm:col-span-3">
-                  <label for="camera" class="block text-sm font-medium leading-6 text-gray-900 dark:text-primary-200">Camera</label>
+                  <label for="camera" class="label-mono block text-primary-500 dark:text-primary-400">Camera</label>
                   <div class="mt-2">
                     <select
                       id="camera"
                       name="camera"
                       v-model="camera"
                       placeholder="Select a camera"
-                      class="block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-primary-600 dark:bg-primary-900 sm:max-w-xs sm:text-sm sm:leading-6"
+                      class="h-10 w-full cursor-pointer rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:hover:border-primary-600 sm:max-w-xs"
                     >
                       <option selected disabled>-- select one of your cameras --</option>
                       <option v-for="camera in cameras" :key="camera.id" :value="camera" :disabled="camera.disabled">{{ camera.name }}</option>
@@ -80,7 +76,7 @@
           <button
             @click="createUpload"
             :disabled="!camera || uploadName === ''"
-            class="mt-6 block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+            class="mt-6 inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 dark:focus-visible:ring-offset-primary-950"
           >
             Create
           </button>
