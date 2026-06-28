@@ -3,6 +3,7 @@
     <div class="mx-auto max-w-7xl w-full overflow-hidden sm:px-6 lg:px-8">
       <ImagesHeader
         ref="imagesHeader"
+        v-model:density="density"
         :total-image-count="totalImageCount"
         :show-filter="displayMode === DisplayMode.GRID"
         @search="updateSearchText"
@@ -10,8 +11,15 @@
         @aspect-ratio-filter="updateAspectRatioFilter"
       />
       <div v-if="displayMode === DisplayMode.GRID">
-        <div class="mt-10 grid grid-cols-1 border-l border-gray-200 dark:border-gray-600 sm:mx-0 md:grid-cols-3 lg:grid-cols-4 select-none">
-          <ImageGridTile v-for="(image, index) in images" :image="image" :key="image.id" :selected="index === imageIndex || imageIndices.includes(index)" @select="selectImage" />
+        <div :class="['mt-8 select-none', gridClasses]">
+          <ImageGridTile
+            v-for="(image, index) in images"
+            :image="image"
+            :key="image.id"
+            :density="density"
+            :selected="index === imageIndex || imageIndices.includes(index)"
+            @select="selectImage"
+          />
         </div>
         <ImagesFooter :current-image-count="images.length" :total-image-count="totalImageCount" :filtered="filtered" @load-more="() => loadImages(false)" />
       </div>
@@ -44,9 +52,9 @@ import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import Sidebar from "src/components/image/Sidebar.vue";
 import TaggingDialog from "src/components/image/TaggingDialog.vue";
-import { onMounted, ref, watch, nextTick } from "vue";
+import { onMounted, ref, computed, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
-import { useDebounceFn } from "@vueuse/core";
+import { useDebounceFn, useStorage } from "@vueuse/core";
 
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
 import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, aspectRatioFilter, updateAspectRatioFilter, filtered } from "./imageQueryLogic";
@@ -60,6 +68,20 @@ import { debug } from "src/util/logger";
 const router = useRouter();
 
 const displayMode = ref(DisplayMode.GRID);
+
+// Grid density: relaxed fine-art masonry, comfortable grid, or Immich-dense.
+type Density = "gallery" | "comfortable" | "dense";
+const density = useStorage<Density>("image-grid-density", "comfortable");
+const gridClasses = computed(() => {
+  switch (density.value) {
+    case "gallery":
+      return "columns-2 md:columns-3 xl:columns-4 gap-4 [column-fill:_balance]";
+    case "dense":
+      return "grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-8 2xl:grid-cols-10 gap-px";
+    default:
+      return "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4";
+  }
+});
 
 const imagesHeader = ref<any>(null);
 
