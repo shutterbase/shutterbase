@@ -3,8 +3,8 @@
     <div class="px-4 sm:px-6 lg:px-8">
       <div class="sm:flex sm:items-center">
         <div class="sm:flex-auto">
-          <h1 class="text-base font-semibold leading-6 text-gray-900 dark:text-primary-200">Uploaded images</h1>
-          <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">These images have been added to the upload and are either waiting for processing or have been processed.</p>
+          <h1 class="text-lg font-semibold tracking-tight text-primary-900 dark:text-white">Uploaded images</h1>
+          <p class="mt-1.5 text-sm text-primary-500 dark:text-primary-400">These images have been added to the upload and are either waiting for processing or have been processed.</p>
         </div>
         <!-- <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
           <button
@@ -49,7 +49,13 @@
                   <td :class="[tableCellClasses]">{{ timeTableEntry(image) }}</td>
                   <td :class="[tableCellClasses]">{{ fileSize(image.size) }}</td>
                   <td v-if="allowEdit" :class="[tableCellClasses]">
-                    <button v-if="image.status === ImageStatus.DONE" @click="deleteItem(image)" class="text-red-700 dark:text-red-300 hover:text-primary-900">Remove</button>
+                    <button
+                      v-if="image.status === ImageStatus.DONE"
+                      @click="deleteItem(image)"
+                      class="inline-flex items-center rounded-md border border-error-300 bg-error-50 px-2.5 py-1 text-xs font-medium text-error-700 shadow-sm transition-colors hover:bg-error-100 dark:border-error-800/70 dark:bg-error-950/40 dark:text-error-300 dark:hover:bg-error-950/70"
+                    >
+                      Remove
+                    </button>
                   </td>
                 </tr>
               </tbody>
@@ -78,9 +84,9 @@ import { error } from "src/util/logger";
 import { fileSize } from "src/util/fileUtil";
 
 const tableHeaderClasses =
-  "sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-900 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8";
+  "sticky top-0 z-10 border-b border-primary-200 dark:border-primary-800 bg-surface/85 dark:bg-surface-dark/85 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-500 dark:text-primary-400 backdrop-blur first:pl-1";
 
-const tableCellClasses = "whitespace-nowrap border-b border-gray-200 px-2 py-2 pr-3 text-sm font-medium text-gray-900 dark:text-gray-100 sm:pl-6 lg:pl-8";
+const tableCellClasses = "whitespace-nowrap border-b border-primary-100 dark:border-primary-800/70 px-3 py-3 text-sm text-primary-700 dark:text-primary-300 first:pl-1";
 
 type UploadType = UploadsResponse;
 
