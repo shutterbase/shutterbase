@@ -170,6 +170,7 @@ const tagAssignments = computed(() => {
 });
 
 function removable(tagAssignment: ImageTagAssignmentType): boolean {
+  if (!userStore.isProjectEditorOrHigher()) return false;
   const isOwnImage = props.item?.user.id === userStore.user?.id;
   const isProjectAdminOrHigher = userStore.isProjectAdminOrHigher();
   if (tagAssignment.tag.type === "default") {
@@ -180,7 +181,7 @@ function removable(tagAssignment: ImageTagAssignmentType): boolean {
 }
 
 function tagsCanBeAdded(): boolean {
-  return userStore.isProjectAdminOrHigher() || props.item?.user.id === userStore.user?.id;
+  return userStore.isProjectEditorOrHigher() && (userStore.isProjectAdminOrHigher() || props.item?.user.id === userStore.user?.id);
 }
 
 function imageCanBeDeleted(): boolean {

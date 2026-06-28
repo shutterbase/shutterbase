@@ -9,8 +9,10 @@
         </h2>
         <p class="mt-2 text-sm leading-6 text-primary-500 dark:text-primary-400">
           Photograph the QR code below with
-          <span class="font-semibold text-primary-700 dark:text-primary-200">{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }} {{ camera.name }}</span> as JPEG and upload the
-          resulting image here.
+          <span class="font-semibold text-primary-700 dark:text-primary-200"
+            >{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }} {{ camera.name }}</span
+          >
+          as JPEG and upload the resulting image here.
         </p>
       </div>
       <div class="mt-12">
@@ -20,7 +22,8 @@
           <div v-if="timeOffsetResult" class="mt-12">
             <h2 class="display text-lg text-primary-900 dark:text-white">Time Offset</h2>
             <p class="mt-1 text-sm leading-6 text-primary-500 dark:text-primary-400">
-              Your camera <b class="text-primary-700 dark:text-primary-200">{{ timeOffsetResult.model }}</b> is <span class="font-data">{{ Math.abs(timeOffsetResult.timeOffset) }}</span> seconds <span v-if="timeOffsetResult.timeOffset > 0">behind</span
+              Your camera <b class="text-primary-700 dark:text-primary-200">{{ timeOffsetResult.model }}</b> is
+              <span class="font-data">{{ Math.abs(timeOffsetResult.timeOffset) }}</span> seconds <span v-if="timeOffsetResult.timeOffset > 0">behind</span
               ><span v-else-if="timeOffsetResult.timeOffset < 0">ahead of</span> the server's time.
             </p>
             <div class="mt-6 space-y-6 divide-y divide-primary-100 dark:divide-primary-800 border-t border-primary-200 dark:border-primary-800 text-sm leading-6">
@@ -52,6 +55,7 @@
             <div v-if="!timeOffsetCreated" class="mt-10 flex items-center justify-center gap-x-6">
               <button
                 @click="saveTimeOffset"
+                :disabled="pending"
                 class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 dark:focus-visible:ring-offset-primary-950 sm:w-auto"
               >
                 <CheckCircleIcon class="h-5 w-5" />Save time offset
@@ -97,6 +101,7 @@ const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
 
 const timeOffsetCreated = ref(false);
+const pending = ref(false);
 
 type TimeOffsetMetadata = {
   timeOffset: number;
@@ -159,6 +164,7 @@ async function saveTimeOffset() {
     console.log("No time offset to save");
     return;
   }
+  pending.value = true;
   try {
     // server computes timeOffset = serverTime - cameraTime (§4.10)
     const response = await api.timeOffsets.create({
@@ -173,6 +179,8 @@ async function saveTimeOffset() {
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
+  } finally {
+    pending.value = false;
   }
 }
 
