@@ -21,7 +21,7 @@
             @select="selectImage"
           />
         </div>
-        <ImagesFooter :current-image-count="images.length" :total-image-count="totalImageCount" :filtered="filtered" @load-more="() => loadImages(false)" />
+        <ImagesFooter :current-image-count="images.length" :total-image-count="totalImageCount" :filtered="filtered" :loading="loading" @load-more="() => loadImages(false)" />
       </div>
       <div class="flex" v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1">
         <Sidebar :item="images[imageIndex]" />
@@ -58,7 +58,7 @@ import { useDebounceFn, useStorage } from "@vueuse/core";
 
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
 import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, aspectRatioFilter, updateAspectRatioFilter, filtered } from "./imageQueryLogic";
-import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd } from "./imageQueryLogic";
+import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
 import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
 import { HotkeyEvent, onHotkey } from "src/util/keyEvents";

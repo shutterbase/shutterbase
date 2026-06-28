@@ -34,7 +34,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="items.length === 0">
+              <tr v-if="!loading && items.length === 0">
                 <td :colspan="columns.length" :class="[rowPadding, 'px-4 text-left text-sm text-primary-500 dark:text-primary-400']">No {{ pluralName }} found</td>
               </tr>
 
@@ -86,6 +86,8 @@ interface Props {
 
   dense?: boolean;
 
+  loading?: boolean;
+
   items?: T[];
 
   addCallback?: () => void;
@@ -101,6 +103,7 @@ const props = withDefaults(defineProps<Props>(), {
   name: () => "item",
   allowAdd: () => true,
   dense: () => false,
+  loading: () => false,
   columns: () => [],
   items: () => [],
 });
@@ -110,7 +113,8 @@ const rowPadding = computed(() => (props.dense ? "py-2.5" : "py-3.5"));
 
 // shared action-button styling, on the design tokens (the old `secondary-*` colour
 // never existed in the palette, so these buttons used to render as invisible white text).
-const actionBase = "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium shadow-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500";
+const actionBase =
+  "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium shadow-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500";
 function actionVariant(type: string): string {
   if (type === "delete") {
     return "border-error-300 bg-error-50 text-error-700 hover:bg-error-100 dark:border-error-800/70 dark:bg-error-950/40 dark:text-error-300 dark:hover:bg-error-950/70";
