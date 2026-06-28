@@ -1,16 +1,16 @@
 <template>
   <aside
-    class="fixed top-0 left-0 z-40 w-64 h-screen pt-14 transition-transform -translate-x-full bg-white border-r border-gray-200 md:translate-x-0 dark:!bg-gray-800 dark:border-gray-700"
+    class="fixed top-0 left-0 z-40 w-64 h-screen pt-14 transition-transform -translate-x-full bg-surface border-r border-primary-200 md:translate-x-0 dark:bg-surface-dark dark:border-primary-800"
     aria-label="Sidenav"
     id="drawer-navigation"
   >
-    <div class="overflow-y-auto py-5 px-3 h-full bg-white dark:!bg-gray-800">
+    <div class="overflow-y-auto py-5 px-3 h-full bg-surface dark:bg-surface-dark">
       <ul class="space-y-2">
         <!-- <li>
-          <a href="#" class="flex items-center p-2 text-base font-medium text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+          <a href="#" class="flex items-center p-2 text-base font-medium text-primary-900 rounded-lg dark:text-white hover:bg-primary-100 dark:hover:bg-primary-800 group">
             <svg
               aria-hidden="true"
-              class="w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+              class="w-6 h-6 text-primary-500 transition duration-75 dark:text-primary-400 group-hover:text-primary-900 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"
@@ -24,12 +24,12 @@
         <li>
           <button
             type="button"
-            class="flex items-center p-2 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+            class="flex items-center p-2 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
             data-collapse-toggle="dropdown-pages"
           >
             <svg
               aria-hidden="true"
-              class="flex-shrink-0 w-6 h-6 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white"
+              class="flex-shrink-0 w-6 h-6 text-primary-500 transition duration-75 group-hover:text-primary-900 dark:text-primary-400 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"
@@ -53,21 +53,21 @@
             <li>
               <a
                 href="/team/email-signatures"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Email Signatures</a
               >
             </li>
             <!-- <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Kanban</a
               >
             </li>
             <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Calendar</a
               >
             </li> -->
@@ -76,12 +76,12 @@
         <!-- <li>
           <button
             type="button"
-            class="flex items-center p-2 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+            class="flex items-center p-2 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
             data-collapse-toggle="dropdown-sales"
           >
             <svg
               aria-hidden="true"
-              class="flex-shrink-0 w-6 h-6 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white"
+              class="flex-shrink-0 w-6 h-6 text-primary-500 transition duration-75 group-hover:text-primary-900 dark:text-primary-400 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"
@@ -105,31 +105,31 @@
             <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Products</a
               >
             </li>
             <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Billing</a
               >
             </li>
             <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Invoice</a
               >
             </li>
           </ul>
         </li> -->
         <!-- <li>
-          <a href="#" class="flex items-center p-2 text-base font-medium text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+          <a href="#" class="flex items-center p-2 text-base font-medium text-primary-900 rounded-lg dark:text-white hover:bg-primary-100 dark:hover:bg-primary-800 group">
             <svg
               aria-hidden="true"
-              class="flex-shrink-0 w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+              class="flex-shrink-0 w-6 h-6 text-primary-500 transition duration-75 dark:text-primary-400 group-hover:text-primary-900 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"
@@ -148,12 +148,12 @@
         <!-- <li>
           <button
             type="button"
-            class="flex items-center p-2 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+            class="flex items-center p-2 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
             data-collapse-toggle="dropdown-authentication"
           >
             <svg
               aria-hidden="true"
-              class="flex-shrink-0 w-6 h-6 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white"
+              class="flex-shrink-0 w-6 h-6 text-primary-500 transition duration-75 group-hover:text-primary-900 dark:text-primary-400 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"
@@ -173,36 +173,36 @@
             <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Sign In</a
               >
             </li>
             <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Sign Up</a
               >
             </li>
             <li>
               <a
                 href="#"
-                class="flex items-center p-2 pl-11 w-full text-base font-medium text-gray-900 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700"
+                class="flex items-center p-2 pl-11 w-full text-base font-medium text-primary-900 rounded-lg transition duration-75 group hover:bg-primary-100 dark:text-white dark:hover:bg-primary-800"
                 >Forgot Password</a
               >
             </li>
           </ul>
         </li> -->
       </ul>
-      <!-- <ul class="pt-5 mt-5 space-y-2 border-t border-gray-200 dark:border-gray-700">
+      <!-- <ul class="pt-5 mt-5 space-y-2 border-t border-primary-200 dark:border-primary-800">
         <li>
           <a
             href="#"
-            class="flex items-center p-2 text-base font-medium text-gray-900 rounded-lg transition duration-75 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white group"
+            class="flex items-center p-2 text-base font-medium text-primary-900 rounded-lg transition duration-75 hover:bg-primary-100 dark:hover:bg-primary-800 dark:text-white group"
           >
             <svg
               aria-hidden="true"
-              class="flex-shrink-0 w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+              class="flex-shrink-0 w-6 h-6 text-primary-500 transition duration-75 dark:text-primary-400 group-hover:text-primary-900 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"
@@ -220,11 +220,11 @@
         <li>
           <a
             href="#"
-            class="flex items-center p-2 text-base font-medium text-gray-900 rounded-lg transition duration-75 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white group"
+            class="flex items-center p-2 text-base font-medium text-primary-900 rounded-lg transition duration-75 hover:bg-primary-100 dark:hover:bg-primary-800 dark:text-white group"
           >
             <svg
               aria-hidden="true"
-              class="flex-shrink-0 w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+              class="flex-shrink-0 w-6 h-6 text-primary-500 transition duration-75 dark:text-primary-400 group-hover:text-primary-900 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"
@@ -237,11 +237,11 @@
         <li>
           <a
             href="#"
-            class="flex items-center p-2 text-base font-medium text-gray-900 rounded-lg transition duration-75 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white group"
+            class="flex items-center p-2 text-base font-medium text-primary-900 rounded-lg transition duration-75 hover:bg-primary-100 dark:hover:bg-primary-800 dark:text-white group"
           >
             <svg
               aria-hidden="true"
-              class="flex-shrink-0 w-6 h-6 text-gray-500 transition duration-75 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white"
+              class="flex-shrink-0 w-6 h-6 text-primary-500 transition duration-75 dark:text-primary-400 group-hover:text-primary-900 dark:group-hover:text-white"
               fill="currentColor"
               viewBox="0 0 20 20"
               xmlns="http://www.w3.org/2000/svg"

@@ -2,13 +2,14 @@
   <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
     <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
       <div v-if="camera" class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-        <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">
+        <p class="label-mono text-accent-600 dark:text-accent-400">Time sync</p>
+        <h2 class="display mt-2 text-2xl text-primary-900 dark:text-white">
           Creating a new time offset for <span class="font-bold">{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }}</span> camera
           <span class="font-bold">{{ camera.name }}</span>
         </h2>
-        <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-300">
+        <p class="mt-2 text-sm leading-6 text-primary-500 dark:text-primary-400">
           Photograph the QR code below with
-          <span class="font-bold">{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }} {{ camera.name }}</span> as JPEG and upload the
+          <span class="font-semibold text-primary-700 dark:text-primary-200">{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }} {{ camera.name }}</span> as JPEG and upload the
           resulting image here.
         </p>
       </div>
@@ -17,33 +18,33 @@
           <QrTimeCode />
           <FileDropzone :multiple="false" @files="handleFiles" />
           <div v-if="timeOffsetResult" class="mt-12">
-            <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">Time Offset</h2>
-            <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-300">
-              Your camera <b>{{ timeOffsetResult.model }}</b> is {{ Math.abs(timeOffsetResult.timeOffset) }} seconds <span v-if="timeOffsetResult.timeOffset > 0">behind</span
+            <h2 class="display text-lg text-primary-900 dark:text-white">Time Offset</h2>
+            <p class="mt-1 text-sm leading-6 text-primary-500 dark:text-primary-400">
+              Your camera <b class="text-primary-700 dark:text-primary-200">{{ timeOffsetResult.model }}</b> is <span class="font-data">{{ Math.abs(timeOffsetResult.timeOffset) }}</span> seconds <span v-if="timeOffsetResult.timeOffset > 0">behind</span
               ><span v-else-if="timeOffsetResult.timeOffset < 0">ahead of</span> the server's time.
             </p>
-            <div class="mt-6 space-y-6 divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-600 text-sm leading-6">
+            <div class="mt-6 space-y-6 divide-y divide-primary-100 dark:divide-primary-800 border-t border-primary-200 dark:border-primary-800 text-sm leading-6">
               <div class="pt-3 sm:flex">
-                <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Time Offset</dt>
+                <dt class="label-mono text-primary-500 dark:text-primary-400 sm:w-64 sm:flex-none sm:pr-6">Time Offset</dt>
                 <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
                   <div>
-                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ timeOffsetResult.timeOffset }} seconds</div>
+                    <div class="font-data py-1.5 text-primary-900 dark:text-primary-100">{{ timeOffsetResult.timeOffset }} seconds</div>
                   </div>
                 </dd>
               </div>
               <div class="pt-3 sm:flex">
-                <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Server Time</dt>
+                <dt class="label-mono text-primary-500 dark:text-primary-400 sm:w-64 sm:flex-none sm:pr-6">Server Time</dt>
                 <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
                   <div>
-                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.serverTime / 1000) }}</div>
+                    <div class="font-data py-1.5 text-primary-900 dark:text-primary-100">{{ dateTimeFromUnix(timeOffsetResult.serverTime / 1000) }}</div>
                   </div>
                 </dd>
               </div>
               <div class="pt-3 sm:flex">
-                <dt class="font-medium text-gray-900 dark:text-primary-200 sm:w-64 sm:flex-none sm:pr-6">Camera Time</dt>
+                <dt class="label-mono text-primary-500 dark:text-primary-400 sm:w-64 sm:flex-none sm:pr-6">Camera Time</dt>
                 <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
                   <div>
-                    <div class="py-1.5 text-gray-900 dark:text-primary-200">{{ dateTimeFromUnix(timeOffsetResult.cameraTime / 1000) }}</div>
+                    <div class="font-data py-1.5 text-primary-900 dark:text-primary-100">{{ dateTimeFromUnix(timeOffsetResult.cameraTime / 1000) }}</div>
                   </div>
                 </dd>
               </div>
@@ -51,9 +52,9 @@
             <div v-if="!timeOffsetCreated" class="mt-10 flex items-center justify-center gap-x-6">
               <button
                 @click="saveTimeOffset"
-                class="bg-secondary-600 hover:bg-secondary-700 inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto"
+                class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 dark:focus-visible:ring-offset-primary-950 sm:w-auto"
               >
-                <CheckCircleIcon class="mr-2 w-5 h-5 text-white" />Save time offset
+                <CheckCircleIcon class="h-5 w-5" />Save time offset
               </button>
             </div>
           </div>

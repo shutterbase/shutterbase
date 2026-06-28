@@ -10,7 +10,7 @@
         leave-from="opacity-100"
         leave-to="opacity-0"
       >
-        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
+        <div class="fixed inset-0 bg-primary-950/60 backdrop-blur-sm transition-opacity"></div>
       </TransitionChild>
 
       <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
@@ -24,35 +24,58 @@
             leave-from="opacity-100 translate-y-0 sm:scale-100"
             leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
           >
-            <DialogPanel class="relative transform overflow-hidden rounded-lg bg-white dark:!bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl">
-              <div class="bg-white dark:!bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-                <div class="sm:flex sm:items-start">
-                  <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900 sm:mx-0 sm:h-10 sm:w-10">
-                    <TagIcon class="h-6 w-6 text-green-600" aria-hidden="true" />
-                  </div>
-                  <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
-                    <DialogTitle as="h3" class="text-base font-semibold leading-6 text-primary-900 dark:text-primary-300">Add Bulk Tags as CSV</DialogTitle>
-                    <div class="mt-2">
-                      <textarea v-model="bulkText" placeholder="<name>,<description>,<type>" class="w-[40rem]"></textarea>
-                    </div>
+            <DialogPanel
+              class="relative w-full max-w-2xl transform overflow-hidden rounded-lg border border-primary-200 bg-surface text-left shadow-panel transition-all dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark sm:my-8"
+            >
+              <!-- header -->
+              <div class="flex items-start justify-between gap-4 border-b border-primary-100 px-6 py-5 dark:border-primary-800">
+                <div class="flex items-start gap-3">
+                  <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400">
+                    <TagIcon class="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div>
+                    <p class="label-mono text-accent-600 dark:text-accent-400">Project tags</p>
+                    <DialogTitle as="h3" class="display mt-1 text-xl text-primary-900 dark:text-white">Bulk create tags</DialogTitle>
                   </div>
                 </div>
-              </div>
-
-              <div class="bg-gray-50 dark:bg-gray-800 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
                 <button
                   type="button"
-                  class="bg-error-600 hover:bg-error-500 inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto"
+                  class="-mr-1 -mt-1 inline-flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center rounded-md text-primary-400 transition-colors hover:bg-primary-100 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 dark:hover:bg-primary-800 dark:hover:text-primary-200"
                   @click="emit('closed')"
                 >
-                  Cancel
+                  <span class="sr-only">Close</span>
+                  <XMarkIcon class="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+
+              <!-- body -->
+              <div class="px-6 py-5">
+                <label for="bulk-tags" class="label-mono block text-primary-500 dark:text-primary-400">CSV input</label>
+                <p class="mt-1.5 text-sm text-primary-500 dark:text-primary-400">One tag per line as <span class="font-data text-primary-700 dark:text-primary-200">name,description,type</span>.</p>
+                <textarea
+                  id="bulk-tags"
+                  v-model="bulkText"
+                  rows="8"
+                  placeholder="<name>,<description>,<type>"
+                  class="mt-3 block w-full rounded-md border border-primary-200 bg-surface px-3 py-2.5 font-data text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
+                ></textarea>
+              </div>
+
+              <!-- footer -->
+              <div class="flex flex-row-reverse gap-3 border-t border-primary-100 px-6 py-4 dark:border-primary-800">
+                <button
+                  type="button"
+                  class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 dark:focus-visible:ring-offset-primary-950"
+                  @click="saveTags"
+                >
+                  Create tags
                 </button>
                 <button
                   type="button"
-                  class="bg-green-600 hover:bg-green-500 inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto"
-                  @click="saveTags"
+                  class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-primary-200 bg-surface px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:border-primary-600 dark:hover:text-white"
+                  @click="emit('closed')"
                 >
-                  Create Bulk Tags
+                  Cancel
                 </button>
               </div>
             </DialogPanel>
@@ -65,7 +88,7 @@
 
 <script setup lang="ts">
 import { Dialog, DialogTitle, DialogPanel, TransitionChild, TransitionRoot } from "@headlessui/vue";
-import { TagIcon } from "@heroicons/vue/24/outline";
+import { TagIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import CreateGroup, { CreateData, Field as CreateField, FieldType as CreateFieldType } from "src/components/CreateGroup.vue";
 import DetailEditGroup, { Field as EditField, FieldType as EditFieldType } from "src/components/DetailEditGroup.vue";
 import { ImageTagsResponse } from "src/types/pocketbase";

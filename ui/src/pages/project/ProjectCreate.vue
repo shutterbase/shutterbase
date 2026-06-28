@@ -1,13 +1,17 @@
 <template>
-  <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
-    <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-      <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
+  <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <main class="max-w-3xl">
+      <p class="label-mono text-accent-600 dark:text-accent-400">New project</p>
+      <h1 class="display mt-2 text-3xl text-primary-900 dark:text-white">Create a project</h1>
+      <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">Set up the details, copyright, and AI options for your new project.</p>
+
+      <div class="mt-10 space-y-12">
         <CreateGroup @edit="updateData" headline="Project Information" subtitle="General information concerning this project" :fields="informationFields" />
         <CreateGroup @edit="updateData" headline="Copyright Data" subtitle="Copyright information to be embedded into the EXIF data" :fields="copyrightFields" />
         <CreateGroup @edit="updateData" headline="AI Options" subtitle="Options for AI image tagging" :fields="aiFields" />
         <button
           @click="createProject"
-          class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 dark:focus-visible:ring-offset-primary-950"
         >
           Create
         </button>

@@ -1,6 +1,6 @@
 <template>
-  <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-    <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
+  <main class="py-8">
+    <div class="mx-auto max-w-3xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
       <DetailEditGroup @edit-save="saveItem" headline="User Information" subtitle="General information concerning this user" :fields="informationFields" :item="item" />
     </div>
   </main>

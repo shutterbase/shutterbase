@@ -1,5 +1,8 @@
 <template>
-  <button class="hover text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700" @click="copy">
+  <button
+    class="inline-flex items-center justify-center rounded p-0.5 text-primary-400 transition-colors hover:bg-primary-100 hover:text-primary-700 dark:text-primary-500 dark:hover:bg-primary-800 dark:hover:text-primary-200 cursor-pointer focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
+    @click="copy"
+  >
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
       <path
         stroke-linecap="round"
