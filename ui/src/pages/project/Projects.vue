@@ -1,6 +1,14 @@
 <template>
   <div class="mx-auto max-w-7xl w-full">
-    <Table dense :items="items" :columns="columns" name="Project" :subtitle="activeProjectText" :add-callback="() => router.push('/projects/create')"></Table>
+    <Table
+      dense
+      :items="items"
+      :columns="columns"
+      name="Project"
+      :subtitle="activeProjectText"
+      :allow-add="userStore.isAdmin()"
+      :add-callback="() => router.push('/projects/create')"
+    ></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
   </div>
 </template>

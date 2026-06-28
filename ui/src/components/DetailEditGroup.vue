@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts" generic="T extends Identifiable">
-import { Ref, UnwrapNestedRefs, computed, onMounted, reactive, ref, watch } from "vue";
+import { Ref, UnwrapNestedRefs, computed, reactive, ref, watch } from "vue";
 
 interface Props {
   headline: string;
@@ -95,7 +95,7 @@ function startEdit() {
   edit.value = true;
 }
 
-onMounted(setEditData);
+watch(() => props.item, setEditData, { immediate: true });
 function setEditData() {
   if (!props.item) return;
 
