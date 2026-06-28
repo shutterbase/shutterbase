@@ -1,6 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: "class",
+  // Quasar ships utility classes (.hidden, .flex, .bg-*, .text-*, .absolute…) with
+  // `!important`, which silently beat Tailwind's same-named utilities — e.g. `hidden
+  // sm:flex` could never flip to flex, so responsive show/hide was broken app-wide.
+  // Making Tailwind utilities important lets them win the collision. Loaded after
+  // Quasar's CSS, so the equal-!important tie resolves in Tailwind's favour.
+  important: true,
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx,vue}", "./node_modules/flowbite/**/*.js"],
   theme: {
     extend: {
