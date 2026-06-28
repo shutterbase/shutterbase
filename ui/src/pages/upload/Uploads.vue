@@ -69,13 +69,6 @@ const columns: TableColumn<UploadsResponse>[] = [
         type: TableRowActionType.EDIT,
       },
       {
-        key: "tagging",
-        label: "Tagging",
-        showCallback: showUploadEdit,
-        callback: (item) => router.push({ name: `upload-tagging`, params: { id: item.id } }),
-        type: TableRowActionType.CUSTOM,
-      },
-      {
         key: "delete",
         label: "Delete",
         showCallback: showUploadEdit,

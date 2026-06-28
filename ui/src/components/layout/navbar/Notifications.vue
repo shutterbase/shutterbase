@@ -34,7 +34,7 @@
               New message from
               <span class="font-semibold text-primary-900 dark:text-white">Bonnie Green</span>: "Hey, what's up? All set for the presentation?"
             </div>
-            <div class="text-xs font-medium text-primary-600 dark:text-primary-500">a few moments ago</div>
+            <div class="text-xs font-medium text-primary-600 dark:text-primary-400">a few moments ago</div>
           </div>
         </a>
         <a href="#" class="flex py-3 px-4 border-b border-primary-200 hover:bg-primary-100 dark:border-primary-800 dark:hover:bg-primary-800">
@@ -53,7 +53,7 @@
               <span class="font-medium text-primary-900 dark:text-white">5 others</span>
               started following you.
             </div>
-            <div class="text-xs font-medium text-primary-600 dark:text-primary-500">10 minutes ago</div>
+            <div class="text-xs font-medium text-primary-600 dark:text-primary-400">10 minutes ago</div>
           </div>
         </a>
         <a href="#" class="flex py-3 px-4 border-b border-primary-200 hover:bg-primary-100 dark:border-primary-800 dark:hover:bg-primary-800">
@@ -76,7 +76,7 @@
               <span class="font-medium text-primary-900 dark:text-white">141 others</span>
               love your story. See it and view more stories.
             </div>
-            <div class="text-xs font-medium text-primary-600 dark:text-primary-500">44 minutes ago</div>
+            <div class="text-xs font-medium text-primary-600 dark:text-primary-400">44 minutes ago</div>
           </div>
         </a>
         <a href="#" class="flex py-3 px-4 border-b border-primary-200 hover:bg-primary-100 dark:border-primary-800 dark:hover:bg-primary-800">
@@ -99,7 +99,7 @@
               <span class="font-medium text-primary-600 dark:text-primary-500">@bonnie.green</span>
               what do you say?
             </div>
-            <div class="text-xs font-medium text-primary-600 dark:text-primary-500">1 hour ago</div>
+            <div class="text-xs font-medium text-primary-600 dark:text-primary-400">1 hour ago</div>
           </div>
         </a>
         <a href="#" class="flex py-3 px-4 hover:bg-primary-100 dark:hover:bg-primary-800">
@@ -118,11 +118,14 @@
               <span class="font-semibold text-primary-900 dark:text-white">Robert Brown</span>
               posted a new video: Glassmorphism - learn how to implement the new design trend.
             </div>
-            <div class="text-xs font-medium text-primary-600 dark:text-primary-500">3 hours ago</div>
+            <div class="text-xs font-medium text-primary-600 dark:text-primary-400">3 hours ago</div>
           </div>
         </a>
       </div>
-      <a href="#" class="block py-2 text-md font-medium text-center text-primary-900 bg-surface-muted hover:bg-primary-100 dark:bg-surface-dark-muted dark:text-white dark:hover:underline">
+      <a
+        href="#"
+        class="block py-2 text-md font-medium text-center text-primary-900 bg-surface-muted hover:bg-primary-100 dark:bg-surface-dark-muted dark:text-white dark:hover:underline"
+      >
         <div class="inline-flex items-center">
           <svg aria-hidden="true" class="mr-2 w-4 h-4 text-primary-500 dark:text-primary-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
             <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>

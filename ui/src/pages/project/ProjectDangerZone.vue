@@ -39,8 +39,10 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
 import { api } from "src/api";
 import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
+import { useUserStore } from "src/stores/user-store";
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 
 const project: Ref<ProjectsResponse | null> = ref(null);
 
@@ -74,6 +76,9 @@ async function deleteItem() {
 
   try {
     await api.projects.remove(project.value.id);
+    if (userStore.activeProjectId === project.value.id) {
+      userStore.clearActiveProject();
+    }
     await router.push({ name: "projects" });
   } catch (error: any) {
     unexpectedError.value = error;
