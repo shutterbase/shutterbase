@@ -181,6 +181,13 @@ func TestCRUDRoundTrips(t *testing.T) {
 		resp = doJSON(t, client, http.MethodGet, "/api/v1/time-offsets/"+offsetID, nil)
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		resp.Body.Close()
+
+		// Partial update (serverTime only) must recompute the offset by merging
+		// the persisted cameraTime: new server 12:01:00 - camera 12:00:00 = 60s.
+		newServer := time.Date(2025, 6, 12, 12, 1, 0, 0, time.UTC)
+		resp = doJSON(t, client, http.MethodPut, "/api/v1/time-offsets/"+offsetID, map[string]any{"serverTime": newServer})
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, float64(60), decodeBody(t, resp)["timeOffset"], "partial update recomputes from existing cameraTime")
 	})
 
 	t.Run("project-assignment CRUD", func(t *testing.T) {

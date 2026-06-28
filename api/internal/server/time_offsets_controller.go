@@ -136,9 +136,24 @@ func (s *Server) updateTimeOffset(c *gin.Context) {
 		return
 	}
 	params := &repository.UpdateTimeOffsetParameters{ServerTime: payload.ServerTime, CameraTime: payload.CameraTime}
-	// Recompute the offset if both bounds are present in the update.
-	if payload.ServerTime != nil && payload.CameraTime != nil {
-		offset := int(payload.ServerTime.Sub(*payload.CameraTime).Seconds())
+	// Recompute the offset whenever either bound changes, merging the omitted
+	// side with the persisted row. The old code only recomputed when BOTH were
+	// present, so a partial update (e.g. serverTime only) left a stale offset and
+	// future image corrections used the wrong drift — silently misordering photos.
+	if payload.ServerTime != nil || payload.CameraTime != nil {
+		existing, err := s.Repository.GetTimeOffset(c.Request.Context(), id)
+		if abortGetError(c, err) {
+			return
+		}
+		serverTime := existing.ServerTime
+		if payload.ServerTime != nil {
+			serverTime = *payload.ServerTime
+		}
+		cameraTime := existing.CameraTime
+		if payload.CameraTime != nil {
+			cameraTime = *payload.CameraTime
+		}
+		offset := int(serverTime.Sub(cameraTime).Seconds())
 		params.TimeOffset = &offset
 	}
 	t, err := s.Repository.UpdateTimeOffset(c.Request.Context(), id, params)
