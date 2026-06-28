@@ -204,8 +204,16 @@ func CanViewProject(u *ent.User, projectID string) bool {
 	return isAdmin(u) || IsAssigned(u, projectID)
 }
 
-// CanManageProject: admin only (project create/update/delete).
+// CanManageProject: global admin only — project lifecycle (CREATE and DELETE).
 func CanManageProject(u *ent.User) bool { return isAdmin(u) }
+
+// CanEditProject: global admin, or a projectAdmin OF THIS PROJECT — field edits
+// to an existing project (§4.6). A projectAdmin administers within a project
+// (properties, tags) but does not control its lifecycle; create/delete stay
+// global-admin-only via CanManageProject.
+func CanEditProject(u *ent.User, projectID string) bool {
+	return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
+}
 
 // --- Images (§4.3) ---
 
