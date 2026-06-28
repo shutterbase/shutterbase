@@ -116,9 +116,11 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
-	t := imagetagassignment.Type(payload.Type)
-	if err := imagetagassignment.TypeValidator(t); err != nil {
-		apiError(c, http.StatusBadRequest, "invalid_type", "invalid assignment type")
+	// Only "manual" assignments may be created through the public API. "default"
+	// and "inferred" are provenance markers owned by the default-tag and AI
+	// services; accepting them here would let a client forge system provenance.
+	if imagetagassignment.Type(payload.Type) != imagetagassignment.TypeManual {
+		apiError(c, http.StatusBadRequest, "invalid_type", "only manual assignments may be created via the API")
 		return
 	}
 	// Resolve the project via the target image; projectEditor+ may assign (§4.5).
@@ -143,7 +145,7 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 	item, created, err := s.Repository.CreateImageTagAssignment(c.Request.Context(), &repository.CreateImageTagAssignmentParameters{
 		ImageID:    payload.ImageID,
 		ImageTagID: payload.ImageTagID,
-		Type:       t,
+		Type:       imagetagassignment.TypeManual,
 	})
 	if abortMutationError(c, err) {
 		return

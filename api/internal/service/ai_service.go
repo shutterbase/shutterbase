@@ -11,6 +11,7 @@ import (
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
+	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/internal/repository"
@@ -100,9 +101,10 @@ func (s *AIService) run(ctx context.Context) {
 	}
 }
 
-// step processes at most one queued image. On success it pops the front; on
-// error it sets the 30s backoff and KEEPS the front item (no drop). Returns
-// false only when the queue is empty.
+// step processes at most one queued image. On success it pops the front; on a
+// transient error it sets the backoff and KEEPS the front item; on a permanent
+// not-found error (image deleted while queued) it drops the item so a single
+// dead entry can't starve every later job. Returns false only when empty.
 func (s *AIService) step(ctx context.Context) bool {
 	s.lock.Lock()
 	imageID := ""
@@ -115,11 +117,23 @@ func (s *AIService) step(ctx context.Context) bool {
 	}
 
 	if err := s.processWith(ctx, imageID, s.inference); err != nil {
+		// A permanently-gone image (deleted while queued) would otherwise sit at
+		// the front forever, backing off every cycle and starving the rest of the
+		// queue. Drop it; back off only on transient (rate-limit / network) errors.
+		if ent.IsNotFound(err) {
+			log.Warn().Str("image", imageID).Msg("AI: queued image no longer exists; dropping from queue")
+			s.lock.Lock()
+			if len(s.queue) > 0 && s.queue[0] == imageID {
+				s.queue = s.queue[1:]
+			}
+			s.lock.Unlock()
+			return true
+		}
 		log.Error().Err(err).Str("image", imageID).Msg("AI inference failed; backing off")
 		s.lock.Lock()
 		s.backoffUntil = time.Now().Add(aiBackoffDuration)
 		s.lock.Unlock()
-		return true // keep the front item — do not drop on error
+		return true // keep the front item — do not drop on transient error
 	}
 	// success: pop the front (guard against a concurrent reset of the slice).
 	s.lock.Lock()

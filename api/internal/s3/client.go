@@ -94,8 +94,16 @@ func (s *S3Client) GetObject(ctx context.Context, objectName string, maxBytes in
 }
 
 func (s *S3Client) DeleteImages(ctx context.Context, storageId string) error {
+	// Objects live under "<id[:2]>/<id>[...].jpg" (see server.GetObjectIds), so
+	// listing by the bare storageId matched nothing and orphaned every object on
+	// delete. Mirror the stored key layout and recurse past the "/" delimiter.
+	prefix := storageId
+	if len(storageId) > 2 {
+		prefix = storageId[:2] + "/" + storageId
+	}
 	objectsCh := s.Client.ListObjects(ctx, s.Options.Bucket, minio.ListObjectsOptions{
-		Prefix: storageId,
+		Prefix:    prefix,
+		Recursive: true,
 	})
 	for object := range objectsCh {
 		if object.Err != nil {

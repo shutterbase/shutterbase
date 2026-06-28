@@ -186,3 +186,27 @@ func TestSyncImageTagsRepairs(t *testing.T) {
 	repaired := c.Image.GetX(ctx, imgID)
 	assert.Contains(t, repaired.ImageTags, m.Tags["Default"], "sync repaired the denormalized list")
 }
+
+// DeleteImages must remove every stored object for an image. Objects live under
+// "<id[:2]>/<id>[...].jpg"; the old code listed by the bare id and matched
+// nothing, silently orphaning originals + thumbnails. Put real objects at that
+// layout, delete, and prove they are gone.
+func TestDeleteImagesRemovesAllObjects(t *testing.T) {
+	ctx := context.Background()
+	storageID := "de1eteme0000000000000000000000ab" // len > 2, prefix "de"
+	keys := []string{
+		"de/" + storageID + ".jpg",
+		"de/" + storageID + "-256.jpg",
+		"de/" + storageID + "-1024.jpg",
+	}
+	for _, k := range keys {
+		putObject(t, ctx, k, []byte("orphan-me"))
+	}
+
+	require.NoError(t, stack.S3.Client.DeleteImages(ctx, storageID))
+
+	for _, k := range keys {
+		_, err := stack.S3.Client.GetObject(ctx, k, 0)
+		assert.Error(t, err, "object %s must be deleted by DeleteImages", k)
+	}
+}
