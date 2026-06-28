@@ -2,11 +2,11 @@
   <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
     <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
       <div v-if="upload" class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-        <div class="border-b border-gray-900/10 dark:border-gray-100/10 pb-12">
-          <h2 class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-100">
-            Upload <b>{{ upload.name }}</b>
+        <div class="border-b border-primary-200 dark:border-primary-800 pb-12">
+          <h2 class="display text-2xl text-primary-900 dark:text-white">
+            Upload <b class="font-semibold">{{ upload.name }}</b>
           </h2>
-          <p v-if="showUploadEdit(upload)" class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400">Edit this upload</p>
+          <p v-if="showUploadEdit(upload)" class="mt-2 text-sm leading-6 text-primary-500 dark:text-primary-400">Edit this upload</p>
           <FileDropzone v-if="showUploadEdit(upload)" :multiple="true" @files="handleFiles" />
         </div>
         <ImageUploadList :allow-edit="showUploadEdit(upload)" :upload="upload" :files="inputFiles" />

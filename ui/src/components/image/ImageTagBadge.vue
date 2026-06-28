@@ -35,15 +35,16 @@ export enum ImageTagAssignmentsTypeOptions {
 }
 */
 
-// tag colors for light and dark mode
+// tag colours mapped onto the design tokens (default → accent, manual → success,
+// custom → warning). The tag name is always rendered, so colour is never the sole signal.
 const tagColor = computed(() => {
   switch (tagType) {
     case "default":
-      return "bg-blue-200 dark:bg-blue-800 text-gray-900 dark:text-gray-100 ring-blue-200 dark:ring-blue-700";
+      return "bg-accent-500/10 text-accent-700 ring-accent-500/30 dark:bg-accent-500/15 dark:text-accent-200 dark:ring-accent-400/30";
     case "manual":
-      return "bg-green-200 dark:bg-green-800 text-gray-900 dark:text-gray-100 ring-green-200 dark:ring-green-700";
+      return "bg-success-500/10 text-success-700 ring-success-500/30 dark:bg-success-500/15 dark:text-success-300 dark:ring-success-400/30";
     case "custom":
-      return "bg-yellow-200 dark:bg-yellow-500 text-gray-900 dark:text-gray-100 ring-yellow-200 dark:ring-yellow-700";
+      return "bg-warning-500/15 text-warning-800 ring-warning-500/40 dark:bg-warning-500/15 dark:text-warning-300 dark:ring-warning-400/30";
     // TODO: add inferred tag color
   }
 });

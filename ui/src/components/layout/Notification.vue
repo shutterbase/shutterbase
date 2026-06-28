@@ -4,25 +4,25 @@
       <div
         v-for="notification in notifications"
         :key="notification.id"
-        :class="[`pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg bg-gray-50 dark:bg-primary-600 shadow-lg ring-1 ring-black ring-opacity-5`, notification.classes]"
+        :class="[`pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border border-primary-200 bg-surface shadow-panel dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark`, notification.classes]"
       >
         <div class="p-4">
           <div class="flex items-start">
             <div class="flex-shrink-0">
-              <CheckCircleIcon v-if="notification.type == 'success'" class="h-6 w-6 text-green-400"></CheckCircleIcon>
-              <InformationCircleIcon v-else-if="notification.type == 'info'" class="h-6 w-6 text-blue-600 dark:text-blue-300"></InformationCircleIcon>
-              <ExclamationTriangleIcon v-else-if="notification.type == 'warning'" class="h-6 w-6 text-orange-400"></ExclamationTriangleIcon>
-              <ExclamationCircleIcon v-else-if="notification.type == 'error'" class="h-6 w-6 text-red-600"></ExclamationCircleIcon>
+              <CheckCircleIcon v-if="notification.type == 'success'" class="h-6 w-6 text-success-500 dark:text-success-400"></CheckCircleIcon>
+              <InformationCircleIcon v-else-if="notification.type == 'info'" class="h-6 w-6 text-accent-600 dark:text-accent-400"></InformationCircleIcon>
+              <ExclamationTriangleIcon v-else-if="notification.type == 'warning'" class="h-6 w-6 text-warning-500 dark:text-warning-400"></ExclamationTriangleIcon>
+              <ExclamationCircleIcon v-else-if="notification.type == 'error'" class="h-6 w-6 text-error-600 dark:text-error-400"></ExclamationCircleIcon>
             </div>
             <div class="ml-3 w-0 flex-1 pt-0.5">
-              <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ notification.headline }}</p>
-              <p v-if="notification.message && notification.message.length != 0" class="mt-1 text-sm text-gray-500 dark:text-gray-300">{{ notification.message }}</p>
+              <p class="text-sm font-medium text-primary-900 dark:text-white">{{ notification.headline }}</p>
+              <p v-if="notification.message && notification.message.length != 0" class="mt-1 text-sm text-primary-500 dark:text-primary-400">{{ notification.message }}</p>
             </div>
             <div class="ml-4 flex flex-shrink-0">
               <button
                 type="button"
                 @click="notification.closeCallback"
-                class="inline-flex rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                class="inline-flex rounded-md text-primary-400 transition-colors hover:text-primary-600 dark:hover:text-primary-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
               >
                 <span class="sr-only">Close</span>
                 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

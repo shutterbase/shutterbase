@@ -1,24 +1,25 @@
 <template>
-  <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-    <div class="sm:flex sm:items-center">
+  <main class="py-8">
+    <div class="sm:flex sm:items-end sm:justify-between">
       <div class="sm:flex-auto">
-        <h1 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100">
+        <p class="label-mono text-accent-600 dark:text-accent-400">Cameras</p>
+        <h1 class="display mt-2 text-2xl text-primary-900 dark:text-white">
           <span v-if="userId === userStore.user?.id">Your cameras</span>
           <span v-else>Cameras of {{ fullName() }}</span>
         </h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">Add and manage cameras here</p>
+        <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">Add and manage cameras here</p>
       </div>
       <div class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
         <button
           @click="addItem"
           type="button"
-          class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 dark:focus-visible:ring-offset-primary-950"
         >
           Add Camera
         </button>
       </div>
     </div>
-    <div class="my-10 space-y-6 divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-600"></div>
+    <div class="my-8 border-t border-primary-200 dark:border-primary-800"></div>
     <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
       <div v-for="camera in items" :key="camera.id">
         <CameraEdit :item="camera" @edit-save="saveItem" />

@@ -1,7 +1,10 @@
 <template>
-  <div class="w-64 grid grid-cols-1 auto-rows-min justify-items-center">
-    <div class="w-64 h-64 bg-gray-50 bg-contain bg-no-repeat bg-center" ref="qrCode"></div>
-    <div class="text-base font-semibold leading-7 text-gray-900 dark:text-primary-200">{{ timeString }}</div>
+  <div class="w-64 grid grid-cols-1 auto-rows-min justify-items-center gap-3">
+    <div
+      class="w-64 h-64 rounded-lg border border-primary-200 bg-surface-muted bg-contain bg-no-repeat bg-center dark:border-primary-800 dark:bg-surface-dark-muted"
+      ref="qrCode"
+    ></div>
+    <div class="font-data text-sm text-primary-700 dark:text-primary-200">{{ timeString }}</div>
   </div>
 </template>
 
