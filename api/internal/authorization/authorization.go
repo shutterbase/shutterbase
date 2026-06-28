@@ -126,7 +126,11 @@ func isOwner(u *ent.User, ownerID uuid.UUID) bool { return isActive(u) && u.ID =
 // ProjectRole returns the highest project role the user holds for projectID, or
 // "" if none. Reads the eager-loaded project_assignments.
 func ProjectRole(u *ent.User, projectID string) string {
-	if u == nil {
+	// A deactivated user holds no effective project role even if assignment rows
+	// still exist — mirrors isAdmin/isOwner, and closes the gap where a
+	// deactivated-but-assigned user (or a stale session after deactivation)
+	// retained project access.
+	if !isActive(u) {
 		return ""
 	}
 	best := ""
@@ -156,7 +160,7 @@ func IsAssigned(u *ent.User, projectID string) bool {
 // AssignedProjectIDs returns the distinct project ids the user is assigned to
 // (used to scope LIST results for non-admins).
 func AssignedProjectIDs(u *ent.User) []string {
-	if u == nil {
+	if !isActive(u) {
 		return nil
 	}
 	seen := map[string]struct{}{}
@@ -182,6 +186,9 @@ func IsSelf(u *ent.User, id uuid.UUID) bool { return isActive(u) && u.ID == id }
 // HasAnyProjectAdmin reports whether the user is a projectAdmin of any project.
 // Used to widen the user list for pickers (§4.12).
 func HasAnyProjectAdmin(u *ent.User) bool {
+	if !isActive(u) {
+		return false
+	}
 	for _, pa := range u.Edges.ProjectAssignments {
 		if pa.Edges.Role != nil && pa.Edges.Role.Key == RoleProjectAdmin {
 			return true
