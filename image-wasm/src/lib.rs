@@ -1,340 +1,207 @@
-mod api;
-mod image;
-mod qr_code_util;
-mod util;
+//! `image-wasm` — browser-side image processing for shutterbase: client thumbnailing,
+//! presigned S3 upload, EXIF extraction, and the QR-based camera-clock time-sync.
+//!
+//! This module is the JS boundary; the heavy lifting lives in the sibling modules.
+//! Exported function names and the serialized struct shapes are a contract with the
+//! Vue frontend (`fileProcessor.ts`, `TimeOffsetCreate.vue`, `QrTimeCode.vue`) — keep
+//! them stable.
 
-use crate::api::upload::{get_upload_url, upload_file_with_progress};
-use crate::image::metadata::read_image_metadata;
-use crate::image::resizing::{get_image_size, resize_image};
-use crate::image::util::get_image_from_array_buffer;
-use crate::qr_code_util::generator::get_time_qr_code;
-use crate::qr_code_util::reader::decode_qr_code;
-use crate::util::logger::{debug, error, info};
+mod callback;
+mod error;
+mod exif_meta;
+mod filename;
+mod imaging;
+mod log;
+mod qr;
+mod time_offset;
+mod upload;
 
-use crate::util::callback_util::{send_callback, CallbackStatus};
-use crate::util::time_offset::{calculate_qr_code_time_offset, get_camera_time};
-
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
-
 use wasm_bindgen::prelude::*;
 
-use base64::{engine::general_purpose, Engine as _};
+use crate::callback::{send, Status};
+use crate::error::{Error, Result};
+use crate::log::debug;
+use crate::time_offset::TimeOffsetResult;
 
-#[derive(Serialize, Deserialize)]
-pub struct ProcessedFile {
-    dimension: u32,
-    size: u32,
-    // data: Vec<u8>,
-    // base64: String,
+/// JPEG quality for generated thumbnails (the original full-res upload is sent
+/// untouched). 85 is a good size/quality balance for downscaled previews.
+const JPEG_QUALITY: u8 = 85;
+/// QR generation canvas size, px.
+const QR_SIZE: usize = 512;
+/// Camera photos are downscaled to this longest-edge before QR detection — large
+/// enough to keep the code legible, small enough to keep detection fast.
+const QR_DECODE_MAX_EDGE: u32 = 1024;
+
+/// Installs the panic hook so a Rust panic shows a readable message + stack in the
+/// browser console instead of an opaque `RuntimeError: unreachable`.
+#[wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
 }
 
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
-pub struct FileProcessorResult {
-    storage_id: String,
-    thumbnail: String,
-    original_size: u32,
-    camera_time_unix_seconds: u32,
-    corrected_camera_time_unix_seconds: u32,
-    computed_file_name: String,
-    metadata: HashMap<String, String>,
-    original_width: u32,
-    original_height: u32,
-}
-
-#[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct FileProcessorOptions {
     file_name: String,
     dimensions: Vec<u32>,
-    time_offsets: Vec<util::time_offset::TimeOffsetResult>,
+    time_offsets: Vec<TimeOffsetResult>,
     copyright_tag: String,
     thumbnail_size: u32,
-    auth_token: String,
     api_url: String,
     // Binds the presigned upload URL request to an upload the caller may write to.
     upload_id: String,
 }
 
 #[wasm_bindgen]
-pub async fn process_file(file: js_sys::ArrayBuffer, js_options: JsValue, callback: &js_sys::Function) -> Result<JsValue, JsValue> {
-    let overall_start_time = js_sys::Date::now();
-    send_callback(&callback, CallbackStatus::RESIZING, 0.0);
+#[derive(Serialize)]
+pub struct FileProcessorResult {
+    storage_id: String,
+    thumbnail: String,
+    original_size: u32,
+    // Unix seconds as i64: a camera clock set before 1970 or far in the future
+    // (the time-sync feature exists precisely because camera clocks are wrong)
+    // would wrap/truncate under u32. JS numbers hold the full realistic range.
+    camera_time_unix_seconds: i64,
+    corrected_camera_time_unix_seconds: i64,
+    computed_file_name: String,
+    metadata: HashMap<String, String>,
+    original_width: u32,
+    original_height: u32,
+}
+
+/// Decode → read EXIF → compute corrected time + filename → thumbnail at each
+/// dimension → upload original + thumbnails to S3. Reports progress via `callback`.
+#[wasm_bindgen]
+pub async fn process_file(
+    file: js_sys::ArrayBuffer,
+    options: JsValue,
+    callback: &js_sys::Function,
+) -> std::result::Result<JsValue, JsValue> {
+    let started = js_sys::Date::now();
+    send(callback, Status::Resizing, 0.0);
 
     let data = js_sys::Uint8Array::new(&file).to_vec();
+    let options: FileProcessorOptions = serde_wasm_bindgen::from_value(options)
+        .map_err(|e| Error::msg(format!("invalid processor options: {e}")))?;
 
-    let options: FileProcessorOptions = match serde_wasm_bindgen::from_value(js_options) {
-        Ok(options) => options,
-        Err(err) => {
-            error("Error parsing options");
-            error(&err.to_string());
-            return Err("Error parsing options".into());
+    let source = imaging::decode(&data)?;
+    let (original_width, original_height) = (source.width(), source.height());
+
+    let metadata = exif_meta::read(&data)?;
+    let camera_time = time_offset::camera_time(&metadata)?;
+    let corrected_time = time_offset::corrected_camera_time(&metadata, &options.time_offsets)?;
+    let computed_file_name =
+        filename::calculate(&options.file_name, corrected_time, &options.copyright_tag)?;
+
+    let object_id = Uuid::new_v4().to_string();
+    let prefix = &object_id[..2];
+
+    // Build the upload set: the untouched original, then a thumbnail per dimension
+    // (resized from the full-res source for best quality). Storage keys must keep
+    // the "<prefix>/<id>[-<dim>].jpg" shape the backend expects.
+    // Move the original bytes into the upload set rather than cloning them — a
+    // full-res copy is costly in the WASM heap. Capture the size first, since
+    // `data` is consumed here.
+    let original_size = data.len() as u32;
+    let mut uploads: Vec<(String, Vec<u8>)> = Vec::with_capacity(options.dimensions.len() + 1);
+    uploads.push((format!("{prefix}/{object_id}.jpg"), data));
+
+    let mut dimensions = options.dimensions.clone();
+    dimensions.sort_unstable();
+    let steps = dimensions.len().max(1) as f64;
+    let mut thumbnail = String::new();
+    for (i, dimension) in dimensions.iter().rev().enumerate() {
+        send(callback, Status::Resizing, (i as f64 + 1.0) / steps * 100.0);
+        let resized = imaging::resize_within(&source, *dimension);
+        let jpeg = imaging::encode_jpeg(&resized, JPEG_QUALITY)?;
+        if *dimension == options.thumbnail_size {
+            thumbnail = STANDARD.encode(&jpeg);
         }
-    };
+        uploads.push((format!("{prefix}/{object_id}-{dimension}.jpg"), jpeg));
+    }
+    send(callback, Status::Resized, 100.0);
 
-    let source_image = match get_image_from_array_buffer(file) {
-        Ok(image) => image,
-        Err(_) => {
-            return Err("Error reading image".into());
-        }
-    };
+    let total_upload_size: usize = uploads.iter().map(|(_, bytes)| bytes.len()).sum();
+    let mut uploaded = 0usize;
+    for (key, bytes) in &uploads {
+        let url = upload::get_upload_url(&options.api_url, key, &options.upload_id).await?;
+        upload::upload_with_progress(bytes, total_upload_size, uploaded, url, callback).await?;
+        uploaded += bytes.len();
+    }
+    send(callback, Status::Uploaded, 100.0);
 
-    let metadata = match read_image_metadata(&data) {
-        Ok(metadata) => metadata,
-        Err(_) => {
-            return Err("Error reading image metadata".into());
-        }
-    };
-
-    let original_size = source_image.as_bytes().len() as u32;
-
-    let camera_time = match get_camera_time(&metadata) {
-        Ok(camera_time) => camera_time,
-        Err(err) => {
-            return Err("Error getting camera time".into());
-        }
-    };
-    let camera_time_unix_seconds = camera_time.timestamp() as u32;
-
-    let corrected_camera_time = match util::time_offset::calculate_corrected_camera_time(&metadata, options.time_offsets) {
-        Ok(corrected_camera_time) => corrected_camera_time,
-        Err(_) => {
-            return Err("Error calculating corrected camera time".into());
-        }
-    };
-    let corrected_camera_time_unix_seconds = corrected_camera_time.timestamp() as u32;
-
-    let computed_file_name = match util::filename::calculate_filename(options.file_name, corrected_camera_time, options.copyright_tag) {
-        Ok(calculated_file_name) => calculated_file_name,
-        Err(_) => {
-            return Err("Error calculating file name".into());
-        }
-    };
-
-    let object_id = Uuid::new_v4();
-    let object_id_prefix = object_id.to_string()[..2].to_string();
-    let (_source_image, source_width, source_height) = match get_image_size(data.clone()) {
-        Some((image, width, height)) => (image, width, height),
-        None => {
-            error("Error getting image size");
-            return Err("Error getting image size".into());
-        }
-    };
-    let mut processed_files = FileProcessorResult {
-        storage_id: object_id.to_string(),
-        thumbnail: "".to_string(),
+    let result = FileProcessorResult {
+        storage_id: object_id,
+        thumbnail,
         original_size,
-        camera_time_unix_seconds,
-        corrected_camera_time_unix_seconds,
+        camera_time_unix_seconds: camera_time.timestamp(),
+        corrected_camera_time_unix_seconds: corrected_time.timestamp(),
         computed_file_name,
         metadata: metadata.tags,
-        original_width: source_width,
-        original_height: source_height,
+        original_width,
+        original_height,
     };
 
-    let mut upload_images: HashMap<String, Vec<u8>> = HashMap::new();
-    upload_images.insert(format!("{}/{}.jpg", object_id_prefix.to_string(), object_id.to_string()), data.clone());
-    let mut last_converted_image_data = data.clone();
-
-    let mut dimensions: Vec<u32> = options.dimensions.clone();
-    dimensions.sort();
-    let inverted_dimensions: Vec<u32> = dimensions.iter().rev().cloned().collect();
-
-    let mut progress = 0.0;
-    let mut total_upload_size: usize = data.len();
-
-    for dimension in inverted_dimensions.iter() {
-        let start = js_sys::Date::now();
-
-        progress += 100.0 / dimensions.len() as f64;
-        send_callback(&callback, CallbackStatus::RESIZING, progress);
-        debug(&format!("Converting to {}px", dimension));
-        let resized_image_data = match resize_image(last_converted_image_data, *dimension) {
-            Some(data) => data,
-            None => {
-                error("Error resizing image");
-                return Err("Error resizing image".into());
-            }
-        };
-
-        total_upload_size += &(resized_image_data.len());
-
-        if *dimension == options.thumbnail_size {
-            processed_files.thumbnail = general_purpose::STANDARD.encode(&resized_image_data)
-        }
-
-        last_converted_image_data = resized_image_data.clone();
-        upload_images.insert(format!("{}/{}-{}.jpg", object_id_prefix, object_id.to_string(), dimension), resized_image_data);
-
-        let duration = js_sys::Date::now() - start;
-        debug(&format!("Resized in: {}ms", duration));
-    }
-    send_callback(&callback, CallbackStatus::RESIZED, 100.0);
-
-    let mut upload_offset_size: usize = 0;
-
-    for (filename, image_data) in upload_images.into_iter() {
-        let upload_url = get_upload_url(&options.api_url, &options.auth_token, &filename, &options.upload_id).await?;
-
-        debug(&format!("Queried upload url: {}", upload_url));
-
-        let upload_start_time = js_sys::Date::now();
-        match upload_file_with_progress(&image_data, &total_upload_size, &upload_offset_size, upload_url, callback).await {
-            Ok(_) => {
-                let upload_duration = js_sys::Date::now() - upload_start_time;
-                debug(&format!("Uploaded {} in: {}ms", filename, upload_duration));
-            }
-            Err(err) => {
-                error("Error uploading file");
-                return Err(err);
-            }
-        }
-        upload_offset_size += image_data.len();
-    }
-    send_callback(&callback, CallbackStatus::UPLOADED, 100.0);
-
-    let result: JsValue = match serde_wasm_bindgen::to_value(&processed_files) {
-        Ok(value) => value,
-        Err(err) => {
-            error("Error serializing file processing result");
-            error(&err.to_string());
-            return Err("Error serializing file processing result".into());
-        }
-    };
-
-    let duration = js_sys::Date::now() - overall_start_time;
-    debug(&format!("Overall processing done in {}ms", duration));
-
-    Ok(result)
+    debug(&format!("processed in {}ms", js_sys::Date::now() - started));
+    Ok(serde_wasm_bindgen::to_value(&result)?)
 }
 
+/// Read EXIF metadata from an image. Returns the serialized [`exif_meta::ImageMetadata`].
 #[wasm_bindgen]
-pub async fn get_image_metadata(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue> {
+pub async fn get_image_metadata(file: js_sys::ArrayBuffer) -> std::result::Result<JsValue, JsValue> {
     let data = js_sys::Uint8Array::new(&file).to_vec();
-
-    let metadata = match read_image_metadata(&data) {
-        Ok(metadata) => metadata,
-        Err(_) => {
-            return Err(JsValue::UNDEFINED);
-        }
-    };
-
-    let result: JsValue = match serde_wasm_bindgen::to_value(&metadata) {
-        Ok(value) => value,
-        Err(err) => {
-            error("Error serializing file file metadata result");
-            error(&err.to_string());
-            JsValue::UNDEFINED
-        }
-    };
-
-    Ok(result)
+    let metadata = exif_meta::read(&data)?;
+    Ok(serde_wasm_bindgen::to_value(&metadata)?)
 }
 
+/// Decode the QR code in an image and return its text payload.
 #[wasm_bindgen]
-pub async fn parse_qr_code(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue> {
+pub async fn parse_qr_code(file: js_sys::ArrayBuffer) -> std::result::Result<JsValue, JsValue> {
     let data = js_sys::Uint8Array::new(&file).to_vec();
-
-    let qr_code_data = match decode_qr_code(&data) {
-        Ok(qr_code_data) => qr_code_data,
-        Err(_) => {
-            return Err(JsValue::UNDEFINED);
-        }
-    };
-
-    let result: JsValue = match serde_wasm_bindgen::to_value(&qr_code_data) {
-        Ok(value) => value,
-        Err(err) => {
-            error("Error serializing file file metadata result");
-            error(&err.to_string());
-            JsValue::UNDEFINED
-        }
-    };
-
-    Ok(result)
+    let content = decode_qr(&data)?;
+    Ok(serde_wasm_bindgen::to_value(&content)?)
 }
 
+/// Compute this camera's time offset from a photo of the server-time QR code.
 #[wasm_bindgen]
-pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> Result<JsValue, JsValue> {
+pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> std::result::Result<JsValue, JsValue> {
     let data = js_sys::Uint8Array::new(&file).to_vec();
-
-    info(&format!("1/3 - Decoding QR code from image"));
-    let qr_code_data = match decode_qr_code(&data) {
-        Ok(qr_code_data) => qr_code_data,
-        Err(err) => {
-            error("Error decoding QR code image");
-            error(&err.to_string());
-            return Err(JsValue::UNDEFINED);
-        }
-    };
-
-    debug(&format!("2/3 - Reading exif metadata from image"));
-    let metadata = match read_image_metadata(&data) {
-        Ok(metadata) => metadata,
-        Err(err) => {
-            error("Error reading exif metadata from image");
-            error(&err.to_string());
-            return Err(JsValue::UNDEFINED);
-        }
-    };
-
-    info(&format!("3/3 - Calculating time offset"));
-    let time_offset = match calculate_qr_code_time_offset(&metadata, &qr_code_data) {
-        Ok(time_offset) => time_offset,
-        Err(err) => {
-            error("Error calculating time offset");
-            error(&err.to_string());
-            return Err(JsValue::UNDEFINED);
-        }
-    };
-
-    let result: JsValue = match serde_wasm_bindgen::to_value(&time_offset) {
-        Ok(value) => value,
-        Err(err) => {
-            error("Error serializing file file metadata result");
-            error(&err.to_string());
-            JsValue::UNDEFINED
-        }
-    };
-
-    Ok(result)
+    let content = decode_qr(&data)?;
+    let metadata = exif_meta::read(&data)?;
+    let offset = time_offset::from_qr(&metadata, &content)?;
+    Ok(serde_wasm_bindgen::to_value(&offset)?)
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct QrCodeImageResult {
+#[derive(Serialize)]
+struct QrCodeImageResult {
     time: u32,
     base64: String,
 }
 
+/// Render the server time as a PNG QR code (base64) for display to photographers.
 #[wasm_bindgen]
-pub async fn get_time_qr_code_image(time: u32) -> Result<JsValue, JsValue> {
-    let qr_code_image_result = match get_time_qr_code(time) {
-        Ok(png) => QrCodeImageResult {
-            time,
-            base64: general_purpose::STANDARD.encode(png),
-        },
-        Err(err) => {
-            error("Error generating QR code image");
-            error(&err.to_string());
-            return Err(JsValue::UNDEFINED);
-        }
+pub async fn get_time_qr_code_image(time: u32) -> std::result::Result<JsValue, JsValue> {
+    let png = qr::generate_png(&time.to_string(), QR_SIZE)?;
+    let result = QrCodeImageResult {
+        time,
+        base64: STANDARD.encode(png),
     };
-
-    let result: JsValue = match serde_wasm_bindgen::to_value(&qr_code_image_result) {
-        Ok(value) => value,
-        Err(err) => {
-            error("Error serializing file processing result");
-            error(&err.to_string());
-            JsValue::UNDEFINED
-        }
-    };
-
-    Ok(result)
+    Ok(serde_wasm_bindgen::to_value(&result)?)
 }
 
+/// Set the log threshold: `"debug" | "info" | "warn" | "error"`.
 #[wasm_bindgen]
-pub async fn set_log_level(level: String) -> () {
-    crate::util::logger::set_log_level_string(level);
+pub fn set_log_level(level: String) {
+    log::set_level(&level);
+}
+
+/// Decode bytes → image → downscale → QR text.
+fn decode_qr(data: &[u8]) -> Result<String> {
+    let image = imaging::decode(data)?;
+    let scaled = imaging::resize_within(&image, QR_DECODE_MAX_EDGE);
+    qr::decode(&scaled)
 }
