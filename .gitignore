@@ -166,6 +166,12 @@ dist/
 npm-debug.log
 yarn-error.log
 
+# Keep the embedded-SPA dev placeholder: go:embed needs a file present so the API
+# compiles in dev/CI. The Docker build overwrites this dist/ with the real Quasar
+# build before `go build`.
+!api/internal/server/spa/dist/
+!api/internal/server/spa/dist/index.html
+
 ### WebStorm+all ###
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
