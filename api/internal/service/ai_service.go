@@ -114,7 +114,7 @@ func (s *AIService) step(ctx context.Context) bool {
 		return false
 	}
 
-	if err := s.process(ctx, imageID); err != nil {
+	if err := s.processWith(ctx, imageID, s.inference); err != nil {
 		log.Error().Err(err).Str("image", imageID).Msg("AI inference failed; backing off")
 		s.lock.Lock()
 		s.backoffUntil = time.Now().Add(aiBackoffDuration)
@@ -130,10 +130,24 @@ func (s *AIService) step(ctx context.Context) bool {
 	return true
 }
 
-// process runs one image: load it + its project, build the 512px presigned URL,
-// infer, link each matching project tag as an "inferred" assignment (idempotent),
-// then stamp inferredAt. An empty aiSystemMessage skips inference entirely.
+// InferNow runs inference synchronously for a single image using an explicit
+// inference impl, reusing the exact production path. The DEV /dev/infer
+// quick-action passes a StubInference so there is no real API spend; the result
+// is identical to a queued drain, just immediate and on the request goroutine.
+func (s *AIService) InferNow(ctx context.Context, imageID string, inference ImageInference) error {
+	return s.processWith(ctx, imageID, inference)
+}
+
+// process runs one queued image with the service's configured inference.
 func (s *AIService) process(ctx context.Context, imageID string) error {
+	return s.processWith(ctx, imageID, s.inference)
+}
+
+// processWith runs one image: load it + its project, build the 512px presigned
+// URL, infer via the given impl, link each matching project tag as an "inferred"
+// assignment (idempotent), then stamp inferredAt. An empty aiSystemMessage skips
+// inference entirely.
+func (s *AIService) processWith(ctx context.Context, imageID string, inference ImageInference) error {
 	image, err := s.repo.GetImage(ctx, imageID)
 	if err != nil {
 		return err
@@ -152,7 +166,7 @@ func (s *AIService) process(ctx context.Context, imageID string) error {
 
 	inferCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	tagNames, err := s.inference.Infer(inferCtx, imageURL, project.AiSystemMessage)
+	tagNames, err := inference.Infer(inferCtx, imageURL, project.AiSystemMessage)
 	if err != nil {
 		return err
 	}
