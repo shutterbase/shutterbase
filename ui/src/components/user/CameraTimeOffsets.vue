@@ -11,8 +11,10 @@
               <span class="font-data flex-shrink-0 text-primary-500 dark:text-primary-400">{{ timeOffset.timeOffset }} seconds</span>
             </div>
           </div>
-          <div class="ml-4 flex-shrink-0">
-            <button @click="deleteTimeOffset(timeOffset)" class="cursor-pointer font-medium text-error-600 transition-colors hover:text-error-500 dark:text-error-400">Delete</button>
+          <div v-if="userStore.isAdmin()" class="ml-4 flex-shrink-0">
+            <button @click="deleteTimeOffset(timeOffset)" class="cursor-pointer font-medium text-error-600 transition-colors hover:text-error-500 dark:text-error-400">
+              Delete
+            </button>
           </div>
         </li>
       </ul>
@@ -29,6 +31,9 @@ import { CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
 import { onMounted, ref, watch } from "vue";
 import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
+import { useUserStore } from "src/stores/user-store";
+
+const userStore = useUserStore();
 
 type CameraType = CamerasResponse;
 

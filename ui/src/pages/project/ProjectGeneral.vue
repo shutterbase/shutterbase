@@ -2,7 +2,7 @@
   <main class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
     <div class="max-w-3xl space-y-12">
       <DetailEditGroup
-        :allow-edit="userStore.isProjectAdminOrHigher()"
+        :allow-edit="userStore.isAdmin()"
         @edit-save="saveItem"
         headline="Project Information"
         subtitle="General information concerning this project"
@@ -10,21 +10,14 @@
         :item="item"
       />
       <DetailEditGroup
-        :allow-edit="userStore.isProjectAdminOrHigher()"
+        :allow-edit="userStore.isAdmin()"
         @edit-save="saveItem"
         headline="Copyright Data"
         subtitle="Copyright information to be embedded into the EXIF data"
         :fields="copyrightFields"
         :item="item"
       />
-      <DetailEditGroup
-        :allow-edit="userStore.isProjectAdminOrHigher()"
-        @edit-save="saveItem"
-        headline="AI Options"
-        subtitle="Options for AI image tagging"
-        :fields="aiFields"
-        :item="item"
-      />
+      <DetailEditGroup :allow-edit="userStore.isAdmin()" @edit-save="saveItem" headline="AI Options" subtitle="Options for AI image tagging" :fields="aiFields" :item="item" />
     </div>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />

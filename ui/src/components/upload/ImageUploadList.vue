@@ -32,7 +32,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="image in displayedImages">
+                <tr v-for="image in displayedImages" :key="image.id || image.originalFileName">
                   <td :class="[tableCellClasses]" class="relative">
                     <img v-if="image.thumbnail" :src="`data:image/jpeg;base64, ${image.thumbnail}`" alt="Thumbnail" class="thumbnail" />
                     <div v-else-if="image.downloadUrls">
