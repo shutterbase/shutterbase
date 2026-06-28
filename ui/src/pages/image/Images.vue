@@ -1,6 +1,6 @@
 <template>
   <div class="">
-    <div class="mx-auto max-w-7xl w-full overflow-hidden sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8">
       <ImagesHeader
         ref="imagesHeader"
         v-model:density="density"
