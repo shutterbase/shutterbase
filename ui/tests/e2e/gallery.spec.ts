@@ -29,7 +29,7 @@ test.describe("gallery toolbar", () => {
     const search = page.getByPlaceholder("Search images");
     await search.fill("podium");
     await expect(search).toHaveValue("podium");
-    const clear = search.locator("xpath=following-sibling::button");
+    const clear = page.getByRole("button", { name: "Clear search" });
     await expect(clear).toBeVisible();
     await clear.click();
     await expect(search).toHaveValue("");

@@ -38,11 +38,13 @@
                 v-if="field.type === FieldType.TEXT"
                 v-model="editData[field.key]"
                 type="text"
+                :aria-label="field.label"
                 class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
               />
               <select
                 v-else-if="field.type === FieldType.SELECT"
                 v-model="editData[field.key]"
+                :aria-label="field.label"
                 class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
               >
                 <option v-for="option in field.options" :key="option" :value="option" :selected="option === editData[field.key]">{{ option }}</option>

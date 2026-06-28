@@ -175,7 +175,7 @@ async function editTag(input: ImageTagsResponse) {
   }
 }
 
-function deleteTag(tag: ImageTagsResponse) {
+async function deleteTag(tag: ImageTagsResponse) {
   if (item.value === null) {
     console.log(`No ${ITEM_NAME} loaded`);
     return;
@@ -183,7 +183,7 @@ function deleteTag(tag: ImageTagsResponse) {
 
   try {
     console.log(`Deleting tag ${tag.name} from project ${item.value.name}`);
-    api.imageTags.remove(tag.id);
+    await api.imageTags.remove(tag.id);
     console.log(`Tag with ID ${tag.id} deleted`);
     showNotificationToast({ headline: `Tag deleted`, type: "success" });
     item.value.tags = (item.value.tags || []).filter((t) => t.id !== tag.id);
