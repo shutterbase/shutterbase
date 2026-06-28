@@ -203,7 +203,6 @@ export class FileProcessor {
         dimensions: FILE_DIMENSIONS,
         thumbnail_size: 256,
         // cookie-session: WASM uploads use credentials:include, no bearer token.
-        auth_token: "",
         api_url: API_BASE,
         // binds the presign request to this upload (server checks CanModifyUpload).
         upload_id: this.upload.value.id,
