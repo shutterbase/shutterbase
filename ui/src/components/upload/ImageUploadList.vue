@@ -84,7 +84,7 @@ import { error } from "src/util/logger";
 import { fileSize } from "src/util/fileUtil";
 
 const tableHeaderClasses =
-  "sticky top-0 z-10 border-b border-primary-200 dark:border-primary-800 bg-surface/85 dark:bg-surface-dark/85 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-500 dark:text-primary-400 backdrop-blur first:pl-1";
+  "label-mono sticky top-0 z-10 border-b border-primary-200 dark:border-primary-800 bg-surface/85 dark:bg-surface-dark/85 px-3 py-3.5 text-left text-primary-500 dark:text-primary-400 backdrop-blur first:pl-1";
 
 const tableCellClasses = "whitespace-nowrap border-b border-primary-100 dark:border-primary-800/70 px-3 py-3 text-sm text-primary-700 dark:text-primary-300 first:pl-1";
 

@@ -46,6 +46,53 @@
   }
 }
 
+@layer components {
+  /* The signature "instrument readout" voice: small, mono, wide-tracked. Used for
+     section kickers, column labels, metadata captions — the camera-panel feel. */
+  .label-mono {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.2em];
+    font-feature-settings: "tnum";
+  }
+  .label-mono-sm {
+    @apply font-mono text-[10px] font-medium uppercase tracking-[0.18em];
+  }
+
+  /* Statement display heading — tight, confident, editorial. */
+  .display {
+    @apply font-sans font-semibold tracking-[-0.02em];
+    text-wrap: balance;
+  }
+
+  /* Viewfinder corner-marks: four L-brackets framing a panel, like a camera's
+     focus guides. Apply to a `relative` element; marks sit just outside its edges. */
+  .viewfinder {
+    position: relative;
+  }
+  .viewfinder::before,
+  .viewfinder::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    border-color: theme("colors.accent.500");
+    border-style: solid;
+    border-width: 0;
+  }
+  .viewfinder::before {
+    top: -5px;
+    left: -5px;
+    border-top-width: 1.5px;
+    border-left-width: 1.5px;
+  }
+  .viewfinder::after {
+    bottom: -5px;
+    right: -5px;
+    border-bottom-width: 1.5px;
+    border-right-width: 1.5px;
+  }
+}
+
 @layer utilities {
   /* Thin, unobtrusive scrollbars that suit the dark tool chrome. */
   .scrollbar-tool {
