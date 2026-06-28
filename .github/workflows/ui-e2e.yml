@@ -4,11 +4,12 @@ name: UI E2E
 # brings up Postgres + S3, seeds fixtures, DEV mode on :8080) and the Quasar dev
 # server (:9000, proxies /api -> :8080) — matching ui/playwright.config.ts.
 on:
+  # Feature branches run via the pull_request event (avoids a duplicate run per push);
+  # push only guards main and post-merge integration on feature/v3.
   push:
     branches:
       - main
       - "feature/v3"
-      - "feature/v3-redesign"
   pull_request:
     branches:
       - main
