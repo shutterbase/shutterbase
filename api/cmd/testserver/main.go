@@ -22,14 +22,16 @@ import (
 )
 
 func main() {
-	if err := util.InitLogger(); err != nil {
-		log.Fatal().Err(err).Msg("error initializing logger")
-	}
-	// NewServer's service constructors read config; SESSION_SECRET_KEY is the only
-	// value without a default. The S3 client is injected from the stack below.
+	// Config must be initialized before the logger: InitLogger reads LOG_LEVEL from
+	// config (util/logging.go), so the order matters — cmd/server does the same.
+	// SESSION_SECRET_KEY is the only config value without a default; the S3 client is
+	// injected from the stack below.
 	_ = os.Setenv("SESSION_SECRET_KEY", "testserver-session-secret")
 	if err := util.InitConfig(); err != nil {
 		log.Fatal().Err(err).Msg("error initializing config")
+	}
+	if err := util.InitLogger(); err != nil {
+		log.Fatal().Err(err).Msg("error initializing logger")
 	}
 
 	port := 8080
