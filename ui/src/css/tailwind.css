@@ -1,3 +1,72 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-primary-50 text-primary-900 font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+  html.dark body {
+    @apply bg-primary-950 text-primary-100;
+  }
+
+  /* One quiet, consistent focus ring across the app. */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-accent-500/70 ring-offset-2 ring-offset-primary-50;
+  }
+  html.dark *:focus-visible {
+    @apply ring-offset-primary-950;
+  }
+
+  ::selection {
+    @apply bg-accent-500/30 text-primary-900;
+  }
+  html.dark ::selection {
+    @apply text-primary-50;
+  }
+
+  /* Technical data (camera times, EXIF, IDs, counts) reads as instrument output. */
+  .font-data {
+    @apply font-mono tabular-nums;
+    font-feature-settings: "tnum", "zero";
+  }
+}
+
+@layer utilities {
+  /* Thin, unobtrusive scrollbars that suit the dark tool chrome. */
+  .scrollbar-tool {
+    scrollbar-width: thin;
+    scrollbar-color: theme("colors.primary.300") transparent;
+  }
+  html.dark .scrollbar-tool {
+    scrollbar-color: theme("colors.primary.700") transparent;
+  }
+  .scrollbar-tool::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scrollbar-tool::-webkit-scrollbar-thumb {
+    @apply rounded-full border-2 border-solid border-transparent bg-clip-content;
+    background-color: theme("colors.primary.300");
+  }
+  html.dark .scrollbar-tool::-webkit-scrollbar-thumb {
+    background-color: theme("colors.primary.700");
+  }
+  .scrollbar-tool::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
