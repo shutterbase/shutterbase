@@ -3,11 +3,11 @@
     <!-- title row -->
     <div class="flex items-end justify-between gap-4">
       <div class="min-w-0">
-        <h1 class="truncate text-2xl font-semibold tracking-tight text-primary-900 dark:text-white">{{ activeProject.name }}</h1>
-        <p class="mt-1 flex items-center gap-1.5 text-sm text-primary-500 dark:text-primary-400">
-          <PhotoIcon class="h-4 w-4 flex-shrink-0" />
-          <span class="font-data tabular-nums">{{ totalImageCount.toLocaleString() }}</span>
-          <span>{{ totalImageCount === 1 ? "image" : "images" }}</span>
+        <p class="label-mono text-accent-600 dark:text-accent-400">Gallery</p>
+        <h1 class="display mt-2 truncate text-[2rem] leading-none text-primary-900 dark:text-white sm:text-[2.6rem]">{{ activeProject.name }}</h1>
+        <p class="label-mono mt-3 text-primary-500 dark:text-primary-400">
+          <span class="font-data text-primary-700 dark:text-primary-200">{{ totalImageCount.toLocaleString() }}</span>
+          {{ totalImageCount === 1 ? "frame" : "frames" }}
         </p>
       </div>
 

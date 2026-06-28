@@ -25,16 +25,17 @@
       <CheckIcon class="h-3.5 w-3.5 text-white" />
     </div>
 
-    <!-- caption: below the image in gallery mode, hover scrim otherwise -->
+    <!-- caption: below the image in gallery mode, EXIF-style hover readout otherwise -->
     <figcaption v-if="density === 'gallery'" class="px-3 py-2.5">
       <p class="truncate text-sm font-medium text-primary-800 dark:text-primary-100">{{ image.computedFileName }}</p>
-      <p class="mt-0.5 truncate font-data text-xs text-primary-500 dark:text-primary-400">{{ capturedAt }}</p>
+      <p class="label-mono-sm mt-1 truncate text-primary-500 dark:text-primary-400">{{ capturedAt }}</p>
     </figcaption>
     <figcaption
       v-else
-      class="pointer-events-none absolute inset-x-0 bottom-0 bg-primary-950/75 px-2 py-1.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+      class="pointer-events-none absolute inset-x-0 bottom-0 bg-primary-950/80 px-2.5 py-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
     >
       <p class="truncate text-xs font-medium text-white">{{ image.computedFileName }}</p>
+      <p class="label-mono-sm mt-0.5 truncate text-accent-300">{{ capturedAt }}</p>
     </figcaption>
   </figure>
 </template>

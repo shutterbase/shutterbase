@@ -13,10 +13,14 @@
     </div>
 
     <!-- end / empty states -->
-    <div v-else class="flex flex-col items-center px-6 pt-12 text-center">
-      <img :src="art.src" :alt="art.headline" class="h-56 w-56 rounded-2xl object-cover sm:h-64 sm:w-64" />
-      <h2 class="mt-7 text-lg font-semibold tracking-tight text-primary-900 dark:text-white">{{ art.headline }}</h2>
-      <p v-if="art.sub" class="mt-1.5 max-w-md text-sm text-primary-500 dark:text-primary-400">{{ art.sub }}</p>
+    <div v-else class="flex flex-col items-center px-6 pt-14 text-center">
+      <div class="relative">
+        <CornerMarks />
+        <img :src="art.src" :alt="art.headline" class="h-52 w-52 rounded-xl object-cover sm:h-60 sm:w-60" />
+      </div>
+      <p class="label-mono mt-8 text-primary-500 dark:text-primary-400">{{ art.kicker }}</p>
+      <h2 class="display mt-2.5 text-2xl text-primary-900 dark:text-white">{{ art.headline }}</h2>
+      <p v-if="art.sub" class="mt-2 max-w-md text-sm text-primary-500 dark:text-primary-400">{{ art.sub }}</p>
     </div>
   </div>
 </template>
@@ -25,6 +29,7 @@ import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { ArrowDownIcon } from "@heroicons/vue/24/outline";
+import CornerMarks from "src/components/CornerMarks.vue";
 
 interface Props {
   totalImageCount: number;
@@ -49,13 +54,13 @@ const hasMore = computed(() => props.totalImageCount > 0 && props.currentImageCo
 const art = computed(() => {
   if (props.filtered) {
     if (props.totalImageCount === 0) {
-      return { src: new URL("../../assets/img/search-potato.webp", import.meta.url).href, headline: "No matches", sub: "No images match the current filters. Try clearing a filter or adjusting your search." };
+      return { src: new URL("../../assets/img/search-potato.webp", import.meta.url).href, kicker: "No matches", headline: "Nothing fits that filter", sub: "No frames match the current filters. Try clearing a filter or adjusting your search." };
     }
-    return { src: new URL("../../assets/img/search-potato.webp", import.meta.url).href, headline: `All ${props.totalImageCount} matching images shown`, sub: "" };
+    return { src: new URL("../../assets/img/search-potato.webp", import.meta.url).href, kicker: "End of results", headline: `All ${props.totalImageCount} matching frames`, sub: "" };
   }
   if (props.totalImageCount === 0) {
-    return { src: new URL("../../assets/img/ghost.webp", import.meta.url).href, headline: "Nothing here yet", sub: `There are no images in ${activeProject.value.name} yet. Upload some to get started.` };
+    return { src: new URL("../../assets/img/ghost.webp", import.meta.url).href, kicker: "Empty project", headline: "Nothing here yet", sub: `There are no frames in ${activeProject.value.name} yet. Upload some to get started.` };
   }
-  return { src: new URL("../../assets/img/potato.webp", import.meta.url).href, headline: `That's all ${props.totalImageCount} images`, sub: "" };
+  return { src: new URL("../../assets/img/potato.webp", import.meta.url).href, kicker: "End of gallery", headline: `That's all ${props.totalImageCount} frames`, sub: "" };
 });
 </script>

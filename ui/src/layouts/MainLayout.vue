@@ -7,32 +7,42 @@
       </span>
       <button @click="stopImpersonate" class="rounded-md bg-warning-950 text-warning-50 px-3 py-1 text-xs font-semibold hover:bg-warning-900 transition-colors">Stop impersonating</button>
     </div>
-    <Disclosure as="header" class="sticky top-0 z-30 border-b border-primary-200 dark:border-primary-800 bg-primary-50 dark:bg-primary-950" v-slot="{ open }">
+    <Disclosure as="header" class="sticky top-0 z-30 border-b border-primary-200 dark:border-primary-800 bg-primary-50/90 dark:bg-primary-950/90 backdrop-blur" v-slot="{ open }">
       <div class="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8">
-        <div class="flex h-14 items-center justify-between gap-4">
-          <div class="flex items-center gap-6">
+        <div class="flex h-16 items-center justify-between gap-4">
+          <div class="flex items-center gap-5 self-stretch">
             <router-link to="/" class="flex flex-shrink-0 items-center">
               <img class="h-7 block dark:!hidden" src="~assets/img/shutterbase-header-logo-light.png" alt="shutterbase" />
               <img class="h-7 hidden dark:!block" src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" />
             </router-link>
-            <nav class="hidden sm:flex items-center gap-1">
+            <div class="hidden sm:block h-6 w-px bg-primary-200 dark:bg-primary-800"></div>
+            <nav class="hidden sm:flex items-stretch self-stretch gap-7">
               <span
                 v-for="item in navigation"
                 :key="item.name"
                 @click="router.push(item.href)"
                 :class="[
-                  item.current
-                    ? 'bg-accent-500/12 text-accent-700 dark:text-accent-200'
-                    : 'text-primary-600 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-800/70 hover:text-primary-900 dark:hover:text-white',
-                  'rounded-md cursor-pointer px-3 py-1.5 text-sm font-medium transition-colors',
+                  'group relative flex cursor-pointer items-center text-sm font-medium transition-colors',
+                  item.current ? 'text-primary-900 dark:text-white' : 'text-primary-500 hover:text-primary-900 dark:text-primary-400 dark:hover:text-white',
                 ]"
                 :aria-current="item.current ? 'page' : undefined"
               >
                 {{ item.name }}
+                <span
+                  :class="[
+                    'absolute inset-x-0 -bottom-px h-0.5 transition-all',
+                    item.current ? 'bg-accent-500' : 'bg-transparent group-hover:bg-primary-300 dark:group-hover:bg-primary-700',
+                  ]"
+                ></span>
               </span>
             </nav>
           </div>
-          <div class="flex items-center gap-1">
+          <div class="flex items-center gap-3">
+            <div v-if="userStore.activeProject?.name" class="hidden md:flex items-center gap-2 pr-1">
+              <span class="label-mono-sm text-primary-500 dark:text-primary-400">Project</span>
+              <span class="max-w-[14rem] truncate text-sm font-medium text-primary-700 dark:text-primary-200">{{ userStore.activeProject.name }}</span>
+            </div>
+            <div class="hidden md:block h-6 w-px bg-primary-200 dark:bg-primary-800"></div>
             <DarkMode />
             <UserMenu />
             <DisclosureButton
