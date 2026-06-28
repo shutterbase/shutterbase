@@ -2,8 +2,8 @@
   <div class="px-4 sm:px-6 lg:px-8">
     <div class="sm:flex sm:items-end sm:justify-between">
       <div class="sm:flex-auto">
-        <h1 class="text-2xl font-semibold tracking-tight text-primary-900 dark:text-white">{{ capitalize(pluralName) }}</h1>
-        <p v-if="subtitle" class="mt-1.5 text-sm text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
+        <h1 class="display text-3xl text-primary-900 dark:text-white">{{ capitalize(pluralName) }}</h1>
+        <p v-if="subtitle" class="mt-2 text-sm text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
       </div>
       <div v-if="addCallback && allowAdd" class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
         <button
@@ -27,7 +27,7 @@
                   v-for="column in columns"
                   :key="column.key"
                   scope="col"
-                  class="sticky top-0 z-10 border-b border-primary-200 bg-surface/85 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-primary-500 backdrop-blur first:pl-1 dark:border-primary-800 dark:bg-surface-dark/85 dark:text-primary-400"
+                  class="label-mono sticky top-0 z-10 border-b border-primary-200 bg-surface/85 px-3 py-3.5 text-left text-primary-500 backdrop-blur first:pl-1 dark:border-primary-800 dark:bg-surface-dark/85 dark:text-primary-400"
                 >
                   {{ column.label }}
                 </th>

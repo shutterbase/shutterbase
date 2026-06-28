@@ -5,11 +5,15 @@
       <img src="~assets/img/shutterbase-icon.png" alt="" aria-hidden="true" class="pointer-events-none absolute -bottom-40 -right-40 w-[48rem] select-none opacity-[0.05]" />
       <img src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" class="relative h-7 w-auto self-start" />
       <div class="relative max-w-md">
-        <h2 class="text-balance text-4xl font-semibold leading-[1.1] tracking-tight text-white">Every shot, in sync.</h2>
-        <p class="mt-5 text-base leading-relaxed text-primary-300">Upload, time-sync across photographers, tag, and find any frame — together, in one shared library.</p>
-        <ul class="mt-10 space-y-4">
+        <p class="label-mono text-accent-400">Collaborative photography</p>
+        <div class="relative mt-5 inline-block px-3 py-2">
+          <CornerMarks />
+          <h2 class="display text-[2.75rem] leading-[1.04] text-white">Every shot,<br />in sync.</h2>
+        </div>
+        <p class="mt-6 max-w-sm text-base leading-relaxed text-primary-300">Upload, time-sync across photographers, tag, and find any frame — together, in one shared library.</p>
+        <ul class="mt-10 space-y-3.5">
           <li v-for="f in features" :key="f.label" class="flex items-center gap-3.5 text-sm text-primary-200">
-            <span class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-accent-300 ring-1 ring-inset ring-white/10">
+            <span class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/[0.05] text-accent-300">
               <component :is="f.icon" class="h-[18px] w-[18px]" />
             </span>
             {{ f.label }}
@@ -27,12 +31,13 @@
           <img class="hidden h-9 dark:!block" src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" />
         </router-link>
 
-        <h1 class="text-2xl font-semibold tracking-tight text-primary-900 dark:text-white">Sign in</h1>
-        <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">Welcome back. Sign in to continue to your projects.</p>
+        <p class="label-mono text-accent-600 dark:text-accent-400">Welcome back</p>
+        <h1 class="display mt-2.5 text-3xl text-primary-900 dark:text-white">Sign in</h1>
+        <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">Sign in to continue to your projects.</p>
 
         <form class="mt-9 space-y-5" @submit.prevent="login">
           <div>
-            <label for="email" class="block text-sm font-medium text-primary-700 dark:text-primary-200">Email</label>
+            <label for="email" class="label-mono block text-primary-500 dark:text-primary-400">Email</label>
             <input
               v-model="email"
               type="email"
@@ -47,7 +52,7 @@
 
           <div>
             <div class="flex items-center justify-between">
-              <label for="password" class="block text-sm font-medium text-primary-700 dark:text-primary-200">Password</label>
+              <label for="password" class="label-mono block text-primary-500 dark:text-primary-400">Password</label>
               <a href="#" class="text-sm font-medium text-accent-600 transition-colors hover:text-accent-500 dark:text-accent-400">Forgot password?</a>
             </div>
             <input
@@ -92,6 +97,7 @@ import { useUserStore } from "src/stores/user-store";
 import { useRouter } from "vue-router";
 import * as EmailValidator from "email-validator";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
+import CornerMarks from "src/components/CornerMarks.vue";
 import { ClockIcon, TagIcon, MagnifyingGlassIcon } from "@heroicons/vue/24/outline";
 
 const router = useRouter();
