@@ -13,10 +13,16 @@ Requested bump (may be empty — infer it then): $ARGUMENTS
 
 - `main` is protected and enforces **linear history**. Direct pushes are rejected; every
   change lands through a PR, merged with **squash** or **rebase** (never a merge commit).
-- **A release is a tag.** `.github/workflows/build.yml` runs its `release` job only for
-  `refs/tags/v*.*.*`. Pushing `vX.Y.Z` is what creates the GitHub release, uploads the
-  `downloader` binaries for 6 os/arch pairs, and publishes
-  `ghcr.io/shutterbase/shutterbase:vX.Y.Z`. There is no separate release workflow file.
+- **A release is a tag.** `.github/workflows/build.yml` runs its tag path only for
+  `refs/tags/v*.*.*`. Pushing `vX.Y.Z` creates the GitHub release, uploads the `downloader`
+  binaries for 6 os/arch pairs, and publishes `ghcr.io/shutterbase/shutterbase:vX.Y.Z`.
+  There is no separate release workflow file.
+- **The tag run does not rebuild.** It re-tags: the `retag` job stamps `:vX.Y.Z` onto the
+  `:<sha8>` manifest the main-branch run already built and tested, so the released image is
+  the exact digest CI proved green. Tests and the image build are skipped on tags. The tag
+  run therefore finishes in ~1 minute, not ~6 — but it **depends on the main-branch build
+  for the merge commit having succeeded**. `retag` polls the registry for up to 20 minutes,
+  so tagging straight after the merge is fine; a main build that failed is not.
 - PR CI = two workflows: **Build and Release** (`test-api`, `test-ui`, `downloader-build`,
   `server`) and **UI E2E** (Playwright). Both must be green.
 - Commits follow **Conventional Commits** — the changelog is generated from them.
@@ -93,10 +99,14 @@ This is the point of no return: merging touches protected `main` and the tag tha
 publishes a public release and image. **Report the plan and get a yes** before continuing:
 the version, the PR link, the CI result, and a one-line summary of what ships.
 
-Then:
+Then merge. `main` requires one approving review and MaPa is the sole maintainer —
+GitHub forbids approving your own PR, so a self-authored release PR is always `BLOCKED` /
+`REVIEW_REQUIRED`. `enforce_admins` is false and the admin bypass is the intended path
+here; use it without asking again (the confirmation above is about publishing the version,
+not about the review rule):
 
 ```bash
-gh pr merge --squash --delete-branch          # squash keeps main linear
+gh pr merge --squash --admin --delete-branch  # squash keeps main linear
 git checkout main && git pull --ff-only origin main
 ```
 
@@ -109,8 +119,10 @@ gh run watch --exit-status                     # the tag-triggered Build and Rel
 ```
 
 Watch it to completion. If the release run fails after the tag is already pushed, say so
-plainly — the tag exists but the release may be partial, and a broken tag needs either a
-re-run of the failed job or a follow-up patch version. Do not silently retag.
+plainly — the tag exists but the release may be partial. The usual failure is `retag`
+timing out because the main-branch build for the merge commit never produced
+`:<sha8>`; fix that build and re-run the job rather than retagging. Do not silently
+move an existing tag.
 
 ### 8. Verify the artifact exists
 
