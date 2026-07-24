@@ -179,8 +179,8 @@ func ensureDefaultAdmin(options *Options) error {
 	}
 
 	// Never ship a known default credential: when no password is configured, generate
-	// a random one-time password and log it once. ForcePasswordChange below still
-	// forces rotation on first login.
+	// a random one-time password and log it once. The operator is expected to sign in
+	// and change it (ForcePasswordChange is off, see below).
 	password := options.DefaultAdminPassword
 	if password == "" {
 		password = uuid.NewString()
@@ -195,7 +195,7 @@ func ensureDefaultAdmin(options *Options) error {
 	role := user.RoleAdmin
 	active := true
 	verified := true
-	forcePasswordChange := true
+	forcePasswordChange := false // ponytail: initial admin skips forced rotation; flip true (or gate on DefaultAdminPassword == "") to re-enable
 	if _, err := options.Repository.CreateUser(ctx, &repository.CreateUserParameters{
 		Username:            username,
 		PasswordHash:        &hash,
