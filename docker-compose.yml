@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./sandbox/postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: shutterbaseadmin
+      RUSTFS_SECRET_KEY: shutterbaseadmin
+    ports:
+      # RustFS's S3 API on the host is 9010, not its native 9000 — the Quasar
+      # UI dev server (`bun run dev`, UI_PROXY_URL) owns :9000 locally
+      # (container-internal port stays 9000).
+      - "9010:9000"
+      - "9001:9001"
+    volumes:
+      - ./sandbox/rustfs:/data
+    healthcheck:
+      test: ["CMD", "curl", "-s", "-o", "/dev/null", "http://localhost:9000/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rustfs-init:
+    image: minio/mc:latest
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mc alias set local http://rustfs:9000 shutterbaseadmin shutterbaseadmin &&
+        mc mb --ignore-existing local/shutterbase

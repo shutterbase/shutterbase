@@ -4,6 +4,8 @@ import (
 	"context"
 	"io/fs"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -188,15 +190,22 @@ func (s *Server) registerPublicRoutes() {
 	})
 }
 
-// registerSPA serves the embedded Quasar build for every route the API/WS/auth
-// groups didn't match (gin's NoRoute), with index.html fallback so client-side
-// deep links resolve. Unknown API paths still return a JSON 404 rather than the
-// SPA shell, so a typo'd endpoint fails loudly instead of returning HTML.
+// registerSPA serves the frontend for every route the API/WS/auth groups
+// didn't match (gin's NoRoute). In DevMode it reverse-proxies to the Quasar
+// dev server (UI_PROXY_URL) so :8080 is a stable entry point in every
+// environment; otherwise it serves the embedded Quasar build with index.html
+// fallback so client-side deep links resolve. Unknown API paths always return
+// a JSON 404 rather than SPA/proxy content, so a typo'd endpoint fails loudly.
 //
 // All static paths live under the auth "/" public prefix, so RequireAuth lets
 // them through unauthenticated (the login page must load). The rate-limit switch
 // keys off c.FullPath() which is empty for NoRoute, so assets are never throttled.
 func (s *Server) registerSPA() {
+	if s.options.DevMode {
+		s.registerUIProxy()
+		return
+	}
+
 	sub, err := fs.Sub(spa.FS, "dist")
 	if err != nil {
 		log.Panic().Err(err).Msg("embedded SPA missing")
@@ -224,6 +233,36 @@ func (s *Server) registerSPA() {
 			c.Request.URL.Path = "/"
 		}
 		fileServer.ServeHTTP(c.Writer, c.Request)
+	})
+}
+
+// registerUIProxy reverse-proxies unmatched routes to the Quasar dev server.
+// httputil.ReverseProxy transparently proxies WebSocket upgrades, so Vite's
+// HMR socket works the same whether the browser opens :8080 or UI_PROXY_URL
+// directly. The Host header is rewritten to the target so Vite's dev-server
+// host check doesn't see the API's port and reject the request.
+func (s *Server) registerUIProxy() {
+	target, err := url.Parse(config.Get().String("UI_PROXY_URL"))
+	if err != nil {
+		log.Panic().Err(err).Str("UI_PROXY_URL", config.Get().String("UI_PROXY_URL")).Msg("invalid UI_PROXY_URL")
+	}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	director := proxy.Director
+	proxy.Director = func(r *http.Request) {
+		director(r)
+		r.Host = target.Host
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		log.Warn().Err(err).Str("target", target.String()).Msg("UI dev server unreachable — is `bun run dev` running?")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("shutterbase: UI dev server unreachable at " + target.String() + " — is `bun run dev` running?"))
+	}
+	s.Engine.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, s.options.ApiBaseURL) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		proxy.ServeHTTP(c.Writer, c.Request)
 	})
 }
 

@@ -48,7 +48,18 @@ func main() {
 	}
 	defer conn.Close()
 
-	manifest, err := seed.Seed(context.Background(), conn.Client, time.Now())
+	// Idempotent: skip if the DB already has users. Keeps `just up` re-runnable
+	// (seed.Seed itself expects an empty DB) and avoids colliding with the
+	// default-admin the server creates on first boot.
+	ctx := context.Background()
+	if seeded, err := conn.Client.User.Query().Exist(ctx); err != nil {
+		log.Fatal().Err(err).Msg("error checking existing seed")
+	} else if seeded {
+		log.Info().Msg("database already has users — skipping seed")
+		return
+	}
+
+	manifest, err := seed.Seed(ctx, conn.Client, time.Now())
 	if err != nil {
 		log.Fatal().Err(err).Msg("seed failed")
 	}

@@ -14,12 +14,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	basicauth "github.com/mxcd/go-basicauth"
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
+
+// DevPassword is the shared password on every seeded account, so each role
+// (admin/user/projectAdmin/...) is loginable via the normal form as well as the
+// DEV /dev/login bypass. Satisfies the backend rules (§4.12: 8+ upper/lower/digit).
+const DevPassword = "Password123"
 
 // Drift is the fresh camera's clock offset (timeOffset = serverTime - cameraTime).
 const Drift = 37 * time.Second
@@ -68,13 +74,20 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 		m.Roles[key] = r.ID
 	}
 
-	// Users: global admin + plain user, plus three project-scoped users.
+	// Users: global admin + plain user, plus three project-scoped users. One hash
+	// reused across all of them (same password) keeps the argon2 cost to a single
+	// call so the test harness stays fast.
+	passwordHash, err := basicauth.HashPassword(DevPassword, basicauth.DefaultPasswordHashingParams)
+	if err != nil {
+		return nil, fmt.Errorf("hash seed password: %w", err)
+	}
 	mkUser := func(username, first, last string, role user.Role) (*ent.User, error) {
 		return client.User.Create().
 			SetUsername(username).
 			SetFirstName(first).
 			SetLastName(last).
 			SetEmail(username + "@shutterbase.test").
+			SetPasswordHash(passwordHash).
 			SetActive(true).
 			SetVerified(true).
 			SetRole(role).
