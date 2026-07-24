@@ -25,18 +25,15 @@ func TestConfigDefaults(t *testing.T) {
 	assert.False(t, config.Get().Bool("DEV"))
 }
 
-// S1 unit: a required key with no default fails when missing.
+// S1 unit: a NotEmpty key set to the empty string fails. (SESSION_SECRET_KEY
+// is no longer NotEmpty — it may arrive via the vault env overlay and is
+// enforced in authentication.Setup instead.)
 func TestConfigRequiredMissingFails(t *testing.T) {
-	orig, had := os.LookupEnv("SESSION_SECRET_KEY")
-	os.Unsetenv("SESSION_SECRET_KEY")
-	t.Cleanup(func() {
-		if had {
-			os.Setenv("SESSION_SECRET_KEY", orig)
-		}
-	})
+	t.Setenv("SESSION_SECRET_KEY", "test-secret")
+	t.Setenv("DEPLOYMENT_IMAGE_TAG", "")
 
-	// go-config panics (log.Panic) on a missing required key with no default.
-	assert.Panics(t, func() { _ = util.InitConfig() }, "SESSION_SECRET_KEY is required (NotEmpty, no default)")
+	// go-config panics (log.Panic) on a NotEmpty key explicitly set to "".
+	assert.Panics(t, func() { _ = util.InitConfig() }, "DEPLOYMENT_IMAGE_TAG is NotEmpty")
 }
 
 // S1 unit: a .Sensitive() value is masked in config.Print().

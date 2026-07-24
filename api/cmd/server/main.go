@@ -72,19 +72,21 @@ type vaultCredentials struct {
 }
 
 // resolveVaultCredentials honors DATABASE_CREDENTIALS_SOURCE and
-// S3_CREDENTIALS_SOURCE ("env" or "vault", independently) and only dials vault
-// when at least one resource asks for it. The vault client and its renewers
-// live for the process lifetime, hence context.Background().
+// S3_CREDENTIALS_SOURCE ("env" or "vault", independently) plus the
+// VAULT_ENV_KV_PATH app-secret overlay, and only dials vault when at least one
+// of them asks for it. The vault client and its renewers live for the process
+// lifetime, hence context.Background().
 func resolveVaultCredentials(ctx context.Context) *vaultCredentials {
 	databaseSource := config.Get().String("DATABASE_CREDENTIALS_SOURCE")
 	s3Source := config.Get().String("S3_CREDENTIALS_SOURCE")
+	envKVPath := config.Get().String("VAULT_ENV_KV_PATH")
 	for name, source := range map[string]string{"DATABASE_CREDENTIALS_SOURCE": databaseSource, "S3_CREDENTIALS_SOURCE": s3Source} {
 		if source != "env" && source != "vault" {
 			log.Panic().Str(name, source).Msg("invalid credentials source (supported: env, vault)")
 		}
 	}
 	credentials := &vaultCredentials{}
-	if databaseSource != "vault" && s3Source != "vault" {
+	if databaseSource != "vault" && s3Source != "vault" && envKVPath == "" {
 		return credentials
 	}
 
@@ -97,6 +99,19 @@ func resolveVaultCredentials(ctx context.Context) *vaultCredentials {
 	})
 	if err != nil {
 		log.Panic().Err(err).Msg("error connecting to vault")
+	}
+
+	if envKVPath != "" {
+		data, err := vaultClient.GetKV(ctx, envKVPath)
+		if err != nil {
+			log.Panic().Err(err).Msg("error fetching env secret from vault")
+		}
+		applied := vault.ApplyEnvOverlay(data)
+		// Re-resolve config so the overlaid variables are visible everywhere.
+		if err := util.InitConfig(); err != nil {
+			log.Panic().Err(err).Msg("error re-initializing config after vault env overlay")
+		}
+		log.Info().Int("applied", applied).Str("path", envKVPath).Msg("vault env overlay applied")
 	}
 
 	if databaseSource == "vault" {

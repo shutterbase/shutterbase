@@ -45,6 +45,12 @@ type handler struct {
 // Path gating: /api/v1/* is private except /health and /version; /auth/login and
 // /auth/register are public (register is then hard-blocked — self-signup is off).
 func Setup(options *Options) error {
+	// Guard here rather than NotEmpty in config: the secret may arrive via the
+	// vault env overlay after the first config load. Empty input would derive
+	// deterministic (publicly known) session keys.
+	if options.SessionSecretKey == "" {
+		return fmt.Errorf("SESSION_SECRET_KEY is empty — set it in the environment or the vault env secret (VAULT_ENV_KV_PATH)")
+	}
 	secretKey, encKey := deriveSessionKeys(options.SessionSecretKey)
 
 	storage := &repositoryStorage{repo: options.Repository}
