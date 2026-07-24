@@ -9,6 +9,7 @@ import (
 	basicauth "github.com/mxcd/go-basicauth"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/user"
 	"github.com/shutterbase/shutterbase/internal/authentication"
 	"github.com/shutterbase/shutterbase/internal/authorization"
@@ -166,15 +167,41 @@ func (s *Server) createUser(c *gin.Context) {
 }
 
 type updateUserPayload struct {
-	FirstName           *string `json:"firstName"`
-	LastName            *string `json:"lastName"`
-	CopyrightTag        *string `json:"copyrightTag"`
-	Email               *string `json:"email"`
-	Password            *string `json:"password"`
-	Active              *bool   `json:"active"`
-	RoleID              *string `json:"roleId"`
-	ForcePasswordChange *bool   `json:"forcePasswordChange"`
-	ActiveProjectID     *string `json:"activeProjectId"`
+	FirstName           *string             `json:"firstName"`
+	LastName            *string             `json:"lastName"`
+	CopyrightTag        *string             `json:"copyrightTag"`
+	Email               *string             `json:"email"`
+	Password            *string             `json:"password"`
+	Active              *bool               `json:"active"`
+	RoleID              *string             `json:"roleId"`
+	ForcePasswordChange *bool               `json:"forcePasswordChange"`
+	ActiveProjectID     *string             `json:"activeProjectId"`
+	Hotkeys             *schema.UserHotkeys `json:"hotkeys"`
+}
+
+// validateHotkeys bounds the opaque hotkey preference blob so a client cannot
+// persist arbitrarily large payloads. Semantics are not checked — the UI owns
+// the action ids and combo grammar. Returns "" when valid.
+func validateHotkeys(h *schema.UserHotkeys) string {
+	if len(h.Bindings) > 128 || len(h.TagBindings) > 128 {
+		return "Too many hotkey bindings"
+	}
+	for actionID, combos := range h.Bindings {
+		if len(actionID) > 64 || len(combos) > 8 {
+			return "Invalid hotkey binding"
+		}
+		for _, combo := range combos {
+			if combo == "" || len(combo) > 64 {
+				return "Invalid hotkey combo"
+			}
+		}
+	}
+	for combo, tagName := range h.TagBindings {
+		if combo == "" || len(combo) > 64 || tagName == "" || len(tagName) > 128 {
+			return "Invalid tag hotkey binding"
+		}
+	}
+	return ""
 }
 
 func (s *Server) updateUser(c *gin.Context) {
@@ -200,6 +227,12 @@ func (s *Server) updateUser(c *gin.Context) {
 		forbid(c)
 		return
 	}
+	if payload.Hotkeys != nil {
+		if msg := validateHotkeys(payload.Hotkeys); msg != "" {
+			apiError(c, http.StatusBadRequest, "invalid_hotkeys", msg)
+			return
+		}
+	}
 	params := &repository.UpdateUserParameters{
 		FirstName:           payload.FirstName,
 		LastName:            payload.LastName,
@@ -208,6 +241,7 @@ func (s *Server) updateUser(c *gin.Context) {
 		Active:              payload.Active,
 		ForcePasswordChange: payload.ForcePasswordChange,
 		ActiveProjectID:     payload.ActiveProjectID,
+		Hotkeys:             payload.Hotkeys,
 	}
 	if payload.Password != nil {
 		if msg := validatePassword(*payload.Password); msg != "" {

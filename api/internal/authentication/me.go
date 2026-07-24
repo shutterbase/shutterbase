@@ -66,6 +66,7 @@ func buildMeResponse(ctx context.Context, repo *repository.Repository, u *ent.Us
 		"role":                roleResponse(ctx, repo, string(u.Role)),
 		"activeProject":       activeProjectResponse(ctx, repo, u),
 		"projectAssignments":  projectAssignmentsResponse(ctx, repo, u),
+		"hotkeys":             u.Hotkeys,
 	}
 	return resp
 }
