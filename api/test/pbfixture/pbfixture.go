@@ -155,7 +155,7 @@ func Build(path string) (bcryptHash string, err error) {
 		(id,created,updated,fileName,computedFileName,exifData,capturedAt,capturedAtCorrected,size,width,height,storageId,user,upload,project,camera,imageTags,downloadUrls)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		Image1ID, t0, t1, "IMG_0001.JPG", "DEMO_0001.jpg", exif, t0, "2024-05-20 10:00:37.000Z", 1048576, 6000, 4000,
-		"ab/storage_img1", AliceUserID, "upload00000001", ProjectID, CameraAID,
+		"storage_img1", AliceUserID, "upload00000001", ProjectID, CameraAID,
 		fmt.Sprintf(`["%s","%s"]`, TagDefaultID, TagManualID), `["http://old/download/1"]`); err != nil {
 		return "", err
 	}
@@ -163,7 +163,7 @@ func Build(path string) (bcryptHash string, err error) {
 		(id,created,updated,fileName,computedFileName,exifData,capturedAt,capturedAtCorrected,size,width,height,storageId,user,upload,project,camera,imageTags,downloadUrls)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		Image2ID, t0, t0, "IMG_0002.JPG", "DEMO_0002.jpg", "", "", "", 2097152, nil, nil,
-		"cd/storage_img2", BobUserID, "upload00000001", ProjectID, CameraBID,
+		"storage_img2", BobUserID, "upload00000001", ProjectID, CameraBID,
 		fmt.Sprintf(`["%s"]`, TagDefaultID), ""); err != nil {
 		return "", err
 	}

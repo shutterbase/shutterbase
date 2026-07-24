@@ -18,6 +18,7 @@ import (
 
 	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/importer"
+	"github.com/shutterbase/shutterbase/internal/util"
 	"github.com/shutterbase/shutterbase/test/harness"
 	"github.com/shutterbase/shutterbase/test/pbfixture"
 )
@@ -66,8 +67,10 @@ func TestImporterE2E(t *testing.T) {
 	}
 	assert.Equal(t, bcryptHash, aliceHash, "bcrypt hash must round-trip into Postgres verbatim")
 
-	// Put the migrated storageIds in the bucket so the S3 HEAD check finds them.
-	for _, key := range []string{"ab/storage_img1", "cd/storage_img2"} {
+	// Put the migrated originals at their sharded keys (XX/<storageId>.jpg) so
+	// the S3 HEAD check finds them.
+	for _, id := range []string{"storage_img1", "storage_img2"} {
+		key := util.GetObjectIds(id)[0]
 		_, err := s3c.Client.Client.PutObject(ctx, s3c.Options.Bucket, key,
 			bytes.NewReader([]byte("x")), 1, minio.PutObjectOptions{})
 		require.NoError(t, err)
