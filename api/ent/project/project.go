@@ -38,6 +38,8 @@ const (
 	FieldLocationCity = "location_city"
 	// FieldAiSystemMessage holds the string denoting the aisystemmessage field in the database.
 	FieldAiSystemMessage = "ai_system_message"
+	// FieldUploadReviewEnabled holds the string denoting the uploadreviewenabled field in the database.
+	FieldUploadReviewEnabled = "upload_review_enabled"
 	// EdgeUploads holds the string denoting the uploads edge name in mutations.
 	EdgeUploads = "uploads"
 	// EdgeImages holds the string denoting the images edge name in mutations.
@@ -102,6 +104,7 @@ var Columns = []string{
 	FieldLocationCode,
 	FieldLocationCity,
 	FieldAiSystemMessage,
+	FieldUploadReviewEnabled,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -135,6 +138,8 @@ var (
 	LocationCodeValidator func(string) error
 	// LocationCityValidator is a validator for the "locationCity" field. It is called by the builders before save.
 	LocationCityValidator func(string) error
+	// DefaultUploadReviewEnabled holds the default value on creation for the "uploadReviewEnabled" field.
+	DefaultUploadReviewEnabled bool
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
@@ -207,6 +212,11 @@ func ByLocationCity(opts ...sql.OrderTermOption) OrderOption {
 // ByAiSystemMessage orders the results by the aiSystemMessage field.
 func ByAiSystemMessage(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAiSystemMessage, opts...).ToFunc()
+}
+
+// ByUploadReviewEnabled orders the results by the uploadReviewEnabled field.
+func ByUploadReviewEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldUploadReviewEnabled, opts...).ToFunc()
 }
 
 // ByUploadsCount orders the results by uploads count.

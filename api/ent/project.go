@@ -42,6 +42,8 @@ type Project struct {
 	LocationCity string `json:"locationCity"`
 	// AiSystemMessage holds the value of the "aiSystemMessage" field.
 	AiSystemMessage string `json:"aiSystemMessage"`
+	// UploadReviewEnabled holds the value of the "uploadReviewEnabled" field.
+	UploadReviewEnabled bool `json:"uploadReviewEnabled"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -117,6 +119,8 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldCreatedBy, project.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case project.FieldUploadReviewEnabled:
+			values[i] = new(sql.NullBool)
 		case project.FieldID, project.FieldName, project.FieldDescription, project.FieldCopyright, project.FieldCopyrightReference, project.FieldLocationName, project.FieldLocationCode, project.FieldLocationCity, project.FieldAiSystemMessage:
 			values[i] = new(sql.NullString)
 		case project.FieldCreatedAt, project.FieldUpdatedAt:
@@ -215,6 +219,12 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field aiSystemMessage", values[i])
 			} else if value.Valid {
 				_m.AiSystemMessage = value.String
+			}
+		case project.FieldUploadReviewEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field uploadReviewEnabled", values[i])
+			} else if value.Valid {
+				_m.UploadReviewEnabled = value.Bool
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -316,6 +326,9 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("aiSystemMessage=")
 	builder.WriteString(_m.AiSystemMessage)
+	builder.WriteString(", ")
+	builder.WriteString("uploadReviewEnabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.UploadReviewEnabled))
 	builder.WriteByte(')')
 	return builder.String()
 }

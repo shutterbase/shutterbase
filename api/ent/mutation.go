@@ -6539,6 +6539,7 @@ type ProjectMutation struct {
 	locationCode              *string
 	locationCity              *string
 	aiSystemMessage           *string
+	uploadReviewEnabled       *bool
 	clearedFields             map[string]struct{}
 	uploads                   map[string]struct{}
 	removeduploads            map[string]struct{}
@@ -7135,6 +7136,42 @@ func (m *ProjectMutation) ResetAiSystemMessage() {
 	delete(m.clearedFields, project.FieldAiSystemMessage)
 }
 
+// SetUploadReviewEnabled sets the "uploadReviewEnabled" field.
+func (m *ProjectMutation) SetUploadReviewEnabled(b bool) {
+	m.uploadReviewEnabled = &b
+}
+
+// UploadReviewEnabled returns the value of the "uploadReviewEnabled" field in the mutation.
+func (m *ProjectMutation) UploadReviewEnabled() (r bool, exists bool) {
+	v := m.uploadReviewEnabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUploadReviewEnabled returns the old "uploadReviewEnabled" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldUploadReviewEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUploadReviewEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUploadReviewEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUploadReviewEnabled: %w", err)
+	}
+	return oldValue.UploadReviewEnabled, nil
+}
+
+// ResetUploadReviewEnabled resets all changes to the "uploadReviewEnabled" field.
+func (m *ProjectMutation) ResetUploadReviewEnabled() {
+	m.uploadReviewEnabled = nil
+}
+
 // AddUploadIDs adds the "uploads" edge to the Upload entity by ids.
 func (m *ProjectMutation) AddUploadIDs(ids ...string) {
 	if m.uploads == nil {
@@ -7439,7 +7476,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 13)
 	if m.createdAt != nil {
 		fields = append(fields, project.FieldCreatedAt)
 	}
@@ -7476,6 +7513,9 @@ func (m *ProjectMutation) Fields() []string {
 	if m.aiSystemMessage != nil {
 		fields = append(fields, project.FieldAiSystemMessage)
 	}
+	if m.uploadReviewEnabled != nil {
+		fields = append(fields, project.FieldUploadReviewEnabled)
+	}
 	return fields
 }
 
@@ -7508,6 +7548,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.LocationCity()
 	case project.FieldAiSystemMessage:
 		return m.AiSystemMessage()
+	case project.FieldUploadReviewEnabled:
+		return m.UploadReviewEnabled()
 	}
 	return nil, false
 }
@@ -7541,6 +7583,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldLocationCity(ctx)
 	case project.FieldAiSystemMessage:
 		return m.OldAiSystemMessage(ctx)
+	case project.FieldUploadReviewEnabled:
+		return m.OldUploadReviewEnabled(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -7633,6 +7677,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAiSystemMessage(v)
+		return nil
+	case project.FieldUploadReviewEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUploadReviewEnabled(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
@@ -7739,6 +7790,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldAiSystemMessage:
 		m.ResetAiSystemMessage()
+		return nil
+	case project.FieldUploadReviewEnabled:
+		m.ResetUploadReviewEnabled()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
@@ -10375,27 +10429,38 @@ func (m *TimeOffsetMutation) ResetEdge(name string) error {
 // UploadMutation represents an operation that mutates the Upload nodes in the graph.
 type UploadMutation struct {
 	config
-	op             Op
-	typ            string
-	id             *string
-	createdAt      *time.Time
-	updatedAt      *time.Time
-	createdBy      *uuid.UUID
-	updatedBy      *uuid.UUID
-	name           *string
-	clearedFields  map[string]struct{}
-	project        *string
-	clearedproject bool
-	user           *uuid.UUID
-	cleareduser    bool
-	camera         *string
-	clearedcamera  bool
-	images         map[string]struct{}
-	removedimages  map[string]struct{}
-	clearedimages  bool
-	done           bool
-	oldValue       func(context.Context) (*Upload, error)
-	predicates     []predicate.Upload
+	op                    Op
+	typ                   string
+	id                    *string
+	createdAt             *time.Time
+	updatedAt             *time.Time
+	createdBy             *uuid.UUID
+	updatedBy             *uuid.UUID
+	name                  *string
+	state                 *upload.State
+	reviewCycles          *int
+	addreviewCycles       *int
+	taggingSeconds        *int
+	addtaggingSeconds     *int
+	lastTagActivityAt     *time.Time
+	timeToReadySeconds    *int
+	addtimeToReadySeconds *int
+	cycleStartedAt        *time.Time
+	errorImageIds         *[]string
+	appenderrorImageIds   []string
+	clearedFields         map[string]struct{}
+	project               *string
+	clearedproject        bool
+	user                  *uuid.UUID
+	cleareduser           bool
+	camera                *string
+	clearedcamera         bool
+	images                map[string]struct{}
+	removedimages         map[string]struct{}
+	clearedimages         bool
+	done                  bool
+	oldValue              func(context.Context) (*Upload, error)
+	predicates            []predicate.Upload
 }
 
 var _ ent.Mutation = (*UploadMutation)(nil)
@@ -10816,6 +10881,373 @@ func (m *UploadMutation) ResetCameraID() {
 	m.camera = nil
 }
 
+// SetState sets the "state" field.
+func (m *UploadMutation) SetState(u upload.State) {
+	m.state = &u
+}
+
+// State returns the value of the "state" field in the mutation.
+func (m *UploadMutation) State() (r upload.State, exists bool) {
+	v := m.state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldState returns the old "state" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldState(ctx context.Context) (v upload.State, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldState: %w", err)
+	}
+	return oldValue.State, nil
+}
+
+// ResetState resets all changes to the "state" field.
+func (m *UploadMutation) ResetState() {
+	m.state = nil
+}
+
+// SetReviewCycles sets the "reviewCycles" field.
+func (m *UploadMutation) SetReviewCycles(i int) {
+	m.reviewCycles = &i
+	m.addreviewCycles = nil
+}
+
+// ReviewCycles returns the value of the "reviewCycles" field in the mutation.
+func (m *UploadMutation) ReviewCycles() (r int, exists bool) {
+	v := m.reviewCycles
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewCycles returns the old "reviewCycles" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldReviewCycles(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewCycles is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewCycles requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewCycles: %w", err)
+	}
+	return oldValue.ReviewCycles, nil
+}
+
+// AddReviewCycles adds i to the "reviewCycles" field.
+func (m *UploadMutation) AddReviewCycles(i int) {
+	if m.addreviewCycles != nil {
+		*m.addreviewCycles += i
+	} else {
+		m.addreviewCycles = &i
+	}
+}
+
+// AddedReviewCycles returns the value that was added to the "reviewCycles" field in this mutation.
+func (m *UploadMutation) AddedReviewCycles() (r int, exists bool) {
+	v := m.addreviewCycles
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReviewCycles resets all changes to the "reviewCycles" field.
+func (m *UploadMutation) ResetReviewCycles() {
+	m.reviewCycles = nil
+	m.addreviewCycles = nil
+}
+
+// SetTaggingSeconds sets the "taggingSeconds" field.
+func (m *UploadMutation) SetTaggingSeconds(i int) {
+	m.taggingSeconds = &i
+	m.addtaggingSeconds = nil
+}
+
+// TaggingSeconds returns the value of the "taggingSeconds" field in the mutation.
+func (m *UploadMutation) TaggingSeconds() (r int, exists bool) {
+	v := m.taggingSeconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTaggingSeconds returns the old "taggingSeconds" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldTaggingSeconds(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTaggingSeconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTaggingSeconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTaggingSeconds: %w", err)
+	}
+	return oldValue.TaggingSeconds, nil
+}
+
+// AddTaggingSeconds adds i to the "taggingSeconds" field.
+func (m *UploadMutation) AddTaggingSeconds(i int) {
+	if m.addtaggingSeconds != nil {
+		*m.addtaggingSeconds += i
+	} else {
+		m.addtaggingSeconds = &i
+	}
+}
+
+// AddedTaggingSeconds returns the value that was added to the "taggingSeconds" field in this mutation.
+func (m *UploadMutation) AddedTaggingSeconds() (r int, exists bool) {
+	v := m.addtaggingSeconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTaggingSeconds resets all changes to the "taggingSeconds" field.
+func (m *UploadMutation) ResetTaggingSeconds() {
+	m.taggingSeconds = nil
+	m.addtaggingSeconds = nil
+}
+
+// SetLastTagActivityAt sets the "lastTagActivityAt" field.
+func (m *UploadMutation) SetLastTagActivityAt(t time.Time) {
+	m.lastTagActivityAt = &t
+}
+
+// LastTagActivityAt returns the value of the "lastTagActivityAt" field in the mutation.
+func (m *UploadMutation) LastTagActivityAt() (r time.Time, exists bool) {
+	v := m.lastTagActivityAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastTagActivityAt returns the old "lastTagActivityAt" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldLastTagActivityAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastTagActivityAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastTagActivityAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastTagActivityAt: %w", err)
+	}
+	return oldValue.LastTagActivityAt, nil
+}
+
+// ClearLastTagActivityAt clears the value of the "lastTagActivityAt" field.
+func (m *UploadMutation) ClearLastTagActivityAt() {
+	m.lastTagActivityAt = nil
+	m.clearedFields[upload.FieldLastTagActivityAt] = struct{}{}
+}
+
+// LastTagActivityAtCleared returns if the "lastTagActivityAt" field was cleared in this mutation.
+func (m *UploadMutation) LastTagActivityAtCleared() bool {
+	_, ok := m.clearedFields[upload.FieldLastTagActivityAt]
+	return ok
+}
+
+// ResetLastTagActivityAt resets all changes to the "lastTagActivityAt" field.
+func (m *UploadMutation) ResetLastTagActivityAt() {
+	m.lastTagActivityAt = nil
+	delete(m.clearedFields, upload.FieldLastTagActivityAt)
+}
+
+// SetTimeToReadySeconds sets the "timeToReadySeconds" field.
+func (m *UploadMutation) SetTimeToReadySeconds(i int) {
+	m.timeToReadySeconds = &i
+	m.addtimeToReadySeconds = nil
+}
+
+// TimeToReadySeconds returns the value of the "timeToReadySeconds" field in the mutation.
+func (m *UploadMutation) TimeToReadySeconds() (r int, exists bool) {
+	v := m.timeToReadySeconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimeToReadySeconds returns the old "timeToReadySeconds" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldTimeToReadySeconds(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimeToReadySeconds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimeToReadySeconds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimeToReadySeconds: %w", err)
+	}
+	return oldValue.TimeToReadySeconds, nil
+}
+
+// AddTimeToReadySeconds adds i to the "timeToReadySeconds" field.
+func (m *UploadMutation) AddTimeToReadySeconds(i int) {
+	if m.addtimeToReadySeconds != nil {
+		*m.addtimeToReadySeconds += i
+	} else {
+		m.addtimeToReadySeconds = &i
+	}
+}
+
+// AddedTimeToReadySeconds returns the value that was added to the "timeToReadySeconds" field in this mutation.
+func (m *UploadMutation) AddedTimeToReadySeconds() (r int, exists bool) {
+	v := m.addtimeToReadySeconds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTimeToReadySeconds resets all changes to the "timeToReadySeconds" field.
+func (m *UploadMutation) ResetTimeToReadySeconds() {
+	m.timeToReadySeconds = nil
+	m.addtimeToReadySeconds = nil
+}
+
+// SetCycleStartedAt sets the "cycleStartedAt" field.
+func (m *UploadMutation) SetCycleStartedAt(t time.Time) {
+	m.cycleStartedAt = &t
+}
+
+// CycleStartedAt returns the value of the "cycleStartedAt" field in the mutation.
+func (m *UploadMutation) CycleStartedAt() (r time.Time, exists bool) {
+	v := m.cycleStartedAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCycleStartedAt returns the old "cycleStartedAt" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldCycleStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCycleStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCycleStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCycleStartedAt: %w", err)
+	}
+	return oldValue.CycleStartedAt, nil
+}
+
+// ClearCycleStartedAt clears the value of the "cycleStartedAt" field.
+func (m *UploadMutation) ClearCycleStartedAt() {
+	m.cycleStartedAt = nil
+	m.clearedFields[upload.FieldCycleStartedAt] = struct{}{}
+}
+
+// CycleStartedAtCleared returns if the "cycleStartedAt" field was cleared in this mutation.
+func (m *UploadMutation) CycleStartedAtCleared() bool {
+	_, ok := m.clearedFields[upload.FieldCycleStartedAt]
+	return ok
+}
+
+// ResetCycleStartedAt resets all changes to the "cycleStartedAt" field.
+func (m *UploadMutation) ResetCycleStartedAt() {
+	m.cycleStartedAt = nil
+	delete(m.clearedFields, upload.FieldCycleStartedAt)
+}
+
+// SetErrorImageIds sets the "errorImageIds" field.
+func (m *UploadMutation) SetErrorImageIds(s []string) {
+	m.errorImageIds = &s
+	m.appenderrorImageIds = nil
+}
+
+// ErrorImageIds returns the value of the "errorImageIds" field in the mutation.
+func (m *UploadMutation) ErrorImageIds() (r []string, exists bool) {
+	v := m.errorImageIds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldErrorImageIds returns the old "errorImageIds" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldErrorImageIds(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldErrorImageIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldErrorImageIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldErrorImageIds: %w", err)
+	}
+	return oldValue.ErrorImageIds, nil
+}
+
+// AppendErrorImageIds adds s to the "errorImageIds" field.
+func (m *UploadMutation) AppendErrorImageIds(s []string) {
+	m.appenderrorImageIds = append(m.appenderrorImageIds, s...)
+}
+
+// AppendedErrorImageIds returns the list of values that were appended to the "errorImageIds" field in this mutation.
+func (m *UploadMutation) AppendedErrorImageIds() ([]string, bool) {
+	if len(m.appenderrorImageIds) == 0 {
+		return nil, false
+	}
+	return m.appenderrorImageIds, true
+}
+
+// ClearErrorImageIds clears the value of the "errorImageIds" field.
+func (m *UploadMutation) ClearErrorImageIds() {
+	m.errorImageIds = nil
+	m.appenderrorImageIds = nil
+	m.clearedFields[upload.FieldErrorImageIds] = struct{}{}
+}
+
+// ErrorImageIdsCleared returns if the "errorImageIds" field was cleared in this mutation.
+func (m *UploadMutation) ErrorImageIdsCleared() bool {
+	_, ok := m.clearedFields[upload.FieldErrorImageIds]
+	return ok
+}
+
+// ResetErrorImageIds resets all changes to the "errorImageIds" field.
+func (m *UploadMutation) ResetErrorImageIds() {
+	m.errorImageIds = nil
+	m.appenderrorImageIds = nil
+	delete(m.clearedFields, upload.FieldErrorImageIds)
+}
+
 // ClearProject clears the "project" edge to the Project entity.
 func (m *UploadMutation) ClearProject() {
 	m.clearedproject = true
@@ -10985,7 +11417,7 @@ func (m *UploadMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UploadMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 15)
 	if m.createdAt != nil {
 		fields = append(fields, upload.FieldCreatedAt)
 	}
@@ -11009,6 +11441,27 @@ func (m *UploadMutation) Fields() []string {
 	}
 	if m.camera != nil {
 		fields = append(fields, upload.FieldCameraID)
+	}
+	if m.state != nil {
+		fields = append(fields, upload.FieldState)
+	}
+	if m.reviewCycles != nil {
+		fields = append(fields, upload.FieldReviewCycles)
+	}
+	if m.taggingSeconds != nil {
+		fields = append(fields, upload.FieldTaggingSeconds)
+	}
+	if m.lastTagActivityAt != nil {
+		fields = append(fields, upload.FieldLastTagActivityAt)
+	}
+	if m.timeToReadySeconds != nil {
+		fields = append(fields, upload.FieldTimeToReadySeconds)
+	}
+	if m.cycleStartedAt != nil {
+		fields = append(fields, upload.FieldCycleStartedAt)
+	}
+	if m.errorImageIds != nil {
+		fields = append(fields, upload.FieldErrorImageIds)
 	}
 	return fields
 }
@@ -11034,6 +11487,20 @@ func (m *UploadMutation) Field(name string) (ent.Value, bool) {
 		return m.UserID()
 	case upload.FieldCameraID:
 		return m.CameraID()
+	case upload.FieldState:
+		return m.State()
+	case upload.FieldReviewCycles:
+		return m.ReviewCycles()
+	case upload.FieldTaggingSeconds:
+		return m.TaggingSeconds()
+	case upload.FieldLastTagActivityAt:
+		return m.LastTagActivityAt()
+	case upload.FieldTimeToReadySeconds:
+		return m.TimeToReadySeconds()
+	case upload.FieldCycleStartedAt:
+		return m.CycleStartedAt()
+	case upload.FieldErrorImageIds:
+		return m.ErrorImageIds()
 	}
 	return nil, false
 }
@@ -11059,6 +11526,20 @@ func (m *UploadMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldUserID(ctx)
 	case upload.FieldCameraID:
 		return m.OldCameraID(ctx)
+	case upload.FieldState:
+		return m.OldState(ctx)
+	case upload.FieldReviewCycles:
+		return m.OldReviewCycles(ctx)
+	case upload.FieldTaggingSeconds:
+		return m.OldTaggingSeconds(ctx)
+	case upload.FieldLastTagActivityAt:
+		return m.OldLastTagActivityAt(ctx)
+	case upload.FieldTimeToReadySeconds:
+		return m.OldTimeToReadySeconds(ctx)
+	case upload.FieldCycleStartedAt:
+		return m.OldCycleStartedAt(ctx)
+	case upload.FieldErrorImageIds:
+		return m.OldErrorImageIds(ctx)
 	}
 	return nil, fmt.Errorf("unknown Upload field %s", name)
 }
@@ -11124,6 +11605,55 @@ func (m *UploadMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCameraID(v)
 		return nil
+	case upload.FieldState:
+		v, ok := value.(upload.State)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetState(v)
+		return nil
+	case upload.FieldReviewCycles:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewCycles(v)
+		return nil
+	case upload.FieldTaggingSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTaggingSeconds(v)
+		return nil
+	case upload.FieldLastTagActivityAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastTagActivityAt(v)
+		return nil
+	case upload.FieldTimeToReadySeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimeToReadySeconds(v)
+		return nil
+	case upload.FieldCycleStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCycleStartedAt(v)
+		return nil
+	case upload.FieldErrorImageIds:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetErrorImageIds(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Upload field %s", name)
 }
@@ -11131,13 +11661,31 @@ func (m *UploadMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *UploadMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addreviewCycles != nil {
+		fields = append(fields, upload.FieldReviewCycles)
+	}
+	if m.addtaggingSeconds != nil {
+		fields = append(fields, upload.FieldTaggingSeconds)
+	}
+	if m.addtimeToReadySeconds != nil {
+		fields = append(fields, upload.FieldTimeToReadySeconds)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *UploadMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case upload.FieldReviewCycles:
+		return m.AddedReviewCycles()
+	case upload.FieldTaggingSeconds:
+		return m.AddedTaggingSeconds()
+	case upload.FieldTimeToReadySeconds:
+		return m.AddedTimeToReadySeconds()
+	}
 	return nil, false
 }
 
@@ -11146,6 +11694,27 @@ func (m *UploadMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *UploadMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case upload.FieldReviewCycles:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReviewCycles(v)
+		return nil
+	case upload.FieldTaggingSeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTaggingSeconds(v)
+		return nil
+	case upload.FieldTimeToReadySeconds:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTimeToReadySeconds(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Upload numeric field %s", name)
 }
@@ -11159,6 +11728,15 @@ func (m *UploadMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(upload.FieldUpdatedBy) {
 		fields = append(fields, upload.FieldUpdatedBy)
+	}
+	if m.FieldCleared(upload.FieldLastTagActivityAt) {
+		fields = append(fields, upload.FieldLastTagActivityAt)
+	}
+	if m.FieldCleared(upload.FieldCycleStartedAt) {
+		fields = append(fields, upload.FieldCycleStartedAt)
+	}
+	if m.FieldCleared(upload.FieldErrorImageIds) {
+		fields = append(fields, upload.FieldErrorImageIds)
 	}
 	return fields
 }
@@ -11179,6 +11757,15 @@ func (m *UploadMutation) ClearField(name string) error {
 		return nil
 	case upload.FieldUpdatedBy:
 		m.ClearUpdatedBy()
+		return nil
+	case upload.FieldLastTagActivityAt:
+		m.ClearLastTagActivityAt()
+		return nil
+	case upload.FieldCycleStartedAt:
+		m.ClearCycleStartedAt()
+		return nil
+	case upload.FieldErrorImageIds:
+		m.ClearErrorImageIds()
 		return nil
 	}
 	return fmt.Errorf("unknown Upload nullable field %s", name)
@@ -11211,6 +11798,27 @@ func (m *UploadMutation) ResetField(name string) error {
 		return nil
 	case upload.FieldCameraID:
 		m.ResetCameraID()
+		return nil
+	case upload.FieldState:
+		m.ResetState()
+		return nil
+	case upload.FieldReviewCycles:
+		m.ResetReviewCycles()
+		return nil
+	case upload.FieldTaggingSeconds:
+		m.ResetTaggingSeconds()
+		return nil
+	case upload.FieldLastTagActivityAt:
+		m.ResetLastTagActivityAt()
+		return nil
+	case upload.FieldTimeToReadySeconds:
+		m.ResetTimeToReadySeconds()
+		return nil
+	case upload.FieldCycleStartedAt:
+		m.ResetCycleStartedAt()
+		return nil
+	case upload.FieldErrorImageIds:
+		m.ResetErrorImageIds()
 		return nil
 	}
 	return fmt.Errorf("unknown Upload field %s", name)

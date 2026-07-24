@@ -105,6 +105,96 @@ func (_c *UploadCreate) SetCameraID(v string) *UploadCreate {
 	return _c
 }
 
+// SetState sets the "state" field.
+func (_c *UploadCreate) SetState(v upload.State) *UploadCreate {
+	_c.mutation.SetState(v)
+	return _c
+}
+
+// SetNillableState sets the "state" field if the given value is not nil.
+func (_c *UploadCreate) SetNillableState(v *upload.State) *UploadCreate {
+	if v != nil {
+		_c.SetState(*v)
+	}
+	return _c
+}
+
+// SetReviewCycles sets the "reviewCycles" field.
+func (_c *UploadCreate) SetReviewCycles(v int) *UploadCreate {
+	_c.mutation.SetReviewCycles(v)
+	return _c
+}
+
+// SetNillableReviewCycles sets the "reviewCycles" field if the given value is not nil.
+func (_c *UploadCreate) SetNillableReviewCycles(v *int) *UploadCreate {
+	if v != nil {
+		_c.SetReviewCycles(*v)
+	}
+	return _c
+}
+
+// SetTaggingSeconds sets the "taggingSeconds" field.
+func (_c *UploadCreate) SetTaggingSeconds(v int) *UploadCreate {
+	_c.mutation.SetTaggingSeconds(v)
+	return _c
+}
+
+// SetNillableTaggingSeconds sets the "taggingSeconds" field if the given value is not nil.
+func (_c *UploadCreate) SetNillableTaggingSeconds(v *int) *UploadCreate {
+	if v != nil {
+		_c.SetTaggingSeconds(*v)
+	}
+	return _c
+}
+
+// SetLastTagActivityAt sets the "lastTagActivityAt" field.
+func (_c *UploadCreate) SetLastTagActivityAt(v time.Time) *UploadCreate {
+	_c.mutation.SetLastTagActivityAt(v)
+	return _c
+}
+
+// SetNillableLastTagActivityAt sets the "lastTagActivityAt" field if the given value is not nil.
+func (_c *UploadCreate) SetNillableLastTagActivityAt(v *time.Time) *UploadCreate {
+	if v != nil {
+		_c.SetLastTagActivityAt(*v)
+	}
+	return _c
+}
+
+// SetTimeToReadySeconds sets the "timeToReadySeconds" field.
+func (_c *UploadCreate) SetTimeToReadySeconds(v int) *UploadCreate {
+	_c.mutation.SetTimeToReadySeconds(v)
+	return _c
+}
+
+// SetNillableTimeToReadySeconds sets the "timeToReadySeconds" field if the given value is not nil.
+func (_c *UploadCreate) SetNillableTimeToReadySeconds(v *int) *UploadCreate {
+	if v != nil {
+		_c.SetTimeToReadySeconds(*v)
+	}
+	return _c
+}
+
+// SetCycleStartedAt sets the "cycleStartedAt" field.
+func (_c *UploadCreate) SetCycleStartedAt(v time.Time) *UploadCreate {
+	_c.mutation.SetCycleStartedAt(v)
+	return _c
+}
+
+// SetNillableCycleStartedAt sets the "cycleStartedAt" field if the given value is not nil.
+func (_c *UploadCreate) SetNillableCycleStartedAt(v *time.Time) *UploadCreate {
+	if v != nil {
+		_c.SetCycleStartedAt(*v)
+	}
+	return _c
+}
+
+// SetErrorImageIds sets the "errorImageIds" field.
+func (_c *UploadCreate) SetErrorImageIds(v []string) *UploadCreate {
+	_c.mutation.SetErrorImageIds(v)
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *UploadCreate) SetID(v string) *UploadCreate {
 	_c.mutation.SetID(v)
@@ -192,6 +282,26 @@ func (_c *UploadCreate) defaults() {
 		v := upload.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.State(); !ok {
+		v := upload.DefaultState
+		_c.mutation.SetState(v)
+	}
+	if _, ok := _c.mutation.ReviewCycles(); !ok {
+		v := upload.DefaultReviewCycles
+		_c.mutation.SetReviewCycles(v)
+	}
+	if _, ok := _c.mutation.TaggingSeconds(); !ok {
+		v := upload.DefaultTaggingSeconds
+		_c.mutation.SetTaggingSeconds(v)
+	}
+	if _, ok := _c.mutation.TimeToReadySeconds(); !ok {
+		v := upload.DefaultTimeToReadySeconds
+		_c.mutation.SetTimeToReadySeconds(v)
+	}
+	if _, ok := _c.mutation.ErrorImageIds(); !ok {
+		v := upload.DefaultErrorImageIds
+		_c.mutation.SetErrorImageIds(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := upload.DefaultID()
 		_c.mutation.SetID(v)
@@ -222,6 +332,38 @@ func (_c *UploadCreate) check() error {
 	}
 	if _, ok := _c.mutation.CameraID(); !ok {
 		return &ValidationError{Name: "camera_id", err: errors.New(`ent: missing required field "Upload.camera_id"`)}
+	}
+	if _, ok := _c.mutation.State(); !ok {
+		return &ValidationError{Name: "state", err: errors.New(`ent: missing required field "Upload.state"`)}
+	}
+	if v, ok := _c.mutation.State(); ok {
+		if err := upload.StateValidator(v); err != nil {
+			return &ValidationError{Name: "state", err: fmt.Errorf(`ent: validator failed for field "Upload.state": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ReviewCycles(); !ok {
+		return &ValidationError{Name: "reviewCycles", err: errors.New(`ent: missing required field "Upload.reviewCycles"`)}
+	}
+	if v, ok := _c.mutation.ReviewCycles(); ok {
+		if err := upload.ReviewCyclesValidator(v); err != nil {
+			return &ValidationError{Name: "reviewCycles", err: fmt.Errorf(`ent: validator failed for field "Upload.reviewCycles": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.TaggingSeconds(); !ok {
+		return &ValidationError{Name: "taggingSeconds", err: errors.New(`ent: missing required field "Upload.taggingSeconds"`)}
+	}
+	if v, ok := _c.mutation.TaggingSeconds(); ok {
+		if err := upload.TaggingSecondsValidator(v); err != nil {
+			return &ValidationError{Name: "taggingSeconds", err: fmt.Errorf(`ent: validator failed for field "Upload.taggingSeconds": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.TimeToReadySeconds(); !ok {
+		return &ValidationError{Name: "timeToReadySeconds", err: errors.New(`ent: missing required field "Upload.timeToReadySeconds"`)}
+	}
+	if v, ok := _c.mutation.TimeToReadySeconds(); ok {
+		if err := upload.TimeToReadySecondsValidator(v); err != nil {
+			return &ValidationError{Name: "timeToReadySeconds", err: fmt.Errorf(`ent: validator failed for field "Upload.timeToReadySeconds": %w`, err)}
+		}
 	}
 	if v, ok := _c.mutation.ID(); ok {
 		if err := upload.IDValidator(v); err != nil {
@@ -291,6 +433,34 @@ func (_c *UploadCreate) createSpec() (*Upload, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(upload.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.State(); ok {
+		_spec.SetField(upload.FieldState, field.TypeEnum, value)
+		_node.State = value
+	}
+	if value, ok := _c.mutation.ReviewCycles(); ok {
+		_spec.SetField(upload.FieldReviewCycles, field.TypeInt, value)
+		_node.ReviewCycles = value
+	}
+	if value, ok := _c.mutation.TaggingSeconds(); ok {
+		_spec.SetField(upload.FieldTaggingSeconds, field.TypeInt, value)
+		_node.TaggingSeconds = value
+	}
+	if value, ok := _c.mutation.LastTagActivityAt(); ok {
+		_spec.SetField(upload.FieldLastTagActivityAt, field.TypeTime, value)
+		_node.LastTagActivityAt = &value
+	}
+	if value, ok := _c.mutation.TimeToReadySeconds(); ok {
+		_spec.SetField(upload.FieldTimeToReadySeconds, field.TypeInt, value)
+		_node.TimeToReadySeconds = value
+	}
+	if value, ok := _c.mutation.CycleStartedAt(); ok {
+		_spec.SetField(upload.FieldCycleStartedAt, field.TypeTime, value)
+		_node.CycleStartedAt = &value
+	}
+	if value, ok := _c.mutation.ErrorImageIds(); ok {
+		_spec.SetField(upload.FieldErrorImageIds, field.TypeJSON, value)
+		_node.ErrorImageIds = value
 	}
 	if nodes := _c.mutation.ProjectIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

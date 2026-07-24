@@ -18,6 +18,14 @@
         :item="item"
       />
       <DetailEditGroup :allow-edit="userStore.isProjectAdminOrHigher()" @edit-save="saveItem" headline="AI Options" subtitle="Options for AI image tagging" :fields="aiFields" :item="item" />
+      <DetailEditGroup
+        :allow-edit="userStore.isProjectAdminOrHigher()"
+        @edit-save="saveItem"
+        headline="Upload Review"
+        subtitle="Let photographers submit uploads for review before their tags are final"
+        :fields="reviewFields"
+        :item="item"
+      />
     </div>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -90,6 +98,10 @@ const informationFields: Field<ITEM_TYPE>[] = [
 ];
 
 const aiFields: Field<ITEM_TYPE>[] = [{ key: "aiSystemMessage", label: "System Message", type: FieldType.TEXT }];
+
+const reviewFields: Field<ITEM_TYPE>[] = [
+  { key: "uploadReviewEnabled", label: "Upload reviews", type: FieldType.BOOLEAN, hint: "Enable the open / ready / reviewed flow" },
+];
 
 const copyrightFields: Field<ITEM_TYPE>[] = [
   { key: "copyright", label: "Copyright", type: FieldType.TEXT },

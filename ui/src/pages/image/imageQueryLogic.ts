@@ -6,6 +6,8 @@ import { ImageTag } from "src/types/api";
 import { ImageWithTagsType } from "src/types/custom";
 import { buildImageListParams } from "src/pages/image/imageListParams";
 import { emitter, showNotificationToast } from "src/boot/mitt";
+import { canEditImageTag } from "src/pages/upload/uploadUtil";
+import { isReviewErrorTag } from "src/util/uploadReview";
 
 export { buildImageListParams };
 
@@ -103,6 +105,15 @@ export async function loadImages(reload: boolean) {
 }
 
 export async function addImageTag(image: ImageWithTagsType, tag: ImageTag) {
+  // Every tag assignment (dialog, hotkey, repeat-last) funnels through here, so
+  // this is the one place the review freeze has to be honored client-side.
+  if (!canEditImageTag(image, tag)) {
+    showNotificationToast({
+      headline: isReviewErrorTag(tag.name) ? `Only a project admin can set '${tag.name}'` : `'${tag.name}' is frozen while the upload is in review`,
+      type: "warning",
+    });
+    return;
+  }
   const applyTag = async (image: ImageWithTagsType, tag: ImageTag) => {
     const assignment = await api.imageTagAssignments.create({
       imageId: image.id,
@@ -210,6 +221,10 @@ export async function toggleTagByName(tagName: string) {
   }
   if (!image.tags.some((a) => a.tag.id === tag.id)) {
     await addImageTag(image, tag);
+    return;
+  }
+  if (!canEditImageTag(image, tag)) {
+    showNotificationToast({ headline: `'${tag.name}' is frozen while the upload is in review`, type: "warning" });
     return;
   }
   const targets = new Set(imageIndices.value);

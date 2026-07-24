@@ -107,13 +107,13 @@ type createProjectAssignmentPayload struct {
 }
 
 func (s *Server) createProjectAssignment(c *gin.Context) {
-	// authz (S8): admin only.
-	if !allow(c, authorization.IsAdminUser(authUser(c))) {
-		return
-	}
+	// authz: admin, or a projectAdmin of the target project.
 	var payload createProjectAssignmentPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if !allow(c, authorization.CanManageProjectAssignment(authUser(c), payload.ProjectID)) {
 		return
 	}
 	uid, err := uuid.Parse(payload.UserID)
@@ -133,12 +133,16 @@ func (s *Server) createProjectAssignment(c *gin.Context) {
 }
 
 func (s *Server) updateProjectAssignment(c *gin.Context) {
-	// authz (S8): admin only.
-	if !allow(c, authorization.IsAdminUser(authUser(c))) {
-		return
-	}
+	// authz: admin, or a projectAdmin of the assignment's project.
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	existing, err := s.Repository.GetProjectAssignment(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanManageProjectAssignment(authUser(c), existing.ProjectID)) {
 		return
 	}
 	var payload struct {
@@ -156,12 +160,16 @@ func (s *Server) updateProjectAssignment(c *gin.Context) {
 }
 
 func (s *Server) deleteProjectAssignment(c *gin.Context) {
-	// authz (S8): admin only.
-	if !allow(c, authorization.IsAdminUser(authUser(c))) {
-		return
-	}
+	// authz: admin, or a projectAdmin of the assignment's project.
 	id, ok := getIdParam(c)
 	if !ok {
+		return
+	}
+	existing, err := s.Repository.GetProjectAssignment(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanManageProjectAssignment(authUser(c), existing.ProjectID)) {
 		return
 	}
 	if err := s.Repository.DeleteProjectAssignment(c.Request.Context(), id); err != nil {

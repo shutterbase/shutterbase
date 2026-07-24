@@ -315,6 +315,7 @@ var (
 		{Name: "location_code", Type: field.TypeString},
 		{Name: "location_city", Type: field.TypeString},
 		{Name: "ai_system_message", Type: field.TypeString, Nullable: true},
+		{Name: "upload_review_enabled", Type: field.TypeBool, Default: false},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{
@@ -433,6 +434,13 @@ var (
 		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "name", Type: field.TypeString},
+		{Name: "state", Type: field.TypeEnum, Enums: []string{"open", "ready", "reviewed"}, Default: "open"},
+		{Name: "review_cycles", Type: field.TypeInt, Default: 0},
+		{Name: "tagging_seconds", Type: field.TypeInt, Default: 0},
+		{Name: "last_tag_activity_at", Type: field.TypeTime, Nullable: true},
+		{Name: "time_to_ready_seconds", Type: field.TypeInt, Default: 0},
+		{Name: "cycle_started_at", Type: field.TypeTime, Nullable: true},
+		{Name: "error_image_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "camera_id", Type: field.TypeString, Size: 15},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
 		{Name: "user_id", Type: field.TypeUUID},
@@ -445,19 +453,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "uploads_cameras_uploads",
-				Columns:    []*schema.Column{UploadsColumns[6]},
+				Columns:    []*schema.Column{UploadsColumns[13]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "uploads_projects_uploads",
-				Columns:    []*schema.Column{UploadsColumns[7]},
+				Columns:    []*schema.Column{UploadsColumns[14]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "uploads_users_uploads",
-				Columns:    []*schema.Column{UploadsColumns[8]},
+				Columns:    []*schema.Column{UploadsColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -466,17 +474,22 @@ var (
 			{
 				Name:    "upload_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[7]},
+				Columns: []*schema.Column{UploadsColumns[14]},
 			},
 			{
 				Name:    "upload_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[8]},
+				Columns: []*schema.Column{UploadsColumns[15]},
 			},
 			{
 				Name:    "upload_camera_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[6]},
+				Columns: []*schema.Column{UploadsColumns[13]},
+			},
+			{
+				Name:    "upload_project_id_state",
+				Unique:  false,
+				Columns: []*schema.Column{UploadsColumns[14], UploadsColumns[6]},
 			},
 		},
 	}

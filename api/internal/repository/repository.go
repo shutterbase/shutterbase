@@ -16,6 +16,7 @@ package repository
 
 import (
 	"errors"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/rs/zerolog/log"
@@ -31,6 +32,9 @@ type Repository struct {
 
 type Options struct {
 	DatabaseConnection *database.Connection
+	// TaggingIdleThreshold caps the gap between two tagging actions that still
+	// counts as working time (TAGGING_IDLE_THRESHOLD). Zero -> package default.
+	TaggingIdleThreshold time.Duration
 }
 
 func NewRepository(options *Options) (*Repository, error) {

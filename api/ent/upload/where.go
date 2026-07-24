@@ -106,6 +106,31 @@ func CameraID(v string) predicate.Upload {
 	return predicate.Upload(sql.FieldEQ(FieldCameraID, v))
 }
 
+// ReviewCycles applies equality check predicate on the "reviewCycles" field. It's identical to ReviewCyclesEQ.
+func ReviewCycles(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldReviewCycles, v))
+}
+
+// TaggingSeconds applies equality check predicate on the "taggingSeconds" field. It's identical to TaggingSecondsEQ.
+func TaggingSeconds(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldTaggingSeconds, v))
+}
+
+// LastTagActivityAt applies equality check predicate on the "lastTagActivityAt" field. It's identical to LastTagActivityAtEQ.
+func LastTagActivityAt(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldLastTagActivityAt, v))
+}
+
+// TimeToReadySeconds applies equality check predicate on the "timeToReadySeconds" field. It's identical to TimeToReadySecondsEQ.
+func TimeToReadySeconds(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldTimeToReadySeconds, v))
+}
+
+// CycleStartedAt applies equality check predicate on the "cycleStartedAt" field. It's identical to CycleStartedAtEQ.
+func CycleStartedAt(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldCycleStartedAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "createdAt" field.
 func CreatedAtEQ(v time.Time) predicate.Upload {
 	return predicate.Upload(sql.FieldEQ(FieldCreatedAt, v))
@@ -499,6 +524,256 @@ func CameraIDEqualFold(v string) predicate.Upload {
 // CameraIDContainsFold applies the ContainsFold predicate on the "camera_id" field.
 func CameraIDContainsFold(v string) predicate.Upload {
 	return predicate.Upload(sql.FieldContainsFold(FieldCameraID, v))
+}
+
+// StateEQ applies the EQ predicate on the "state" field.
+func StateEQ(v State) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldState, v))
+}
+
+// StateNEQ applies the NEQ predicate on the "state" field.
+func StateNEQ(v State) predicate.Upload {
+	return predicate.Upload(sql.FieldNEQ(FieldState, v))
+}
+
+// StateIn applies the In predicate on the "state" field.
+func StateIn(vs ...State) predicate.Upload {
+	return predicate.Upload(sql.FieldIn(FieldState, vs...))
+}
+
+// StateNotIn applies the NotIn predicate on the "state" field.
+func StateNotIn(vs ...State) predicate.Upload {
+	return predicate.Upload(sql.FieldNotIn(FieldState, vs...))
+}
+
+// ReviewCyclesEQ applies the EQ predicate on the "reviewCycles" field.
+func ReviewCyclesEQ(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldReviewCycles, v))
+}
+
+// ReviewCyclesNEQ applies the NEQ predicate on the "reviewCycles" field.
+func ReviewCyclesNEQ(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldNEQ(FieldReviewCycles, v))
+}
+
+// ReviewCyclesIn applies the In predicate on the "reviewCycles" field.
+func ReviewCyclesIn(vs ...int) predicate.Upload {
+	return predicate.Upload(sql.FieldIn(FieldReviewCycles, vs...))
+}
+
+// ReviewCyclesNotIn applies the NotIn predicate on the "reviewCycles" field.
+func ReviewCyclesNotIn(vs ...int) predicate.Upload {
+	return predicate.Upload(sql.FieldNotIn(FieldReviewCycles, vs...))
+}
+
+// ReviewCyclesGT applies the GT predicate on the "reviewCycles" field.
+func ReviewCyclesGT(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldGT(FieldReviewCycles, v))
+}
+
+// ReviewCyclesGTE applies the GTE predicate on the "reviewCycles" field.
+func ReviewCyclesGTE(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldGTE(FieldReviewCycles, v))
+}
+
+// ReviewCyclesLT applies the LT predicate on the "reviewCycles" field.
+func ReviewCyclesLT(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldLT(FieldReviewCycles, v))
+}
+
+// ReviewCyclesLTE applies the LTE predicate on the "reviewCycles" field.
+func ReviewCyclesLTE(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldLTE(FieldReviewCycles, v))
+}
+
+// TaggingSecondsEQ applies the EQ predicate on the "taggingSeconds" field.
+func TaggingSecondsEQ(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldTaggingSeconds, v))
+}
+
+// TaggingSecondsNEQ applies the NEQ predicate on the "taggingSeconds" field.
+func TaggingSecondsNEQ(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldNEQ(FieldTaggingSeconds, v))
+}
+
+// TaggingSecondsIn applies the In predicate on the "taggingSeconds" field.
+func TaggingSecondsIn(vs ...int) predicate.Upload {
+	return predicate.Upload(sql.FieldIn(FieldTaggingSeconds, vs...))
+}
+
+// TaggingSecondsNotIn applies the NotIn predicate on the "taggingSeconds" field.
+func TaggingSecondsNotIn(vs ...int) predicate.Upload {
+	return predicate.Upload(sql.FieldNotIn(FieldTaggingSeconds, vs...))
+}
+
+// TaggingSecondsGT applies the GT predicate on the "taggingSeconds" field.
+func TaggingSecondsGT(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldGT(FieldTaggingSeconds, v))
+}
+
+// TaggingSecondsGTE applies the GTE predicate on the "taggingSeconds" field.
+func TaggingSecondsGTE(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldGTE(FieldTaggingSeconds, v))
+}
+
+// TaggingSecondsLT applies the LT predicate on the "taggingSeconds" field.
+func TaggingSecondsLT(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldLT(FieldTaggingSeconds, v))
+}
+
+// TaggingSecondsLTE applies the LTE predicate on the "taggingSeconds" field.
+func TaggingSecondsLTE(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldLTE(FieldTaggingSeconds, v))
+}
+
+// LastTagActivityAtEQ applies the EQ predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtEQ(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldLastTagActivityAt, v))
+}
+
+// LastTagActivityAtNEQ applies the NEQ predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtNEQ(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldNEQ(FieldLastTagActivityAt, v))
+}
+
+// LastTagActivityAtIn applies the In predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtIn(vs ...time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldIn(FieldLastTagActivityAt, vs...))
+}
+
+// LastTagActivityAtNotIn applies the NotIn predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtNotIn(vs ...time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldNotIn(FieldLastTagActivityAt, vs...))
+}
+
+// LastTagActivityAtGT applies the GT predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtGT(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldGT(FieldLastTagActivityAt, v))
+}
+
+// LastTagActivityAtGTE applies the GTE predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtGTE(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldGTE(FieldLastTagActivityAt, v))
+}
+
+// LastTagActivityAtLT applies the LT predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtLT(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldLT(FieldLastTagActivityAt, v))
+}
+
+// LastTagActivityAtLTE applies the LTE predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtLTE(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldLTE(FieldLastTagActivityAt, v))
+}
+
+// LastTagActivityAtIsNil applies the IsNil predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtIsNil() predicate.Upload {
+	return predicate.Upload(sql.FieldIsNull(FieldLastTagActivityAt))
+}
+
+// LastTagActivityAtNotNil applies the NotNil predicate on the "lastTagActivityAt" field.
+func LastTagActivityAtNotNil() predicate.Upload {
+	return predicate.Upload(sql.FieldNotNull(FieldLastTagActivityAt))
+}
+
+// TimeToReadySecondsEQ applies the EQ predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsEQ(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldTimeToReadySeconds, v))
+}
+
+// TimeToReadySecondsNEQ applies the NEQ predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsNEQ(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldNEQ(FieldTimeToReadySeconds, v))
+}
+
+// TimeToReadySecondsIn applies the In predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsIn(vs ...int) predicate.Upload {
+	return predicate.Upload(sql.FieldIn(FieldTimeToReadySeconds, vs...))
+}
+
+// TimeToReadySecondsNotIn applies the NotIn predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsNotIn(vs ...int) predicate.Upload {
+	return predicate.Upload(sql.FieldNotIn(FieldTimeToReadySeconds, vs...))
+}
+
+// TimeToReadySecondsGT applies the GT predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsGT(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldGT(FieldTimeToReadySeconds, v))
+}
+
+// TimeToReadySecondsGTE applies the GTE predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsGTE(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldGTE(FieldTimeToReadySeconds, v))
+}
+
+// TimeToReadySecondsLT applies the LT predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsLT(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldLT(FieldTimeToReadySeconds, v))
+}
+
+// TimeToReadySecondsLTE applies the LTE predicate on the "timeToReadySeconds" field.
+func TimeToReadySecondsLTE(v int) predicate.Upload {
+	return predicate.Upload(sql.FieldLTE(FieldTimeToReadySeconds, v))
+}
+
+// CycleStartedAtEQ applies the EQ predicate on the "cycleStartedAt" field.
+func CycleStartedAtEQ(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldEQ(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtNEQ applies the NEQ predicate on the "cycleStartedAt" field.
+func CycleStartedAtNEQ(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldNEQ(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtIn applies the In predicate on the "cycleStartedAt" field.
+func CycleStartedAtIn(vs ...time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldIn(FieldCycleStartedAt, vs...))
+}
+
+// CycleStartedAtNotIn applies the NotIn predicate on the "cycleStartedAt" field.
+func CycleStartedAtNotIn(vs ...time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldNotIn(FieldCycleStartedAt, vs...))
+}
+
+// CycleStartedAtGT applies the GT predicate on the "cycleStartedAt" field.
+func CycleStartedAtGT(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldGT(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtGTE applies the GTE predicate on the "cycleStartedAt" field.
+func CycleStartedAtGTE(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldGTE(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtLT applies the LT predicate on the "cycleStartedAt" field.
+func CycleStartedAtLT(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldLT(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtLTE applies the LTE predicate on the "cycleStartedAt" field.
+func CycleStartedAtLTE(v time.Time) predicate.Upload {
+	return predicate.Upload(sql.FieldLTE(FieldCycleStartedAt, v))
+}
+
+// CycleStartedAtIsNil applies the IsNil predicate on the "cycleStartedAt" field.
+func CycleStartedAtIsNil() predicate.Upload {
+	return predicate.Upload(sql.FieldIsNull(FieldCycleStartedAt))
+}
+
+// CycleStartedAtNotNil applies the NotNil predicate on the "cycleStartedAt" field.
+func CycleStartedAtNotNil() predicate.Upload {
+	return predicate.Upload(sql.FieldNotNull(FieldCycleStartedAt))
+}
+
+// ErrorImageIdsIsNil applies the IsNil predicate on the "errorImageIds" field.
+func ErrorImageIdsIsNil() predicate.Upload {
+	return predicate.Upload(sql.FieldIsNull(FieldErrorImageIds))
+}
+
+// ErrorImageIdsNotNil applies the NotNil predicate on the "errorImageIds" field.
+func ErrorImageIdsNotNil() predicate.Upload {
+	return predicate.Upload(sql.FieldNotNull(FieldErrorImageIds))
 }
 
 // HasProject applies the HasEdge predicate on the "project" edge.

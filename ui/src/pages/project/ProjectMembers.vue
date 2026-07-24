@@ -40,9 +40,9 @@ import { useUserStore } from "src/stores/user-store";
 const route = useRoute();
 const userStore = useUserStore();
 
-// Backend restricts create/update/delete of assignments to global admins;
-// projectAdmins reach this page (via the nav) with a read-only roster.
-const canManage = computed(() => userStore.isAdmin());
+// A projectAdmin manages the roster of their own project; a global admin manages
+// every project's (mirrors authorization.CanManageProjectAssignment).
+const canManage = computed(() => userStore.isProjectAdminOrHigher());
 
 const projectId = computed(() => `${route.params.id}`);
 

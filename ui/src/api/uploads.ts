@@ -1,9 +1,10 @@
 import { http } from "src/boot/axios";
-import { Upload, ListResponse } from "src/types/api";
+import { Upload, ListResponse, UploadState } from "src/types/api";
 
 export interface UploadListParams {
   projectId?: string;
   userId?: string;
+  state?: UploadState;
   limit?: number;
   offset?: number;
   sort?: string;
@@ -19,6 +20,7 @@ export interface UploadCreate {
 
 export interface UploadUpdate {
   name?: string;
+  state?: UploadState;
 }
 
 export async function list(params: UploadListParams = {}): Promise<ListResponse<Upload>> {

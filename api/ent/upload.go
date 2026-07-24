@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -37,6 +38,20 @@ type Upload struct {
 	UserID uuid.UUID `json:"-"`
 	// CameraID holds the value of the "camera_id" field.
 	CameraID string `json:"-"`
+	// State holds the value of the "state" field.
+	State upload.State `json:"state"`
+	// ReviewCycles holds the value of the "reviewCycles" field.
+	ReviewCycles int `json:"reviewCycles"`
+	// TaggingSeconds holds the value of the "taggingSeconds" field.
+	TaggingSeconds int `json:"taggingSeconds"`
+	// LastTagActivityAt holds the value of the "lastTagActivityAt" field.
+	LastTagActivityAt *time.Time `json:"lastTagActivityAt,omitempty"`
+	// TimeToReadySeconds holds the value of the "timeToReadySeconds" field.
+	TimeToReadySeconds int `json:"timeToReadySeconds"`
+	// CycleStartedAt holds the value of the "cycleStartedAt" field.
+	CycleStartedAt *time.Time `json:"cycleStartedAt,omitempty"`
+	// ErrorImageIds holds the value of the "errorImageIds" field.
+	ErrorImageIds []string `json:"errorImageIds"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UploadQuery when eager-loading is set.
 	Edges        UploadEdges `json:"edges"`
@@ -107,9 +122,13 @@ func (*Upload) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case upload.FieldCreatedBy, upload.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case upload.FieldID, upload.FieldName, upload.FieldProjectID, upload.FieldCameraID:
+		case upload.FieldErrorImageIds:
+			values[i] = new([]byte)
+		case upload.FieldReviewCycles, upload.FieldTaggingSeconds, upload.FieldTimeToReadySeconds:
+			values[i] = new(sql.NullInt64)
+		case upload.FieldID, upload.FieldName, upload.FieldProjectID, upload.FieldCameraID, upload.FieldState:
 			values[i] = new(sql.NullString)
-		case upload.FieldCreatedAt, upload.FieldUpdatedAt:
+		case upload.FieldCreatedAt, upload.FieldUpdatedAt, upload.FieldLastTagActivityAt, upload.FieldCycleStartedAt:
 			values[i] = new(sql.NullTime)
 		case upload.FieldUserID:
 			values[i] = new(uuid.UUID)
@@ -183,6 +202,52 @@ func (_m *Upload) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field camera_id", values[i])
 			} else if value.Valid {
 				_m.CameraID = value.String
+			}
+		case upload.FieldState:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field state", values[i])
+			} else if value.Valid {
+				_m.State = upload.State(value.String)
+			}
+		case upload.FieldReviewCycles:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field reviewCycles", values[i])
+			} else if value.Valid {
+				_m.ReviewCycles = int(value.Int64)
+			}
+		case upload.FieldTaggingSeconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field taggingSeconds", values[i])
+			} else if value.Valid {
+				_m.TaggingSeconds = int(value.Int64)
+			}
+		case upload.FieldLastTagActivityAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field lastTagActivityAt", values[i])
+			} else if value.Valid {
+				_m.LastTagActivityAt = new(time.Time)
+				*_m.LastTagActivityAt = value.Time
+			}
+		case upload.FieldTimeToReadySeconds:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field timeToReadySeconds", values[i])
+			} else if value.Valid {
+				_m.TimeToReadySeconds = int(value.Int64)
+			}
+		case upload.FieldCycleStartedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field cycleStartedAt", values[i])
+			} else if value.Valid {
+				_m.CycleStartedAt = new(time.Time)
+				*_m.CycleStartedAt = value.Time
+			}
+		case upload.FieldErrorImageIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field errorImageIds", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ErrorImageIds); err != nil {
+					return fmt.Errorf("unmarshal field errorImageIds: %w", err)
+				}
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -267,6 +332,31 @@ func (_m *Upload) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("camera_id=")
 	builder.WriteString(_m.CameraID)
+	builder.WriteString(", ")
+	builder.WriteString("state=")
+	builder.WriteString(fmt.Sprintf("%v", _m.State))
+	builder.WriteString(", ")
+	builder.WriteString("reviewCycles=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReviewCycles))
+	builder.WriteString(", ")
+	builder.WriteString("taggingSeconds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TaggingSeconds))
+	builder.WriteString(", ")
+	if v := _m.LastTagActivityAt; v != nil {
+		builder.WriteString("lastTagActivityAt=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("timeToReadySeconds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TimeToReadySeconds))
+	builder.WriteString(", ")
+	if v := _m.CycleStartedAt; v != nil {
+		builder.WriteString("cycleStartedAt=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("errorImageIds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ErrorImageIds))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -25,7 +25,7 @@ func projectRefByID(ctx context.Context, repo *repository.Repository, id string)
 	if err != nil {
 		return nil
 	}
-	return gin.H{"id": p.ID, "name": p.Name}
+	return gin.H{"id": p.ID, "name": p.Name, "uploadReviewEnabled": p.UploadReviewEnabled}
 }
 
 func cameraRefByID(ctx context.Context, repo *repository.Repository, id string) gin.H {

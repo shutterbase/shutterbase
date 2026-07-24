@@ -1,6 +1,8 @@
 <template>
   <div class="px-4 sm:px-6 lg:px-8">
-    <div class="sm:flex sm:items-end sm:justify-between">
+    <!-- hideHeader: for pages that own a toolbar of their own, so the title and
+         the add button do not appear twice (and, in a non-table view, not at all). -->
+    <div v-if="!hideHeader" class="sm:flex sm:items-end sm:justify-between">
       <div class="sm:flex-auto">
         <h1 class="display text-3xl text-primary-900 dark:text-white">{{ capitalize(pluralName) }}</h1>
         <p v-if="subtitle" class="mt-2 text-sm text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
@@ -79,6 +81,7 @@ interface Props {
   subtitle?: string;
 
   allowAdd?: boolean;
+  hideHeader?: boolean;
 
   columns?: TableColumn<T>[];
 
@@ -102,6 +105,7 @@ const props = withDefaults(defineProps<Props>(), {
   subtitle: () => "",
   name: () => "item",
   allowAdd: () => true,
+  hideHeader: () => false,
   dense: () => false,
   loading: () => false,
   columns: () => [],

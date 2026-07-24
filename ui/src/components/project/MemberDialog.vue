@@ -52,10 +52,17 @@
               <div class="space-y-5 px-6 py-5">
                 <div v-if="create">
                   <label for="member-user" class="label-mono block text-primary-500 dark:text-primary-400">User</label>
-                  <select id="member-user" v-model="selectedUserId" :disabled="availableUsers.length === 0" :class="fieldClass">
-                    <option value="" disabled>Select a user…</option>
-                    <option v-for="u in availableUsers" :key="u.id" :value="u.id">{{ u.firstName }} {{ u.lastName }} ({{ u.username }})</option>
-                  </select>
+                  <SearchSelect
+                    id="member-user"
+                    v-model="selectedUserId"
+                    class="mt-2"
+                    aria-label="User"
+                    placeholder="Select a user…"
+                    empty-text="No user matches"
+                    width-class="w-full"
+                    :disabled="availableUsers.length === 0"
+                    :options="userOptions"
+                  />
                   <p v-if="availableUsers.length === 0" class="mt-2 text-sm text-primary-500 dark:text-primary-400">Every user is already a member of this project.</p>
                 </div>
                 <div v-else>
@@ -100,6 +107,7 @@
 
 <script setup lang="ts">
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from "@headlessui/vue";
+import SearchSelect, { SearchSelectOption } from "src/components/SearchSelect.vue";
 import { UserGroupIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import { computed, ref, watch } from "vue";
 import { ProjectAssignment, Role, User } from "src/types/api";
@@ -121,6 +129,10 @@ const emit = defineEmits<{
 
 const fieldClass =
   "mt-2 block h-11 w-full rounded-md border border-primary-200 bg-surface-muted px-3.5 text-sm text-primary-900 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 disabled:opacity-50 dark:border-primary-700 dark:bg-primary-900 dark:text-white dark:hover:border-primary-600";
+
+const userOptions = computed<SearchSelectOption[]>(() =>
+  props.availableUsers.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}`, hint: u.username })),
+);
 
 const selectedUserId = ref("");
 const selectedRoleId = ref("");

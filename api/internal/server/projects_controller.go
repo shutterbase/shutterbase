@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 )
@@ -13,17 +15,18 @@ import (
 // projectResponse is the §4.6 Project object.
 func projectResponse(p *ent.Project) gin.H {
 	return gin.H{
-		"id":                 p.ID,
-		"name":               p.Name,
-		"description":        p.Description,
-		"copyright":          p.Copyright,
-		"copyrightReference": p.CopyrightReference,
-		"locationName":       p.LocationName,
-		"locationCode":       p.LocationCode,
-		"locationCity":       p.LocationCity,
-		"aiSystemMessage":    p.AiSystemMessage,
-		"createdAt":          p.CreatedAt,
-		"updatedAt":          p.UpdatedAt,
+		"id":                  p.ID,
+		"name":                p.Name,
+		"description":         p.Description,
+		"copyright":           p.Copyright,
+		"copyrightReference":  p.CopyrightReference,
+		"locationName":        p.LocationName,
+		"locationCode":        p.LocationCode,
+		"locationCity":        p.LocationCity,
+		"aiSystemMessage":     p.AiSystemMessage,
+		"uploadReviewEnabled": p.UploadReviewEnabled,
+		"createdAt":           p.CreatedAt,
+		"updatedAt":           p.UpdatedAt,
 	}
 }
 
@@ -77,14 +80,15 @@ func (s *Server) getProject(c *gin.Context) {
 }
 
 type createProjectPayload struct {
-	Name               string  `json:"name" binding:"required"`
-	Description        string  `json:"description" binding:"required"`
-	Copyright          string  `json:"copyright" binding:"required"`
-	CopyrightReference string  `json:"copyrightReference" binding:"required"`
-	LocationName       string  `json:"locationName" binding:"required"`
-	LocationCode       string  `json:"locationCode" binding:"required"`
-	LocationCity       string  `json:"locationCity" binding:"required"`
-	AiSystemMessage    *string `json:"aiSystemMessage"`
+	Name                string  `json:"name" binding:"required"`
+	Description         string  `json:"description" binding:"required"`
+	Copyright           string  `json:"copyright" binding:"required"`
+	CopyrightReference  string  `json:"copyrightReference" binding:"required"`
+	LocationName        string  `json:"locationName" binding:"required"`
+	LocationCode        string  `json:"locationCode" binding:"required"`
+	LocationCity        string  `json:"locationCity" binding:"required"`
+	AiSystemMessage     *string `json:"aiSystemMessage"`
+	UploadReviewEnabled *bool   `json:"uploadReviewEnabled"`
 }
 
 func (s *Server) createProject(c *gin.Context) {
@@ -98,14 +102,15 @@ func (s *Server) createProject(c *gin.Context) {
 		return
 	}
 	p, err := s.Repository.CreateProject(c.Request.Context(), &repository.CreateProjectParameters{
-		Name:               payload.Name,
-		Description:        payload.Description,
-		Copyright:          payload.Copyright,
-		CopyrightReference: payload.CopyrightReference,
-		LocationName:       payload.LocationName,
-		LocationCode:       payload.LocationCode,
-		LocationCity:       payload.LocationCity,
-		AiSystemMessage:    payload.AiSystemMessage,
+		Name:                payload.Name,
+		Description:         payload.Description,
+		Copyright:           payload.Copyright,
+		CopyrightReference:  payload.CopyrightReference,
+		LocationName:        payload.LocationName,
+		LocationCode:        payload.LocationCode,
+		LocationCity:        payload.LocationCity,
+		AiSystemMessage:     payload.AiSystemMessage,
+		UploadReviewEnabled: payload.UploadReviewEnabled,
 	})
 	if abortMutationError(c, err) {
 		return
@@ -114,14 +119,15 @@ func (s *Server) createProject(c *gin.Context) {
 }
 
 type updateProjectPayload struct {
-	Name               *string `json:"name"`
-	Description        *string `json:"description"`
-	Copyright          *string `json:"copyright"`
-	CopyrightReference *string `json:"copyrightReference"`
-	LocationName       *string `json:"locationName"`
-	LocationCode       *string `json:"locationCode"`
-	LocationCity       *string `json:"locationCity"`
-	AiSystemMessage    *string `json:"aiSystemMessage"`
+	Name                *string `json:"name"`
+	Description         *string `json:"description"`
+	Copyright           *string `json:"copyright"`
+	CopyrightReference  *string `json:"copyrightReference"`
+	LocationName        *string `json:"locationName"`
+	LocationCode        *string `json:"locationCode"`
+	LocationCity        *string `json:"locationCity"`
+	AiSystemMessage     *string `json:"aiSystemMessage"`
+	UploadReviewEnabled *bool   `json:"uploadReviewEnabled"`
 }
 
 func (s *Server) updateProject(c *gin.Context) {
@@ -140,17 +146,26 @@ func (s *Server) updateProject(c *gin.Context) {
 		return
 	}
 	p, err := s.Repository.UpdateProject(c.Request.Context(), id, &repository.UpdateProjectParameters{
-		Name:               payload.Name,
-		Description:        payload.Description,
-		Copyright:          payload.Copyright,
-		CopyrightReference: payload.CopyrightReference,
-		LocationName:       payload.LocationName,
-		LocationCode:       payload.LocationCode,
-		LocationCity:       payload.LocationCity,
-		AiSystemMessage:    payload.AiSystemMessage,
+		Name:                payload.Name,
+		Description:         payload.Description,
+		Copyright:           payload.Copyright,
+		CopyrightReference:  payload.CopyrightReference,
+		LocationName:        payload.LocationName,
+		LocationCode:        payload.LocationCode,
+		LocationCity:        payload.LocationCity,
+		AiSystemMessage:     payload.AiSystemMessage,
+		UploadReviewEnabled: payload.UploadReviewEnabled,
 	})
 	if abortMutationError(c, err) {
 		return
+	}
+	// Materialize the reserved review error tag the moment a project opts in, so
+	// a reviewer can flag images without first hand-creating the tag.
+	if p.UploadReviewEnabled {
+		if _, err := s.Repository.EnsureImageTag(c.Request.Context(), p.ID,
+			authorization.ReviewErrorTagName, "Tagging error found during upload review", imagetag.TypeCustom); err != nil {
+			log.Error().Err(err).Str("project", p.ID).Msg("failed to ensure review error tag")
+		}
 	}
 	c.JSON(http.StatusOK, projectResponse(p))
 }

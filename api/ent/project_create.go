@@ -138,6 +138,20 @@ func (_c *ProjectCreate) SetNillableAiSystemMessage(v *string) *ProjectCreate {
 	return _c
 }
 
+// SetUploadReviewEnabled sets the "uploadReviewEnabled" field.
+func (_c *ProjectCreate) SetUploadReviewEnabled(v bool) *ProjectCreate {
+	_c.mutation.SetUploadReviewEnabled(v)
+	return _c
+}
+
+// SetNillableUploadReviewEnabled sets the "uploadReviewEnabled" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableUploadReviewEnabled(v *bool) *ProjectCreate {
+	if v != nil {
+		_c.SetUploadReviewEnabled(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *ProjectCreate) SetID(v string) *ProjectCreate {
 	_c.mutation.SetID(v)
@@ -270,6 +284,10 @@ func (_c *ProjectCreate) defaults() {
 		v := project.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.UploadReviewEnabled(); !ok {
+		v := project.DefaultUploadReviewEnabled
+		_c.mutation.SetUploadReviewEnabled(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := project.DefaultID()
 		_c.mutation.SetID(v)
@@ -339,6 +357,9 @@ func (_c *ProjectCreate) check() error {
 		if err := project.LocationCityValidator(v); err != nil {
 			return &ValidationError{Name: "locationCity", err: fmt.Errorf(`ent: validator failed for field "Project.locationCity": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.UploadReviewEnabled(); !ok {
+		return &ValidationError{Name: "uploadReviewEnabled", err: errors.New(`ent: missing required field "Project.uploadReviewEnabled"`)}
 	}
 	if v, ok := _c.mutation.ID(); ok {
 		if err := project.IDValidator(v); err != nil {
@@ -427,6 +448,10 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AiSystemMessage(); ok {
 		_spec.SetField(project.FieldAiSystemMessage, field.TypeString, value)
 		_node.AiSystemMessage = value
+	}
+	if value, ok := _c.mutation.UploadReviewEnabled(); ok {
+		_spec.SetField(project.FieldUploadReviewEnabled, field.TypeBool, value)
+		_node.UploadReviewEnabled = value
 	}
 	if nodes := _c.mutation.UploadsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

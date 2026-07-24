@@ -17,7 +17,7 @@ export interface UserCreate {
   lastName: string;
   copyrightTag?: string;
   active?: boolean;
-  roleId: string;
+  roleId?: string;
   forcePasswordChange?: boolean;
 }
 

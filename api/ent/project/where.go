@@ -126,6 +126,11 @@ func AiSystemMessage(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldAiSystemMessage, v))
 }
 
+// UploadReviewEnabled applies equality check predicate on the "uploadReviewEnabled" field. It's identical to UploadReviewEnabledEQ.
+func UploadReviewEnabled(v bool) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldUploadReviewEnabled, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "createdAt" field.
 func CreatedAtEQ(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldCreatedAt, v))
@@ -834,6 +839,16 @@ func AiSystemMessageEqualFold(v string) predicate.Project {
 // AiSystemMessageContainsFold applies the ContainsFold predicate on the "aiSystemMessage" field.
 func AiSystemMessageContainsFold(v string) predicate.Project {
 	return predicate.Project(sql.FieldContainsFold(FieldAiSystemMessage, v))
+}
+
+// UploadReviewEnabledEQ applies the EQ predicate on the "uploadReviewEnabled" field.
+func UploadReviewEnabledEQ(v bool) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldUploadReviewEnabled, v))
+}
+
+// UploadReviewEnabledNEQ applies the NEQ predicate on the "uploadReviewEnabled" field.
+func UploadReviewEnabledNEQ(v bool) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldUploadReviewEnabled, v))
 }
 
 // HasUploads applies the HasEdge predicate on the "uploads" edge.

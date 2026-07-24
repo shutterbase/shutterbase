@@ -52,6 +52,15 @@
               My Uploads
             </a>
           </li>
+          <li>
+            <router-link
+              to="/change-password"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
+              <KeyIcon class="mr-2 w-5 h-5 text-primary-400 dark:text-primary-500" />
+              Change password
+            </router-link>
+          </li>
         </ul>
         <ul class="py-1 text-primary-700 dark:text-primary-200">
           <li v-if="activeProjectId">
@@ -73,6 +82,29 @@
             </router-link>
           </li>
         </ul>
+        <!-- Platform administration. The users page itself also loads for a
+             projectAdmin (the API lets them list users for member pickers), but
+             creating and (de)activating accounts is global-admin only. -->
+        <ul v-if="userStore.isAdmin()" class="py-1 text-primary-700 dark:text-primary-200">
+          <li>
+            <router-link
+              to="/users"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
+              <UsersIcon class="mr-2 w-5 h-5 text-primary-400 dark:text-primary-500" />
+              User management
+            </router-link>
+          </li>
+          <li>
+            <router-link
+              to="/projects"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
+              <RectangleStackIcon class="mr-2 w-5 h-5 text-primary-400 dark:text-primary-500" />
+              All projects
+            </router-link>
+          </li>
+        </ul>
         <ul class="py-1">
           <li>
             <a href="/logout" class="block cursor-pointer py-2 px-4 text-sm font-medium text-error-700 transition-colors hover:bg-error-50 dark:text-error-300 dark:hover:bg-error-950/40">Sign out</a>
@@ -85,7 +117,7 @@
 
 <script setup lang="ts">
 import { Menu, MenuButton, MenuItems } from "@headlessui/vue";
-import { CameraIcon, CloudArrowUpIcon, UserIcon } from "@heroicons/vue/24/solid";
+import { CameraIcon, CloudArrowUpIcon, KeyIcon, RectangleStackIcon, UserIcon, UsersIcon } from "@heroicons/vue/24/solid";
 import { onMounted, ref } from "vue";
 import { initFlowbite } from "flowbite";
 import { useUserStore } from "src/stores/user-store";
