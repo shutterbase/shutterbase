@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	defaultTickInterval = 10 * time.Second
+	defaultTickInterval = 1 * time.Second // QR time-sync needs per-second freshness + fast first paint
 	defaultMaxConns     = 10_000
 
 	writeWait      = 10 * time.Second
@@ -45,7 +45,7 @@ type WebsocketMessage[T any] struct {
 type Options struct {
 	// Path the WS handshake is served on. Defaults to "/ws" (not under /api/v1).
 	Path string
-	// TickInterval between time ticks. Defaults to 10s.
+	// TickInterval between time ticks. Defaults to 1s.
 	TickInterval time.Duration
 	// MaxConns caps concurrent connections; further upgrades get 503. Default 10k.
 	MaxConns int
