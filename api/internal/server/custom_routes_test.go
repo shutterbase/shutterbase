@@ -28,6 +28,10 @@ func TestValidUploadKey(t *testing.T) {
 		"ZZ/abc123.jpg",
 		"ab/seedimg00000000-256.jpg",
 		"00/x-2048.jpg",
+		// image-wasm storageId is a hyphenated UUID (Uuid::new_v4().to_string()).
+		"ea/ea8a93d6-bc85-4f86-8805-d5a00fe19be4.jpg",
+		"ea/ea8a93d6-bc85-4f86-8805-d5a00fe19be4-256.jpg",
+		"ab/foo-bar.jpg", // hyphens are allowed in the storageId
 	}
 	for _, k := range valid {
 		assert.Truef(t, validUploadKey(k), "expected %q to be accepted", k)
@@ -42,7 +46,6 @@ func TestValidUploadKey(t *testing.T) {
 		"abc/foo.jpg",          // shard too long
 		"ab/foo.png",           // wrong extension
 		"ab/foo.jpg.exe",       // double extension
-		"ab/foo-bar.jpg",       // non-numeric size suffix
 		"ab/foo bar.jpg",       // space
 		"/ab/foo.jpg",          // leading slash
 		"ab/foo.jpg/",          // trailing slash
