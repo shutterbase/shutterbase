@@ -15,7 +15,7 @@ Shutterbase is a web app for collaborative photography teams: uploading, time-sy
 ```bash
 # UI (from ui/)
 bun install
-bun run dev          # quasar dev on :9000
+bun run dev          # quasar dev on :9000, opens :8080 (the api server, which proxies back to :9000)
 bun run build        # quasar build → dist/spa
 bun run test         # vitest unit tests
 bun run test:e2e     # playwright e2e (needs the testserver running — see ui/tests/e2e/README.md)
@@ -23,16 +23,22 @@ bun run format       # prettier
 
 # API (from api/ — recipes in justfile)
 go run cmd/server/main.go            # server on :8080 (no subcommand; proxies the UI dev server in DEV)
+just air                             # same, but live-reloads on save (air, config in api/.air.toml)
 just test-unit                       # go test ./...        (no containers; ent enttest + SQLite)
 just test-e2e                        # go test -tags e2e ./test/e2e/...  (needs Docker: testcontainers psql + rustfs)
 just test                            # unit + e2e
 just seed                            # seed Postgres with time-relative fixtures
 
+# Local dependencies (from repo root — recipes in the root justfile)
+just up                              # docker compose up -d: Postgres + RustFS, matching config.go defaults
+just down                            # stop them
+just deps-logs                       # tail their logs
+
 # WASM (from repo root) — rebuilds Rust and copies pkg/ into ui/public/
 ./image-wasm/hack/build.sh           # needs wasm-pack; or: cd image-wasm && wasm-pack build --target web
 ```
 
-Local dev needs Postgres (`DATABASE_TYPE=psql`, default `:5432`), an S3 server (minio), and an `api/.env` — see README.md for the minio docker run and env vars. Target a single Go test with `go test ./internal/exif/ -run TestName`; e2e tests are gated behind the `e2e` build tag.
+Local dev needs Postgres (`DATABASE_TYPE=psql`, default `:5432`), an S3 server (RustFS), and an `api/.env` — run `just up` (root `docker-compose.yml`) to start both; `api/internal/util/config.go` defaults already match that stack. Target a single Go test with `go test ./internal/exif/ -run TestName`; e2e tests are gated behind the `e2e` build tag.
 
 ## Architecture
 
