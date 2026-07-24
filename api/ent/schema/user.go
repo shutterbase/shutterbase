@@ -13,6 +13,17 @@ import (
 // PK is uuid.UUID; uses AuditMixin only (its own id field below).
 type User struct{ ent.Schema }
 
+// UserHotkeys stores per-user hotkey customization. Bindings maps hotkey action
+// ids to key combo strings (a present entry overrides the system default; an
+// empty list unbinds the action). TagBindings maps a key combo to an image tag
+// name that gets toggled on the current image; nil means "system defaults",
+// a non-nil map replaces them entirely. The backend treats this as an opaque
+// preference blob — the action ids and combo grammar live in the UI.
+type UserHotkeys struct {
+	Bindings    map[string][]string `json:"bindings"`
+	TagBindings map[string]string   `json:"tagBindings"`
+}
+
 func (User) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		AuditMixin{},
@@ -35,6 +46,7 @@ func (User) Fields() []ent.Field {
 		field.Enum("provider").Values("local").Default("local").StructTag(`json:"provider"`),
 		field.Enum("role").Values("user", "admin").Default("user").StructTag(`json:"role"`),
 		field.String("active_project_id").Optional().Nillable().StructTag(`json:"-"`),
+		field.JSON("hotkeys", &UserHotkeys{}).Optional().StructTag(`json:"hotkeys,omitempty"`),
 	}
 }
 

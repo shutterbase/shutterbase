@@ -951,6 +951,16 @@ func ActiveProjectIDContainsFold(v string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldActiveProjectID, v))
 }
 
+// HotkeysIsNil applies the IsNil predicate on the "hotkeys" field.
+func HotkeysIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldHotkeys))
+}
+
+// HotkeysNotNil applies the NotNil predicate on the "hotkeys" field.
+func HotkeysNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldHotkeys))
+}
+
 // HasCameras applies the HasEdge predicate on the "cameras" edge.
 func HasCameras() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

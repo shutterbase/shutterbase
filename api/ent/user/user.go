@@ -50,6 +50,8 @@ const (
 	FieldRole = "role"
 	// FieldActiveProjectID holds the string denoting the active_project_id field in the database.
 	FieldActiveProjectID = "active_project_id"
+	// FieldHotkeys holds the string denoting the hotkeys field in the database.
+	FieldHotkeys = "hotkeys"
 	// EdgeCameras holds the string denoting the cameras edge name in mutations.
 	EdgeCameras = "cameras"
 	// EdgeUploads holds the string denoting the uploads edge name in mutations.
@@ -128,6 +130,7 @@ var Columns = []string{
 	FieldProvider,
 	FieldRole,
 	FieldActiveProjectID,
+	FieldHotkeys,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).

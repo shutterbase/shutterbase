@@ -16,6 +16,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -238,6 +239,12 @@ func (_c *UserCreate) SetNillableActiveProjectID(v *string) *UserCreate {
 	if v != nil {
 		_c.SetActiveProjectID(*v)
 	}
+	return _c
+}
+
+// SetHotkeys sets the "hotkeys" field.
+func (_c *UserCreate) SetHotkeys(v *schema.UserHotkeys) *UserCreate {
+	_c.mutation.SetHotkeys(v)
 	return _c
 }
 
@@ -559,6 +566,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Role(); ok {
 		_spec.SetField(user.FieldRole, field.TypeEnum, value)
 		_node.Role = value
+	}
+	if value, ok := _c.mutation.Hotkeys(); ok {
+		_spec.SetField(user.FieldHotkeys, field.TypeJSON, value)
+		_node.Hotkeys = value
 	}
 	if nodes := _c.mutation.CamerasIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

@@ -18,6 +18,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -250,6 +251,18 @@ func (_u *UserUpdate) SetNillableActiveProjectID(v *string) *UserUpdate {
 // ClearActiveProjectID clears the value of the "active_project_id" field.
 func (_u *UserUpdate) ClearActiveProjectID() *UserUpdate {
 	_u.mutation.ClearActiveProjectID()
+	return _u
+}
+
+// SetHotkeys sets the "hotkeys" field.
+func (_u *UserUpdate) SetHotkeys(v *schema.UserHotkeys) *UserUpdate {
+	_u.mutation.SetHotkeys(v)
+	return _u
+}
+
+// ClearHotkeys clears the value of the "hotkeys" field.
+func (_u *UserUpdate) ClearHotkeys() *UserUpdate {
+	_u.mutation.ClearHotkeys()
 	return _u
 }
 
@@ -583,6 +596,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Role(); ok {
 		_spec.SetField(user.FieldRole, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Hotkeys(); ok {
+		_spec.SetField(user.FieldHotkeys, field.TypeJSON, value)
+	}
+	if _u.mutation.HotkeysCleared() {
+		_spec.ClearField(user.FieldHotkeys, field.TypeJSON)
 	}
 	if _u.mutation.CamerasCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1076,6 +1095,18 @@ func (_u *UserUpdateOne) ClearActiveProjectID() *UserUpdateOne {
 	return _u
 }
 
+// SetHotkeys sets the "hotkeys" field.
+func (_u *UserUpdateOne) SetHotkeys(v *schema.UserHotkeys) *UserUpdateOne {
+	_u.mutation.SetHotkeys(v)
+	return _u
+}
+
+// ClearHotkeys clears the value of the "hotkeys" field.
+func (_u *UserUpdateOne) ClearHotkeys() *UserUpdateOne {
+	_u.mutation.ClearHotkeys()
+	return _u
+}
+
 // AddCameraIDs adds the "cameras" edge to the Camera entity by IDs.
 func (_u *UserUpdateOne) AddCameraIDs(ids ...string) *UserUpdateOne {
 	_u.mutation.AddCameraIDs(ids...)
@@ -1436,6 +1467,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.Role(); ok {
 		_spec.SetField(user.FieldRole, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.Hotkeys(); ok {
+		_spec.SetField(user.FieldHotkeys, field.TypeJSON, value)
+	}
+	if _u.mutation.HotkeysCleared() {
+		_spec.ClearField(user.FieldHotkeys, field.TypeJSON)
 	}
 	if _u.mutation.CamerasCleared() {
 		edge := &sqlgraph.EdgeSpec{

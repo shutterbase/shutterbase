@@ -22,6 +22,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -11375,6 +11376,7 @@ type UserMutation struct {
 	forcePasswordChange       *bool
 	provider                  *user.Provider
 	role                      *user.Role
+	hotkeys                   **schema.UserHotkeys
 	clearedFields             map[string]struct{}
 	cameras                   map[string]struct{}
 	removedcameras            map[string]struct{}
@@ -12205,6 +12207,55 @@ func (m *UserMutation) ResetActiveProjectID() {
 	delete(m.clearedFields, user.FieldActiveProjectID)
 }
 
+// SetHotkeys sets the "hotkeys" field.
+func (m *UserMutation) SetHotkeys(sh *schema.UserHotkeys) {
+	m.hotkeys = &sh
+}
+
+// Hotkeys returns the value of the "hotkeys" field in the mutation.
+func (m *UserMutation) Hotkeys() (r *schema.UserHotkeys, exists bool) {
+	v := m.hotkeys
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHotkeys returns the old "hotkeys" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldHotkeys(ctx context.Context) (v *schema.UserHotkeys, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHotkeys is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHotkeys requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHotkeys: %w", err)
+	}
+	return oldValue.Hotkeys, nil
+}
+
+// ClearHotkeys clears the value of the "hotkeys" field.
+func (m *UserMutation) ClearHotkeys() {
+	m.hotkeys = nil
+	m.clearedFields[user.FieldHotkeys] = struct{}{}
+}
+
+// HotkeysCleared returns if the "hotkeys" field was cleared in this mutation.
+func (m *UserMutation) HotkeysCleared() bool {
+	_, ok := m.clearedFields[user.FieldHotkeys]
+	return ok
+}
+
+// ResetHotkeys resets all changes to the "hotkeys" field.
+func (m *UserMutation) ResetHotkeys() {
+	m.hotkeys = nil
+	delete(m.clearedFields, user.FieldHotkeys)
+}
+
 // AddCameraIDs adds the "cameras" edge to the Camera entity by ids.
 func (m *UserMutation) AddCameraIDs(ids ...string) {
 	if m.cameras == nil {
@@ -12536,7 +12587,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 18)
 	if m.createdAt != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -12588,6 +12639,9 @@ func (m *UserMutation) Fields() []string {
 	if m.activeProject != nil {
 		fields = append(fields, user.FieldActiveProjectID)
 	}
+	if m.hotkeys != nil {
+		fields = append(fields, user.FieldHotkeys)
+	}
 	return fields
 }
 
@@ -12630,6 +12684,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.Role()
 	case user.FieldActiveProjectID:
 		return m.ActiveProjectID()
+	case user.FieldHotkeys:
+		return m.Hotkeys()
 	}
 	return nil, false
 }
@@ -12673,6 +12729,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldRole(ctx)
 	case user.FieldActiveProjectID:
 		return m.OldActiveProjectID(ctx)
+	case user.FieldHotkeys:
+		return m.OldHotkeys(ctx)
 	}
 	return nil, fmt.Errorf("unknown User field %s", name)
 }
@@ -12801,6 +12859,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetActiveProjectID(v)
 		return nil
+	case user.FieldHotkeys:
+		v, ok := value.(*schema.UserHotkeys)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHotkeys(v)
+		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)
 }
@@ -12852,6 +12917,9 @@ func (m *UserMutation) ClearedFields() []string {
 	if m.FieldCleared(user.FieldActiveProjectID) {
 		fields = append(fields, user.FieldActiveProjectID)
 	}
+	if m.FieldCleared(user.FieldHotkeys) {
+		fields = append(fields, user.FieldHotkeys)
+	}
 	return fields
 }
 
@@ -12886,6 +12954,9 @@ func (m *UserMutation) ClearField(name string) error {
 		return nil
 	case user.FieldActiveProjectID:
 		m.ClearActiveProjectID()
+		return nil
+	case user.FieldHotkeys:
+		m.ClearHotkeys()
 		return nil
 	}
 	return fmt.Errorf("unknown User nullable field %s", name)
@@ -12945,6 +13016,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldActiveProjectID:
 		m.ResetActiveProjectID()
+		return nil
+	case user.FieldHotkeys:
+		m.ResetHotkeys()
 		return nil
 	}
 	return fmt.Errorf("unknown User field %s", name)

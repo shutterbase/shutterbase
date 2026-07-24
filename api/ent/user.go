@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
 
@@ -53,6 +55,8 @@ type User struct {
 	Role user.Role `json:"role"`
 	// ActiveProjectID holds the value of the "active_project_id" field.
 	ActiveProjectID *string `json:"-"`
+	// Hotkeys holds the value of the "hotkeys" field.
+	Hotkeys *schema.UserHotkeys `json:"hotkeys,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UserQuery when eager-loading is set.
 	Edges        UserEdges `json:"edges"`
@@ -141,6 +145,8 @@ func (*User) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case user.FieldCreatedBy, user.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case user.FieldHotkeys:
+			values[i] = new([]byte)
 		case user.FieldActive, user.FieldVerified, user.FieldForcePasswordChange:
 			values[i] = new(sql.NullBool)
 		case user.FieldLegacyId, user.FieldUsername, user.FieldFirstName, user.FieldLastName, user.FieldCopyrightTag, user.FieldEmail, user.FieldPasswordHash, user.FieldProvider, user.FieldRole, user.FieldActiveProjectID:
@@ -275,6 +281,14 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				_m.ActiveProjectID = new(string)
 				*_m.ActiveProjectID = value.String
 			}
+		case user.FieldHotkeys:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field hotkeys", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Hotkeys); err != nil {
+					return fmt.Errorf("unmarshal field hotkeys: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -396,6 +410,9 @@ func (_m *User) String() string {
 		builder.WriteString("active_project_id=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("hotkeys=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Hotkeys))
 	builder.WriteByte(')')
 	return builder.String()
 }

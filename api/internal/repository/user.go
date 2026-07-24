@@ -2,12 +2,14 @@ package repository
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/predicate"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/user"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
@@ -173,6 +175,7 @@ type UpdateUserParameters struct {
 	Role                *user.Role
 	ForcePasswordChange *bool
 	ActiveProjectID     *string
+	Hotkeys             *schema.UserHotkeys
 }
 
 func (r *Repository) UpdateUser(ctx context.Context, id uuid.UUID, parameters *UpdateUserParameters) (*ent.User, error) {
@@ -237,6 +240,10 @@ func (r *Repository) UpdateUser(ctx context.Context, id uuid.UUID, parameters *U
 	if parameters.ActiveProjectID != nil && (item.ActiveProjectID == nil || *item.ActiveProjectID != *parameters.ActiveProjectID) {
 		update.SetActiveProjectID(*parameters.ActiveProjectID)
 		st.SetFieldChanged(user.FieldActiveProjectID, item.ActiveProjectID, *parameters.ActiveProjectID)
+	}
+	if parameters.Hotkeys != nil && !reflect.DeepEqual(item.Hotkeys, parameters.Hotkeys) {
+		update.SetHotkeys(parameters.Hotkeys)
+		st.SetFieldChanged(user.FieldHotkeys, item.Hotkeys, parameters.Hotkeys)
 	}
 
 	if !st.modelChanged {

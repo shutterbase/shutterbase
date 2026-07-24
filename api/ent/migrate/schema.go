@@ -499,6 +499,7 @@ var (
 		{Name: "force_password_change", Type: field.TypeBool, Default: false},
 		{Name: "provider", Type: field.TypeEnum, Enums: []string{"local"}, Default: "local"},
 		{Name: "role", Type: field.TypeEnum, Enums: []string{"user", "admin"}, Default: "user"},
+		{Name: "hotkeys", Type: field.TypeJSON, Nullable: true},
 		{Name: "active_project_id", Type: field.TypeString, Nullable: true, Size: 15},
 	}
 	// UsersTable holds the schema information for the "users" table.
@@ -509,7 +510,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "users_projects_activeProject",
-				Columns:    []*schema.Column{UsersColumns[17]},
+				Columns:    []*schema.Column{UsersColumns[18]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -523,7 +524,7 @@ var (
 			{
 				Name:    "user_active_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{UsersColumns[17]},
+				Columns: []*schema.Column{UsersColumns[18]},
 			},
 		},
 	}
