@@ -120,7 +120,7 @@ func TestImport_EasilyMissedImageFields(t *testing.T) {
 	assert.Equal(t, 6000, *img1.Width)
 	require.NotNil(t, img1.Height)
 	assert.Equal(t, 4000, *img1.Height)
-	assert.Equal(t, "ab/storage_img1", img1.StorageId)
+	assert.Equal(t, "storage_img1", img1.StorageId)
 	require.NotNil(t, img1.CapturedAt)
 	require.NotNil(t, img1.CapturedAtCorrected)
 	assert.Equal(t, []string{pbfixture.TagDefaultID, pbfixture.TagManualID}, img1.ImageTags)
