@@ -40,6 +40,7 @@ export interface EmbeddedUser {
 export interface EmbeddedProject {
   id: string;
   name: string;
+  uploadReviewEnabled?: boolean;
 }
 
 export interface EmbeddedCamera {
@@ -50,6 +51,7 @@ export interface EmbeddedCamera {
 export interface EmbeddedUpload {
   id: string;
   name: string;
+  state?: UploadState;
 }
 
 export interface EmbeddedTag {
@@ -121,6 +123,7 @@ export interface Project {
   locationCode: string;
   locationCity: string;
   aiSystemMessage?: string;
+  uploadReviewEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -133,13 +136,31 @@ export interface Camera {
   updatedAt: string;
 }
 
+// Upload review flow (§4.9): open -> ready (photographer submits) -> reviewed
+// (projectAdmin accepts); ready -> open sends it back for rework.
+export type UploadState = "open" | "ready" | "reviewed";
+
+// Per-upload tagging metrics. Rates are server-derived from the counts.
+export interface UploadMetrics {
+  imageCount: number;
+  tagCount: number;
+  tagsPerImage: number;
+  taggingSeconds: number;
+  imagesPerSecond: number;
+  timeToReadySeconds: number;
+  reviewCycles: number;
+  errorCount: number;
+}
+
 export interface Upload {
   id: string;
   name: string;
+  state: UploadState;
   project: EmbeddedProject;
   user: EmbeddedUser;
   camera: EmbeddedCamera;
   imageCount?: number;
+  metrics?: UploadMetrics;
   createdAt: string;
   updatedAt: string;
 }

@@ -178,6 +178,20 @@ func (_u *ProjectUpdate) ClearAiSystemMessage() *ProjectUpdate {
 	return _u
 }
 
+// SetUploadReviewEnabled sets the "uploadReviewEnabled" field.
+func (_u *ProjectUpdate) SetUploadReviewEnabled(v bool) *ProjectUpdate {
+	_u.mutation.SetUploadReviewEnabled(v)
+	return _u
+}
+
+// SetNillableUploadReviewEnabled sets the "uploadReviewEnabled" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableUploadReviewEnabled(v *bool) *ProjectUpdate {
+	if v != nil {
+		_u.SetUploadReviewEnabled(*v)
+	}
+	return _u
+}
+
 // AddUploadIDs adds the "uploads" edge to the Upload entity by IDs.
 func (_u *ProjectUpdate) AddUploadIDs(ids ...string) *ProjectUpdate {
 	_u.mutation.AddUploadIDs(ids...)
@@ -489,6 +503,9 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AiSystemMessageCleared() {
 		_spec.ClearField(project.FieldAiSystemMessage, field.TypeString)
+	}
+	if value, ok := _u.mutation.UploadReviewEnabled(); ok {
+		_spec.SetField(project.FieldUploadReviewEnabled, field.TypeBool, value)
 	}
 	if _u.mutation.UploadsCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -879,6 +896,20 @@ func (_u *ProjectUpdateOne) ClearAiSystemMessage() *ProjectUpdateOne {
 	return _u
 }
 
+// SetUploadReviewEnabled sets the "uploadReviewEnabled" field.
+func (_u *ProjectUpdateOne) SetUploadReviewEnabled(v bool) *ProjectUpdateOne {
+	_u.mutation.SetUploadReviewEnabled(v)
+	return _u
+}
+
+// SetNillableUploadReviewEnabled sets the "uploadReviewEnabled" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableUploadReviewEnabled(v *bool) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetUploadReviewEnabled(*v)
+	}
+	return _u
+}
+
 // AddUploadIDs adds the "uploads" edge to the Upload entity by IDs.
 func (_u *ProjectUpdateOne) AddUploadIDs(ids ...string) *ProjectUpdateOne {
 	_u.mutation.AddUploadIDs(ids...)
@@ -1220,6 +1251,9 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if _u.mutation.AiSystemMessageCleared() {
 		_spec.ClearField(project.FieldAiSystemMessage, field.TypeString)
+	}
+	if value, ok := _u.mutation.UploadReviewEnabled(); ok {
+		_spec.SetField(project.FieldUploadReviewEnabled, field.TypeBool, value)
 	}
 	if _u.mutation.UploadsCleared() {
 		edge := &sqlgraph.EdgeSpec{

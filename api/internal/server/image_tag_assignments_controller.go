@@ -10,6 +10,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 // imageTagAssignmentResponse is the §4.5 ImageTagAssignment object.
@@ -26,6 +27,31 @@ func (s *Server) imageTagAssignmentResponse(ctx context.Context, a *ent.ImageTag
 		out["tag"] = gin.H{"id": t.ID, "name": t.Name, "type": t.Type, "isAlbum": t.IsAlbum}
 	}
 	return out
+}
+
+// uploadReviewContext loads the image's upload plus its project's review flag —
+// the two inputs every tag-assignment authz decision needs once the upload
+// review flow exists. Aborts and returns ok=false on a lookup failure.
+func (s *Server) uploadReviewContext(c *gin.Context, img *ent.Image) (*ent.Upload, bool, bool) {
+	up, err := s.Repository.GetUpload(c.Request.Context(), img.UploadID)
+	if abortGetError(c, err) {
+		return nil, false, false
+	}
+	project, err := s.Repository.GetProject(c.Request.Context(), img.ProjectID)
+	if abortGetError(c, err) {
+		return nil, false, false
+	}
+	return up, project.UploadReviewEnabled, true
+}
+
+// recordTaggingActivity folds a tagging action into the upload's active tagging
+// time — but only the OWNER's actions: a reviewer editing tags is not the
+// photographer's working time.
+func (s *Server) recordTaggingActivity(c *gin.Context, up *ent.Upload) {
+	if u := authUser(c); u == nil || u.ID != up.UserID {
+		return
+	}
+	_ = s.Repository.RecordTaggingActivity(c.Request.Context(), up.ID, util.Now())
 }
 
 func (s *Server) registerImageTagAssignmentRoutes(api *gin.RouterGroup) {
@@ -142,6 +168,13 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 		apiError(c, http.StatusBadRequest, "cross_project_tag", "imageTagId belongs to a different project than the image")
 		return
 	}
+	up, reviewEnabled, ok := s.uploadReviewContext(c, img)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanAssignTag(authUser(c), img, up, tag, reviewEnabled)) {
+		return
+	}
 	item, created, err := s.Repository.CreateImageTagAssignment(c.Request.Context(), &repository.CreateImageTagAssignmentParameters{
 		ImageID:    payload.ImageID,
 		ImageTagID: payload.ImageTagID,
@@ -149,6 +182,14 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 	})
 	if abortMutationError(c, err) {
 		return
+	}
+	if created {
+		if authorization.IsReviewErrorTag(tag.Name) {
+			// Remembered even after the tag is cleared, so the "distinct errors
+			// ever" count survives every review cycle.
+			_ = s.Repository.TrackUploadTaggingError(c.Request.Context(), up.ID, img.ID)
+		}
+		s.recordTaggingActivity(c, up)
 	}
 	status := http.StatusOK // idempotent: existing pair -> 200
 	if created {
@@ -174,11 +215,25 @@ func (s *Server) deleteImageTagAssignment(c *gin.Context) {
 	if !allow(c, authorization.CanManageImageTagAssignment(authUser(c), img.ProjectID)) {
 		return
 	}
+	tag, err := s.Repository.GetImageTag(c.Request.Context(), a.ImageTagID)
+	if abortGetError(c, err) {
+		return
+	}
+	up, reviewEnabled, ok := s.uploadReviewContext(c, img)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanAssignTag(authUser(c), img, up, tag, reviewEnabled)) {
+		return
+	}
 	if err := s.Repository.DeleteImageTagAssignment(c.Request.Context(), id); err != nil {
 		if abortGetError(c, err) {
 			return
 		}
 		return
+	}
+	if a.Type == imagetagassignment.TypeManual {
+		s.recordTaggingActivity(c, up)
 	}
 	c.Status(http.StatusNoContent)
 }

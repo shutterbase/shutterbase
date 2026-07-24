@@ -8,17 +8,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
 
-// uploadResponse is the §4.9 Upload object. imageCount is omitted (optional in
-// the spec) — add a count query here when a UI needs it.
-func (s *Server) uploadResponse(ctx context.Context, up *ent.Upload) gin.H {
+// uploadResponse is the §4.9 Upload object, including the review state and the
+// tagging metrics block (nil metrics => the block is omitted).
+func (s *Server) uploadResponse(ctx context.Context, up *ent.Upload, metrics *repository.UploadMetrics) gin.H {
 	out := gin.H{
 		"id":        up.ID,
 		"name":      up.Name,
+		"state":     up.State,
 		"createdAt": up.CreatedAt,
 		"updatedAt": up.UpdatedAt,
 		"project":   projectRefByID(ctx, s.Repository, up.ProjectID),
@@ -28,7 +30,35 @@ func (s *Server) uploadResponse(ctx context.Context, up *ent.Upload) gin.H {
 	if u, err := s.Repository.GetUser(ctx, up.UserID); err == nil {
 		out["user"] = userBrief(u)
 	}
+	if metrics != nil {
+		out["metrics"] = metrics
+		out["imageCount"] = metrics.ImageCount
+	}
 	return out
+}
+
+// uploadResponses serializes a set of uploads with one metrics round trip for
+// the whole set (never per row).
+func (s *Server) uploadResponses(ctx context.Context, uploads []*ent.Upload) ([]gin.H, error) {
+	metrics, err := s.Repository.GetUploadMetrics(ctx, uploads)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]gin.H, 0, len(uploads))
+	for _, up := range uploads {
+		out = append(out, s.uploadResponse(ctx, up, metrics[up.ID]))
+	}
+	return out, nil
+}
+
+// respondUpload writes a single upload with its metrics block.
+func (s *Server) respondUpload(c *gin.Context, status int, up *ent.Upload) {
+	items, err := s.uploadResponses(c.Request.Context(), []*ent.Upload{up})
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.JSON(status, items[0])
 }
 
 func (s *Server) registerUploadRoutes(api *gin.RouterGroup) {
@@ -48,6 +78,14 @@ func (s *Server) listUploads(c *gin.Context) {
 	params := &repository.GetUploadParameters{PaginationParameters: pagination}
 	if v := c.Query("projectId"); v != "" {
 		params.ProjectID = &v
+	}
+	if v := c.Query("state"); v != "" {
+		st := upload.State(v)
+		if err := upload.StateValidator(st); err != nil {
+			apiError(c, http.StatusBadRequest, "invalid_state", "invalid state")
+			return
+		}
+		params.State = &st
 	}
 	if v := c.Query("userId"); v != "" {
 		uid, err := uuid.Parse(v)
@@ -71,9 +109,10 @@ func (s *Server) listUploads(c *gin.Context) {
 	if abortRepoListError(c, err) {
 		return
 	}
-	out := make([]gin.H, 0, len(items))
-	for _, up := range items {
-		out = append(out, s.uploadResponse(c.Request.Context(), up))
+	out, err := s.uploadResponses(c.Request.Context(), items)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
 	c.JSON(http.StatusOK, ListResponse[gin.H]{Limit: pagination.Limit, Offset: pagination.Offset, Total: total, Items: out})
 }
@@ -90,7 +129,7 @@ func (s *Server) getUpload(c *gin.Context) {
 	if !allow(c, authorization.CanModifyUpload(authUser(c), up)) {
 		return
 	}
-	c.JSON(http.StatusOK, s.uploadResponse(c.Request.Context(), up))
+	s.respondUpload(c, http.StatusOK, up)
 }
 
 type createUploadPayload struct {
@@ -138,7 +177,7 @@ func (s *Server) createUpload(c *gin.Context) {
 	if abortMutationError(c, err) {
 		return
 	}
-	c.JSON(http.StatusCreated, s.uploadResponse(c.Request.Context(), up))
+	s.respondUpload(c, http.StatusCreated, up)
 }
 
 func (s *Server) updateUpload(c *gin.Context) {
@@ -148,7 +187,8 @@ func (s *Server) updateUpload(c *gin.Context) {
 		return
 	}
 	var payload struct {
-		Name *string `json:"name"`
+		Name  *string `json:"name"`
+		State *string `json:"state"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -161,11 +201,34 @@ func (s *Server) updateUpload(c *gin.Context) {
 	if !allow(c, authorization.CanModifyUpload(authUser(c), existing)) {
 		return
 	}
-	up, err := s.Repository.UpdateUpload(c.Request.Context(), id, &repository.UpdateUploadParameters{Name: payload.Name})
+	params := &repository.UpdateUploadParameters{Name: payload.Name}
+	if payload.State != nil {
+		next := upload.State(*payload.State)
+		if err := upload.StateValidator(next); err != nil {
+			apiError(c, http.StatusBadRequest, "invalid_state", "invalid state")
+			return
+		}
+		// The state flow only exists while the project opted into upload reviews.
+		project, err := s.Repository.GetProject(c.Request.Context(), existing.ProjectID)
+		if abortGetError(c, err) {
+			return
+		}
+		if !project.UploadReviewEnabled {
+			apiError(c, http.StatusConflict, "review_disabled", "upload reviews are not enabled for this project")
+			return
+		}
+		// open -> ready is the photographer's submit; every other move is the
+		// reviewer's (send back, accept, reopen).
+		if !allow(c, authorization.CanTransitionUpload(authUser(c), existing, next)) {
+			return
+		}
+		params.State = &next
+	}
+	up, err := s.Repository.UpdateUpload(c.Request.Context(), id, params)
 	if abortMutationError(c, err) {
 		return
 	}
-	c.JSON(http.StatusOK, s.uploadResponse(c.Request.Context(), up))
+	s.respondUpload(c, http.StatusOK, up)
 }
 
 func (s *Server) deleteUpload(c *gin.Context) {

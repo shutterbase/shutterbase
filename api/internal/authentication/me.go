@@ -91,7 +91,7 @@ func activeProjectResponse(ctx context.Context, repo *repository.Repository, u *
 	if err != nil {
 		return nil
 	}
-	return gin.H{"id": p.ID, "name": p.Name}
+	return gin.H{"id": p.ID, "name": p.Name, "uploadReviewEnabled": p.UploadReviewEnabled}
 }
 
 func projectAssignmentsResponse(ctx context.Context, repo *repository.Repository, u *ent.User) []gin.H {

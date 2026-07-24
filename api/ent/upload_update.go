@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent/camera"
@@ -112,6 +113,141 @@ func (_u *UploadUpdate) SetNillableCameraID(v *string) *UploadUpdate {
 	if v != nil {
 		_u.SetCameraID(*v)
 	}
+	return _u
+}
+
+// SetState sets the "state" field.
+func (_u *UploadUpdate) SetState(v upload.State) *UploadUpdate {
+	_u.mutation.SetState(v)
+	return _u
+}
+
+// SetNillableState sets the "state" field if the given value is not nil.
+func (_u *UploadUpdate) SetNillableState(v *upload.State) *UploadUpdate {
+	if v != nil {
+		_u.SetState(*v)
+	}
+	return _u
+}
+
+// SetReviewCycles sets the "reviewCycles" field.
+func (_u *UploadUpdate) SetReviewCycles(v int) *UploadUpdate {
+	_u.mutation.ResetReviewCycles()
+	_u.mutation.SetReviewCycles(v)
+	return _u
+}
+
+// SetNillableReviewCycles sets the "reviewCycles" field if the given value is not nil.
+func (_u *UploadUpdate) SetNillableReviewCycles(v *int) *UploadUpdate {
+	if v != nil {
+		_u.SetReviewCycles(*v)
+	}
+	return _u
+}
+
+// AddReviewCycles adds value to the "reviewCycles" field.
+func (_u *UploadUpdate) AddReviewCycles(v int) *UploadUpdate {
+	_u.mutation.AddReviewCycles(v)
+	return _u
+}
+
+// SetTaggingSeconds sets the "taggingSeconds" field.
+func (_u *UploadUpdate) SetTaggingSeconds(v int) *UploadUpdate {
+	_u.mutation.ResetTaggingSeconds()
+	_u.mutation.SetTaggingSeconds(v)
+	return _u
+}
+
+// SetNillableTaggingSeconds sets the "taggingSeconds" field if the given value is not nil.
+func (_u *UploadUpdate) SetNillableTaggingSeconds(v *int) *UploadUpdate {
+	if v != nil {
+		_u.SetTaggingSeconds(*v)
+	}
+	return _u
+}
+
+// AddTaggingSeconds adds value to the "taggingSeconds" field.
+func (_u *UploadUpdate) AddTaggingSeconds(v int) *UploadUpdate {
+	_u.mutation.AddTaggingSeconds(v)
+	return _u
+}
+
+// SetLastTagActivityAt sets the "lastTagActivityAt" field.
+func (_u *UploadUpdate) SetLastTagActivityAt(v time.Time) *UploadUpdate {
+	_u.mutation.SetLastTagActivityAt(v)
+	return _u
+}
+
+// SetNillableLastTagActivityAt sets the "lastTagActivityAt" field if the given value is not nil.
+func (_u *UploadUpdate) SetNillableLastTagActivityAt(v *time.Time) *UploadUpdate {
+	if v != nil {
+		_u.SetLastTagActivityAt(*v)
+	}
+	return _u
+}
+
+// ClearLastTagActivityAt clears the value of the "lastTagActivityAt" field.
+func (_u *UploadUpdate) ClearLastTagActivityAt() *UploadUpdate {
+	_u.mutation.ClearLastTagActivityAt()
+	return _u
+}
+
+// SetTimeToReadySeconds sets the "timeToReadySeconds" field.
+func (_u *UploadUpdate) SetTimeToReadySeconds(v int) *UploadUpdate {
+	_u.mutation.ResetTimeToReadySeconds()
+	_u.mutation.SetTimeToReadySeconds(v)
+	return _u
+}
+
+// SetNillableTimeToReadySeconds sets the "timeToReadySeconds" field if the given value is not nil.
+func (_u *UploadUpdate) SetNillableTimeToReadySeconds(v *int) *UploadUpdate {
+	if v != nil {
+		_u.SetTimeToReadySeconds(*v)
+	}
+	return _u
+}
+
+// AddTimeToReadySeconds adds value to the "timeToReadySeconds" field.
+func (_u *UploadUpdate) AddTimeToReadySeconds(v int) *UploadUpdate {
+	_u.mutation.AddTimeToReadySeconds(v)
+	return _u
+}
+
+// SetCycleStartedAt sets the "cycleStartedAt" field.
+func (_u *UploadUpdate) SetCycleStartedAt(v time.Time) *UploadUpdate {
+	_u.mutation.SetCycleStartedAt(v)
+	return _u
+}
+
+// SetNillableCycleStartedAt sets the "cycleStartedAt" field if the given value is not nil.
+func (_u *UploadUpdate) SetNillableCycleStartedAt(v *time.Time) *UploadUpdate {
+	if v != nil {
+		_u.SetCycleStartedAt(*v)
+	}
+	return _u
+}
+
+// ClearCycleStartedAt clears the value of the "cycleStartedAt" field.
+func (_u *UploadUpdate) ClearCycleStartedAt() *UploadUpdate {
+	_u.mutation.ClearCycleStartedAt()
+	return _u
+}
+
+// SetErrorImageIds sets the "errorImageIds" field.
+func (_u *UploadUpdate) SetErrorImageIds(v []string) *UploadUpdate {
+	_u.mutation.SetErrorImageIds(v)
+	return _u
+}
+
+// AppendErrorImageIds appends value to the "errorImageIds" field.
+func (_u *UploadUpdate) AppendErrorImageIds(v []string) *UploadUpdate {
+	_u.mutation.AppendErrorImageIds(v)
+	return _u
+}
+
+// ClearErrorImageIds clears the value of the "errorImageIds" field.
+func (_u *UploadUpdate) ClearErrorImageIds() *UploadUpdate {
+	_u.mutation.ClearErrorImageIds()
 	return _u
 }
 
@@ -232,6 +368,26 @@ func (_u *UploadUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Upload.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.State(); ok {
+		if err := upload.StateValidator(v); err != nil {
+			return &ValidationError{Name: "state", err: fmt.Errorf(`ent: validator failed for field "Upload.state": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReviewCycles(); ok {
+		if err := upload.ReviewCyclesValidator(v); err != nil {
+			return &ValidationError{Name: "reviewCycles", err: fmt.Errorf(`ent: validator failed for field "Upload.reviewCycles": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TaggingSeconds(); ok {
+		if err := upload.TaggingSecondsValidator(v); err != nil {
+			return &ValidationError{Name: "taggingSeconds", err: fmt.Errorf(`ent: validator failed for field "Upload.taggingSeconds": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TimeToReadySeconds(); ok {
+		if err := upload.TimeToReadySecondsValidator(v); err != nil {
+			return &ValidationError{Name: "timeToReadySeconds", err: fmt.Errorf(`ent: validator failed for field "Upload.timeToReadySeconds": %w`, err)}
+		}
+	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Upload.project"`)
 	}
@@ -270,6 +426,50 @@ func (_u *UploadUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(upload.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.State(); ok {
+		_spec.SetField(upload.FieldState, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReviewCycles(); ok {
+		_spec.SetField(upload.FieldReviewCycles, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReviewCycles(); ok {
+		_spec.AddField(upload.FieldReviewCycles, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TaggingSeconds(); ok {
+		_spec.SetField(upload.FieldTaggingSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTaggingSeconds(); ok {
+		_spec.AddField(upload.FieldTaggingSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastTagActivityAt(); ok {
+		_spec.SetField(upload.FieldLastTagActivityAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastTagActivityAtCleared() {
+		_spec.ClearField(upload.FieldLastTagActivityAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.TimeToReadySeconds(); ok {
+		_spec.SetField(upload.FieldTimeToReadySeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTimeToReadySeconds(); ok {
+		_spec.AddField(upload.FieldTimeToReadySeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CycleStartedAt(); ok {
+		_spec.SetField(upload.FieldCycleStartedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CycleStartedAtCleared() {
+		_spec.ClearField(upload.FieldCycleStartedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ErrorImageIds(); ok {
+		_spec.SetField(upload.FieldErrorImageIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedErrorImageIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, upload.FieldErrorImageIds, value)
+		})
+	}
+	if _u.mutation.ErrorImageIdsCleared() {
+		_spec.ClearField(upload.FieldErrorImageIds, field.TypeJSON)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -505,6 +705,141 @@ func (_u *UploadUpdateOne) SetNillableCameraID(v *string) *UploadUpdateOne {
 	return _u
 }
 
+// SetState sets the "state" field.
+func (_u *UploadUpdateOne) SetState(v upload.State) *UploadUpdateOne {
+	_u.mutation.SetState(v)
+	return _u
+}
+
+// SetNillableState sets the "state" field if the given value is not nil.
+func (_u *UploadUpdateOne) SetNillableState(v *upload.State) *UploadUpdateOne {
+	if v != nil {
+		_u.SetState(*v)
+	}
+	return _u
+}
+
+// SetReviewCycles sets the "reviewCycles" field.
+func (_u *UploadUpdateOne) SetReviewCycles(v int) *UploadUpdateOne {
+	_u.mutation.ResetReviewCycles()
+	_u.mutation.SetReviewCycles(v)
+	return _u
+}
+
+// SetNillableReviewCycles sets the "reviewCycles" field if the given value is not nil.
+func (_u *UploadUpdateOne) SetNillableReviewCycles(v *int) *UploadUpdateOne {
+	if v != nil {
+		_u.SetReviewCycles(*v)
+	}
+	return _u
+}
+
+// AddReviewCycles adds value to the "reviewCycles" field.
+func (_u *UploadUpdateOne) AddReviewCycles(v int) *UploadUpdateOne {
+	_u.mutation.AddReviewCycles(v)
+	return _u
+}
+
+// SetTaggingSeconds sets the "taggingSeconds" field.
+func (_u *UploadUpdateOne) SetTaggingSeconds(v int) *UploadUpdateOne {
+	_u.mutation.ResetTaggingSeconds()
+	_u.mutation.SetTaggingSeconds(v)
+	return _u
+}
+
+// SetNillableTaggingSeconds sets the "taggingSeconds" field if the given value is not nil.
+func (_u *UploadUpdateOne) SetNillableTaggingSeconds(v *int) *UploadUpdateOne {
+	if v != nil {
+		_u.SetTaggingSeconds(*v)
+	}
+	return _u
+}
+
+// AddTaggingSeconds adds value to the "taggingSeconds" field.
+func (_u *UploadUpdateOne) AddTaggingSeconds(v int) *UploadUpdateOne {
+	_u.mutation.AddTaggingSeconds(v)
+	return _u
+}
+
+// SetLastTagActivityAt sets the "lastTagActivityAt" field.
+func (_u *UploadUpdateOne) SetLastTagActivityAt(v time.Time) *UploadUpdateOne {
+	_u.mutation.SetLastTagActivityAt(v)
+	return _u
+}
+
+// SetNillableLastTagActivityAt sets the "lastTagActivityAt" field if the given value is not nil.
+func (_u *UploadUpdateOne) SetNillableLastTagActivityAt(v *time.Time) *UploadUpdateOne {
+	if v != nil {
+		_u.SetLastTagActivityAt(*v)
+	}
+	return _u
+}
+
+// ClearLastTagActivityAt clears the value of the "lastTagActivityAt" field.
+func (_u *UploadUpdateOne) ClearLastTagActivityAt() *UploadUpdateOne {
+	_u.mutation.ClearLastTagActivityAt()
+	return _u
+}
+
+// SetTimeToReadySeconds sets the "timeToReadySeconds" field.
+func (_u *UploadUpdateOne) SetTimeToReadySeconds(v int) *UploadUpdateOne {
+	_u.mutation.ResetTimeToReadySeconds()
+	_u.mutation.SetTimeToReadySeconds(v)
+	return _u
+}
+
+// SetNillableTimeToReadySeconds sets the "timeToReadySeconds" field if the given value is not nil.
+func (_u *UploadUpdateOne) SetNillableTimeToReadySeconds(v *int) *UploadUpdateOne {
+	if v != nil {
+		_u.SetTimeToReadySeconds(*v)
+	}
+	return _u
+}
+
+// AddTimeToReadySeconds adds value to the "timeToReadySeconds" field.
+func (_u *UploadUpdateOne) AddTimeToReadySeconds(v int) *UploadUpdateOne {
+	_u.mutation.AddTimeToReadySeconds(v)
+	return _u
+}
+
+// SetCycleStartedAt sets the "cycleStartedAt" field.
+func (_u *UploadUpdateOne) SetCycleStartedAt(v time.Time) *UploadUpdateOne {
+	_u.mutation.SetCycleStartedAt(v)
+	return _u
+}
+
+// SetNillableCycleStartedAt sets the "cycleStartedAt" field if the given value is not nil.
+func (_u *UploadUpdateOne) SetNillableCycleStartedAt(v *time.Time) *UploadUpdateOne {
+	if v != nil {
+		_u.SetCycleStartedAt(*v)
+	}
+	return _u
+}
+
+// ClearCycleStartedAt clears the value of the "cycleStartedAt" field.
+func (_u *UploadUpdateOne) ClearCycleStartedAt() *UploadUpdateOne {
+	_u.mutation.ClearCycleStartedAt()
+	return _u
+}
+
+// SetErrorImageIds sets the "errorImageIds" field.
+func (_u *UploadUpdateOne) SetErrorImageIds(v []string) *UploadUpdateOne {
+	_u.mutation.SetErrorImageIds(v)
+	return _u
+}
+
+// AppendErrorImageIds appends value to the "errorImageIds" field.
+func (_u *UploadUpdateOne) AppendErrorImageIds(v []string) *UploadUpdateOne {
+	_u.mutation.AppendErrorImageIds(v)
+	return _u
+}
+
+// ClearErrorImageIds clears the value of the "errorImageIds" field.
+func (_u *UploadUpdateOne) ClearErrorImageIds() *UploadUpdateOne {
+	_u.mutation.ClearErrorImageIds()
+	return _u
+}
+
 // SetProject sets the "project" edge to the Project entity.
 func (_u *UploadUpdateOne) SetProject(v *Project) *UploadUpdateOne {
 	return _u.SetProjectID(v.ID)
@@ -635,6 +970,26 @@ func (_u *UploadUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Upload.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.State(); ok {
+		if err := upload.StateValidator(v); err != nil {
+			return &ValidationError{Name: "state", err: fmt.Errorf(`ent: validator failed for field "Upload.state": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ReviewCycles(); ok {
+		if err := upload.ReviewCyclesValidator(v); err != nil {
+			return &ValidationError{Name: "reviewCycles", err: fmt.Errorf(`ent: validator failed for field "Upload.reviewCycles": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TaggingSeconds(); ok {
+		if err := upload.TaggingSecondsValidator(v); err != nil {
+			return &ValidationError{Name: "taggingSeconds", err: fmt.Errorf(`ent: validator failed for field "Upload.taggingSeconds": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.TimeToReadySeconds(); ok {
+		if err := upload.TimeToReadySecondsValidator(v); err != nil {
+			return &ValidationError{Name: "timeToReadySeconds", err: fmt.Errorf(`ent: validator failed for field "Upload.timeToReadySeconds": %w`, err)}
+		}
+	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "Upload.project"`)
 	}
@@ -690,6 +1045,50 @@ func (_u *UploadUpdateOne) sqlSave(ctx context.Context) (_node *Upload, err erro
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(upload.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.State(); ok {
+		_spec.SetField(upload.FieldState, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ReviewCycles(); ok {
+		_spec.SetField(upload.FieldReviewCycles, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedReviewCycles(); ok {
+		_spec.AddField(upload.FieldReviewCycles, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.TaggingSeconds(); ok {
+		_spec.SetField(upload.FieldTaggingSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTaggingSeconds(); ok {
+		_spec.AddField(upload.FieldTaggingSeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.LastTagActivityAt(); ok {
+		_spec.SetField(upload.FieldLastTagActivityAt, field.TypeTime, value)
+	}
+	if _u.mutation.LastTagActivityAtCleared() {
+		_spec.ClearField(upload.FieldLastTagActivityAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.TimeToReadySeconds(); ok {
+		_spec.SetField(upload.FieldTimeToReadySeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedTimeToReadySeconds(); ok {
+		_spec.AddField(upload.FieldTimeToReadySeconds, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.CycleStartedAt(); ok {
+		_spec.SetField(upload.FieldCycleStartedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CycleStartedAtCleared() {
+		_spec.ClearField(upload.FieldCycleStartedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ErrorImageIds(); ok {
+		_spec.SetField(upload.FieldErrorImageIds, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedErrorImageIds(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, upload.FieldErrorImageIds, value)
+		})
+	}
+	if _u.mutation.ErrorImageIdsCleared() {
+		_spec.ClearField(upload.FieldErrorImageIds, field.TypeJSON)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{

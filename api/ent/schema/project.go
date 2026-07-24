@@ -23,6 +23,8 @@ func (Project) Fields() []ent.Field {
 		field.String("locationCode").NotEmpty().StructTag(`json:"locationCode"`),
 		field.String("locationCity").NotEmpty().StructTag(`json:"locationCity"`),
 		field.String("aiSystemMessage").Optional().StructTag(`json:"aiSystemMessage"`),
+		// Opt-in upload review flow (see Upload.state).
+		field.Bool("uploadReviewEnabled").Default(false).StructTag(`json:"uploadReviewEnabled"`),
 	}
 }
 

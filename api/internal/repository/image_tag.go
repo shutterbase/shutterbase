@@ -63,6 +63,24 @@ func (r *Repository) GetImageTags(ctx context.Context, parameters *GetImageTagPa
 	return items, total, nil
 }
 
+// EnsureImageTag returns the project's tag with this name, creating it with the
+// given type when it does not exist yet. Used to materialize the reserved review
+// error tag the first time a project turns the review flow on.
+func (r *Repository) EnsureImageTag(ctx context.Context, projectID, name, description string, tagType imagetag.Type) (*ent.ImageTag, error) {
+	item, err := r.Client.ImageTag.Query().
+		Where(imagetag.ProjectID(projectID), imagetag.NameEQ(name)).
+		Only(ctx)
+	if err == nil {
+		return item, nil
+	}
+	if !ent.IsNotFound(err) {
+		return nil, err
+	}
+	return r.CreateImageTag(ctx, &CreateImageTagParameters{
+		Name: name, Description: description, Type: tagType, ProjectID: projectID,
+	})
+}
+
 type CreateImageTagParameters struct {
 	Name        string
 	Description string

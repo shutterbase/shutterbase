@@ -3,6 +3,7 @@
 package upload
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -30,6 +31,20 @@ const (
 	FieldUserID = "user_id"
 	// FieldCameraID holds the string denoting the camera_id field in the database.
 	FieldCameraID = "camera_id"
+	// FieldState holds the string denoting the state field in the database.
+	FieldState = "state"
+	// FieldReviewCycles holds the string denoting the reviewcycles field in the database.
+	FieldReviewCycles = "review_cycles"
+	// FieldTaggingSeconds holds the string denoting the taggingseconds field in the database.
+	FieldTaggingSeconds = "tagging_seconds"
+	// FieldLastTagActivityAt holds the string denoting the lasttagactivityat field in the database.
+	FieldLastTagActivityAt = "last_tag_activity_at"
+	// FieldTimeToReadySeconds holds the string denoting the timetoreadyseconds field in the database.
+	FieldTimeToReadySeconds = "time_to_ready_seconds"
+	// FieldCycleStartedAt holds the string denoting the cyclestartedat field in the database.
+	FieldCycleStartedAt = "cycle_started_at"
+	// FieldErrorImageIds holds the string denoting the errorimageids field in the database.
+	FieldErrorImageIds = "error_image_ids"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
 	// EdgeUser holds the string denoting the user edge name in mutations.
@@ -81,6 +96,13 @@ var Columns = []string{
 	FieldProjectID,
 	FieldUserID,
 	FieldCameraID,
+	FieldState,
+	FieldReviewCycles,
+	FieldTaggingSeconds,
+	FieldLastTagActivityAt,
+	FieldTimeToReadySeconds,
+	FieldCycleStartedAt,
+	FieldErrorImageIds,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -102,11 +124,52 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultReviewCycles holds the default value on creation for the "reviewCycles" field.
+	DefaultReviewCycles int
+	// ReviewCyclesValidator is a validator for the "reviewCycles" field. It is called by the builders before save.
+	ReviewCyclesValidator func(int) error
+	// DefaultTaggingSeconds holds the default value on creation for the "taggingSeconds" field.
+	DefaultTaggingSeconds int
+	// TaggingSecondsValidator is a validator for the "taggingSeconds" field. It is called by the builders before save.
+	TaggingSecondsValidator func(int) error
+	// DefaultTimeToReadySeconds holds the default value on creation for the "timeToReadySeconds" field.
+	DefaultTimeToReadySeconds int
+	// TimeToReadySecondsValidator is a validator for the "timeToReadySeconds" field. It is called by the builders before save.
+	TimeToReadySecondsValidator func(int) error
+	// DefaultErrorImageIds holds the default value on creation for the "errorImageIds" field.
+	DefaultErrorImageIds []string
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
 	IDValidator func(string) error
 )
+
+// State defines the type for the "state" enum field.
+type State string
+
+// StateOpen is the default value of the State enum.
+const DefaultState = StateOpen
+
+// State values.
+const (
+	StateOpen     State = "open"
+	StateReady    State = "ready"
+	StateReviewed State = "reviewed"
+)
+
+func (s State) String() string {
+	return string(s)
+}
+
+// StateValidator is a validator for the "state" field enum values. It is called by the builders before save.
+func StateValidator(s State) error {
+	switch s {
+	case StateOpen, StateReady, StateReviewed:
+		return nil
+	default:
+		return fmt.Errorf("upload: invalid enum value for state field: %q", s)
+	}
+}
 
 // OrderOption defines the ordering options for the Upload queries.
 type OrderOption func(*sql.Selector)
@@ -154,6 +217,36 @@ func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 // ByCameraID orders the results by the camera_id field.
 func ByCameraID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCameraID, opts...).ToFunc()
+}
+
+// ByState orders the results by the state field.
+func ByState(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldState, opts...).ToFunc()
+}
+
+// ByReviewCycles orders the results by the reviewCycles field.
+func ByReviewCycles(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReviewCycles, opts...).ToFunc()
+}
+
+// ByTaggingSeconds orders the results by the taggingSeconds field.
+func ByTaggingSeconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTaggingSeconds, opts...).ToFunc()
+}
+
+// ByLastTagActivityAt orders the results by the lastTagActivityAt field.
+func ByLastTagActivityAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastTagActivityAt, opts...).ToFunc()
+}
+
+// ByTimeToReadySeconds orders the results by the timeToReadySeconds field.
+func ByTimeToReadySeconds(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTimeToReadySeconds, opts...).ToFunc()
+}
+
+// ByCycleStartedAt orders the results by the cycleStartedAt field.
+func ByCycleStartedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCycleStartedAt, opts...).ToFunc()
 }
 
 // ByProjectField orders the results by project field.

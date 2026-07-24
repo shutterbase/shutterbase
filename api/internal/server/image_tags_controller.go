@@ -115,6 +115,12 @@ func (s *Server) createImageTag(c *gin.Context) {
 	if !allow(c, authorization.CanCreateImageTag(authUser(c), payload.ProjectID, string(t))) {
 		return
 	}
+	// The review error tag is reserved: a photographer must not be able to mint
+	// (or later rename a tag into) the name only a reviewer may assign.
+	if authorization.IsReviewErrorTag(payload.Name) &&
+		!allow(c, authorization.CanDeleteImageTag(authUser(c), payload.ProjectID)) {
+		return
+	}
 	item, err := s.Repository.CreateImageTag(c.Request.Context(), &repository.CreateImageTagParameters{
 		Name:        payload.Name,
 		Description: payload.Description,
@@ -161,6 +167,12 @@ func (s *Server) updateImageTag(c *gin.Context) {
 	}
 	// authz by the resulting type, scoped to the tag's project (§4.4).
 	if !allow(c, authorization.CanEditImageTag(authUser(c), existing.ProjectID, resultingType)) {
+		return
+	}
+	// Renaming into (or out of) the reserved review error tag name is a
+	// reviewer-only move — see createImageTag.
+	if payload.Name != nil && (authorization.IsReviewErrorTag(*payload.Name) || authorization.IsReviewErrorTag(existing.Name)) &&
+		!allow(c, authorization.CanDeleteImageTag(authUser(c), existing.ProjectID)) {
 		return
 	}
 	item, err := s.Repository.UpdateImageTag(c.Request.Context(), id, params)

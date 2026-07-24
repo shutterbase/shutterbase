@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"net/http/httputil"
@@ -82,7 +83,14 @@ func NewServer(options *Options) (*Server, error) {
 		return nil, err
 	}
 
-	repo, err := repository.NewRepository(&repository.Options{DatabaseConnection: options.Database})
+	taggingIdleThreshold, err := time.ParseDuration(config.Get().String("TAGGING_IDLE_THRESHOLD"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid TAGGING_IDLE_THRESHOLD: %w", err)
+	}
+	repo, err := repository.NewRepository(&repository.Options{
+		DatabaseConnection:   options.Database,
+		TaggingIdleThreshold: taggingIdleThreshold,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +194,10 @@ func (s *Server) registerPublicRoutes() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 	api.GET("/version", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"version": util.Version})
+		c.JSON(http.StatusOK, gin.H{"version": util.Version, "signupEnabled": selfSignupEnabled()})
 	})
+	// Self-signup is a public write surface; it rate-limits per IP itself.
+	api.POST("/auth/signup", s.signup)
 }
 
 // registerSPA serves the frontend for every route the API/WS/auth groups

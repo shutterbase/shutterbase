@@ -117,6 +117,15 @@ func InitConfig() error {
 		// $DATE/$WEEKDAY default tags so a shoot running past midnight still tags
 		// to the event day (-3 => captures before 03:00 count as the previous day).
 		config.Int("DATE_TAG_HOUR_OFFSET").Default(-3),
+
+		// upload review flow (S15). TAGGING_IDLE_THRESHOLD caps the gap between
+		// two tagging actions that still counts as working time when measuring a
+		// photographer's active tagging time per upload; longer gaps are breaks.
+		config.String("TAGGING_IDLE_THRESHOLD").Default("2m"),
+
+		// Self-signup (S15). A signed-up account is always created inactive and
+		// has to be activated by a platform admin before it can log in.
+		config.Bool("SELF_SIGNUP_ENABLED").Default(true),
 	})
 	return err
 }

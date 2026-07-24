@@ -1,11 +1,14 @@
 <template>
   <div>
-    <div class="flex justify-between">
-      <div>
+    <!-- items-start keeps the action aligned with the HEADLINE, not with the
+         middle of a subtitle that happens to wrap; shrink-0 stops the text from
+         squeezing the buttons, and flex-wrap drops them below on narrow screens. -->
+    <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <div class="min-w-0 flex-1">
         <h2 class="display text-xl text-primary-900 dark:text-white">{{ headline }}</h2>
-        <p v-if="subtitle !== ''" class="mt-1 text-sm text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
+        <p v-if="subtitle !== ''" class="mt-1 max-w-prose text-sm text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
       </div>
-      <div class="flex items-center gap-2" v-if="alwaysEdit === false && allowEdit">
+      <div class="flex shrink-0 items-center gap-2" v-if="alwaysEdit === false && allowEdit">
         <button
           v-if="edit"
           type="button"
@@ -30,7 +33,7 @@
           <dt class="label-mono text-primary-500 dark:text-primary-400 sm:w-64 sm:flex-none sm:pr-6 sm:pt-2">{{ field.label }}</dt>
           <dd class="mt-1 flex justify-between gap-x-6 sm:mt-0 sm:flex-auto">
             <div v-if="!edit">
-              <div v-if="_item" class="py-1.5 text-sm text-primary-800 dark:text-primary-100">{{ _item[field.key] }}</div>
+              <div v-if="_item" class="py-1.5 text-sm text-primary-800 dark:text-primary-100">{{ displayValue(field) }}</div>
               <div v-else class="animate-pulse h-2.5 bg-primary-200 rounded-full dark:bg-primary-800 w-64"></div>
             </div>
             <div v-else class="w-full">
@@ -41,6 +44,15 @@
                 :aria-label="field.label"
                 class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
               />
+              <label v-else-if="field.type === FieldType.BOOLEAN" class="inline-flex cursor-pointer items-center gap-2 py-2">
+                <input
+                  v-model="editData[field.key]"
+                  type="checkbox"
+                  :aria-label="field.label"
+                  class="h-4 w-4 rounded border-primary-300 bg-surface text-accent-600 focus:ring-2 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark"
+                />
+                <span class="text-sm text-primary-700 dark:text-primary-200">{{ field.hint ?? "Enabled" }}</span>
+              </label>
               <select
                 v-else-if="field.type === FieldType.SELECT"
                 v-model="editData[field.key]"
@@ -70,6 +82,13 @@ interface Props {
 }
 
 const _item = computed(() => props.item as T);
+
+// Booleans read as Yes/No rather than "true"/"false".
+function displayValue(field: Field<T>): any {
+  const value = props.item?.[field.key];
+  if (field.type === FieldType.BOOLEAN) return value ? "Yes" : "No";
+  return value;
+}
 
 const props = withDefaults(defineProps<Props>(), {
   subtitle: () => "",
@@ -135,11 +154,13 @@ export type Field<T> = {
   label: string;
   type: FieldType;
   options?: string[];
+  hint?: string;
 };
 
 export enum FieldType {
   TEXT = "text",
   SELECT = "select",
+  BOOLEAN = "boolean",
 }
 
 export type EditData<T> = {

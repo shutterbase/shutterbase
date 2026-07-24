@@ -53,6 +53,10 @@
 
       <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
         <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Image Tags</h3>
+        <p v-if="officialTagsFrozen(item)" class="mb-3 flex items-start gap-1.5 rounded-md border border-warning-200 bg-warning-50 px-2.5 py-2 text-xs text-warning-800 dark:border-warning-800/70 dark:bg-warning-950/40 dark:text-warning-200">
+          <LockClosedIcon class="mt-px h-4 w-4 shrink-0" />
+          <span>This upload is submitted for review — official tags are frozen. Custom tags can still be changed.</span>
+        </p>
         <div class="flex flex-wrap gap-2">
           <ImageTagBadge v-for="tagAssignment in tagAssignments" :key="tagAssignment.id" :tagAssignment="tagAssignment" :removable="removable(tagAssignment)" @remove="removeTag" />
         </div>
@@ -152,6 +156,8 @@ import { api } from "src/api";
 import { useUserStore } from "src/stores/user-store";
 import { ImagesResponse } from "src/types/pocketbase";
 import Clipboard from "src/components/Clipboard.vue";
+import { LockClosedIcon } from "@heroicons/vue/24/outline";
+import { canEditImageTag, officialTagsFrozen } from "src/pages/upload/uploadUtil";
 
 const userStore = useUserStore();
 
@@ -172,6 +178,9 @@ const tagAssignments = computed(() => {
 
 function removable(tagAssignment: ImageTagAssignmentType): boolean {
   if (!userStore.isProjectEditorOrHigher()) return false;
+  // The upload review flow freezes official tags once an upload is submitted and
+  // reserves the error tag for reviewers.
+  if (!canEditImageTag(props.item, tagAssignment.tag)) return false;
   const isOwnImage = props.item?.user.id === userStore.user?.id;
   const isProjectAdminOrHigher = userStore.isProjectAdminOrHigher();
   if (tagAssignment.tag.type === "default") {
@@ -181,6 +190,8 @@ function removable(tagAssignment: ImageTagAssignmentType): boolean {
   }
 }
 
+// Custom tags stay editable on a submitted upload, so the add affordance stays —
+// addImageTag refuses the individual frozen tags.
 function tagsCanBeAdded(): boolean {
   return userStore.isProjectEditorOrHigher() && (userStore.isProjectAdminOrHigher() || props.item?.user.id === userStore.user?.id);
 }

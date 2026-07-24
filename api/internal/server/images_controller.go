@@ -207,6 +207,17 @@ func (s *Server) validateUploadRef(c *gin.Context, projectID, uploadID string) b
 		apiError(c, http.StatusBadRequest, "cross_project_upload", "uploadId belongs to a different project")
 		return false
 	}
+	// A submitted upload takes no further images from the photographer —
+	// otherwise untagged frames could slip in behind a completed review.
+	project, err := s.Repository.GetProject(c.Request.Context(), projectID)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_project", "projectId does not exist")
+		return false
+	}
+	if !authorization.CanAddImagesToUpload(authUser(c), up, project.UploadReviewEnabled) {
+		apiError(c, http.StatusConflict, "upload_not_open", "the upload is submitted for review and accepts no further images")
+		return false
+	}
 	return true
 }
 

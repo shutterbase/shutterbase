@@ -15,10 +15,14 @@
 package authorization
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
@@ -291,6 +295,79 @@ func CanModifyUpload(u *ent.User, up *ent.Upload) bool {
 // CanCreateUpload: project member (or admin).
 func CanCreateUpload(u *ent.User, projectID string) bool {
 	return isAdmin(u) || IsAssigned(u, projectID)
+}
+
+// --- Upload review flow (project.uploadReviewEnabled) ---
+
+// ReviewErrorTagName is the reserved per-project tag a projectAdmin puts on an
+// image to mark a tagging error. It is a "custom" tag (never exported), but
+// unlike other custom tags only a projectAdmin may add or remove it.
+const ReviewErrorTagName = "error"
+
+// IsReviewErrorTag reports whether a tag name is the reserved error tag.
+func IsReviewErrorTag(name string) bool {
+	return strings.EqualFold(name, ReviewErrorTagName)
+}
+
+// isProjectAdmin: global admin or projectAdmin of this project — the reviewer
+// role of the upload review flow.
+func isProjectAdmin(u *ent.User, projectID string) bool {
+	return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
+}
+
+// CanTransitionUpload reports whether u may move up into state next. The
+// photographer (owner) may only submit open -> ready; every other transition
+// (send back, accept, reopen) is the reviewer's. A no-op transition is allowed
+// so a repeated PUT stays idempotent.
+func CanTransitionUpload(u *ent.User, up *ent.Upload, next upload.State) bool {
+	if up == nil || !isActive(u) {
+		return false
+	}
+	if isProjectAdmin(u, up.ProjectID) {
+		return true
+	}
+	return isOwner(u, up.UserID) && up.State == upload.StateOpen && next == upload.StateReady
+}
+
+// CanAssignTag reports whether u may create or delete an assignment of tag on
+// img. Base rule is CanManageImageTagAssignment; with the review flow enabled a
+// non-reviewer additionally loses
+//   - the error tag entirely (only a projectAdmin flags/clears errors), and
+//   - every non-custom ("official", i.e. exported) tag once the upload left the
+//     open state — custom tags stay editable because they are never exported.
+func CanAssignTag(u *ent.User, img *ent.Image, up *ent.Upload, tag *ent.ImageTag, reviewEnabled bool) bool {
+	if img == nil || up == nil || tag == nil {
+		return false
+	}
+	if !CanManageImageTagAssignment(u, img.ProjectID) {
+		return false
+	}
+	if !reviewEnabled || isProjectAdmin(u, img.ProjectID) {
+		return true
+	}
+	if IsReviewErrorTag(tag.Name) {
+		return false
+	}
+	return up.State == upload.StateOpen || tag.Type == imagetag.TypeCustom
+}
+
+// CanAddImagesToUpload: with the review flow on, a submitted upload takes no
+// further images from the photographer — only a reviewer can still re-parent.
+func CanAddImagesToUpload(u *ent.User, up *ent.Upload, reviewEnabled bool) bool {
+	if up == nil {
+		return false
+	}
+	return !reviewEnabled || up.State == upload.StateOpen || isProjectAdmin(u, up.ProjectID)
+}
+
+// --- Project assignments (§4.7) ---
+
+// CanManageProjectAssignment: a global admin, or a projectAdmin of THIS project.
+// A projectAdmin already administers everything inside their project, so letting
+// them manage its roster is no escalation — and the global user role lives on the
+// user row, out of reach from here.
+func CanManageProjectAssignment(u *ent.User, projectID string) bool {
+	return isProjectAdmin(u, projectID)
 }
 
 // --- Statistics (§4.13) ---

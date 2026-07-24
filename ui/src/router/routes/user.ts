@@ -5,6 +5,11 @@ export const userRoutes = [
     component: () => import("pages/user/Users.vue"),
   },
   {
+    name: "user-create",
+    path: "/users/create",
+    component: () => import("pages/user/UserCreate.vue"),
+  },
+  {
     name: "camera-create",
     path: "/users/:userid/cameras/create",
     component: () => import("pages/user/CameraCreate.vue"),

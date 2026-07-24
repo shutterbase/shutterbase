@@ -63,6 +63,14 @@ type tagRef struct {
 	Type        string `json:"type"`
 }
 
+// uploadRef is the image's upload plus its review state — the gallery needs the
+// state to know whether official tags are still editable on this image.
+type uploadRef struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	State string `json:"state"`
+}
+
 type assignmentRef struct {
 	ID   string  `json:"id"`
 	Type string  `json:"type"`
@@ -85,7 +93,7 @@ type ImageResponse struct {
 	User                *userRef               `json:"user"`
 	Camera              *namedRef              `json:"camera"`
 	Project             *namedRef              `json:"project"`
-	Upload              *namedRef              `json:"upload"`
+	Upload              *uploadRef             `json:"upload"`
 	Tags                []assignmentRef        `json:"tags"`
 	ImageTags           []string               `json:"imageTags"`
 	DownloadUrls        map[string]string      `json:"downloadUrls"`
@@ -147,7 +155,7 @@ func ToImageResponse(ctx context.Context, img *ent.Image, signer DownloadURLSign
 		resp.Project = &namedRef{ID: p.ID, Name: p.Name}
 	}
 	if up := img.Edges.Upload; up != nil {
-		resp.Upload = &namedRef{ID: up.ID, Name: up.Name}
+		resp.Upload = &uploadRef{ID: up.ID, Name: up.Name, State: up.State.String()}
 	}
 
 	resp.Tags = make([]assignmentRef, 0, len(img.Edges.ImageTagAssignments))

@@ -264,6 +264,10 @@ func init() {
 	projectDescLocationCity := projectFields[6].Descriptor()
 	// project.LocationCityValidator is a validator for the "locationCity" field. It is called by the builders before save.
 	project.LocationCityValidator = projectDescLocationCity.Validators[0].(func(string) error)
+	// projectDescUploadReviewEnabled is the schema descriptor for uploadReviewEnabled field.
+	projectDescUploadReviewEnabled := projectFields[8].Descriptor()
+	// project.DefaultUploadReviewEnabled holds the default value on creation for the uploadReviewEnabled field.
+	project.DefaultUploadReviewEnabled = projectDescUploadReviewEnabled.Default.(bool)
 	// projectDescID is the schema descriptor for id field.
 	projectDescID := projectMixinFields0[0].Descriptor()
 	// project.DefaultID holds the default value on creation for the id field.
@@ -368,6 +372,28 @@ func init() {
 	uploadDescName := uploadFields[0].Descriptor()
 	// upload.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	upload.NameValidator = uploadDescName.Validators[0].(func(string) error)
+	// uploadDescReviewCycles is the schema descriptor for reviewCycles field.
+	uploadDescReviewCycles := uploadFields[5].Descriptor()
+	// upload.DefaultReviewCycles holds the default value on creation for the reviewCycles field.
+	upload.DefaultReviewCycles = uploadDescReviewCycles.Default.(int)
+	// upload.ReviewCyclesValidator is a validator for the "reviewCycles" field. It is called by the builders before save.
+	upload.ReviewCyclesValidator = uploadDescReviewCycles.Validators[0].(func(int) error)
+	// uploadDescTaggingSeconds is the schema descriptor for taggingSeconds field.
+	uploadDescTaggingSeconds := uploadFields[6].Descriptor()
+	// upload.DefaultTaggingSeconds holds the default value on creation for the taggingSeconds field.
+	upload.DefaultTaggingSeconds = uploadDescTaggingSeconds.Default.(int)
+	// upload.TaggingSecondsValidator is a validator for the "taggingSeconds" field. It is called by the builders before save.
+	upload.TaggingSecondsValidator = uploadDescTaggingSeconds.Validators[0].(func(int) error)
+	// uploadDescTimeToReadySeconds is the schema descriptor for timeToReadySeconds field.
+	uploadDescTimeToReadySeconds := uploadFields[8].Descriptor()
+	// upload.DefaultTimeToReadySeconds holds the default value on creation for the timeToReadySeconds field.
+	upload.DefaultTimeToReadySeconds = uploadDescTimeToReadySeconds.Default.(int)
+	// upload.TimeToReadySecondsValidator is a validator for the "timeToReadySeconds" field. It is called by the builders before save.
+	upload.TimeToReadySecondsValidator = uploadDescTimeToReadySeconds.Validators[0].(func(int) error)
+	// uploadDescErrorImageIds is the schema descriptor for errorImageIds field.
+	uploadDescErrorImageIds := uploadFields[10].Descriptor()
+	// upload.DefaultErrorImageIds holds the default value on creation for the errorImageIds field.
+	upload.DefaultErrorImageIds = uploadDescErrorImageIds.Default.([]string)
 	// uploadDescID is the schema descriptor for id field.
 	uploadDescID := uploadMixinFields0[0].Descriptor()
 	// upload.DefaultID holds the default value on creation for the id field.

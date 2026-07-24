@@ -61,14 +61,15 @@ func (r *Repository) GetProjects(ctx context.Context, parameters *GetProjectPara
 }
 
 type CreateProjectParameters struct {
-	Name               string
-	Description        string
-	Copyright          string
-	CopyrightReference string
-	LocationName       string
-	LocationCode       string
-	LocationCity       string
-	AiSystemMessage    *string
+	Name                string
+	Description         string
+	Copyright           string
+	CopyrightReference  string
+	LocationName        string
+	LocationCode        string
+	LocationCity        string
+	AiSystemMessage     *string
+	UploadReviewEnabled *bool
 }
 
 func (r *Repository) CreateProject(ctx context.Context, parameters *CreateProjectParameters) (*ent.Project, error) {
@@ -82,6 +83,9 @@ func (r *Repository) CreateProject(ctx context.Context, parameters *CreateProjec
 		SetLocationCity(parameters.LocationCity).
 		SetCreatedBy(util.GetActorID(ctx)).
 		SetUpdatedBy(util.GetActorID(ctx))
+	if parameters.UploadReviewEnabled != nil {
+		create = create.SetUploadReviewEnabled(*parameters.UploadReviewEnabled)
+	}
 	if parameters.AiSystemMessage != nil {
 		create = create.SetAiSystemMessage(*parameters.AiSystemMessage)
 	}
@@ -100,14 +104,15 @@ func (r *Repository) CreateProject(ctx context.Context, parameters *CreateProjec
 }
 
 type UpdateProjectParameters struct {
-	Name               *string
-	Description        *string
-	Copyright          *string
-	CopyrightReference *string
-	LocationName       *string
-	LocationCode       *string
-	LocationCity       *string
-	AiSystemMessage    *string
+	Name                *string
+	Description         *string
+	Copyright           *string
+	CopyrightReference  *string
+	LocationName        *string
+	LocationCode        *string
+	LocationCity        *string
+	AiSystemMessage     *string
+	UploadReviewEnabled *bool
 }
 
 func (r *Repository) UpdateProject(ctx context.Context, id string, parameters *UpdateProjectParameters) (*ent.Project, error) {
@@ -158,6 +163,10 @@ func (r *Repository) UpdateProject(ctx context.Context, id string, parameters *U
 	if parameters.AiSystemMessage != nil && item.AiSystemMessage != *parameters.AiSystemMessage {
 		update.SetAiSystemMessage(*parameters.AiSystemMessage)
 		st.SetFieldChanged(project.FieldAiSystemMessage, item.AiSystemMessage, *parameters.AiSystemMessage)
+	}
+	if parameters.UploadReviewEnabled != nil && item.UploadReviewEnabled != *parameters.UploadReviewEnabled {
+		update.SetUploadReviewEnabled(*parameters.UploadReviewEnabled)
+		st.SetFieldChanged(project.FieldUploadReviewEnabled, item.UploadReviewEnabled, *parameters.UploadReviewEnabled)
 	}
 
 	if !st.modelChanged {
