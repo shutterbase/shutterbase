@@ -10,10 +10,81 @@ on:
     branches:
       - main
 
+# Main/PR runs share a lane so a new commit cancels the in-flight run. Tag pushes
+# get their own lane — the retag/release path must never be cancelled by a
+# parallel main push.
+concurrency:
+  group: build-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+
+env:
+  DOCKER_IMAGE_URL: ghcr.io/shutterbase/shutterbase
+  WASM_BUILDER_IMAGE: ghcr.io/shutterbase/wasm-builder
+
+# Two paths:
+#
+#   main + PR : test-api + test-ui -> server (build & push ghcr :<sha8>)
+#   v* tag    : retag (stamp :vX.Y.Z onto the EXISTING :<sha8> manifest)
+#               -> release -> downloader-release
+#
+# A tag push deliberately skips the tests and the image build. The tagged commit
+# already lives on main, was already tested there, and already has a sha-tagged
+# image in the registry. Rebuilding it would not only waste ~6 minutes, it would
+# ship a DIFFERENT artifact than the one CI proved green (base images and
+# wasm-builder:latest drift between runs). Re-tagging publishes the exact digest
+# that passed.
 jobs:
+  retag:
+    name: Re-tag tested image as release (no rebuild)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the tagged commit's image tag
+        id: sha
+        # On a tag push github.sha is the tagged commit — the same commit the
+        # main-branch run built and pushed as :<first 8 chars>.
+        run: echo "short=$(echo ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_OUTPUT
+
+      - name: Wait for the tested image to exist
+        # `/release` tags immediately after the squash-merge, so this run usually
+        # starts while the main-branch build is still going. Poll instead of
+        # failing; if the main build broke, or the tag points at a commit that
+        # never landed on main, this times out with a clear message.
+        run: |
+          src="$DOCKER_IMAGE_URL:${{ steps.sha.outputs.short }}"
+          for attempt in $(seq 1 80); do            # 80 x 15s = 20 min
+            if docker buildx imagetools inspect "$src" >/dev/null 2>&1; then
+              echo "Source image $src is available."
+              exit 0
+            fi
+            echo "Image $src not yet in the registry — attempt $attempt/80, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::$src never appeared. Did the main-branch build for this commit succeed?"
+          exit 1
+
+      - name: Stamp the release tag onto the existing manifest
+        # imagetools create copies tags by manifest reference: no layer pull, no
+        # rebuild. :vX.Y.Z resolves to the same digest as :<sha8>.
+        run: |
+          docker buildx imagetools create \
+            -t $DOCKER_IMAGE_URL:${{ github.ref_name }} \
+            $DOCKER_IMAGE_URL:${{ steps.sha.outputs.short }}
+
   release:
     name: Create release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: retag
     runs-on: ubuntu-latest
     steps:
       - name: Changelog
@@ -34,6 +105,7 @@ jobs:
 
   test-api:
     name: API tests
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +124,7 @@ jobs:
 
   test-ui:
     name: UI tests
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +146,7 @@ jobs:
         run: cd ui && bun run build
 
   downloader-build:
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
@@ -83,9 +157,10 @@ jobs:
         run: cd api && go build -ldflags="-s -w" -o downloader cmd/downloader/main.go
 
   downloader-release:
+    # Binaries are release artifacts, not registry images — they are compiled
+    # here on the tag. Only downloader-build (the main/PR compile check) is skipped.
     needs:
       - release
-      - downloader-build
     strategy:
       fail-fast: false
       matrix:
@@ -118,14 +193,12 @@ jobs:
 
   server:
     name: Server Build
+    if: github.ref_type != 'tag'
     needs:
       - test-api
       - test-ui
     runs-on: ubuntu-latest
     permissions: write-all
-    env:
-      DOCKER_IMAGE_URL: ghcr.io/shutterbase/shutterbase
-      WASM_BUILDER_IMAGE: ghcr.io/shutterbase/wasm-builder
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -143,8 +216,3 @@ jobs:
           docker build --platform=linux/amd64 -t $DOCKER_IMAGE_URL:${GITHUB_SHA::8} .
           docker push $DOCKER_IMAGE_URL:${GITHUB_SHA::8}
 
-      - name: Push released image
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        run: |
-          docker tag $DOCKER_IMAGE_URL:${GITHUB_SHA::8} $DOCKER_IMAGE_URL:${{ github.ref_name }}
-          docker push $DOCKER_IMAGE_URL:${{ github.ref_name }}
