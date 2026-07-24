@@ -30,6 +30,9 @@ export interface UserUpdate {
   hotkeys?: UserHotkeys;
   // admin-only:
   active?: boolean;
+  // Global role enum. `roleId` resolves against the roles TABLE, which only holds
+  // project roles — it can never reach "admin". Use `role`.
+  role?: "user" | "admin";
   roleId?: string;
   forcePasswordChange?: boolean;
   activeProjectId?: string;

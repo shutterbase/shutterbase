@@ -44,24 +44,82 @@
         :item="item"
       />
 
-      <!-- Admin-only account controls. The API refuses `active` from a non-admin
-           anyway; this just keeps the page honest about who can do what. -->
-      <section v-if="isAdmin && item" class="border-t border-primary-100 pt-10 dark:border-primary-800/70">
+      <!-- Account access. Rendered for every viewer, disabled with the reason
+           when they may not act: a control that simply is not there reads as
+           "broken" — which is exactly how the missing role control got reported. -->
+      <section v-if="item" class="border-t border-primary-100 pt-10 dark:border-primary-800/70">
         <h2 class="display text-xl text-primary-900 dark:text-white">Account access</h2>
-        <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">
-          An inactive account cannot sign in, and its sessions and API keys stop working immediately.
+        <p class="mt-1 max-w-prose text-sm text-primary-500 dark:text-primary-400">
+          Whether this account can sign in, and what it may do platform-wide. Roles <em>inside</em> a project are managed on that project's Members page.
         </p>
-        <div class="mt-6 flex flex-wrap items-center gap-3">
-          <button v-if="!item.active" type="button" @click="setActive(true)" :disabled="busy" :class="[buttonBase, buttonAccent]">
-            <CheckCircleIcon class="h-4 w-4" />
-            Activate account
-          </button>
-          <button v-else type="button" @click="showDeactivateDialog = true" :disabled="busy || isSelf" :class="[buttonBase, buttonDanger]">
-            <NoSymbolIcon class="h-4 w-4" />
-            Deactivate account
-          </button>
-          <p v-if="isSelf && item.active" class="text-xs text-primary-500 dark:text-primary-400">You cannot deactivate your own account.</p>
-        </div>
+
+        <p
+          v-if="!isAdmin"
+          class="mt-4 flex max-w-prose items-start gap-1.5 rounded-md border border-primary-200 bg-surface-muted px-2.5 py-2 text-xs text-primary-600 dark:border-primary-700 dark:bg-surface-dark-muted dark:text-primary-300"
+        >
+          <LockClosedIcon class="mt-px h-4 w-4 shrink-0" />
+          <span>Only platform administrators can change sign-in access or the platform role.</span>
+        </p>
+
+        <dl class="mt-6 space-y-8">
+          <div class="sm:flex sm:items-start sm:gap-6">
+            <dt class="label-mono text-primary-500 dark:text-primary-400 sm:w-40 sm:shrink-0 sm:pt-2">Sign-in</dt>
+            <dd class="mt-2 sm:mt-0">
+              <div class="flex flex-wrap items-center gap-3">
+                <span :class="['inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium', item.active ? badgeSuccess : badgeError]">
+                  <component :is="item.active ? CheckCircleIcon : NoSymbolIcon" class="h-4 w-4" />
+                  {{ item.active ? "Active" : "Inactive" }}
+                </span>
+                <button v-if="!item.active" type="button" @click="setActive(true)" :disabled="!isAdmin || busy" :class="[buttonBase, buttonAccent]">
+                  <CheckCircleIcon class="h-4 w-4" />
+                  Activate account
+                </button>
+                <button v-else type="button" @click="showDeactivateDialog = true" :disabled="!isAdmin || busy || isSelf" :class="[buttonBase, buttonDanger]">
+                  <NoSymbolIcon class="h-4 w-4" />
+                  Deactivate account
+                </button>
+              </div>
+              <p class="mt-2 max-w-prose text-xs text-primary-500 dark:text-primary-400">
+                {{
+                  isSelf && item.active
+                    ? "You cannot deactivate your own account."
+                    : "An inactive account cannot sign in, and its sessions and API keys stop working immediately."
+                }}
+              </p>
+            </dd>
+          </div>
+
+          <div class="sm:flex sm:items-start sm:gap-6">
+            <dt class="label-mono text-primary-500 dark:text-primary-400 sm:w-40 sm:shrink-0 sm:pt-2">Platform role</dt>
+            <dd class="mt-2 sm:mt-0">
+              <div class="inline-flex rounded-lg border border-primary-200 bg-surface p-0.5 dark:border-primary-700 dark:bg-surface-dark">
+                <button
+                  v-for="option in roleOptions"
+                  :key="option.value"
+                  type="button"
+                  @click="setRole(option.value)"
+                  :disabled="!isAdmin || busy || isSelf"
+                  :class="[
+                    'inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                    currentRole === option.value
+                      ? 'bg-accent-500/15 text-accent-700 dark:bg-accent-500/20 dark:text-accent-200'
+                      : 'cursor-pointer text-primary-500 hover:bg-primary-100 hover:text-primary-700 dark:text-primary-400 dark:hover:bg-primary-800 dark:hover:text-primary-200',
+                  ]"
+                >
+                  <component :is="option.icon" class="h-4 w-4" />
+                  {{ option.label }}
+                </button>
+              </div>
+              <p class="mt-2 max-w-prose text-xs text-primary-500 dark:text-primary-400">
+                {{
+                  isSelf
+                    ? "You cannot change your own role — another administrator has to. That rule is what guarantees the platform never loses its last admin."
+                    : "A platform admin manages every project, every user and every account. Grant it sparingly."
+                }}
+              </p>
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <section v-if="isAdmin && item" class="border-t border-primary-100 pt-10 dark:border-primary-800/70">
@@ -115,7 +173,7 @@ import { UsersResponse } from "src/types/pocketbase";
 import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
-import { CheckCircleIcon, KeyIcon, NoSymbolIcon, ShieldCheckIcon } from "@heroicons/vue/24/outline";
+import { CheckCircleIcon, KeyIcon, LockClosedIcon, NoSymbolIcon, ShieldCheckIcon, UserIcon } from "@heroicons/vue/24/outline";
 
 const route = useRoute();
 const userStore = useUserStore();
@@ -197,6 +255,29 @@ async function setActive(active: boolean) {
 async function confirmDeactivate() {
   showDeactivateDialog.value = false;
   await setActive(false);
+}
+
+// --- platform role ---
+
+const roleOptions = [
+  { value: "user" as const, label: "User", icon: UserIcon },
+  { value: "admin" as const, label: "Platform admin", icon: ShieldCheckIcon },
+];
+
+const currentRole = computed(() => (item.value?.role?.key === "admin" ? "admin" : "user"));
+
+async function setRole(role: "user" | "admin") {
+  if (!item.value || role === currentRole.value) return;
+  busy.value = true;
+  try {
+    item.value = await api.users.update(item.value.id, { role });
+    showNotificationToast({ headline: role === "admin" ? "Promoted to platform admin" : "Platform admin removed", type: "success" });
+  } catch (error: any) {
+    // 409 is the self-change guard; surface the server's reason rather than a modal.
+    showNotificationToast({ headline: error?.response?.data?.message ?? "Could not change the role", type: "error" });
+  } finally {
+    busy.value = false;
+  }
 }
 
 // --- password reset ---

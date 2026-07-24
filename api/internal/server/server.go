@@ -190,11 +190,15 @@ func NewServer(options *Options) (*Server, error) {
 
 func (s *Server) registerPublicRoutes() {
 	api := s.Engine.Group(s.options.ApiBaseURL)
+	// Both report DEPLOYMENT_IMAGE_TAG — the tag the deployment manifest actually
+	// pinned. util.Version is an ldflags var no build sets, so it always read
+	// "development" and was useless for answering "what is running in prod?".
+	// /health is the deploy verification probe (see .claude/commands/deploy-fsg.md).
 	api.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "version": util.DeploymentImageTag()})
 	})
 	api.GET("/version", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"version": util.Version, "signupEnabled": selfSignupEnabled()})
+		c.JSON(http.StatusOK, gin.H{"version": util.DeploymentImageTag(), "signupEnabled": selfSignupEnabled()})
 	})
 	// Self-signup is a public write surface; it rate-limits per IP itself.
 	api.POST("/auth/signup", s.signup)

@@ -110,6 +110,12 @@
             <a href="/logout" class="block cursor-pointer py-2 px-4 text-sm font-medium text-error-700 transition-colors hover:bg-error-50 dark:text-error-300 dark:hover:bg-error-950/40">Sign out</a>
           </li>
         </ul>
+        <!-- Deployed image tag (DEPLOYMENT_IMAGE_TAG). This is what /deploy-fsg
+             checks against to confirm a rollout actually reached the pods. -->
+        <div class="px-4 py-2">
+          <p class="label-mono text-[0.6rem] text-primary-400 dark:text-primary-500">Version</p>
+          <p class="font-data text-xs text-primary-600 dark:text-primary-300">{{ version || "—" }}</p>
+        </div>
       </MenuItems>
     </transition>
   </Menu>
@@ -123,6 +129,7 @@ import { initFlowbite } from "flowbite";
 import { useUserStore } from "src/stores/user-store";
 import Avatar from "avatar-initials";
 import { storeToRefs } from "pinia";
+import { api } from "src/api";
 
 const userMenuAvatar = ref<HTMLImageElement>();
 
@@ -136,6 +143,12 @@ const headshotUrl = ref("");
 function clearProjectSelection() {
   userStore.clearActiveProject();
 }
+
+const version = ref("");
+api.auth
+  .serverInfo()
+  .then((info) => (version.value = info.version))
+  .catch(() => (version.value = ""));
 
 onMounted(() => {
   initFlowbite();
