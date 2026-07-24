@@ -88,30 +88,45 @@ production — ArgoCD picks it up on its own.
 Push only the shutterbase change. If `git status` shows unrelated dirty files from other
 apps in that repo, stop and ask — `just push` stages everything with `git add .`.
 
-### 6. Watch the rollout
+### 6. Verify the rollout against the running pods
 
-There is no FSG kube context configured locally, so verify through ArgoCD (or ask the user
-to look):
+Do **not** poll ArgoCD — there is no FSG argocd context on this machine and the CLI
+points at an unrelated cluster. The app reports its own deployed tag, which is a stronger
+signal anyway: ArgoCD "Synced" only means the manifest was applied, not that pods are
+serving the new image.
 
-```bash
-argocd app get shutterbase        # needs an argocd login against the FSG instance
-```
-
-If no session is available, say so and report what to check in the ArgoCD UI: the
-shutterbase app Synced + Healthy, and both replicas on the new tag. RollingUpdate with
-`maxUnavailable: 0` means the old pods keep serving until the new ones are ready, so a
-failed image pull degrades nothing — it just never completes.
-
-### 7. Verify the running version
+`/api/v1/health` returns `DEPLOYMENT_IMAGE_TAG` — the value this very manifest sets — so
+it flips to the new version only once a new pod is actually answering:
 
 ```bash
-curl -s https://shutterbase.fsg.one/api/v1/version
+curl -s https://shutterbase.fsg.one/api/v1/health
+# {"status":"ok","version":"vX.Y.Z"}
 ```
 
-It must report the version you just deployed. If it reports something else, the responding
-pod did not come from this manifest — investigate before declaring success (this exact
-mismatch has happened before, from a pre-GitOps pod started by hand).
+Poll until it matches, then stop. ArgoCD's sync interval plus a rolling update means a
+few minutes is normal:
 
-### 8. Report
+```bash
+for i in $(seq 1 40); do
+  v=$(curl -s --max-time 15 https://shutterbase.fsg.one/api/v1/health)
+  echo "$i: $v"
+  case "$v" in *'"version":"vX.Y.Z"'*) echo "rolled"; break;; esac
+  sleep 20
+done
+```
 
-Version deployed, the GitOps commit, sync/health status, and what `/api/v1/version` says.
+Two replicas roll one at a time (`maxSurge 1` / `maxUnavailable 0`), so during the roll the
+endpoint may answer from either the old or the new pod — treat a stable new version across
+a couple of consecutive polls as done, not the first hit.
+
+If it never flips, the deploy did not reach the pods. Check, in order: the GitOps commit is
+on `master`; the ArgoCD app synced (ask the user to look in the UI — no CLI session here);
+the image tag exists on ghcr; the pod is not in ImagePullBackOff. `maxUnavailable: 0` means
+a failed pull never degrades the service — the rollout simply never completes, and the old
+version keeps serving.
+
+### 7. Report
+
+Version deployed, the GitOps commit, and what `/api/v1/health` reports. If the version
+never flipped, say so plainly rather than calling the deploy done — the GitOps push
+succeeding is not the same as prod running the new binary.

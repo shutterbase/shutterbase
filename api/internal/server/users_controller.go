@@ -167,13 +167,20 @@ func (s *Server) createUser(c *gin.Context) {
 }
 
 type updateUserPayload struct {
-	FirstName           *string             `json:"firstName"`
-	LastName            *string             `json:"lastName"`
-	CopyrightTag        *string             `json:"copyrightTag"`
-	Email               *string             `json:"email"`
-	Password            *string             `json:"password"`
-	Active              *bool               `json:"active"`
-	RoleID              *string             `json:"roleId"`
+	FirstName    *string `json:"firstName"`
+	LastName     *string `json:"lastName"`
+	CopyrightTag *string `json:"copyrightTag"`
+	Email        *string `json:"email"`
+	Password     *string `json:"password"`
+	Active       *bool   `json:"active"`
+	RoleID       *string `json:"roleId"`
+	// Role is the GLOBAL role enum ("user" | "admin"). roleId is kept for
+	// backwards compatibility but can never reach "admin": it resolves against
+	// the roles TABLE, which only holds the project roles (projectAdmin/Editor/
+	// Viewer). With no global "admin" row, every roleId silently mapped to
+	// "user" — promotion was impossible. The global role is an enum on the user;
+	// take it directly.
+	Role                *string             `json:"role"`
 	ForcePasswordChange *bool               `json:"forcePasswordChange"`
 	ActiveProjectID     *string             `json:"activeProjectId"`
 	Hotkeys             *schema.UserHotkeys `json:"hotkeys"`
@@ -222,7 +229,7 @@ func (s *Server) updateUser(c *gin.Context) {
 		return
 	}
 	// Admin-only fields: a non-admin sending any of them is forbidden (§4.12).
-	if !isAdmin && (payload.Active != nil || payload.RoleID != nil ||
+	if !isAdmin && (payload.Active != nil || payload.RoleID != nil || payload.Role != nil ||
 		payload.ForcePasswordChange != nil || payload.ActiveProjectID != nil) {
 		forbid(c)
 		return
@@ -259,6 +266,22 @@ func (s *Server) updateUser(c *gin.Context) {
 		role, ok := s.roleEnumFromID(c.Request.Context(), *payload.RoleID)
 		if !ok {
 			apiError(c, http.StatusBadRequest, "invalid_role", "invalid roleId")
+			return
+		}
+		params.Role = &role
+	}
+	if payload.Role != nil {
+		role := user.Role(*payload.Role)
+		if err := user.RoleValidator(role); err != nil {
+			apiError(c, http.StatusBadRequest, "invalid_role", `role must be "user" or "admin"`)
+			return
+		}
+		// You cannot change your OWN global role. Beyond the obvious footgun of
+		// an admin demoting themselves out of the admin UI, this is what keeps
+		// at least one admin alive: only a DIFFERENT admin may demote an admin,
+		// so the last one standing can never be removed.
+		if authorization.IsSelf(me, id) {
+			apiError(c, http.StatusConflict, "cannot_change_own_role", "you cannot change your own role — ask another administrator")
 			return
 		}
 		params.Role = &role
