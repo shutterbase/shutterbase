@@ -36,7 +36,7 @@ const websocketListenerId = websocket.on({ object: "time" }, ({ data }) => {
 async function renderSecond(second: number) {
   lastRenderedSecond = second; // set before await so the poll can't re-enter for the same second
   timeString.value = new Date(second * 1000).toLocaleString();
-  const qrCodeResult = await get_time_qr_code_image(String(second));
+  const qrCodeResult = await get_time_qr_code_image(second);
   if (qrCode.value) {
     qrCode.value.style.backgroundImage = `url("data:image/png;base64,${qrCodeResult.base64}")`;
   }
