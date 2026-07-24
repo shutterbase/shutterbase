@@ -17,6 +17,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/internal/s3"
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 // VerifyResult is the structured outcome of the post-import verification suite.
@@ -143,15 +144,17 @@ func Verify(ctx context.Context, pb *sql.DB, client *ent.Client, s3client *s3.S3
 		}
 	}
 
-	// 6. S3 HEAD sampling on migrated storageIds.
+	// 6. S3 HEAD sampling on migrated storageIds. Objects live at the sharded
+	// original key (XX/<storageId>.jpg), NOT the bare storageId.
 	if s3client == nil {
 		res.S3Skipped = true
 	} else {
 		for _, im := range allImages {
-			_, err := s3client.Client.StatObject(ctx, s3client.Options.Bucket, im.StorageId, minio.StatObjectOptions{})
+			key := util.GetObjectIds(im.StorageId)[0]
+			_, err := s3client.Client.StatObject(ctx, s3client.Options.Bucket, key, minio.StatObjectOptions{})
 			res.S3Checked++
 			if err != nil {
-				res.S3Missing = append(res.S3Missing, im.StorageId)
+				res.S3Missing = append(res.S3Missing, key)
 			}
 		}
 	}
