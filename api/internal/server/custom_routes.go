@@ -25,11 +25,12 @@ func (s *Server) registerCustomRoutes(api *gin.RouterGroup) {
 }
 
 // uploadKeyPattern validates the requested object key (SPEC §4.13): two-char
-// shard dir + storageId + optional -<size> + .jpg. This rejects path traversal
-// and arbitrary keys; ".." can't match (no dots outside the extension, single
-// slash). True per-user ownership binding (the key must belong to the caller's
-// in-flight upload) + a per-user rate limit are S10/Phase-2.
-var uploadKeyPattern = regexp.MustCompile(`^[0-9a-zA-Z]{2}/[0-9a-zA-Z]+(-\d+)?\.jpg$`)
+// shard dir + storageId (a hyphenated UUID from image-wasm) + optional -<size>
+// + .jpg. This rejects path traversal and arbitrary keys; ".." can't match (no
+// dots outside the extension, single slash — hyphens don't change that). True
+// per-user ownership binding (the key must belong to the caller's in-flight
+// upload) + a per-user rate limit are S10/Phase-2.
+var uploadKeyPattern = regexp.MustCompile(`^[0-9a-zA-Z]{2}/[0-9a-zA-Z-]+(-\d+)?\.jpg$`)
 
 func validUploadKey(name string) bool {
 	return uploadKeyPattern.MatchString(name)
