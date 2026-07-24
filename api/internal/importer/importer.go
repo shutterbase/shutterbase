@@ -247,6 +247,7 @@ func Import(ctx context.Context, pb *sql.DB, client *ent.Client) (*Report, error
 	if err != nil {
 		return nil, fmt.Errorf("read images: %w", err)
 	}
+	var imageBuilders []*ent.ImageCreate
 	for _, im := range images {
 		pbUser := str(im, "user")
 		imageUser[str(im, "id")] = pbUser
@@ -284,17 +285,22 @@ func Import(ctx context.Context, pb *sql.DB, client *ent.Client) (*Report, error
 			b.SetHeight(v)
 		}
 		applyTimes(b.SetCreatedAt, b.SetUpdatedAt, im)
-		if _, err := b.Save(ctx); err != nil {
-			return nil, fmt.Errorf("create image %s: %w", str(im, "id"), err)
-		}
-		rep.Images++
+		imageBuilders = append(imageBuilders, b)
 	}
+	if err := saveChunked(len(imageBuilders), func(lo, hi int) error {
+		_, err := client.Image.CreateBulk(imageBuilders[lo:hi]...).Save(ctx)
+		return err
+	}); err != nil {
+		return nil, fmt.Errorf("bulk create images: %w", err)
+	}
+	rep.Images = len(imageBuilders)
 
 	// 10. image_tag_assignments (coalesce empty type -> manual) ---------------
 	assigns, err := scanRows(pb, `SELECT id, created, updated, type, imageTag, image FROM image_tag_assignments`)
 	if err != nil {
 		return nil, fmt.Errorf("read image_tag_assignments: %w", err)
 	}
+	var assignBuilders []*ent.ImageTagAssignmentCreate
 	for _, a := range assigns {
 		typ := str(a, "type")
 		if typ == "" {
@@ -309,11 +315,15 @@ func Import(ctx context.Context, pb *sql.DB, client *ent.Client) (*Report, error
 			b.SetCreatedBy(owner).SetUpdatedBy(owner)
 		}
 		applyTimes(b.SetCreatedAt, b.SetUpdatedAt, a)
-		if _, err := b.Save(ctx); err != nil {
-			return nil, fmt.Errorf("create image_tag_assignment %s: %w", str(a, "id"), err)
-		}
-		rep.Assignments++
+		assignBuilders = append(assignBuilders, b)
 	}
+	if err := saveChunked(len(assignBuilders), func(lo, hi int) error {
+		_, err := client.ImageTagAssignment.CreateBulk(assignBuilders[lo:hi]...).Save(ctx)
+		return err
+	}); err != nil {
+		return nil, fmt.Errorf("bulk create image_tag_assignments: %w", err)
+	}
+	rep.Assignments = len(assignBuilders)
 
 	// 11. PATCH users.activeProject -----------------------------------------
 	for pbUserID, pbProjectID := range userActiveProject {
@@ -323,6 +333,22 @@ func Import(ctx context.Context, pb *sql.DB, client *ent.Client) (*Report, error
 	}
 
 	return rep, nil
+}
+
+// bulkChunkSize keeps a CreateBulk INSERT well under the param limits of both
+// dialects (Postgres 65535, SQLite 32766) at ~19 columns per row, while cutting
+// per-row WAN round trips for the two large tables (images, assignments).
+const bulkChunkSize = 500
+
+// saveChunked saves n builders in bulkChunkSize slices via save(lo, hi).
+func saveChunked(n int, save func(lo, hi int) error) error {
+	for lo := 0; lo < n; lo += bulkChunkSize {
+		hi := min(lo+bulkChunkSize, n)
+		if err := save(lo, hi); err != nil {
+			return fmt.Errorf("rows %d..%d: %w", lo, hi-1, err)
+		}
+	}
+	return nil
 }
 
 // --- PB row reading helpers -------------------------------------------------
