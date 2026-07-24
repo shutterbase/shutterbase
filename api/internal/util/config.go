@@ -16,8 +16,10 @@ func InitConfig() error {
 		config.String("API_BASE_URL").Default("/api/v1"),
 		config.String("DOMAIN_NAME").Default("localhost"),
 
-		// basicauth / session
-		config.String("SESSION_SECRET_KEY").NotEmpty().Sensitive(),
+		// basicauth / session. May arrive via the vault env overlay
+		// (VAULT_ENV_KV_PATH) instead of the environment, so no NotEmpty here —
+		// authentication.Setup rejects an empty value after the overlay ran.
+		config.String("SESSION_SECRET_KEY").Sensitive().Default(""),
 		config.String("DEFAULT_ADMIN_USERNAME").NotEmpty().Default("admin"),
 		// No default: shipping a known admin credential is a security hole. When unset,
 		// ensureDefaultAdmin generates a random one-time bootstrap password and logs it.
@@ -95,6 +97,10 @@ func InitConfig() error {
 		config.String("VAULT_S3_KV_PATH").Default(""),
 		config.String("VAULT_S3_ACCESS_KEY_FIELD").Default("access_key"),
 		config.String("VAULT_S3_SECRET_KEY_FIELD").Default("secret_key"),
+		// KV path of the application env secret. Every string field is applied
+		// as a process env var at startup (explicit env wins), then config is
+		// re-initialized — app secrets like SESSION_SECRET_KEY live in vault.
+		config.String("VAULT_ENV_KV_PATH").Default(""),
 
 		// ai inference (S6). AI_PROVIDER selects the ImageInference impl:
 		// "stub" (deterministic echo, dev/test), "openai", "openrouter", "http".
