@@ -3,6 +3,7 @@
 api/*.JPG
 api/*.jpg
 api/temp/
+api/tmp/
 
 api/pb_data/
 

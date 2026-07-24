@@ -4,6 +4,8 @@
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
 import { configure } from "quasar/wrappers";
+import open from "open";
+import type { ViteDevServer } from "vite";
 
 export default configure((/* ctx */) => {
   return {
@@ -58,15 +60,28 @@ export default configure((/* ctx */) => {
       // extendViteConf (viteConf) {},
       // viteVuePluginOptions: {},
 
-      // vitePlugins: [
-      //   [ 'package-name', { ..options.. } ]
-      // ]
+      vitePlugins: [
+        // Quasar's own `devServer.open` can only open this dev server's own
+        // URL. We want the browser to open the API server (:8080) instead —
+        // it reverse-proxies everything back here in DevMode, so :8080 is the
+        // single front door in every environment — so open it ourselves once
+        // Vite is listening.
+        {
+          name: "open-api-server",
+          configureServer(server: ViteDevServer) {
+            server.httpServer?.once("listening", () => {
+              open("http://localhost:8080");
+            });
+          },
+        },
+      ],
     },
 
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: true
-      open: true, // opens browser window automatically
+      port: 9000, // matches api's UI_PROXY_URL default (api/internal/util/config.go)
+      open: false, // handled by the open-api-server vitePlugin above, which opens :8080 instead
       fs: {
         allow: [".."],
       },

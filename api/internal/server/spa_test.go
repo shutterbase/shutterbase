@@ -1,6 +1,7 @@
 package server
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/shutterbase/shutterbase/internal/util"
 )
 
 // spaServer wires just the NoRoute SPA handler onto a fresh engine so we can
@@ -39,4 +42,64 @@ func TestSPA_UnknownAPIRouteIs404JSON(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "not found")
 	// must NOT be the HTML shell
 	assert.NotContains(t, w.Body.String(), "<html")
+}
+
+// devProxyServer wires registerSPA in DevMode against a fake UI dev server and
+// serves it over a real listener — httputil.ReverseProxy calls CloseNotify()
+// on the ResponseWriter, which httptest.ResponseRecorder doesn't implement, so
+// the proxy branch needs a real net/http server rather than ServeHTTP+Recorder.
+func devProxyServer(t *testing.T, uiProxyURL string) *httptest.Server {
+	t.Helper()
+	t.Setenv("SESSION_SECRET_KEY", "test-secret")
+	t.Setenv("UI_PROXY_URL", uiProxyURL)
+	if err := util.InitConfig(); err != nil {
+		t.Fatalf("InitConfig: %v", err)
+	}
+	s := &Server{Engine: gin.New(), options: &Options{ApiBaseURL: "/api/v1", DevMode: true}}
+	s.registerSPA()
+	srv := httptest.NewServer(s.Engine)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestSPA_DevModeProxiesToUIServer(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Upstream", "vite")
+		w.Write([]byte("vite-index for " + r.URL.Path))
+	}))
+	defer upstream.Close()
+
+	resp, err := http.Get(devProxyServer(t, upstream.URL).URL + "/projects/abc")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, "vite", resp.Header.Get("X-Upstream"))
+	assert.Contains(t, string(body), "vite-index for /projects/abc")
+}
+
+func TestSPA_DevModeUnknownAPIRouteIs404JSONNotProxied(t *testing.T) {
+	// Deliberately unreachable — proves the API-path branch short-circuits
+	// before ever dialing the UI dev server.
+	resp, err := http.Get(devProxyServer(t, "http://127.0.0.1:1").URL + "/api/v1/nope")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.Contains(t, string(body), "not found")
+}
+
+func TestSPA_DevModeUIServerUnreachableReturnsFriendly502(t *testing.T) {
+	resp, err := http.Get(devProxyServer(t, "http://127.0.0.1:1").URL + "/")
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	assert.Equal(t, http.StatusBadGateway, resp.StatusCode)
+	assert.Contains(t, string(body), "bun run dev")
 }

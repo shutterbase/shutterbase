@@ -28,3 +28,7 @@ build:
 # Seed the configured Postgres with the time-relative fixtures (dev quick-action).
 seed:
     go run ./cmd/seed
+
+# Run the server with live reload (air, config in .air.toml). Needs `just up` from the repo root first.
+air:
+    air
