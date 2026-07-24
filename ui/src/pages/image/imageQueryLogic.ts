@@ -5,8 +5,7 @@ import { api } from "src/api";
 import { ImageTag } from "src/types/api";
 import { ImageWithTagsType } from "src/types/custom";
 import { buildImageListParams } from "src/pages/image/imageListParams";
-import { emitter } from "src/boot/mitt";
-import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
+import { emitter, showNotificationToast } from "src/boot/mitt";
 
 export { buildImageListParams };
 
@@ -137,13 +136,10 @@ export async function addImageTag(image: ImageWithTagsType, tag: ImageTag) {
   }
 }
 
-onHotkey({ key: "ArrowRight", modifierKeys: [] }, nextImage);
-onHotkey({ key: "l", modifierKeys: [] }, nextImage);
-function nextImage(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+// Hotkey handlers: bound to their action ids by Images.vue (useHotkeyAction),
+// so they are only active while the images page is mounted. Context gating in
+// the dispatcher keeps them silent while the tagging dialog is open.
+export function nextImage() {
   if (imageIndex.value < images.value.length - 1) {
     imageIndex.value++;
   }
@@ -153,26 +149,14 @@ function nextImage(event: HotkeyEvent) {
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "ArrowLeft", modifierKeys: [] }, previousImage);
-onHotkey({ key: "h", modifierKeys: [] }, previousImage);
-function previousImage(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function previousImage() {
   if (imageIndex.value > 0) {
     imageIndex.value--;
   }
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "ArrowUp", modifierKeys: [] }, previousRow);
-onHotkey({ key: "k", modifierKeys: [] }, previousRow);
-function previousRow(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function previousRow() {
   if (imageIndex.value - 4 >= 0) {
     imageIndex.value -= 4;
   } else {
@@ -181,13 +165,7 @@ function previousRow(event: HotkeyEvent) {
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "ArrowDown", modifierKeys: [] }, nextRow);
-onHotkey({ key: "j", modifierKeys: [] }, nextRow);
-function nextRow(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function nextRow() {
   if (imageIndex.value + 4 < images.value.length) {
     imageIndex.value += 4;
   } else {
@@ -199,12 +177,7 @@ function nextRow(event: HotkeyEvent) {
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "s", modifierKeys: [] }, repeatLastTagAssignment);
-function repeatLastTagAssignment(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function repeatLastTagAssignment() {
   const image = images.value[imageIndex.value];
   if (!image) {
     return;
@@ -219,4 +192,43 @@ function repeatLastTagAssignment(event: HotkeyEvent) {
     return;
   }
   addImageTag(image, lastAppliedTag);
+}
+
+// Tag hotkey actuation: toggle the named tag on the current image. Assigning
+// goes through addImageTag (multi-select aware); removing strips the tag from
+// the current image and any multi-selected images carrying it.
+export async function toggleTagByName(tagName: string) {
+  const image = images.value[imageIndex.value];
+  if (!image) {
+    return;
+  }
+  const userStore = useUserStore();
+  const tag = userStore.projectTags.find((t) => t.name.toLowerCase() === tagName.toLowerCase());
+  if (!tag) {
+    showNotificationToast({ headline: `Tag '${tagName}' not found in this project`, type: "warning" });
+    return;
+  }
+  if (!image.tags.some((a) => a.tag.id === tag.id)) {
+    await addImageTag(image, tag);
+    return;
+  }
+  const targets = new Set(imageIndices.value);
+  targets.add(imageIndex.value);
+  try {
+    for (const idx of targets) {
+      const img = images.value[idx];
+      const assignment = img?.tags.find((a) => a.tag.id === tag.id);
+      if (!assignment) continue;
+      await api.imageTagAssignments.remove(assignment.id);
+      img.tags.splice(
+        img.tags.findIndex((a) => a.id === assignment.id),
+        1,
+      );
+      img.updatedAt = new Date().toISOString();
+    }
+    showNotificationToast({ headline: `Tag ${tag.name} removed`, type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
 }

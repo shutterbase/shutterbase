@@ -23,15 +23,29 @@
         </div>
         <ImagesFooter :current-image-count="images.length" :total-image-count="totalImageCount" :filtered="filtered" :loading="loading" @load-more="() => loadImages(false)" />
       </div>
-      <div class="flex" v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1">
+    </div>
+
+    <!-- Detail view: full-bleed so the photo gets the width the grid's max-w-7xl
+         would waste. Stacks image-over-details on narrow viewports, details
+         panel left of the image from lg up. pb clears the fixed film strip. -->
+    <div v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1 && images[imageIndex]" class="w-full px-4 pb-32 sm:px-6 lg:px-8">
+      <div class="mx-auto mt-8 flex max-w-screen-2xl flex-col-reverse gap-6 lg:flex-row">
         <Sidebar :item="images[imageIndex]" />
-        <div v-if="images[imageIndex]" class="flex-1 flex items-center justify-center mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8">
-          <div class="relative">
-            <img :src="images[imageIndex].downloadUrls['2048']" alt="Centered Image" class="max-w-full max-h-[52rem] mx-auto drop-shadow-lg" />
-          </div>
-        </div>
+        <figure class="min-w-0 flex-1">
+          <img
+            :src="heroSrc(images[imageIndex])"
+            @error="onHeroError(images[imageIndex])"
+            :alt="images[imageIndex].computedFileName"
+            class="mx-auto max-h-[max(18rem,calc(100vh-24rem))] max-w-full rounded-sm drop-shadow-lg"
+          />
+          <figcaption class="mt-3 flex items-baseline justify-center gap-4">
+            <span class="truncate font-data text-sm text-primary-700 dark:text-primary-200">{{ images[imageIndex].computedFileName }}</span>
+            <span class="label-mono-sm shrink-0 text-primary-500 dark:text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
+          </figcaption>
+        </figure>
       </div>
     </div>
+    <FilmStrip v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1" :images="images" :current-index="imageIndex" @select="selectFromStrip" />
   </div>
   <TaggingDialog
     v-if="imageIndex !== -1"
@@ -52,7 +66,10 @@ import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import Sidebar from "src/components/image/Sidebar.vue";
 import TaggingDialog from "src/components/image/TaggingDialog.vue";
-import { onMounted, onUnmounted, ref, computed, watch, nextTick } from "vue";
+import FilmStrip from "src/components/image/FilmStrip.vue";
+import { devPlaceholder } from "src/util/devPlaceholder";
+import { ImageWithTagsType } from "src/types/custom";
+import { onMounted, onUnmounted, reactive, ref, computed, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useDebounceFn, useStorage } from "@vueuse/core";
 
@@ -61,7 +78,8 @@ import { preferredImageSortOrder, searchText, updateSearchText, filterTags, upda
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
 import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
-import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
+import { nextImage, previousImage, previousRow, nextRow, repeatLastTagAssignment, toggleTagByName } from "./imageQueryLogic";
+import { useHotkeyAction, useHotkeyContext, useTagHotkey } from "src/util/hotkeys";
 import { emitter } from "src/boot/mitt";
 import { debug } from "src/util/logger";
 
@@ -99,13 +117,21 @@ watch(searchText, reloadDebounced);
 watch(filterTags, reloadDebounced);
 watch(aspectRatioFilter, reloadDebounced);
 
-onHotkey({ key: "g", modifierKeys: [] }, toggleGridDetail);
-function toggleGridDetail(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
+// Hotkey wiring: the images context and its handlers are only active while
+// this page is mounted; the dispatcher suppresses them while the tagging
+// dialog (own context) is open.
+useHotkeyContext("images");
+useHotkeyAction("images.next-image", nextImage);
+useHotkeyAction("images.previous-image", previousImage);
+useHotkeyAction("images.previous-row", previousRow);
+useHotkeyAction("images.next-row", nextRow);
+useHotkeyAction("images.repeat-last-tag", repeatLastTagAssignment);
+useHotkeyAction("images.toggle-view", toggleGridDetail);
+useHotkeyAction("images.open-tagging", showTaggingDialog);
+useHotkeyAction("tagging.close", hideTaggingDialog);
+useTagHotkey(toggleTagByName);
 
-  event.event.preventDefault();
+function toggleGridDetail() {
   if (displayMode.value === DisplayMode.GRID) {
     showDetail();
     displayMode.value = DisplayMode.DETAIL;
@@ -137,14 +163,7 @@ function clearFilterTags() {
 
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
 
-onHotkey({ key: "t", modifierKeys: [] }, showTaggingDialogViaHotkey);
 emitter.on("show-tagging-dialog", showTaggingDialog); // from sidebar button
-function showTaggingDialogViaHotkey(event: HotkeyEvent) {
-  if (!taggingDialogVisible.value) {
-    event.event.preventDefault();
-  }
-  showTaggingDialog();
-}
 function showTaggingDialog() {
   if (!taggingDialogVisible.value) {
     taggingDialogVisible.value = true;
@@ -155,7 +174,6 @@ function showTaggingDialog() {
     debug("show tag dialog");
   }
 }
-onHotkey({ key: "Escape", modifierKeys: [] }, hideTaggingDialog);
 function hideTaggingDialog() {
   if (taggingDialogVisible.value) {
     taggingDialogVisible.value = false;
@@ -214,6 +232,25 @@ function selectImage(imageId: string, event: MouseEvent) {
     for (let i = start; i <= end; i++) {
       imageIndices.value.push(i);
     }
+  }
+}
+
+function selectFromStrip(index: number) {
+  imageIndex.value = index;
+  if (index >= images.value.length - 5) {
+    triggerInfiniteScroll();
+  }
+}
+
+// hero fallback mirrors the thumbnail behavior (see devPlaceholder.ts)
+const heroOverrides = reactive<Record<string, string>>({});
+function heroSrc(image: ImageWithTagsType): string {
+  return heroOverrides[image.id] ?? image.downloadUrls?.["2048"] ?? "";
+}
+function onHeroError(image: ImageWithTagsType) {
+  const placeholder = devPlaceholder(image.id);
+  if (placeholder && heroOverrides[image.id] !== placeholder) {
+    heroOverrides[image.id] = placeholder;
   }
 }
 

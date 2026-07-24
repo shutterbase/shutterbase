@@ -37,24 +37,21 @@
 
         <form class="mt-9 space-y-5" @submit.prevent="login">
           <div>
-            <label for="email" class="label-mono block text-primary-500 dark:text-primary-400">Email</label>
+            <label for="email" class="label-mono block text-primary-500 dark:text-primary-400">Username or email</label>
             <input
               v-model="email"
-              type="email"
+              type="text"
               name="email"
               autocomplete="username"
               id="email"
               class="mt-2 block h-11 w-full rounded-md border border-primary-200 bg-surface-muted px-3.5 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-primary-900 dark:text-white dark:placeholder:text-primary-500 dark:hover:border-primary-600"
-              placeholder="you@example.com"
+              placeholder="admin or you@example.com"
             />
             <p v-if="emailErrorMessage != ''" class="mt-2 text-sm font-medium text-error-600 dark:text-error-400">{{ emailErrorMessage }}</p>
           </div>
 
           <div>
-            <div class="flex items-center justify-between">
-              <label for="password" class="label-mono block text-primary-500 dark:text-primary-400">Password</label>
-              <a href="#" class="text-sm font-medium text-accent-600 transition-colors hover:text-accent-500 dark:text-accent-400">Forgot password?</a>
-            </div>
+            <label for="password" class="label-mono block text-primary-500 dark:text-primary-400">Password</label>
             <input
               v-model="password"
               type="password"
@@ -73,12 +70,32 @@
           >
             Sign in
           </button>
+
+          <a href="#" class="block text-center text-sm font-medium text-accent-600 transition-colors hover:text-accent-500 dark:text-accent-400">Forgot password?</a>
         </form>
 
         <p class="mt-8 text-sm text-primary-500 dark:text-primary-400">
           Don't have an account yet?
           <router-link to="/signup" class="font-medium text-accent-600 transition-colors hover:text-accent-500 dark:text-accent-400">Sign up</router-link>
         </p>
+
+        <!-- Dev quick login: dev builds only (import.meta.env.DEV). Uses the seeded
+             accounts via the password-less /dev/login bypass; never ships to prod. -->
+        <div v-if="isDev" class="mt-8 rounded-lg border border-dashed border-fuchsia-400/60 p-3 dark:border-fuchsia-500/40">
+          <p class="label-mono mb-2 text-fuchsia-600 dark:text-fuchsia-400">Dev quick login</p>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="r in devRoles"
+              :key="r"
+              type="button"
+              :disabled="devPending !== ''"
+              @click="devQuickLogin(r)"
+              class="rounded-md border border-primary-200 bg-surface-muted px-2.5 py-1 font-mono text-xs text-primary-700 transition-colors hover:border-fuchsia-400 hover:text-fuchsia-600 disabled:opacity-50 dark:border-primary-700 dark:bg-primary-900 dark:text-primary-300 dark:hover:text-fuchsia-400"
+            >
+              {{ devPending === r ? "…" : r }}
+            </button>
+          </div>
+        </div>
       </div>
     </main>
 
@@ -116,13 +133,36 @@ function validateUsername() {
   if (email.value === "") {
     emailErrorMessage.value = "Please enter a username";
     return false;
-  } else {
-    if (!EmailValidator.validate(email.value)) {
-      emailErrorMessage.value = "Please enter a valid email";
-      return false;
-    }
+  }
+  // Mirrors the backend's own identifier check (go-basicauth): only treated
+  // as an email, and validated as one, if it contains "@" — otherwise it's a
+  // plain username (e.g. "admin").
+  if (email.value.includes("@") && !EmailValidator.validate(email.value)) {
+    emailErrorMessage.value = "Please enter a valid email";
+    return false;
   }
   return true;
+}
+
+const isDev = import.meta.env.DEV;
+const devRoles = ["admin", "user", "projectAdmin", "projectEditor", "projectViewer"];
+const devPending = ref("");
+async function devQuickLogin(role: string) {
+  if (devPending.value !== "") return;
+  devPending.value = role;
+  try {
+    const dev = await import("src/api/dev");
+    await dev.login({ role });
+    await userStore.load();
+    router.push("/"); // router guard redirects to change-password if the seed user still needs it
+  } catch (error: any) {
+    unexpectedErrorHeadline.value = "Dev login failed";
+    unexpectedErrorMessage.value = error.response?.data?.message || error.message || "";
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    devPending.value = "";
+  }
 }
 
 const password = ref("");

@@ -1,6 +1,6 @@
 <template>
   <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-    <nav class="flex gap-6 overflow-x-auto border-b border-primary-200 dark:border-primary-800" aria-label="Project sections">
+    <nav class="flex gap-6 overflow-x-auto border-b border-primary-200 dark:border-primary-800 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Project sections">
       <a
         v-for="item in navigationItems"
         :key="item.name"

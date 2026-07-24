@@ -7,15 +7,17 @@
 </template>
 
 <script setup lang="ts">
-import { keyEventHandler } from "src/util/keyEvents";
+import { configureHotkeys, hotkeyKeydownHandler } from "src/util/hotkeys";
 import { defineAsyncComponent, onMounted, onUnmounted } from "vue";
 import { useUserStore } from "src/stores/user-store";
 
 const DevPanel = import.meta.env.DEV ? defineAsyncComponent(() => import("src/components/DevPanel.vue")) : null;
 const userStore = useUserStore();
 
+configureHotkeys(() => userStore.user?.hotkeys);
+
 onMounted(async () => {
-  document.addEventListener("keydown", keyEventHandler);
+  document.addEventListener("keydown", hotkeyKeydownHandler);
   // load the effective user first so the active project is known, then tags
   if (!userStore.isAuthenticated) {
     await userStore.loadUser();
@@ -25,7 +27,7 @@ onMounted(async () => {
   userStore.startProjectTagFetching();
 });
 onUnmounted(() => {
-  document.removeEventListener("keydown", keyEventHandler);
+  document.removeEventListener("keydown", hotkeyKeydownHandler);
   userStore.stopProjectTagFetching();
   userStore.stopUserFetching();
 });

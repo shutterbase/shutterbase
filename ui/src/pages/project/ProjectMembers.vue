@@ -1,38 +1,161 @@
 <template>
-  <main class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-    <div class="max-w-3xl">
-      <p class="label-mono text-accent-600 dark:text-accent-400">Project</p>
-      <h1 class="display mt-2 text-3xl text-primary-900 dark:text-white">Members</h1>
-      <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">People with access to this project.</p>
-    </div>
-  </main>
-  <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
+  <div class="mx-auto w-full max-w-7xl">
+    <Table dense name="Member" subtitle="People with access to this project." :items="assignments" :columns="columns" :allow-add="canManage" :add-callback="startAddMember" />
+    <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
+    <MemberDialog
+      :show="showMemberDialog"
+      :create="createMember"
+      :roles="roles"
+      :available-users="availableUsers"
+      :member="editMemberData"
+      @add="addMember"
+      @edit="editRole"
+      @closed="showMemberDialog = false"
+    />
+    <ModalMessage
+      :show="showRemoveConfirm"
+      :type="MessageType.CONFIRM_WARNING"
+      headline="Remove member?"
+      :message="removeConfirmMessage"
+      confirmText="Remove member"
+      cancelText="Cancel"
+      @confirmed="confirmRemove"
+      @closed="showRemoveConfirm = false"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { Ref, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
+import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
-import { ProjectsResponse } from "src/types/pocketbase";
+import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
+import MemberDialog from "src/components/project/MemberDialog.vue";
+import { ProjectAssignment, Role, User } from "src/types/api";
 import { api } from "src/api";
-const route = useRoute();
+import { showNotificationToast } from "src/boot/mitt";
+import { useUserStore } from "src/stores/user-store";
 
-const project: Ref<ProjectsResponse | null> = ref(null);
+const route = useRoute();
+const userStore = useUserStore();
+
+// Backend restricts create/update/delete of assignments to global admins;
+// projectAdmins reach this page (via the nav) with a read-only roster.
+const canManage = computed(() => userStore.isAdmin());
+
+const projectId = computed(() => `${route.params.id}`);
+
+const assignments = ref<ProjectAssignment[]>([]);
+const roles = ref<Role[]>([]);
+const users = ref<User[]>([]);
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
 
-async function loadData() {
-  const itemId: string = `${route.params.id}`;
-  if (!itemId || itemId === "") {
-    console.log("No project ID provided");
-    return;
-  }
+const showMemberDialog = ref(false);
+const createMember = ref(false);
+const editMemberData = ref<ProjectAssignment | null>(null);
 
+const showRemoveConfirm = ref(false);
+const removeTarget = ref<ProjectAssignment | null>(null);
+
+const availableUsers = computed(() => {
+  const assigned = new Set(assignments.value.map((a) => a.user.id));
+  return users.value.filter((u) => !assigned.has(u.id));
+});
+
+function prettyRole(key: string): string {
+  return key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+}
+
+const columns: TableColumn<ProjectAssignment>[] = [
+  { key: "user", label: "Name", formatter: (u) => (u ? `${u.firstName} ${u.lastName}` : "—") },
+  { key: ["user", "email"], label: "Email" },
+  { key: "role", label: "Role", formatter: (r) => (r ? prettyRole(r.key) : "—") },
+  {
+    key: "actions",
+    label: "Actions",
+    actions: [
+      { key: "role", label: "Change role", type: TableRowActionType.EDIT, showCallback: () => canManage.value, callback: startEditRole },
+      { key: "remove", label: "Remove", type: TableRowActionType.DELETE, showCallback: () => canManage.value, callback: startRemove },
+    ],
+  },
+];
+
+async function loadData() {
+  const id = projectId.value;
+  if (!id) return;
   try {
-    console.log(`Loading project ${itemId}`);
-    const response = await api.projects.get(itemId);
-    project.value = response;
+    const assignmentsRes = await api.projectAssignments.list({ projectId: id, limit: 500 });
+    assignments.value = assignmentsRes.items;
+    // Roles + the user picker are only needed for management (admins).
+    if (canManage.value) {
+      const [rolesRes, usersRes] = await Promise.all([api.roles.list({ limit: 100 }), api.users.list({ limit: 500 })]);
+      roles.value = rolesRes.items;
+      users.value = usersRes.items;
+    }
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+function startAddMember() {
+  createMember.value = true;
+  editMemberData.value = null;
+  showMemberDialog.value = true;
+}
+
+function startEditRole(assignment: ProjectAssignment) {
+  createMember.value = false;
+  editMemberData.value = assignment;
+  showMemberDialog.value = true;
+}
+
+async function addMember(payload: { userId: string; roleId: string }) {
+  try {
+    const created = await api.projectAssignments.create({ projectId: projectId.value, userId: payload.userId, roleId: payload.roleId });
+    assignments.value = [...assignments.value, created];
+    showMemberDialog.value = false;
+    showNotificationToast({ headline: "Member added", type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+async function editRole(payload: { id: string; roleId: string }) {
+  try {
+    const updated = await api.projectAssignments.update(payload.id, payload.roleId);
+    const i = assignments.value.findIndex((a) => a.id === payload.id);
+    if (i !== -1) assignments.value[i] = updated;
+    showMemberDialog.value = false;
+    showNotificationToast({ headline: "Role updated", type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+function startRemove(assignment: ProjectAssignment) {
+  removeTarget.value = assignment;
+  showRemoveConfirm.value = true;
+}
+
+const removeConfirmMessage = computed(() => {
+  const u = removeTarget.value?.user;
+  return u ? `Remove ${u.firstName} ${u.lastName} from this project? They lose access until re-added.` : "";
+});
+
+async function confirmRemove() {
+  const target = removeTarget.value;
+  showRemoveConfirm.value = false;
+  if (!target) return;
+  try {
+    await api.projectAssignments.remove(target.id);
+    assignments.value = assignments.value.filter((a) => a.id !== target.id);
+    showNotificationToast({ headline: "Member removed", type: "success" });
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;

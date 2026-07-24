@@ -65,8 +65,9 @@
               >
                 <div>
                   <kbd
+                    v-if="acceptKeyLabel(index)"
                     class="font-data px-2 py-1.5 text-xs font-semibold text-primary-700 bg-primary-100 border border-primary-200 rounded-lg dark:bg-primary-800 dark:text-primary-200 dark:border-primary-700"
-                    >Shift+{{ index + 1 }}</kbd
+                    >{{ acceptKeyLabel(index) }}</kbd
                   >
                 </div>
                 <div class="ml-10 flex-auto truncate">
@@ -87,16 +88,16 @@
                 role="option"
                 tabindex="0"
               >
-                <div v-if="filteredTags.length === 1" class="h-6 w-6">
+                <div v-if="filteredTags.length === 1 && enterKeyLabel" class="h-6 w-6">
                   <kbd
                     class="font-data px-2 py-1.5 text-xs font-semibold text-primary-700 bg-primary-100 border border-primary-200 rounded-lg dark:bg-primary-800 dark:text-primary-200 dark:border-primary-700"
-                    >Enter</kbd
+                    >{{ enterKeyLabel }}</kbd
                   >
                 </div>
-                <div v-else-if="index <= 5">
+                <div v-else-if="index <= 5 && acceptKeyLabel(index)">
                   <kbd
                     class="font-data px-2 py-1.5 text-xs font-semibold text-primary-700 bg-primary-100 border border-primary-200 rounded-lg dark:bg-primary-800 dark:text-primary-200 dark:border-primary-700"
-                    >Shift+{{ index + 1 }}</kbd
+                    >{{ acceptKeyLabel(index) }}</kbd
                   >
                 </div>
                 <TagIcon v-else class="h-6 w-6 text-primary-400 dark:text-primary-500" />
@@ -136,10 +137,10 @@ import { useUserStore } from "src/stores/user-store";
 import { storeToRefs } from "pinia";
 import { ImageWithTagsType } from "src/types/custom";
 import { TagIcon } from "@heroicons/vue/24/outline";
-import { Ref, computed, nextTick, onMounted, ref } from "vue";
+import { Ref, computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { emitter } from "src/boot/mitt";
 import { debug } from "src/util/logger";
-import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
+import { actionKeys, formatCombo, pushHotkeyContext, useHotkeyAction } from "src/util/hotkeys";
 import { Image } from "src/util/fileProcessor";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import { tagStack } from "src/pages/image/imageQueryLogic";
@@ -207,6 +208,16 @@ const recentTags = computed(() => {
   });
 });
 
+// kbd hints reflect the user's effective bindings, not the shipped defaults
+function acceptKeyLabel(index: number): string {
+  const keys = actionKeys(userStore.user?.hotkeys, `tagging.accept-${index + 1}`);
+  return keys.length ? formatCombo(keys[0]) : "";
+}
+const enterKeyLabel = computed(() => {
+  const keys = actionKeys(userStore.user?.hotkeys, "tagging.accept-only-result");
+  return keys.length ? formatCombo(keys[0]) : "";
+});
+
 function focusSearchText() {
   debug("focusing search text");
   nextTick(() => {
@@ -218,7 +229,28 @@ function clearSearchText() {
   searchText.value = "";
 }
 
-onHotkey({ key: "Enter", modifierKeys: [] }, acceptOnlyResult);
+// While shown, this dialog owns the hotkey context: gallery hotkeys pause and
+// the accept/close actions below become active (they fire inside the search
+// input too — allowInInputs on their action definitions).
+let popContext: (() => void) | null = null;
+watch(
+  () => props.shown,
+  (shown) => {
+    if (shown && !popContext) {
+      popContext = pushHotkeyContext("tagging-dialog");
+    } else if (!shown && popContext) {
+      popContext();
+      popContext = null;
+    }
+  },
+  { immediate: true },
+);
+onUnmounted(() => {
+  popContext?.();
+  popContext = null;
+});
+
+useHotkeyAction("tagging.accept-only-result", acceptOnlyResult);
 function acceptOnlyResult() {
   if (filteredTags.value.length === 1) {
     acceptTag(filteredTags.value[0]);
@@ -228,16 +260,13 @@ function acceptOnlyResult() {
   }
 }
 
-onHotkey({ key: "1", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(0));
-onHotkey({ key: "2", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(1));
-onHotkey({ key: "3", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(2));
-onHotkey({ key: "4", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(3));
-onHotkey({ key: "5", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(4));
+for (let index = 0; index < 5; index++) {
+  useHotkeyAction(`tagging.accept-${index + 1}`, getAcceptTagIndexFunction(index));
+}
 function getAcceptTagIndexFunction(index: number) {
-  return (event: HotkeyEvent) => {
+  return () => {
     if (recentTags.value.length !== 0 && filteredTags.value.length === 0 && searchText.value === "") {
       if (recentTags.value.length > index) {
-        event.event.preventDefault();
         acceptTag(recentTags.value[index]);
       }
     }
@@ -246,7 +275,6 @@ function getAcceptTagIndexFunction(index: number) {
       return;
     }
     if (filteredTags.value.length > index) {
-      event.event.preventDefault();
       acceptTag(filteredTags.value[index]);
     }
   };

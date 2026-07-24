@@ -81,6 +81,7 @@
       <router-view />
     </main>
     <Notification />
+    <HotkeyHelpDialog />
   </div>
 </template>
 
@@ -93,6 +94,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useUserStore } from "src/stores/user-store";
 import UserMenu from "src/components/layout/navbar/UserMenu.vue";
 import Notification from "src/components/layout/Notification.vue";
+import HotkeyHelpDialog from "src/components/HotkeyHelpDialog.vue";
 import { store } from "quasar/wrappers";
 import { storeToRefs } from "pinia";
 const userStore = useUserStore();

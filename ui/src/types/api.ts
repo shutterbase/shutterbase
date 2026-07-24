@@ -164,6 +164,14 @@ export interface ProjectAssignment {
   updatedAt: string;
 }
 
+// Per-user hotkey customization. bindings: hotkey action id → key combos
+// (overrides the system default; empty list = unbound). tagBindings: key combo
+// → image tag name toggled on the current image (null = system defaults).
+export interface UserHotkeys {
+  bindings?: Record<string, string[]> | null;
+  tagBindings?: Record<string, string> | null;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -178,6 +186,7 @@ export interface User {
   role: Role;
   activeProject: EmbeddedProject | null;
   projectAssignments: ProjectAssignment[];
+  hotkeys?: UserHotkeys | null;
   createdAt: string;
   updatedAt: string;
 }
