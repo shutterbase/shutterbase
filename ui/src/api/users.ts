@@ -1,5 +1,5 @@
 import { http } from "src/boot/axios";
-import { User, ListResponse } from "src/types/api";
+import { User, UserHotkeys, ListResponse } from "src/types/api";
 
 export interface UserListParams {
   search?: string;
@@ -27,6 +27,7 @@ export interface UserUpdate {
   copyrightTag?: string;
   email?: string;
   password?: string;
+  hotkeys?: UserHotkeys;
   // admin-only:
   active?: boolean;
   roleId?: string;

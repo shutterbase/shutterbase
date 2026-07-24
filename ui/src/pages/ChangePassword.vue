@@ -32,6 +32,7 @@
             placeholder="••••••••"
             class="mt-2 block h-11 w-full rounded-md border border-primary-200 bg-surface-muted px-3.5 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-primary-900 dark:text-white dark:placeholder:text-primary-500 dark:hover:border-primary-600"
           />
+          <PasswordRequirements ref="pwReqs" :password="newPassword" always-visible />
         </div>
         <div>
           <label for="confirm" class="label-mono block text-primary-500 dark:text-primary-400">Confirm new password</label>
@@ -48,7 +49,8 @@
         <button
           type="submit"
           @click.prevent="submit"
-          class="flex h-11 w-full items-center justify-center rounded-md bg-accent-600 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:bg-accent-700 dark:focus-visible:ring-offset-primary-950"
+          :disabled="!canSubmit"
+          class="flex h-11 w-full items-center justify-center rounded-md bg-accent-600 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:bg-accent-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-accent-600 dark:focus-visible:ring-offset-primary-950"
         >
           Change password
         </button>
@@ -57,10 +59,11 @@
   </section>
 </template>
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "src/stores/user-store";
 import { showNotificationToast } from "src/boot/mitt";
+import PasswordRequirements from "src/components/PasswordRequirements.vue";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -69,6 +72,11 @@ const currentPassword = ref("");
 const newPassword = ref("");
 const newPasswordConfirm = ref("");
 const errorMessage = ref("");
+
+const pwReqs = ref<{ allMet: boolean } | null>(null);
+const canSubmit = computed(
+  () => !!currentPassword.value && !!newPassword.value && newPassword.value === newPasswordConfirm.value && (pwReqs.value?.allMet ?? false),
+);
 
 const CODE_MESSAGES: Record<string, string> = {
   passwords_do_not_match: "The new passwords do not match",

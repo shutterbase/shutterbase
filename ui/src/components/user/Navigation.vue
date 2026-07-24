@@ -1,5 +1,8 @@
 <template>
-  <nav class="-mb-px flex items-stretch gap-7 overflow-x-auto border-b border-primary-200 dark:border-primary-800">
+  <!-- scrollbar-hide: overflow-x-auto promotes overflow-y to auto, and the -bottom-px
+       active underline overflows 1px → phantom vertical scrollbar. Hide it; horizontal
+       swipe-scroll still works for narrow screens. -->
+  <nav class="-mb-px flex items-stretch gap-7 overflow-x-auto border-b border-primary-200 dark:border-primary-800 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     <a
       v-for="item in navigationItems"
       :key="item.name"
@@ -24,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { UserIcon, CameraIcon } from "@heroicons/vue/24/outline";
+import { UserIcon, CameraIcon, CommandLineIcon } from "@heroicons/vue/24/outline";
 import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -46,6 +49,7 @@ function updateNavigationItems() {
   const items = [
     { name: "General", icon: UserIcon, href: `${BASE_URL}/${itemId}/general`, current: false },
     { name: "Cameras", icon: CameraIcon, href: `${BASE_URL}/${itemId}/cameras`, current: false },
+    { name: "Hotkeys", icon: CommandLineIcon, href: `${BASE_URL}/${itemId}/hotkeys`, current: false },
   ];
 
   items.forEach((item) => {

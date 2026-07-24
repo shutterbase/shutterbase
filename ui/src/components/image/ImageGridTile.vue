@@ -43,6 +43,7 @@
 <script setup lang="ts">
 import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { ImageWithTagsType } from "src/types/custom";
+import { devPlaceholder } from "src/util/devPlaceholder";
 import { computed, ref } from "vue";
 import { CheckIcon, PhotoIcon } from "@heroicons/vue/24/solid";
 
@@ -64,34 +65,15 @@ const emit = defineEmits<{
 
 const capturedAt = computed(() => dateTimeUtil.dateTimeFromBackend(props.image.capturedAtCorrected));
 
-// In dev there is no S3, so the presigned thumbnail URLs 404. Fall back to a
-// deterministic LOCAL placeholder (inline SVG data URI) so the gallery layout is
-// reviewable with varied aspect ratios — no external network call and no image-id
-// leaked off-box. In prod a genuinely missing thumbnail shows the neutral placeholder.
-// ponytail: dev-only fallback, drop the whole block once S3 dev fixtures exist.
+// Missing thumbnail: dev builds swap in the deterministic local placeholder
+// (see devPlaceholder.ts); in prod the neutral icon tile shows instead.
 const failed = ref(false);
 const src = ref<string>(props.image.downloadUrls?.[`256`] ?? "");
 
-function hash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
 function onError() {
-  if (import.meta.env.DEV && !src.value.startsWith("data:")) {
-    const ratios = [
-      [4, 3],
-      [3, 4],
-      [1, 1],
-      [3, 2],
-      [2, 3],
-    ];
-    const id = hash(props.image.id);
-    const [w, h] = ratios[id % ratios.length];
-    const hue = id % 360;
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w * 220}" height="${h * 220}"><rect width="100%" height="100%" fill="hsl(${hue} 28% 22%)"/></svg>`;
-    src.value = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  const placeholder = devPlaceholder(props.image.id);
+  if (placeholder && src.value !== placeholder) {
+    src.value = placeholder;
   } else {
     failed.value = true;
   }

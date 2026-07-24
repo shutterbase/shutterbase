@@ -1,7 +1,9 @@
 <template>
+  <!-- In-flow details panel: full width when stacked under the image on narrow
+       viewports, a fixed 20rem column beside it from lg up. -->
   <div
     v-if="item"
-    class="max-2xl:hidden w-80 top-16 fixed inset-y-0 left-0 bg-surface dark:bg-surface-dark text-primary-900 dark:text-primary-200 shadow-panel dark:shadow-panel-dark z-10 overflow-y-scroll no-scrollbar border-r border-primary-200 dark:border-primary-800"
+    class="w-full shrink-0 self-start rounded-lg border border-primary-200 bg-surface text-primary-900 dark:border-primary-800 dark:bg-surface-dark dark:text-primary-200 lg:w-80"
   >
     <div class="p-5">
       <h3 class="display text-lg text-primary-900 dark:text-white pb-5 border-b border-primary-200 dark:border-primary-800">Image Details</h3>
@@ -74,7 +76,7 @@
           >
         </div>
       </div>
-      <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
+      <div class="pb-1">
         <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Infos</h3>
         <div class="flex items-center gap-2 pt-1">
           <svg class="h-5 fill-primary-500 dark:fill-primary-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">
@@ -150,7 +152,6 @@ import { api } from "src/api";
 import { useUserStore } from "src/stores/user-store";
 import { ImagesResponse } from "src/types/pocketbase";
 import Clipboard from "src/components/Clipboard.vue";
-import { onHotkey } from "src/util/keyEvents";
 
 const userStore = useUserStore();
 
@@ -188,13 +189,8 @@ function imageCanBeDeleted(): boolean {
   return userStore.isProjectAdminOrHigher() || props.item?.user.id === userStore.user?.id;
 }
 
-// remove review tag if set
-onHotkey({ key: "p", modifierKeys: [] }, () => {
-  const reviewTag = tagAssignments.value.find((ta) => ta.tag.name === "review");
-  if (reviewTag) {
-    removeTag(reviewTag);
-  }
-});
+// the old hardcoded "p removes the review tag" hotkey is now the default
+// tag binding p → "review" (see src/util/hotkeys.ts), actuated in Images.vue
 async function removeTag(tagAssignment: ImageTagAssignmentType) {
   if (!removable(tagAssignment)) {
     return;
@@ -242,15 +238,3 @@ async function confirmDeleteImage() {
   }
 }
 </script>
-<style>
-/* Hide scrollbar for Chrome, Safari and Opera */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.no-scrollbar {
-  -ms-overflow-style: none; /* IE and Edge */
-  scrollbar-width: none; /* Firefox */
-}
-</style>

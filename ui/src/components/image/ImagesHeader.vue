@@ -11,24 +11,37 @@
         </p>
       </div>
 
-      <!-- density / view -->
-      <div v-if="showFilter" class="hidden shrink-0 sm:flex rounded-lg border border-primary-200 dark:border-primary-700 bg-surface dark:bg-surface-dark p-0.5">
+      <div class="flex shrink-0 items-center gap-2">
+        <!-- hotkey help -->
         <button
-          v-for="opt in densityOptions"
-          :key="opt.value"
           type="button"
-          :title="`${opt.label} view`"
-          @click="emit('update:density', opt.value)"
-          :class="[
-            'inline-flex h-7 w-8 items-center justify-center rounded-md transition-colors',
-            density === opt.value
-              ? 'bg-accent-500/15 text-accent-700 dark:bg-accent-500/20 dark:text-accent-200'
-              : 'text-primary-400 hover:bg-primary-100 hover:text-primary-700 dark:text-primary-500 dark:hover:bg-primary-800 dark:hover:text-primary-200',
-          ]"
+          title="Keyboard shortcuts (?)"
+          @click="emitter.emit('show-hotkey-help')"
+          class="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-md text-primary-400 transition-colors hover:bg-primary-100 hover:text-primary-700 dark:text-primary-500 dark:hover:bg-primary-800 dark:hover:text-primary-200"
         >
-          <span class="sr-only">{{ opt.label }}</span>
-          <component :is="opt.icon" class="h-[18px] w-[18px]" />
+          <span class="sr-only">Keyboard shortcuts</span>
+          <QuestionMarkCircleIcon class="h-5 w-5" />
         </button>
+
+        <!-- density / view -->
+        <div v-if="showFilter" class="hidden sm:flex rounded-lg border border-primary-200 dark:border-primary-700 bg-surface dark:bg-surface-dark p-0.5">
+          <button
+            v-for="opt in densityOptions"
+            :key="opt.value"
+            type="button"
+            :title="`${opt.label} view`"
+            @click="emit('update:density', opt.value)"
+            :class="[
+              'inline-flex h-7 w-8 items-center justify-center rounded-md transition-colors',
+              density === opt.value
+                ? 'bg-accent-500/15 text-accent-700 dark:bg-accent-500/20 dark:text-accent-200'
+                : 'text-primary-400 hover:bg-primary-100 hover:text-primary-700 dark:text-primary-500 dark:hover:bg-primary-800 dark:hover:text-primary-200',
+            ]"
+          >
+            <span class="sr-only">{{ opt.label }}</span>
+            <component :is="opt.icon" class="h-[18px] w-[18px]" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -42,8 +55,6 @@
           v-model="searchText"
           placeholder="Search images"
           type="text"
-          @focusin="emitter.emit('block-hotkeys')"
-          @focusout="emitter.emit('unblock-hotkeys')"
           class="h-9 w-full rounded-md border border-primary-200 bg-surface pl-9 pr-9 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
         />
         <button
@@ -187,6 +198,7 @@
 import {
   PhotoIcon,
   MagnifyingGlassIcon,
+  QuestionMarkCircleIcon,
   XMarkIcon,
   TagIcon,
   ChevronDownIcon,

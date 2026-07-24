@@ -1,11 +1,8 @@
 import mitt, { Emitter } from "mitt";
-import { HotkeyEvent } from "src/util/keyEvents";
 
 type Events = {
   notification: NotificationEvent;
-  hotkey: HotkeyEvent;
-  "block-hotkeys": void;
-  "unblock-hotkeys": void;
+  "show-hotkey-help": void;
   "show-tagging-dialog": void;
   "reset-tagging-dialog": void;
   "update-image-grid-scroll-position": void;
