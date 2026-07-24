@@ -70,10 +70,31 @@ func InitConfig() error {
 		// s3 / object storage
 		config.String("S3_ENDPOINT").Default("localhost"),
 		config.Bool("S3_SSL").Default(false),
-		config.Int("S3_PORT").Default(9000),
+		// 9010, not RustFS's native 9000 — the Quasar UI dev server (`bun run dev`,
+		// UI_PROXY_URL) owns :9000 locally. See docker-compose.yml.
+		config.Int("S3_PORT").Default(9010),
 		config.String("S3_BUCKET").Default("shutterbase"),
-		config.String("S3_ACCESS_KEY").Default(""),
-		config.String("S3_SECRET_KEY").Sensitive().Default(""),
+		// Defaults match the rustfs-init service in docker-compose.yml (`just up`).
+		config.String("S3_ACCESS_KEY").Default("shutterbaseadmin"),
+		config.String("S3_SECRET_KEY").Sensitive().Default("shutterbaseadmin"),
+
+		// credential sourcing: "env" uses the DATABASE_*/S3_* values above,
+		// "vault" fetches them from HashiCorp Vault / OpenBao — mix per resource.
+		// Vault auth tries kubernetes (VAULT_KUBERNETES_ROLE), then VAULT_TOKEN,
+		// then an interactive OIDC browser login (local dev).
+		config.String("DATABASE_CREDENTIALS_SOURCE").NotEmpty().Default("env"),
+		config.String("S3_CREDENTIALS_SOURCE").NotEmpty().Default("env"),
+		config.String("VAULT_ADDR").Default(""),
+		config.String("VAULT_TOKEN").Sensitive().Default(""),
+		config.String("VAULT_KUBERNETES_ROLE").Default(""),
+		config.String("VAULT_OIDC_MOUNT").Default("oidc"),
+		config.Int("VAULT_OIDC_CALLBACK_PORT").Default(8250),
+		// database secrets engine role path, e.g. "database/creds/shutterbase"
+		config.String("VAULT_DATABASE_CREDS_PATH").Default(""),
+		// KV path holding the S3 keys, e.g. "secret/data/shutterbase/s3" (KV v2)
+		config.String("VAULT_S3_KV_PATH").Default(""),
+		config.String("VAULT_S3_ACCESS_KEY_FIELD").Default("access_key"),
+		config.String("VAULT_S3_SECRET_KEY_FIELD").Default("secret_key"),
 
 		// ai inference (S6). AI_PROVIDER selects the ImageInference impl:
 		// "stub" (deterministic echo, dev/test), "openai", "openrouter", "http".
