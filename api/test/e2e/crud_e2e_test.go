@@ -155,11 +155,28 @@ func TestCRUDRoundTrips(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		assert.Equal(t, "custom", decodeBody(t, resp)["type"])
 
+		// Template tags are creatable (a project admin adds $COPYRIGHT/$WEEKDAY
+		// themselves) — the "$" prefix is what makes them render, so it is
+		// required and everything else is rejected.
+		resp = doJSON(t, client, http.MethodPost, "/api/v1/image-tags", map[string]any{
+			"name": "$COPYRIGHT", "description": "copyright template", "type": "template", "projectId": projectID,
+		})
+		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		created := decodeBody(t, resp)
+		assert.Equal(t, "template", created["type"])
+		assert.Equal(t, "$COPYRIGHT", created["name"])
+
 		resp = doJSON(t, client, http.MethodPost, "/api/v1/image-tags", map[string]any{
 			"name": "T", "description": "x", "type": "template", "projectId": projectID,
 		})
 		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		assert.Equal(t, "invalid_type", decodeBody(t, resp)["code"])
+		assert.Equal(t, "invalid_template_name", decodeBody(t, resp)["code"])
+
+		// Renaming a template out of its prefix is the same defect, so it is
+		// refused on update too.
+		resp = doJSON(t, client, http.MethodPut, "/api/v1/image-tags/"+created["id"].(string), map[string]any{"name": "COPYRIGHT"})
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		assert.Equal(t, "invalid_template_name", decodeBody(t, resp)["code"])
 
 		resp = doJSON(t, client, http.MethodGet, "/api/v1/image-tags?projectId="+projectID, nil)
 		require.Equal(t, http.StatusOK, resp.StatusCode)

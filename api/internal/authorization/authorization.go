@@ -252,7 +252,11 @@ func CanDeleteImage(u *ent.User, img *ent.Image) bool {
 // any member. template (and unknown) -> never (not creatable via API).
 func CanCreateImageTag(u *ent.User, projectID, tagType string) bool {
 	switch tagType {
-	case "default", "manual":
+	// template tags ($DATE, $COPYRIGHT, …) drive automatic tagging for the whole
+	// project — the same blast radius as a default tag, so the same gate. They
+	// used to be uncreatable entirely, which left the UI offering a type the API
+	// refused and no way to add one outside the seed/import.
+	case "template", "default", "manual":
 		return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
 	case "custom":
 		return isAdmin(u) || IsAssigned(u, projectID)
