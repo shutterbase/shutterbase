@@ -20,6 +20,11 @@ const routes: RouteRecordRaw[] = [
       ...uploadRoutes,
       ...imageRoutes,
       {
+        name: "schedule",
+        path: "/schedule",
+        component: () => import("pages/schedule/Schedule.vue"),
+      },
+      {
         name: "sandbox",
         path: "/sandbox",
         component: () => import("pages/Sandbox.vue"),

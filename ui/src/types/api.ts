@@ -124,8 +124,37 @@ export interface Project {
   locationCity: string;
   aiSystemMessage?: string;
   uploadReviewEnabled: boolean;
+  // Event period (S15): frames the schedule calendar. Optional.
+  startAt?: string | null;
+  endAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// One coverable block of the event schedule (S15). cardinality is the TARGET
+// headcount, not a cap — overbooking is allowed (violett).
+export interface ScheduleItem {
+  id: string;
+  title: string;
+  description: string;
+  start: string;
+  end: string;
+  cardinality: number;
+  assignees: EmbeddedUser[];
+  tags: EmbeddedTag[];
+  project: EmbeddedProject;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// One lane of the upload tagging timeline. Exactly one of scheduleItemId
+// (mutually exclusive with its siblings) or tagId (stacks freely) is set.
+export interface TimelineTrack {
+  scheduleItemId?: string;
+  tagId?: string;
+  start: string;
+  end: string;
+  enabled: boolean;
 }
 
 export interface Camera {
@@ -161,6 +190,7 @@ export interface Upload {
   camera: EmbeddedCamera;
   imageCount?: number;
   metrics?: UploadMetrics;
+  timeline?: TimelineTrack[];
   createdAt: string;
   updatedAt: string;
 }

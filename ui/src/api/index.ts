@@ -6,6 +6,7 @@ import * as projects from "./projects";
 import * as projectAssignments from "./projectAssignments";
 import * as cameras from "./cameras";
 import * as uploads from "./uploads";
+import * as scheduleItems from "./scheduleItems";
 import * as timeOffsets from "./timeOffsets";
 import * as roles from "./roles";
 import * as users from "./users";
@@ -20,6 +21,7 @@ export const api = {
   projectAssignments,
   cameras,
   uploads,
+  scheduleItems,
   timeOffsets,
   roles,
   users,

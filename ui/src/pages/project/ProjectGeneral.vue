@@ -12,6 +12,14 @@
       <DetailEditGroup
         :allow-edit="userStore.isProjectAdminOrHigher()"
         @edit-save="saveItem"
+        headline="Event Period"
+        subtitle="Frames the schedule calendar — from first to last event day"
+        :fields="periodFields"
+        :item="item"
+      />
+      <DetailEditGroup
+        :allow-edit="userStore.isProjectAdminOrHigher()"
+        @edit-save="saveItem"
         headline="Copyright Data"
         subtitle="Copyright information to be embedded into the EXIF data"
         :fields="copyrightFields"
@@ -98,6 +106,11 @@ const informationFields: Field<ITEM_TYPE>[] = [
 ];
 
 const aiFields: Field<ITEM_TYPE>[] = [{ key: "aiSystemMessage", label: "System Message", type: FieldType.TEXT }];
+
+const periodFields: Field<ITEM_TYPE>[] = [
+  { key: "startAt", label: "Starts", type: FieldType.DATETIME },
+  { key: "endAt", label: "Ends", type: FieldType.DATETIME },
+];
 
 const reviewFields: Field<ITEM_TYPE>[] = [
   { key: "uploadReviewEnabled", label: "Upload reviews", type: FieldType.BOOLEAN, hint: "Enable the open / ready / reviewed flow" },
