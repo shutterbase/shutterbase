@@ -59,6 +59,7 @@ type Server struct {
 	imageService   *service.ImageService
 	ai             *service.AIService
 	ws             *event.Manager
+	bus            *event.Bus
 	thumbnailSizes []int
 	tagCountCache  *expirable.LRU[string, []repository.TagStatistic]
 	bgCancel       context.CancelFunc
@@ -173,6 +174,9 @@ func NewServer(options *Options) (*Server, error) {
 	// plugs the S10 CSRF allow-list into the upgrade (S9 hook).
 	s.registerAPIRoutes()
 	s.ws = event.RegisterWebsocket(engine, &event.Options{CheckOrigin: s.hardening.wsOriginOK})
+	// Schedule events fan out across replicas via Postgres LISTEN/NOTIFY; on
+	// SQLite (single process) the bus broadcasts locally.
+	s.bus = event.NewBus(s.ws, options.Database.DB, options.Database.DSN())
 
 	// Serve the embedded SPA for everything the API/WS/auth groups didn't claim.
 	s.registerSPA()
@@ -184,6 +188,7 @@ func NewServer(options *Options) (*Server, error) {
 	s.bgCancel = cancel
 	s.ai.Start(bgCtx)
 	go s.ws.Start(bgCtx)
+	s.bus.Start(bgCtx)
 
 	return s, nil
 }

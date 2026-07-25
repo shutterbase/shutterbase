@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -25,9 +26,29 @@ func projectResponse(p *ent.Project) gin.H {
 		"locationCity":        p.LocationCity,
 		"aiSystemMessage":     p.AiSystemMessage,
 		"uploadReviewEnabled": p.UploadReviewEnabled,
+		"startAt":             p.StartAt,
+		"endAt":               p.EndAt,
 		"createdAt":           p.CreatedAt,
 		"updatedAt":           p.UpdatedAt,
 	}
+}
+
+// periodValue normalizes a payload period bound: nil and zero ("clear") both
+// mean "no bound" for validation purposes.
+func periodValue(p *time.Time) *time.Time {
+	if p == nil || p.IsZero() {
+		return nil
+	}
+	return p
+}
+
+// validProjectPeriod rejects an inverted period on the RESULTING bounds.
+func validProjectPeriod(c *gin.Context, start, end *time.Time) bool {
+	if start != nil && end != nil && end.Before(*start) {
+		apiError(c, http.StatusBadRequest, "invalid_period", "endAt must not be before startAt")
+		return false
+	}
+	return true
 }
 
 func (s *Server) registerProjectRoutes(api *gin.RouterGroup) {
@@ -87,8 +108,10 @@ type createProjectPayload struct {
 	LocationName        string  `json:"locationName" binding:"required"`
 	LocationCode        string  `json:"locationCode" binding:"required"`
 	LocationCity        string  `json:"locationCity" binding:"required"`
-	AiSystemMessage     *string `json:"aiSystemMessage"`
-	UploadReviewEnabled *bool   `json:"uploadReviewEnabled"`
+	AiSystemMessage     *string    `json:"aiSystemMessage"`
+	UploadReviewEnabled *bool      `json:"uploadReviewEnabled"`
+	StartAt             *time.Time `json:"startAt"`
+	EndAt               *time.Time `json:"endAt"`
 }
 
 func (s *Server) createProject(c *gin.Context) {
@@ -101,6 +124,9 @@ func (s *Server) createProject(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	if !validProjectPeriod(c, periodValue(payload.StartAt), periodValue(payload.EndAt)) {
+		return
+	}
 	p, err := s.Repository.CreateProject(c.Request.Context(), &repository.CreateProjectParameters{
 		Name:                payload.Name,
 		Description:         payload.Description,
@@ -111,6 +137,8 @@ func (s *Server) createProject(c *gin.Context) {
 		LocationCity:        payload.LocationCity,
 		AiSystemMessage:     payload.AiSystemMessage,
 		UploadReviewEnabled: payload.UploadReviewEnabled,
+		StartAt:             payload.StartAt,
+		EndAt:               payload.EndAt,
 	})
 	if abortMutationError(c, err) {
 		return
@@ -126,8 +154,10 @@ type updateProjectPayload struct {
 	LocationName        *string `json:"locationName"`
 	LocationCode        *string `json:"locationCode"`
 	LocationCity        *string `json:"locationCity"`
-	AiSystemMessage     *string `json:"aiSystemMessage"`
-	UploadReviewEnabled *bool   `json:"uploadReviewEnabled"`
+	AiSystemMessage     *string    `json:"aiSystemMessage"`
+	UploadReviewEnabled *bool      `json:"uploadReviewEnabled"`
+	StartAt             *time.Time `json:"startAt"`
+	EndAt               *time.Time `json:"endAt"`
 }
 
 func (s *Server) updateProject(c *gin.Context) {
@@ -145,6 +175,23 @@ func (s *Server) updateProject(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	// Validate the RESULTING period (payload merged over the current row).
+	if payload.StartAt != nil || payload.EndAt != nil {
+		existing, err := s.Repository.GetProject(c.Request.Context(), id)
+		if abortGetError(c, err) {
+			return
+		}
+		start, end := existing.StartAt, existing.EndAt
+		if payload.StartAt != nil {
+			start = periodValue(payload.StartAt)
+		}
+		if payload.EndAt != nil {
+			end = periodValue(payload.EndAt)
+		}
+		if !validProjectPeriod(c, start, end) {
+			return
+		}
+	}
 	p, err := s.Repository.UpdateProject(c.Request.Context(), id, &repository.UpdateProjectParameters{
 		Name:                payload.Name,
 		Description:         payload.Description,
@@ -155,6 +202,8 @@ func (s *Server) updateProject(c *gin.Context) {
 		LocationCity:        payload.LocationCity,
 		AiSystemMessage:     payload.AiSystemMessage,
 		UploadReviewEnabled: payload.UploadReviewEnabled,
+		StartAt:             payload.StartAt,
+		EndAt:               payload.EndAt,
 	})
 	if abortMutationError(c, err) {
 		return

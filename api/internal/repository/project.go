@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -10,6 +11,25 @@ import (
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
+
+// applyPeriodField folds one optional period bound into an update: nil = leave,
+// zero time = clear, otherwise set-if-different. Shared by startAt/endAt.
+func applyPeriodField(param *time.Time, current *time.Time, field string, st *modelUpdateStatus, set func(time.Time), clear func()) {
+	if param == nil {
+		return
+	}
+	if param.IsZero() {
+		if current != nil {
+			clear()
+			st.SetFieldChanged(field, current, nil)
+		}
+		return
+	}
+	if current == nil || !current.Equal(*param) {
+		set(*param)
+		st.SetFieldChanged(field, current, *param)
+	}
+}
 
 var projectSortFields = map[string]string{
 	"name":      project.FieldName,
@@ -70,6 +90,10 @@ type CreateProjectParameters struct {
 	LocationCity        string
 	AiSystemMessage     *string
 	UploadReviewEnabled *bool
+	// Event period (S15). A provided ZERO time clears the field (there is no
+	// JSON-level way to distinguish null from absent with *time.Time).
+	StartAt *time.Time
+	EndAt   *time.Time
 }
 
 func (r *Repository) CreateProject(ctx context.Context, parameters *CreateProjectParameters) (*ent.Project, error) {
@@ -88,6 +112,12 @@ func (r *Repository) CreateProject(ctx context.Context, parameters *CreateProjec
 	}
 	if parameters.AiSystemMessage != nil {
 		create = create.SetAiSystemMessage(*parameters.AiSystemMessage)
+	}
+	if parameters.StartAt != nil && !parameters.StartAt.IsZero() {
+		create = create.SetStartAt(*parameters.StartAt)
+	}
+	if parameters.EndAt != nil && !parameters.EndAt.IsZero() {
+		create = create.SetEndAt(*parameters.EndAt)
 	}
 	item, err := create.Save(ctx)
 	if err != nil {
@@ -113,6 +143,9 @@ type UpdateProjectParameters struct {
 	LocationCity        *string
 	AiSystemMessage     *string
 	UploadReviewEnabled *bool
+	// See CreateProjectParameters: a provided ZERO time clears the field.
+	StartAt *time.Time
+	EndAt   *time.Time
 }
 
 func (r *Repository) UpdateProject(ctx context.Context, id string, parameters *UpdateProjectParameters) (*ent.Project, error) {
@@ -168,6 +201,10 @@ func (r *Repository) UpdateProject(ctx context.Context, id string, parameters *U
 		update.SetUploadReviewEnabled(*parameters.UploadReviewEnabled)
 		st.SetFieldChanged(project.FieldUploadReviewEnabled, item.UploadReviewEnabled, *parameters.UploadReviewEnabled)
 	}
+	applyPeriodField(parameters.StartAt, item.StartAt, project.FieldStartAt, &st,
+		func(t time.Time) { update.SetStartAt(t) }, func() { update.ClearStartAt() })
+	applyPeriodField(parameters.EndAt, item.EndAt, project.FieldEndAt, &st,
+		func(t time.Time) { update.SetEndAt(t) }, func() { update.ClearEndAt() })
 
 	if !st.modelChanged {
 		_ = tx.Rollback()

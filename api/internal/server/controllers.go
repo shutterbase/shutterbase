@@ -15,6 +15,7 @@ func (s *Server) registerAPIRoutes() {
 	s.registerProjectAssignmentRoutes(api)
 	s.registerCameraRoutes(api)
 	s.registerUploadRoutes(api)
+	s.registerScheduleItemRoutes(api)
 	s.registerTimeOffsetRoutes(api)
 	s.registerRoleRoutes(api)
 	s.registerUserRoutes(api)

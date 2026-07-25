@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/repository"
@@ -17,10 +20,15 @@ import (
 // uploadResponse is the §4.9 Upload object, including the review state and the
 // tagging metrics block (nil metrics => the block is omitted).
 func (s *Server) uploadResponse(ctx context.Context, up *ent.Upload, metrics *repository.UploadMetrics) gin.H {
+	timeline := up.Timeline
+	if timeline == nil {
+		timeline = []schema.TimelineTrack{}
+	}
 	out := gin.H{
 		"id":        up.ID,
 		"name":      up.Name,
 		"state":     up.State,
+		"timeline":  timeline,
 		"createdAt": up.CreatedAt,
 		"updatedAt": up.UpdatedAt,
 		"project":   projectRefByID(ctx, s.Repository, up.ProjectID),
@@ -67,6 +75,73 @@ func (s *Server) registerUploadRoutes(api *gin.RouterGroup) {
 	api.POST("/uploads", s.createUpload)
 	api.PUT("/uploads/:id", s.updateUpload)
 	api.DELETE("/uploads/:id", s.deleteUpload)
+	api.PUT("/uploads/:id/timeline", s.applyUploadTimeline)
+}
+
+type timelineTrackPayload struct {
+	ScheduleItemID string    `json:"scheduleItemId"`
+	TagID          string    `json:"tagId"`
+	Start          time.Time `json:"start" binding:"required"`
+	End            time.Time `json:"end" binding:"required"`
+	Enabled        bool      `json:"enabled"`
+}
+
+// applyUploadTimeline persists the tagging-timeline editor state and reconciles
+// the upload's "scheduled" tag assignments with it, atomically (S15).
+func (s *Server) applyUploadTimeline(c *gin.Context) {
+	id, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	var payload struct {
+		Tracks []timelineTrackPayload `json:"tracks"`
+	}
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	up, err := s.Repository.GetUpload(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	project, err := s.Repository.GetProject(c.Request.Context(), up.ProjectID)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanApplyUploadTimeline(authUser(c), up, project.UploadReviewEnabled)) {
+		return
+	}
+	tracks := make([]schema.TimelineTrack, 0, len(payload.Tracks))
+	for _, tr := range payload.Tracks {
+		tracks = append(tracks, schema.TimelineTrack{
+			ScheduleItemID: tr.ScheduleItemID, TagID: tr.TagID,
+			Start: tr.Start, End: tr.End, Enabled: tr.Enabled,
+		})
+	}
+	result, err := s.Repository.ApplyUploadTimeline(c.Request.Context(), id, tracks)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrInvalidTimeline):
+			apiError(c, http.StatusBadRequest, "invalid_timeline", "timeline tracks are structurally invalid")
+		case errors.Is(err, repository.ErrScheduleOverlap):
+			apiError(c, http.StatusBadRequest, "schedule_track_overlap", "enabled schedule-item tracks must not overlap")
+		case errors.Is(err, repository.ErrTagProjectMismatch):
+			apiError(c, http.StatusBadRequest, "tag_project_mismatch", "tags must belong to the upload's project")
+		default:
+			abortMutationError(c, err)
+		}
+		return
+	}
+	// Applying the timeline is tagging work — fold it into the owner's metric.
+	s.recordTaggingActivity(c, up)
+	items, rerr := s.uploadResponses(c.Request.Context(), []*ent.Upload{result.Upload})
+	if rerr != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	out := items[0]
+	out["applied"] = gin.H{"created": result.Created, "deleted": result.Deleted}
+	c.JSON(http.StatusOK, out)
 }
 
 func (s *Server) listUploads(c *gin.Context) {
