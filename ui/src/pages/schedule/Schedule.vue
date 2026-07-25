@@ -258,16 +258,20 @@ async function requestItems() {
 
 async function loadContext() {
   try {
-    const [proj, tags, assignments] = await Promise.all([
-      api.projects.get(activeProjectId.value),
-      api.imageTags.list({ projectId: activeProjectId.value, limit: 500, sort: "name", order: "asc" }),
-      api.projectAssignments.list({ projectId: activeProjectId.value, limit: 500 }),
-    ]);
-    project.value = proj;
-    projectTags.value = tags.items;
-    const seen = new Map<string, EmbeddedUser>();
-    assignments.items.forEach((a) => seen.set(a.user.id, a.user));
-    members.value = [...seen.values()];
+    project.value = await api.projects.get(activeProjectId.value);
+    // Tags + member roster only exist in the dialog's MANAGE mode, and the
+    // project-assignments list is projectAdmin-gated anyway — a photographer
+    // requesting it would 403 straight into the error modal.
+    if (canManage.value) {
+      const [tags, assignments] = await Promise.all([
+        api.imageTags.list({ projectId: activeProjectId.value, limit: 500, sort: "name", order: "asc" }),
+        api.projectAssignments.list({ projectId: activeProjectId.value, limit: 500 }),
+      ]);
+      projectTags.value = tags.items;
+      const seen = new Map<string, EmbeddedUser>();
+      assignments.items.forEach((a) => seen.set(a.user.id, a.user));
+      members.value = [...seen.values()];
+    }
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;

@@ -280,14 +280,23 @@ func (s *Server) assignScheduleItem(c *gin.Context) {
 		return
 	}
 	// An assignee must be a member of the item's project — an admin must not be
-	// able to schedule a stranger into an event they cannot even see.
-	targetUser, err := s.Repository.GetUser(c.Request.Context(), target)
-	if abortGetError(c, err) {
+	// able to schedule a stranger into an event they cannot even see. Checked
+	// against the assignment ROWS: a bare GetUser row has no eager-loaded
+	// project edges, so authorization.IsAssigned would always be false here.
+	assigned, err := s.Repository.IsUserAssignedToProject(c.Request.Context(), target, item.ProjectID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	if !authorization.IsAssigned(targetUser, item.ProjectID) && !authorization.IsAdminUser(targetUser) {
-		apiError(c, http.StatusBadRequest, "not_a_member", "user is not a member of this project")
-		return
+	if !assigned {
+		targetUser, err := s.Repository.GetUser(c.Request.Context(), target)
+		if abortGetError(c, err) {
+			return
+		}
+		if !authorization.IsAdminUser(targetUser) {
+			apiError(c, http.StatusBadRequest, "not_a_member", "user is not a member of this project")
+			return
+		}
 	}
 	item, err = s.Repository.AssignScheduleItemUser(c.Request.Context(), item.ID, target)
 	if abortMutationError(c, err) {
