@@ -2,9 +2,10 @@ import { test, expect } from "@playwright/test";
 import { loginAs, collectJsErrors } from "./helpers";
 
 // S15 e2e: the schedule tab end-to-end — the projectAdmin defines a pool item
-// through the dialog, a photographer pulls it into their schedule (occupancy
-// goes empty -> full), the "My schedule" scope filters, and the admin cleans
-// up. Self-cleaning; runs serially against the shared dev stack.
+// through the dialog, a photographer claims it via the assignment popover
+// (occupancy empty -> full), the admin assigns/removes people through the
+// popover + modal, and edits live behind the pen icon. Self-cleaning; runs
+// serially against the shared dev stack.
 test.describe.serial("schedule module", () => {
   const TITLE = "E2E Endurance";
 
@@ -38,23 +39,28 @@ test.describe.serial("schedule module", () => {
     expect(errors, errors.join("\n")).toHaveLength(0);
   });
 
-  test("photographer pulls the item into their schedule and the scope filters", async ({ page }) => {
+  test("photographer claims the item via the popover and the scope filters", async ({ page }) => {
     const errors = collectJsErrors(page);
     await loginAs(page, "projectEditor");
 
     await page.goto("/schedule");
-    // "Everything" scope shows the pool; the persisted scope may still be "mine"
-    // from a previous run, so switch explicitly.
+    // The persisted scope may still be "mine" from a previous run.
     await page.getByRole("button", { name: "Everything" }).click();
     const item = page.getByRole("button").filter({ hasText: TITLE });
     await expect(item).toBeVisible();
 
-    // Join through the dialog (transcript: "Add to my schedule").
+    // A photographer gets NO edit pen — that's the admin's.
+    await expect(item.getByRole("button", { name: `Edit ${TITLE}` })).toHaveCount(0);
+
+    // Normal click opens the assignment popover, not the edit dialog.
     await item.click();
-    const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: "Add to my schedule" }).click();
-    await expect(dialog.getByText("Fully covered")).toBeVisible(); // cardinality 1 reached
-    await dialog.getByRole("button", { name: "Close" }).last().click();
+    const pop = page.getByTestId("schedule-popover");
+    await expect(pop).toBeVisible();
+    await expect(pop.getByText("Nobody yet — be the first.")).toBeVisible();
+    await pop.getByRole("button", { name: "Add to my schedule" }).click();
+    await expect(pop.getByText("Fully covered")).toBeVisible(); // cardinality 1 reached
+    await page.keyboard.press("Escape");
+    await expect(pop).toBeHidden();
 
     // "My schedule" now contains it.
     await page.getByRole("button", { name: "My schedule" }).click();
@@ -62,22 +68,54 @@ test.describe.serial("schedule module", () => {
 
     // Leave again — the mine scope empties.
     await page.getByRole("button").filter({ hasText: TITLE }).click();
-    await dialog.getByRole("button", { name: "Leave" }).click();
-    await dialog.getByRole("button", { name: "Close" }).last().click();
+    await pop.getByRole("button", { name: "Leave" }).click();
+    await page.keyboard.press("Escape");
     await expect(page.getByRole("button").filter({ hasText: TITLE })).toHaveCount(0);
 
     expect(errors, errors.join("\n")).toHaveLength(0);
   });
 
-  test("projectAdmin deletes the item again", async ({ page }) => {
+  test("projectAdmin assigns and removes a photographer through the popover", async ({ page }) => {
+    const errors = collectJsErrors(page);
+    await loginAs(page, "projectAdmin");
+    await page.goto("/schedule");
+    await page.getByRole("button", { name: "Everything" }).click();
+
+    const item = page.getByRole("button").filter({ hasText: TITLE });
+    await item.click();
+    const pop = page.getByTestId("schedule-popover");
+    await expect(pop.getByText("Nobody yet — be the first.")).toBeVisible();
+
+    // Assign via the modal (search + pick).
+    await pop.getByRole("button", { name: "Assign" }).click();
+    const modal = page.getByRole("dialog");
+    await expect(modal.getByText("Assign photographer")).toBeVisible();
+    await modal.getByLabel("Search members").fill("");
+    const firstCandidate = modal.getByRole("button").first();
+    const candidateName = (await firstCandidate.innerText()).trim();
+    await firstCandidate.click();
+    await expect(modal).toBeHidden();
+    await expect(pop.getByText(candidateName)).toBeVisible();
+
+    // Remove again via the row's x.
+    await pop.getByRole("button", { name: `Remove ${candidateName}` }).click();
+    await expect(pop.getByText("Nobody yet — be the first.")).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    expect(errors, errors.join("\n")).toHaveLength(0);
+  });
+
+  test("projectAdmin edits via the pen and deletes the item", async ({ page }) => {
     await loginAs(page, "projectAdmin");
     await page.goto("/schedule");
     await page.getByRole("button", { name: "Everything" }).click();
 
     const item = page.getByRole("button").filter({ hasText: TITLE });
     await expect(item).toBeVisible();
-    await item.click();
+    await item.getByRole("button", { name: `Edit ${TITLE}` }).click();
+
     const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Edit schedule item")).toBeVisible();
     await dialog.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("button").filter({ hasText: TITLE })).toHaveCount(0);
     await page.reload();

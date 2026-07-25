@@ -1,15 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  assignLanes,
-  calendarDays,
-  dayHourRange,
-  dayPosition,
-  isAssigned,
-  itemsOnDay,
-  occupancyStatus,
-  startOfDay,
-  ScheduleItemLike,
-} from "src/util/schedule";
+import { assignLanes, calendarDays, dayPosition, isAssigned, itemsOnDay, occupancyStatus, startOfDay, ScheduleItemLike } from "src/util/schedule";
 
 function item(id: string, start: string, end: string, cardinality = 1, assignees: string[] = []): ScheduleItemLike {
   return { id, start, end, cardinality, assignees: assignees.map((a) => ({ id: a })) };
@@ -68,31 +58,20 @@ describe("itemsOnDay / dayPosition", () => {
     expect(itemsOnDay([a, b], day).map((i) => i.id)).toEqual(["a"]);
   });
 
-  it("positions an item inside the hour window", () => {
+  it("positions an item on the fixed 24h axis", () => {
     const a = item("a", "2026-08-11T10:00:00", "2026-08-11T12:00:00");
     const day = startOfDay(new Date("2026-08-11T00:00:00"));
-    const pos = dayPosition(a, day, 8, 20); // 12h window from 08:00
-    expect(pos.topPct).toBeCloseTo(((10 - 8) / 12) * 100, 5);
-    expect(pos.heightPct).toBeCloseTo((2 / 12) * 100, 5);
+    const pos = dayPosition(a, day);
+    expect(pos.topPct).toBeCloseTo((10 / 24) * 100, 5);
+    expect(pos.heightPct).toBeCloseTo((2 / 24) * 100, 5);
   });
 
   it("clamps a multi-day item to the column", () => {
     const a = item("a", "2026-08-10T22:00:00", "2026-08-12T02:00:00");
     const day = startOfDay(new Date("2026-08-11T00:00:00"));
-    const pos = dayPosition(a, day, 0, 24);
+    const pos = dayPosition(a, day);
     expect(pos.topPct).toBe(0);
     expect(pos.heightPct).toBe(100);
-  });
-});
-
-describe("dayHourRange", () => {
-  it("derives the window from items with padding", () => {
-    const range = dayHourRange([item("a", "2026-08-11T09:00:00", "2026-08-11T18:30:00")]);
-    expect(range.startHour).toBe(8);
-    expect(range.endHour).toBe(20);
-  });
-  it("defaults to 8-20 without items", () => {
-    expect(dayHourRange([])).toEqual({ startHour: 8, endHour: 20 });
   });
 });
 

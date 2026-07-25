@@ -85,20 +85,6 @@ export function calendarDays(
   return daySpan(monday, addDays(monday, 6), 7);
 }
 
-// dayHourRange: vertical hour window, derived from the items so event days
-// (07–22) don't render as slivers on a 24h axis. Defaults 8–20 when empty.
-export function dayHourRange(items: ScheduleItemLike[]): { startHour: number; endHour: number } {
-  let startHour = 8;
-  let endHour = 20;
-  if (items.length > 0) {
-    startHour = Math.min(...items.map((i) => new Date(i.start).getHours()));
-    endHour = Math.max(...items.map((i) => Math.ceil(new Date(i.end).getTime() / 3_600_000 - startOfDay(new Date(i.end)).getTime() / 3_600_000)));
-    startHour = Math.max(0, startHour - 1);
-    endHour = Math.min(24, Math.max(endHour + 1, startHour + 4));
-  }
-  return { startHour, endHour };
-}
-
 // itemsOnDay: items whose [start, end) window intersects the given day.
 export function itemsOnDay<T extends ScheduleItemLike>(items: T[], day: Date): T[] {
   const dayStart = startOfDay(day).getTime();
@@ -107,10 +93,12 @@ export function itemsOnDay<T extends ScheduleItemLike>(items: T[], day: Date): T
 }
 
 // dayPosition: vertical placement of an item inside one day column, in % of
-// the rendered hour window, clamped to the day (multi-day items span columns).
-export function dayPosition(item: ScheduleItemLike, day: Date, startHour: number, endHour: number): { topPct: number; heightPct: number } {
-  const windowStart = startOfDay(day).getTime() + startHour * 3_600_000;
-  const windowLen = (endHour - startHour) * 3_600_000;
+// the FULL 24h axis (the calendar always shows the whole day and fits the
+// viewport — no vertical scrolling), clamped to the day (multi-day items span
+// columns).
+export function dayPosition(item: ScheduleItemLike, day: Date): { topPct: number; heightPct: number } {
+  const windowStart = startOfDay(day).getTime();
+  const windowLen = 24 * 3_600_000;
   const from = Math.max(new Date(item.start).getTime(), windowStart);
   const to = Math.min(new Date(item.end).getTime(), windowStart + windowLen);
   const topPct = Math.max(0, ((from - windowStart) / windowLen) * 100);

@@ -38,31 +38,32 @@
             <PlusIcon class="h-4 w-4" />
             Add item
           </button>
-        </div>
-      </div>
 
-      <!-- legend -->
-      <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-primary-500 dark:text-primary-400">
-        <span v-for="s in legend" :key="s.status" class="inline-flex items-center gap-1.5">
-          <span :class="['h-2.5 w-2.5 rounded-full border', legendDot[s.status]]"></span>
-          {{ s.label }}
-        </span>
+          <!-- legend -->
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-primary-500 dark:text-primary-400">
+            <span v-for="s in legend" :key="s.status" class="inline-flex items-center gap-1.5">
+              <span :class="['h-2.5 w-2.5 rounded-full border', legendDot[s.status]]"></span>
+              {{ s.label }}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- calendar -->
-    <div class="mt-4 px-4 pb-10 sm:px-6 lg:px-8">
+    <!-- calendar: fixed 24h axis, sized to the viewport — the page never
+         scrolls vertically, only the day columns scroll horizontally. -->
+    <div class="mt-4 px-4 pb-6 sm:px-6 lg:px-8">
       <div class="overflow-x-auto rounded-lg border border-primary-200 bg-surface dark:border-primary-800 dark:bg-surface-dark">
         <div class="flex min-w-max">
           <!-- hour gutter -->
           <div class="sticky left-0 z-[5] w-14 flex-shrink-0 border-r border-primary-100 bg-surface dark:border-primary-800 dark:bg-surface-dark">
-            <div class="h-10 border-b border-primary-100 dark:border-primary-800"></div>
-            <div class="relative" :style="{ height: `${bodyHeight}px` }">
+            <div class="h-9 border-b border-primary-100 dark:border-primary-800"></div>
+            <div class="relative" :class="bodyHeightClass">
               <span
                 v-for="hour in hourMarks"
                 :key="hour"
                 class="absolute right-2 -translate-y-1/2 text-[10px] tabular-nums text-primary-400"
-                :style="{ top: `${((hour - hourRange.startHour) / (hourRange.endHour - hourRange.startHour)) * 100}%` }"
+                :style="{ top: `${(hour / 24) * 100}%` }"
               >
                 {{ String(hour).padStart(2, "0") }}:00
               </span>
@@ -71,70 +72,90 @@
 
           <!-- day columns -->
           <div v-for="day in days" :key="day.getTime()" class="w-48 flex-shrink-0 border-r border-primary-100 last:border-r-0 dark:border-primary-800">
-            <div class="flex h-10 items-center justify-center border-b border-primary-100 text-sm font-medium text-primary-700 dark:border-primary-800 dark:text-primary-200">
+            <div class="flex h-9 items-center justify-center border-b border-primary-100 text-sm font-medium text-primary-700 dark:border-primary-800 dark:text-primary-200">
               {{ formatDay(day) }}
             </div>
-            <div class="relative" :style="{ height: `${bodyHeight}px` }" :data-testid="`day-${dayKey(day)}`">
+            <div class="relative" :class="bodyHeightClass" :data-testid="`day-${dayKey(day)}`">
               <!-- hour grid lines -->
               <div
                 v-for="hour in hourMarks"
                 :key="hour"
                 class="absolute inset-x-0 border-t border-primary-100/70 dark:border-primary-800/70"
-                :style="{ top: `${((hour - hourRange.startHour) / (hourRange.endHour - hourRange.startHour)) * 100}%` }"
+                :style="{ top: `${(hour / 24) * 100}%` }"
               ></div>
 
-              <!-- items -->
-              <button
+              <!-- items: click opens the assignment popover; the pen (admins
+                   only) opens the edit dialog -->
+              <div
                 v-for="entry in dayEntries(day)"
                 :key="entry.item.id"
-                type="button"
                 :data-testid="`schedule-item-${entry.item.id}`"
                 :ref="(el) => registerItemEl(entry.item.id, el as HTMLElement | null)"
-                @click="openItem(entry.item)"
+                role="button"
+                tabindex="0"
+                @click="openPopover(entry.item)"
+                @keydown.enter="openPopover(entry.item)"
                 :class="[
-                  'absolute cursor-pointer overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left text-xs shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
+                  'group absolute cursor-pointer overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
                   OCCUPANCY_CLASSES[entry.status],
                   isAssigned(entry.item, userStore.user?.id) ? 'ring-1 ring-accent-500/60' : '',
                 ]"
                 :style="entry.style"
               >
-                <p class="truncate font-semibold">{{ entry.item.title }}</p>
+                <p class="truncate pr-5 font-semibold">{{ entry.item.title }}</p>
                 <p class="truncate tabular-nums opacity-75">{{ formatTime(entry.item.start) }}–{{ formatTime(entry.item.end) }}</p>
-                <div v-if="entry.item.assignees.length" class="mt-1 flex -space-x-1.5">
-                  <UserBubble v-for="assignee in entry.item.assignees.slice(0, 4)" :key="assignee.id" :user="assignee" />
+                <div v-if="entry.item.assignees.length" class="mt-0.5 flex -space-x-1.5">
+                  <UserBubble v-for="assignee in entry.item.assignees.slice(0, 3)" :key="assignee.id" :user="assignee" />
                   <span
-                    v-if="entry.item.assignees.length > 4"
+                    v-if="entry.item.assignees.length > 3"
                     class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-200 text-[10px] font-medium text-primary-700 ring-2 ring-surface dark:bg-primary-700 dark:text-primary-200 dark:ring-surface-dark"
                   >
-                    +{{ entry.item.assignees.length - 4 }}
+                    +{{ entry.item.assignees.length - 3 }}
                   </span>
                 </div>
-              </button>
+
+                <button
+                  v-if="canManage"
+                  type="button"
+                  :aria-label="`Edit ${entry.item.title}`"
+                  class="absolute right-0.5 top-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded bg-surface/70 text-primary-500 opacity-70 transition-opacity hover:opacity-100 dark:bg-surface-dark/70 dark:text-primary-300"
+                  @click.stop="openEdit(entry.item)"
+                >
+                  <PencilIcon class="h-3 w-3" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <p v-if="visibleItems.length === 0" class="mt-6 text-center text-sm text-primary-400">
+      <p v-if="visibleItems.length === 0" class="mt-3 text-center text-sm text-primary-400">
         {{ scope === "mine" ? "Nothing on your schedule yet — switch to “Everything” and grab an item." : "No schedule items yet." }}
       </p>
     </div>
+
+    <ScheduleItemPopover
+      :item="popoverItem"
+      :position="popoverPosition"
+      :can-manage="canManage"
+      :can-join="canJoin"
+      :current-user-id="userStore.user?.id"
+      @closed="popoverItemId = null"
+      @claim="assign(popoverItemId!, userStore.user!.id)"
+      @drop="unassign(popoverItemId!, userStore.user!.id)"
+      @unassign="(userId) => unassign(popoverItemId!, userId)"
+      @open-assign="assignModalOpen = true"
+    />
+
+    <AssignPhotographerModal :show="assignModalOpen" :candidates="assignCandidates" @closed="assignModalOpen = false" @assign="assignFromModal" />
 
     <ScheduleItemDialog
       :show="dialogOpen"
       :create="dialogCreate"
       :item="dialogItem"
-      :can-manage="canManage"
-      :can-join="canJoin"
-      :current-user-id="userStore.user?.id"
       :project-tags="projectTags"
-      :members="members"
       @closed="dialogOpen = false"
       @save="saveItem"
       @deleted="deleteItem"
-      @join="assign(userStore.user!.id)"
-      @leave="unassign(userStore.user!.id)"
-      @assign="assign"
-      @unassign="unassign"
     />
     <PurpleWave ref="wave" />
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -143,15 +164,17 @@
 
 <script setup lang="ts">
 import confetti from "canvas-confetti";
-import { CalendarDaysIcon, PlusIcon, UserIcon } from "@heroicons/vue/24/outline";
+import { CalendarDaysIcon, PencilIcon, PlusIcon, UserIcon } from "@heroicons/vue/24/outline";
 import { DateTime } from "luxon";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, Ref } from "vue";
 import { useStorage } from "@vueuse/core";
 import { api } from "src/api";
 import { ScheduleItemCreate, ScheduleItemUpdate } from "src/api/scheduleItems";
+import AssignPhotographerModal from "src/components/schedule/AssignPhotographerModal.vue";
 import PurpleWave from "src/components/schedule/PurpleWave.vue";
 import ScheduleItemDialog from "src/components/schedule/ScheduleItemDialog.vue";
+import ScheduleItemPopover from "src/components/schedule/ScheduleItemPopover.vue";
 import UserBubble from "src/components/schedule/UserBubble.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { showNotificationToast } from "src/boot/mitt";
@@ -163,7 +186,6 @@ import {
   OccupancyStatus,
   assignLanes,
   calendarDays,
-  dayHourRange,
   dayPosition,
   isAssigned,
   itemsOnDay,
@@ -201,8 +223,9 @@ const unexpectedError = ref(null);
 
 // --- celebrations ---------------------------------------------------------
 // Transitions are detected on every (re)load, so they fire for own actions AND
-// for teammates' moves arriving via websocket. full -> confetti at the item,
-// over -> purple rupture wave across the screen (transcript 07:36 / 08:07).
+// for teammates' moves arriving via websocket. Confetti only when full is
+// reached by JOINING (empty/partial -> full) — dropping from overbooked back
+// to full is nothing to celebrate. Purple rupture wave on newly overbooked.
 const wave = ref<InstanceType<typeof PurpleWave>>();
 const itemEls = new Map<string, HTMLElement>();
 const statusById = new Map<string, OccupancyStatus>();
@@ -229,7 +252,7 @@ function celebrate(next: ScheduleItem[]) {
       const before = statusById.get(item.id);
       const after = occupancyStatus(item.assignees.length, item.cardinality);
       if (before === after || before === undefined) continue;
-      if (after === "full") {
+      if (after === "full" && (before === "empty" || before === "partial")) {
         const origin = originOf(item.id);
         confetti({ particleCount: 90, spread: 70, startVelocity: 35, origin, disableForReducedMotion: true });
       } else if (after === "over") {
@@ -250,6 +273,7 @@ async function requestItems() {
     const result = await api.scheduleItems.list({ projectId: activeProjectId.value, limit: 500, sort: "start", order: "asc" });
     celebrate(result.items);
     items.value = result.items;
+    syncOpenItem();
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
@@ -259,9 +283,9 @@ async function requestItems() {
 async function loadContext() {
   try {
     project.value = await api.projects.get(activeProjectId.value);
-    // Tags + member roster only exist in the dialog's MANAGE mode, and the
-    // project-assignments list is projectAdmin-gated anyway — a photographer
-    // requesting it would 403 straight into the error modal.
+    // Tags + member roster only exist for managers (edit dialog / assign
+    // modal), and the project-assignments list is projectAdmin-gated anyway —
+    // a photographer requesting it would 403 straight into the error modal.
     if (canManage.value) {
       const [tags, assignments] = await Promise.all([
         api.imageTags.list({ projectId: activeProjectId.value, limit: 500, sort: "name", order: "asc" }),
@@ -280,17 +304,13 @@ async function loadContext() {
 
 // --- calendar geometry -------------------------------------------------------
 
-const PX_PER_HOUR = 56;
+// Fixed 24h axis that fits the viewport: header (~64px) + toolbar/legend +
+// day-header row leave roughly 21rem of chrome above the fold.
+const bodyHeightClass = "h-[calc(100dvh-21rem)] min-h-[420px]";
+const hourMarks = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 const visibleItems = computed(() => (scope.value === "mine" ? items.value.filter((i) => isAssigned(i, userStore.user?.id)) : items.value));
 const days = computed(() => calendarDays(project.value ?? {}, visibleItems.value.length ? visibleItems.value : items.value));
-const hourRange = computed(() => dayHourRange(items.value));
-const bodyHeight = computed(() => (hourRange.value.endHour - hourRange.value.startHour) * PX_PER_HOUR);
-const hourMarks = computed(() => {
-  const marks: number[] = [];
-  for (let h = hourRange.value.startHour + 1; h < hourRange.value.endHour; h++) marks.push(h);
-  return marks;
-});
 
 interface DayEntry {
   item: ScheduleItem;
@@ -302,7 +322,7 @@ function dayEntries(day: Date): DayEntry[] {
   const dayItems = itemsOnDay(visibleItems.value, day);
   const lanes = assignLanes(dayItems);
   return dayItems.map((item) => {
-    const pos = dayPosition(item, day, hourRange.value.startHour, hourRange.value.endHour);
+    const pos = dayPosition(item, day);
     const lane = lanes.get(item.id) ?? { lane: 0, lanes: 1 };
     const widthPct = 100 / lane.lanes;
     return {
@@ -322,7 +342,25 @@ const formatDay = (day: Date) => DateTime.fromJSDate(day).toFormat("ccc dd.LL.")
 const formatTime = (iso: string) => DateTime.fromISO(iso).toFormat("HH:mm");
 const dayKey = (day: Date) => DateTime.fromJSDate(day).toFormat("yyyy-LL-dd");
 
-// --- dialog + actions --------------------------------------------------------
+// --- popover (claim tooltip) --------------------------------------------------
+
+const popoverItemId = ref<string | null>(null);
+const popoverPosition = ref({ x: 0, y: 0 });
+const popoverItem = computed(() => items.value.find((i) => i.id === popoverItemId.value) ?? null);
+
+function openPopover(item: ScheduleItem) {
+  const el = itemEls.get(item.id);
+  if (el) {
+    const rect = el.getBoundingClientRect();
+    popoverPosition.value = {
+      x: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 296)),
+      y: Math.max(8, Math.min(rect.top, window.innerHeight - 360)),
+    };
+  }
+  popoverItemId.value = item.id;
+}
+
+// --- dialog (admin create/edit) ------------------------------------------------
 
 const dialogOpen = ref(false);
 const dialogCreate = ref(false);
@@ -334,14 +372,16 @@ function openCreate() {
   dialogOpen.value = true;
 }
 
-function openItem(item: ScheduleItem) {
+function openEdit(item: ScheduleItem) {
+  popoverItemId.value = null;
   dialogCreate.value = false;
   dialogItem.value = item;
   dialogOpen.value = true;
 }
 
-// Keep the dialog's item reference fresh after any mutation/refetch.
-function syncDialogItem() {
+// Keep the dialog's item reference fresh after any mutation/refetch; the
+// popover follows items.value by id automatically.
+function syncOpenItem() {
   if (dialogItem.value) dialogItem.value = items.value.find((i) => i.id === dialogItem.value?.id) ?? null;
 }
 
@@ -375,28 +415,37 @@ async function deleteItem() {
   }
 }
 
-async function assign(userId: string) {
-  if (!dialogItem.value) return;
+// --- assignment actions ---------------------------------------------------------
+
+const assignModalOpen = ref(false);
+const assignCandidates = computed(() => {
+  const assigned = new Set(popoverItem.value?.assignees.map((a) => a.id));
+  return members.value.filter((m) => !assigned.has(m.id));
+});
+
+async function assign(itemId: string, userId: string) {
   try {
-    await api.scheduleItems.assign(dialogItem.value.id, userId);
+    await api.scheduleItems.assign(itemId, userId);
     await requestItems();
-    syncDialogItem();
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   }
 }
 
-async function unassign(userId: string) {
-  if (!dialogItem.value) return;
+async function unassign(itemId: string, userId: string) {
   try {
-    await api.scheduleItems.unassign(dialogItem.value.id, userId);
+    await api.scheduleItems.unassign(itemId, userId);
     await requestItems();
-    syncDialogItem();
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   }
+}
+
+async function assignFromModal(userId: string) {
+  assignModalOpen.value = false;
+  if (popoverItemId.value) await assign(popoverItemId.value, userId);
 }
 
 // --- live updates ------------------------------------------------------------
@@ -408,7 +457,7 @@ onMounted(async () => {
   websocket.connect();
   wsListenerId = websocket.on({ object: "scheduleItem", action: "changed" }, (message) => {
     if (message.data?.projectId === activeProjectId.value) {
-      requestItems().then(syncDialogItem);
+      requestItems();
     }
   });
 });
