@@ -225,6 +225,20 @@ func TestRepairOnTagDelete(t *testing.T) {
 	assert.Equal(t, 0, left)
 }
 
+// Two-character camera names ("R5", "Z6") are legitimate — the old MinLen(3)
+// rejected them with an opaque 400 (field report, 2026-07-25). Empty stays out.
+func TestCameraShortNameAllowed(t *testing.T) {
+	ctx := context.Background()
+	repo, m := seededRepo(t)
+
+	cam, err := repo.CreateCamera(ctx, &repository.CreateCameraParameters{Name: "R5", UserID: m.Users["projectEditor"]})
+	require.NoError(t, err)
+	assert.Equal(t, "R5", cam.Name)
+
+	_, err = repo.CreateCamera(ctx, &repository.CreateCameraParameters{Name: "", UserID: m.Users["projectEditor"]})
+	assert.Error(t, err, "an empty name is still rejected")
+}
+
 func TestUserCRUDUUID(t *testing.T) {
 	ctx := context.Background()
 	repo := testRepo(t)
