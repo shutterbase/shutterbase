@@ -80,12 +80,14 @@ func (r *Repository) GetScheduleItems(ctx context.Context, parameters *GetSchedu
 }
 
 // validateTagsInProject guards the tags edge: every referenced tag must belong
-// to the item's project.
-func validateTagsInProject(ctx context.Context, client *ent.Client, projectID string, tagIDs []string) error {
+// to the item's project. Takes the tag client so callers inside a transaction
+// pass tx.ImageTag — a non-tx query while a tx holds SQLite's single
+// connection deadlocks the process.
+func validateTagsInProject(ctx context.Context, tagClient *ent.ImageTagClient, projectID string, tagIDs []string) error {
 	if len(tagIDs) == 0 {
 		return nil
 	}
-	n, err := client.ImageTag.Query().
+	n, err := tagClient.Query().
 		Where(imagetag.IDIn(tagIDs...), imagetag.ProjectID(projectID)).
 		Count(ctx)
 	if err != nil {
@@ -121,7 +123,7 @@ type CreateScheduleItemParameters struct {
 }
 
 func (r *Repository) CreateScheduleItem(ctx context.Context, parameters *CreateScheduleItemParameters) (*ent.ScheduleItem, error) {
-	if err := validateTagsInProject(ctx, r.Client, parameters.ProjectID, parameters.TagIDs); err != nil {
+	if err := validateTagsInProject(ctx, r.Client.ImageTag, parameters.ProjectID, parameters.TagIDs); err != nil {
 		return nil, err
 	}
 	create := r.Client.ScheduleItem.Create().
@@ -196,7 +198,7 @@ func (r *Repository) UpdateScheduleItem(ctx context.Context, id string, paramete
 		st.SetFieldChanged(scheduleitem.FieldCardinality, item.Cardinality, *parameters.Cardinality)
 	}
 	if parameters.TagIDs != nil {
-		if err := validateTagsInProject(ctx, r.Client, item.ProjectID, *parameters.TagIDs); err != nil {
+		if err := validateTagsInProject(ctx, tx.ImageTag, item.ProjectID, *parameters.TagIDs); err != nil {
 			_ = tx.Rollback()
 			return nil, err
 		}
