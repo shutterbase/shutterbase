@@ -100,7 +100,13 @@ func StartS3(ctx context.Context) (*S3, error) {
 
 func startRustFS(ctx context.Context) (*S3, error) {
 	req := testcontainers.ContainerRequest{
-		Image:        "rustfs/rustfs:latest",
+		// PINNED, do not float to :latest. The browser uploads straight to S3 via
+		// a presigned PUT, which triggers a CORS preflight. alpha.90 answers it
+		// with Access-Control-Allow-Origin; every build from 1.0.0-beta.9 onward
+		// answers 200 with no CORS headers at all and offers no option to enable
+		// them, so Chrome blocks the PUT and the whole upload pipeline dies.
+		// Server-side S3 use is unaffected — only the browser path notices.
+		Image:        "rustfs/rustfs:1.0.0-alpha.90",
 		ExposedPorts: []string{"9000/tcp"},
 		Env: map[string]string{
 			"RUSTFS_ACCESS_KEY": s3Key,
