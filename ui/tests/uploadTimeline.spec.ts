@@ -44,10 +44,14 @@ function scheduleItem(id: string, start: number, end: number): ScheduleItem {
 }
 
 describe("timelineWindow", () => {
-  it("spans images and tracks with padding", () => {
-    const w = timelineWindow([img("a", T0), img("b", T0 + 2 * H)], [track("t", T0 - H, T0)]);
-    expect(w.start).toBeLessThan(T0 - H);
-    expect(w.end).toBeGreaterThan(T0 + 2 * H);
+  it("is EXACTLY the first-to-last picture span — tracks never widen the axis", () => {
+    const w = timelineWindow([img("a", T0), img("b", T0 + 2 * H)], [track("t", T0 - 5 * H, T0 + 9 * H)]);
+    expect(w.start).toBe(T0);
+    expect(w.end).toBe(T0 + 2 * H + MIN_TRACK_MS); // [start, end): the last image stays coverable
+  });
+  it("falls back to the track union without timed images", () => {
+    const w = timelineWindow([], [track("t", T0, T0 + H), track("u", T0 + 2 * H, T0 + 3 * H)]);
+    expect(w).toEqual({ start: T0, end: T0 + 3 * H });
   });
   it("defaults to an hour around now when empty", () => {
     const w = timelineWindow([], [], T0);
@@ -154,12 +158,11 @@ describe("initialTracks (transcript 21:37)", () => {
 
 describe("adding tracks", () => {
   const window = { start: T0, end: T0 + 10 * H };
-  const images = [img("a", T0 + H), img("b", T0 + 2 * H)];
 
-  it("new tag lanes span the image range", () => {
-    const [t] = addTagTrack([], "x", "Pits", images, window);
-    expect(t.start).toBe(T0 + H);
-    expect(t.end).toBe(T0 + 2 * H + MIN_TRACK_MS);
+  it("new tag lanes span the full axis", () => {
+    const [t] = addTagTrack([], "x", "Pits", window);
+    expect(t.start).toBe(window.start);
+    expect(t.end).toBe(window.end);
     expect(t.tagId).toBe("x");
   });
 

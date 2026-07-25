@@ -25,15 +25,24 @@ export const isScheduleTrack = (t: Pick<EditorTrack, "scheduleItemId">): boolean
 // Minimum track length the editor allows (keeps handles grabbable).
 export const MIN_TRACK_MS = 60_000;
 
-// timelineWindow: the axis bounds — the images' span united with every track,
-// padded so boundary handles stay reachable. Empty input: one hour around now.
+// timelineWindow: the axis bounds — EXACTLY the span from the first to the
+// last picture (plus the minimum track length so the last image stays
+// coverable under the [start, end) semantics). Tracks never widen the axis:
+// a schedule item reaching past the photos would otherwise stretch the whole
+// editor and break Expand. Track-union fallback only when there are no timed
+// images at all; one hour around now when there is nothing.
 export function timelineWindow(images: TimedImage[], tracks: EditorTrack[], now = Date.now()): { start: number; end: number } {
-  const times = [...images.map((i) => i.time), ...tracks.flatMap((t) => [t.start, t.end])];
-  if (times.length === 0) return { start: now - 1_800_000, end: now + 1_800_000 };
-  const min = Math.min(...times);
-  const max = Math.max(...times);
-  const pad = Math.max(600_000, (max - min) * 0.05); // >= 10 min
-  return { start: min - pad, end: max + pad };
+  if (images.length > 0) {
+    const times = images.map((i) => i.time);
+    return { start: Math.min(...times), end: Math.max(...times) + MIN_TRACK_MS };
+  }
+  if (tracks.length > 0) {
+    return {
+      start: Math.min(...tracks.map((t) => t.start)),
+      end: Math.max(...tracks.map((t) => t.end)),
+    };
+  }
+  return { start: now - 1_800_000, end: now + 1_800_000 };
 }
 
 // scheduleNeighbors: the enabled schedule tracks other than `track`, the
@@ -138,12 +147,12 @@ export function initialTracks(
     }));
 }
 
-// addTagTrack / addScheduleTrack: the plus button. New tag lanes span the
-// image range (user shrinks from there); schedule lanes come in at their real
-// window, disabled when they would collide with an enabled schedule lane.
-export function addTagTrack(tracks: EditorTrack[], tagId: string, label: string, images: TimedImage[], window: { start: number; end: number }): EditorTrack[] {
-  const span = images.length > 0 ? { start: Math.min(...images.map((i) => i.time)), end: Math.max(...images.map((i) => i.time)) + MIN_TRACK_MS } : window;
-  return [...tracks, { key: `t${tagId}-${tracks.length}`, tagId, label, start: span.start, end: span.end, enabled: true }];
+// addTagTrack / addScheduleTrack: the lane pickers. New tag lanes span the
+// full axis (the image range — user shrinks from there); schedule lanes come
+// in at their real window, disabled when they would collide with an enabled
+// schedule lane.
+export function addTagTrack(tracks: EditorTrack[], tagId: string, label: string, window: { start: number; end: number }): EditorTrack[] {
+  return [...tracks, { key: `t${tagId}-${tracks.length}`, tagId, label, start: window.start, end: window.end, enabled: true }];
 }
 
 export function addScheduleTrack(tracks: EditorTrack[], item: ScheduleItem): EditorTrack[] {

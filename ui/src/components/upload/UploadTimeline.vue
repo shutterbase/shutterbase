@@ -8,42 +8,29 @@
         </p>
       </div>
 
-      <div class="flex items-center gap-2" v-if="!readonly">
-        <!-- add lane -->
-        <Menu as="div" class="relative">
-          <MenuButton
-            class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
-          >
-            <PlusIcon class="h-4 w-4" />
-            Add lane
-          </MenuButton>
-          <MenuItems
-            class="absolute right-0 z-20 mt-1 max-h-80 w-64 overflow-y-auto rounded-md border border-primary-200 bg-surface py-1 shadow-panel focus:outline-none dark:border-primary-700 dark:bg-surface-dark dark:shadow-panel-dark"
-          >
-            <p v-if="addableItems.length" class="label-mono px-3 pb-1 pt-2 text-primary-400">Schedule items</p>
-            <MenuItem v-for="entry in addableItems" :key="entry.id" v-slot="{ active }">
-              <button
-                type="button"
-                :class="['flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm', active ? 'bg-accent-500/10 text-accent-700 dark:text-accent-200' : 'text-primary-700 dark:text-primary-200']"
-                @click="addItemLane(entry)"
-              >
-                <CalendarDaysIcon class="h-4 w-4 flex-shrink-0 text-primary-400" />
-                <span class="truncate">{{ entry.title }}</span>
-              </button>
-            </MenuItem>
-            <p class="label-mono px-3 pb-1 pt-2 text-primary-400">Tags</p>
-            <MenuItem v-for="tag in addableTags" :key="tag.id" v-slot="{ active }">
-              <button
-                type="button"
-                :class="['flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-sm', active ? 'bg-accent-500/10 text-accent-700 dark:text-accent-200' : 'text-primary-700 dark:text-primary-200']"
-                @click="addTagLane(tag)"
-              >
-                <TagIcon class="h-4 w-4 flex-shrink-0 text-primary-400" />
-                <span class="truncate">{{ tag.name }}</span>
-              </button>
-            </MenuItem>
-          </MenuItems>
-        </Menu>
+      <div class="flex flex-wrap items-center gap-2" v-if="!readonly">
+        <!-- searchable lane pickers: projects carry hundreds of tags and long
+             schedules — no static menu. -->
+        <SearchSelect
+          id="timeline-add-item"
+          v-model="itemPick"
+          aria-label="Add schedule item lane"
+          placeholder="Add schedule item…"
+          empty-text="No schedule item matches"
+          width-class="w-52"
+          :options="itemOptions"
+          :disabled="itemOptions.length === 0"
+        />
+        <SearchSelect
+          id="timeline-add-tag"
+          v-model="tagLanePick"
+          aria-label="Add tag lane"
+          placeholder="Add tag lane…"
+          empty-text="No tag matches"
+          width-class="w-44"
+          :options="tagLaneOptions"
+          :disabled="tagLaneOptions.length === 0"
+        />
 
         <button
           type="button"
@@ -81,7 +68,18 @@
       >
         <div class="flex w-34 flex-shrink-0 items-center gap-1.5 overflow-hidden" style="width: 8.5rem">
           <component :is="tr.scheduleItemId ? CalendarDaysIcon : TagIcon" class="h-3.5 w-3.5 flex-shrink-0 text-primary-400" />
-          <span class="truncate text-xs font-medium text-primary-700 dark:text-primary-200" :title="tr.label">{{ tr.label }}</span>
+          <span class="min-w-0 flex-1 truncate text-xs font-medium text-primary-700 dark:text-primary-200" :title="tr.label">{{ tr.label }}</span>
+          <!-- user-added tag lanes are deletable; schedule-item lanes stay in
+               the timeline and can only be disabled -->
+          <button
+            v-if="!readonly && tr.tagId"
+            type="button"
+            :aria-label="`Remove lane ${tr.label}`"
+            class="flex h-4 w-4 flex-shrink-0 cursor-pointer items-center justify-center rounded text-primary-400 transition-colors hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+            @click.stop="removeLane(tr)"
+          >
+            <XMarkIcon class="h-3.5 w-3.5" />
+          </button>
         </div>
         <div class="relative h-9 flex-1 rounded bg-primary-100/60 dark:bg-primary-900/40" :ref="(el) => registerLane(tr.key, el as HTMLElement | null)">
           <!-- hour ticks -->
@@ -98,7 +96,7 @@
               selectedKey === tr.key ? 'shadow-md ring-1 ring-accent-500/70' : '',
               readonly ? '' : 'cursor-pointer',
             ]"
-            :style="{ left: `${pct(tr.start)}%`, width: `${Math.max(pct(tr.end) - pct(tr.start), 0.5)}%` }"
+            :style="barStyle(tr)"
             tabindex="0"
             @keydown="onKeydown(tr, $event)"
             @click.stop="selectedKey = tr.key"
@@ -169,10 +167,10 @@
 </template>
 
 <script setup lang="ts">
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
-import { ArrowsRightLeftIcon, CalendarDaysIcon, CheckIcon, PlusIcon, TagIcon, TrashIcon } from "@heroicons/vue/24/outline";
+import { ArrowsRightLeftIcon, CalendarDaysIcon, CheckIcon, TagIcon, TrashIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import { DateTime } from "luxon";
 import { computed, ref, watch } from "vue";
+import SearchSelect, { SearchSelectOption } from "src/components/SearchSelect.vue";
 import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { ImageTag, ScheduleItem, Upload } from "src/types/api";
@@ -280,10 +278,44 @@ const hourTicks = computed(() => {
 
 const coveredCount = (track: EditorTrack) => imagesInTrack(timedImages.value, track).length;
 
+// barStyle clamps a lane bar to the axis: persisted or schedule-derived tracks
+// may reach past the first/last picture, but the axis never widens for them.
+function barStyle(track: EditorTrack): Record<string, string> {
+  const left = Math.max(0, pct(track.start));
+  const right = Math.min(100, pct(track.end));
+  return { left: `${left}%`, width: `${Math.max(right - left, 0.5)}%` };
+}
+
 // --- add / remove lanes ----------------------------------------------------------
 
 const addableItems = computed(() => allItems.value.filter((i) => !tracks.value.some((t) => t.scheduleItemId === i.id)));
 const addableTags = computed(() => projectTags.value.filter((t) => t.type !== "template"));
+
+// Searchable pickers: choosing an entry adds the lane and resets the input.
+const itemPick = ref("");
+const tagLanePick = ref("");
+const itemOptions = computed<SearchSelectOption[]>(() =>
+  addableItems.value.map((i) => ({
+    value: i.id,
+    label: i.title,
+    hint: `${DateTime.fromISO(i.start).toFormat("ccc dd.LL. HH:mm")}–${DateTime.fromISO(i.end).toFormat("HH:mm")}`,
+  })),
+);
+const tagLaneOptions = computed<SearchSelectOption[]>(() =>
+  addableTags.value.map((t) => ({ value: t.id, label: t.name, hint: t.type })).sort((a, b) => a.label.localeCompare(b.label)),
+);
+watch(itemPick, (id) => {
+  if (!id) return;
+  const item = allItems.value.find((i) => i.id === id);
+  if (item) addItemLane(item);
+  itemPick.value = "";
+});
+watch(tagLanePick, (id) => {
+  if (!id) return;
+  const tag = projectTags.value.find((t) => t.id === id);
+  if (tag) addTagLane(tag);
+  tagLanePick.value = "";
+});
 
 function markDirty() {
   dirty.value = true;
@@ -296,7 +328,7 @@ function addItemLane(item: ScheduleItem) {
 }
 
 function addTagLane(tag: ImageTag) {
-  tracks.value = addTagTrack(tracks.value, tag.id, tag.name, timedImages.value, window_.value);
+  tracks.value = addTagTrack(tracks.value, tag.id, tag.name, window_.value);
   selectedKey.value = tracks.value[tracks.value.length - 1].key;
   markDirty();
 }

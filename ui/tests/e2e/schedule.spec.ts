@@ -154,5 +154,14 @@ test("upload detail page shows timeline and tile grid", async ({ page }) => {
   // The three seeded images render as tiles.
   await expect(page.locator("figure")).toHaveCount(3, { timeout: 10_000 });
 
+  // Add a tag lane through the searchable picker; the lane spans the full
+  // image axis and, being user-added, carries a delete "x".
+  await page.getByPlaceholder(/Add tag lane/).fill("podi");
+  await page.getByRole("option", { name: /Podium/ }).click();
+  const removeLane = page.getByRole("button", { name: "Remove lane Podium" });
+  await expect(removeLane).toBeVisible();
+  await removeLane.click();
+  await expect(page.getByRole("button", { name: "Remove lane Podium" })).toHaveCount(0);
+
   expect(errors, errors.join("\n")).toHaveLength(0);
 });
