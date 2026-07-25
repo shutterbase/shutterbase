@@ -15,6 +15,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -152,6 +153,34 @@ func (_c *ProjectCreate) SetNillableUploadReviewEnabled(v *bool) *ProjectCreate 
 	return _c
 }
 
+// SetStartAt sets the "startAt" field.
+func (_c *ProjectCreate) SetStartAt(v time.Time) *ProjectCreate {
+	_c.mutation.SetStartAt(v)
+	return _c
+}
+
+// SetNillableStartAt sets the "startAt" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableStartAt(v *time.Time) *ProjectCreate {
+	if v != nil {
+		_c.SetStartAt(*v)
+	}
+	return _c
+}
+
+// SetEndAt sets the "endAt" field.
+func (_c *ProjectCreate) SetEndAt(v time.Time) *ProjectCreate {
+	_c.mutation.SetEndAt(v)
+	return _c
+}
+
+// SetNillableEndAt sets the "endAt" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableEndAt(v *time.Time) *ProjectCreate {
+	if v != nil {
+		_c.SetEndAt(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *ProjectCreate) SetID(v string) *ProjectCreate {
 	_c.mutation.SetID(v)
@@ -209,6 +238,21 @@ func (_c *ProjectCreate) AddImageTags(v ...*ImageTag) *ProjectCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddImageTagIDs(ids...)
+}
+
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_c *ProjectCreate) AddScheduleItemIDs(ids ...string) *ProjectCreate {
+	_c.mutation.AddScheduleItemIDs(ids...)
+	return _c
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_c *ProjectCreate) AddScheduleItems(v ...*ScheduleItem) *ProjectCreate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddScheduleItemIDs(ids...)
 }
 
 // AddProjectAssignmentIDs adds the "projectAssignments" edge to the ProjectAssignment entity by IDs.
@@ -453,6 +497,14 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 		_spec.SetField(project.FieldUploadReviewEnabled, field.TypeBool, value)
 		_node.UploadReviewEnabled = value
 	}
+	if value, ok := _c.mutation.StartAt(); ok {
+		_spec.SetField(project.FieldStartAt, field.TypeTime, value)
+		_node.StartAt = &value
+	}
+	if value, ok := _c.mutation.EndAt(); ok {
+		_spec.SetField(project.FieldEndAt, field.TypeTime, value)
+		_node.EndAt = &value
+	}
 	if nodes := _c.mutation.UploadsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -494,6 +546,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ScheduleItemsTable,
+			Columns: []string{project.ScheduleItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

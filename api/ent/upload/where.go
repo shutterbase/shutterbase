@@ -776,6 +776,16 @@ func ErrorImageIdsNotNil() predicate.Upload {
 	return predicate.Upload(sql.FieldNotNull(FieldErrorImageIds))
 }
 
+// TimelineIsNil applies the IsNil predicate on the "timeline" field.
+func TimelineIsNil() predicate.Upload {
+	return predicate.Upload(sql.FieldIsNull(FieldTimeline))
+}
+
+// TimelineNotNil applies the NotNil predicate on the "timeline" field.
+func TimelineNotNil() predicate.Upload {
+	return predicate.Upload(sql.FieldNotNull(FieldTimeline))
+}
+
 // HasProject applies the HasEdge predicate on the "project" edge.
 func HasProject() predicate.Upload {
 	return predicate.Upload(func(s *sql.Selector) {

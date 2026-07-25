@@ -22,6 +22,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
 	"github.com/shutterbase/shutterbase/ent/upload"
@@ -46,6 +47,7 @@ const (
 	TypeProject            = "Project"
 	TypeProjectAssignment  = "ProjectAssignment"
 	TypeRole               = "Role"
+	TypeScheduleItem       = "ScheduleItem"
 	TypeTimeOffset         = "TimeOffset"
 	TypeUpload             = "Upload"
 	TypeUser               = "User"
@@ -6540,6 +6542,8 @@ type ProjectMutation struct {
 	locationCity              *string
 	aiSystemMessage           *string
 	uploadReviewEnabled       *bool
+	startAt                   *time.Time
+	endAt                     *time.Time
 	clearedFields             map[string]struct{}
 	uploads                   map[string]struct{}
 	removeduploads            map[string]struct{}
@@ -6550,6 +6554,9 @@ type ProjectMutation struct {
 	imageTags                 map[string]struct{}
 	removedimageTags          map[string]struct{}
 	clearedimageTags          bool
+	scheduleItems             map[string]struct{}
+	removedscheduleItems      map[string]struct{}
+	clearedscheduleItems      bool
 	projectAssignments        map[string]struct{}
 	removedprojectAssignments map[string]struct{}
 	clearedprojectAssignments bool
@@ -7172,6 +7179,104 @@ func (m *ProjectMutation) ResetUploadReviewEnabled() {
 	m.uploadReviewEnabled = nil
 }
 
+// SetStartAt sets the "startAt" field.
+func (m *ProjectMutation) SetStartAt(t time.Time) {
+	m.startAt = &t
+}
+
+// StartAt returns the value of the "startAt" field in the mutation.
+func (m *ProjectMutation) StartAt() (r time.Time, exists bool) {
+	v := m.startAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartAt returns the old "startAt" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldStartAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartAt: %w", err)
+	}
+	return oldValue.StartAt, nil
+}
+
+// ClearStartAt clears the value of the "startAt" field.
+func (m *ProjectMutation) ClearStartAt() {
+	m.startAt = nil
+	m.clearedFields[project.FieldStartAt] = struct{}{}
+}
+
+// StartAtCleared returns if the "startAt" field was cleared in this mutation.
+func (m *ProjectMutation) StartAtCleared() bool {
+	_, ok := m.clearedFields[project.FieldStartAt]
+	return ok
+}
+
+// ResetStartAt resets all changes to the "startAt" field.
+func (m *ProjectMutation) ResetStartAt() {
+	m.startAt = nil
+	delete(m.clearedFields, project.FieldStartAt)
+}
+
+// SetEndAt sets the "endAt" field.
+func (m *ProjectMutation) SetEndAt(t time.Time) {
+	m.endAt = &t
+}
+
+// EndAt returns the value of the "endAt" field in the mutation.
+func (m *ProjectMutation) EndAt() (r time.Time, exists bool) {
+	v := m.endAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEndAt returns the old "endAt" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldEndAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEndAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEndAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEndAt: %w", err)
+	}
+	return oldValue.EndAt, nil
+}
+
+// ClearEndAt clears the value of the "endAt" field.
+func (m *ProjectMutation) ClearEndAt() {
+	m.endAt = nil
+	m.clearedFields[project.FieldEndAt] = struct{}{}
+}
+
+// EndAtCleared returns if the "endAt" field was cleared in this mutation.
+func (m *ProjectMutation) EndAtCleared() bool {
+	_, ok := m.clearedFields[project.FieldEndAt]
+	return ok
+}
+
+// ResetEndAt resets all changes to the "endAt" field.
+func (m *ProjectMutation) ResetEndAt() {
+	m.endAt = nil
+	delete(m.clearedFields, project.FieldEndAt)
+}
+
 // AddUploadIDs adds the "uploads" edge to the Upload entity by ids.
 func (m *ProjectMutation) AddUploadIDs(ids ...string) {
 	if m.uploads == nil {
@@ -7334,6 +7439,60 @@ func (m *ProjectMutation) ResetImageTags() {
 	m.removedimageTags = nil
 }
 
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by ids.
+func (m *ProjectMutation) AddScheduleItemIDs(ids ...string) {
+	if m.scheduleItems == nil {
+		m.scheduleItems = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.scheduleItems[ids[i]] = struct{}{}
+	}
+}
+
+// ClearScheduleItems clears the "scheduleItems" edge to the ScheduleItem entity.
+func (m *ProjectMutation) ClearScheduleItems() {
+	m.clearedscheduleItems = true
+}
+
+// ScheduleItemsCleared reports if the "scheduleItems" edge to the ScheduleItem entity was cleared.
+func (m *ProjectMutation) ScheduleItemsCleared() bool {
+	return m.clearedscheduleItems
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (m *ProjectMutation) RemoveScheduleItemIDs(ids ...string) {
+	if m.removedscheduleItems == nil {
+		m.removedscheduleItems = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.scheduleItems, ids[i])
+		m.removedscheduleItems[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedScheduleItems returns the removed IDs of the "scheduleItems" edge to the ScheduleItem entity.
+func (m *ProjectMutation) RemovedScheduleItemsIDs() (ids []string) {
+	for id := range m.removedscheduleItems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ScheduleItemsIDs returns the "scheduleItems" edge IDs in the mutation.
+func (m *ProjectMutation) ScheduleItemsIDs() (ids []string) {
+	for id := range m.scheduleItems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetScheduleItems resets all changes to the "scheduleItems" edge.
+func (m *ProjectMutation) ResetScheduleItems() {
+	m.scheduleItems = nil
+	m.clearedscheduleItems = false
+	m.removedscheduleItems = nil
+}
+
 // AddProjectAssignmentIDs adds the "projectAssignments" edge to the ProjectAssignment entity by ids.
 func (m *ProjectMutation) AddProjectAssignmentIDs(ids ...string) {
 	if m.projectAssignments == nil {
@@ -7476,7 +7635,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 15)
 	if m.createdAt != nil {
 		fields = append(fields, project.FieldCreatedAt)
 	}
@@ -7516,6 +7675,12 @@ func (m *ProjectMutation) Fields() []string {
 	if m.uploadReviewEnabled != nil {
 		fields = append(fields, project.FieldUploadReviewEnabled)
 	}
+	if m.startAt != nil {
+		fields = append(fields, project.FieldStartAt)
+	}
+	if m.endAt != nil {
+		fields = append(fields, project.FieldEndAt)
+	}
 	return fields
 }
 
@@ -7550,6 +7715,10 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.AiSystemMessage()
 	case project.FieldUploadReviewEnabled:
 		return m.UploadReviewEnabled()
+	case project.FieldStartAt:
+		return m.StartAt()
+	case project.FieldEndAt:
+		return m.EndAt()
 	}
 	return nil, false
 }
@@ -7585,6 +7754,10 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldAiSystemMessage(ctx)
 	case project.FieldUploadReviewEnabled:
 		return m.OldUploadReviewEnabled(ctx)
+	case project.FieldStartAt:
+		return m.OldStartAt(ctx)
+	case project.FieldEndAt:
+		return m.OldEndAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -7685,6 +7858,20 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUploadReviewEnabled(v)
 		return nil
+	case project.FieldStartAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartAt(v)
+		return nil
+	case project.FieldEndAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEndAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -7724,6 +7911,12 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldAiSystemMessage) {
 		fields = append(fields, project.FieldAiSystemMessage)
 	}
+	if m.FieldCleared(project.FieldStartAt) {
+		fields = append(fields, project.FieldStartAt)
+	}
+	if m.FieldCleared(project.FieldEndAt) {
+		fields = append(fields, project.FieldEndAt)
+	}
 	return fields
 }
 
@@ -7746,6 +7939,12 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldAiSystemMessage:
 		m.ClearAiSystemMessage()
+		return nil
+	case project.FieldStartAt:
+		m.ClearStartAt()
+		return nil
+	case project.FieldEndAt:
+		m.ClearEndAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -7794,13 +7993,19 @@ func (m *ProjectMutation) ResetField(name string) error {
 	case project.FieldUploadReviewEnabled:
 		m.ResetUploadReviewEnabled()
 		return nil
+	case project.FieldStartAt:
+		m.ResetStartAt()
+		return nil
+	case project.FieldEndAt:
+		m.ResetEndAt()
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.uploads != nil {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -7809,6 +8014,9 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.imageTags != nil {
 		edges = append(edges, project.EdgeImageTags)
+	}
+	if m.scheduleItems != nil {
+		edges = append(edges, project.EdgeScheduleItems)
 	}
 	if m.projectAssignments != nil {
 		edges = append(edges, project.EdgeProjectAssignments)
@@ -7841,6 +8049,12 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeScheduleItems:
+		ids := make([]ent.Value, 0, len(m.scheduleItems))
+		for id := range m.scheduleItems {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeProjectAssignments:
 		ids := make([]ent.Value, 0, len(m.projectAssignments))
 		for id := range m.projectAssignments {
@@ -7859,7 +8073,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removeduploads != nil {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -7868,6 +8082,9 @@ func (m *ProjectMutation) RemovedEdges() []string {
 	}
 	if m.removedimageTags != nil {
 		edges = append(edges, project.EdgeImageTags)
+	}
+	if m.removedscheduleItems != nil {
+		edges = append(edges, project.EdgeScheduleItems)
 	}
 	if m.removedprojectAssignments != nil {
 		edges = append(edges, project.EdgeProjectAssignments)
@@ -7900,6 +8117,12 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeScheduleItems:
+		ids := make([]ent.Value, 0, len(m.removedscheduleItems))
+		for id := range m.removedscheduleItems {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeProjectAssignments:
 		ids := make([]ent.Value, 0, len(m.removedprojectAssignments))
 		for id := range m.removedprojectAssignments {
@@ -7918,7 +8141,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.cleareduploads {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -7927,6 +8150,9 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	}
 	if m.clearedimageTags {
 		edges = append(edges, project.EdgeImageTags)
+	}
+	if m.clearedscheduleItems {
+		edges = append(edges, project.EdgeScheduleItems)
 	}
 	if m.clearedprojectAssignments {
 		edges = append(edges, project.EdgeProjectAssignments)
@@ -7947,6 +8173,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedimages
 	case project.EdgeImageTags:
 		return m.clearedimageTags
+	case project.EdgeScheduleItems:
+		return m.clearedscheduleItems
 	case project.EdgeProjectAssignments:
 		return m.clearedprojectAssignments
 	case project.EdgeActiveForUsers:
@@ -7975,6 +8203,9 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeImageTags:
 		m.ResetImageTags()
+		return nil
+	case project.EdgeScheduleItems:
+		m.ResetScheduleItems()
 		return nil
 	case project.EdgeProjectAssignments:
 		m.ResetProjectAssignments()
@@ -9565,6 +9796,1142 @@ func (m *RoleMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Role edge %s", name)
 }
 
+// ScheduleItemMutation represents an operation that mutates the ScheduleItem nodes in the graph.
+type ScheduleItemMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *string
+	createdAt        *time.Time
+	updatedAt        *time.Time
+	createdBy        *uuid.UUID
+	updatedBy        *uuid.UUID
+	title            *string
+	description      *string
+	start            *time.Time
+	end              *time.Time
+	cardinality      *int
+	addcardinality   *int
+	clearedFields    map[string]struct{}
+	project          *string
+	clearedproject   bool
+	assignees        map[uuid.UUID]struct{}
+	removedassignees map[uuid.UUID]struct{}
+	clearedassignees bool
+	tags             map[string]struct{}
+	removedtags      map[string]struct{}
+	clearedtags      bool
+	done             bool
+	oldValue         func(context.Context) (*ScheduleItem, error)
+	predicates       []predicate.ScheduleItem
+}
+
+var _ ent.Mutation = (*ScheduleItemMutation)(nil)
+
+// scheduleitemOption allows management of the mutation configuration using functional options.
+type scheduleitemOption func(*ScheduleItemMutation)
+
+// newScheduleItemMutation creates new mutation for the ScheduleItem entity.
+func newScheduleItemMutation(c config, op Op, opts ...scheduleitemOption) *ScheduleItemMutation {
+	m := &ScheduleItemMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeScheduleItem,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withScheduleItemID sets the ID field of the mutation.
+func withScheduleItemID(id string) scheduleitemOption {
+	return func(m *ScheduleItemMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ScheduleItem
+		)
+		m.oldValue = func(ctx context.Context) (*ScheduleItem, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ScheduleItem.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withScheduleItem sets the old ScheduleItem of the mutation.
+func withScheduleItem(node *ScheduleItem) scheduleitemOption {
+	return func(m *ScheduleItemMutation) {
+		m.oldValue = func(context.Context) (*ScheduleItem, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ScheduleItemMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ScheduleItemMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ScheduleItem entities.
+func (m *ScheduleItemMutation) SetID(id string) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ScheduleItemMutation) ID() (id string, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ScheduleItemMutation) IDs(ctx context.Context) ([]string, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []string{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ScheduleItem.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "createdAt" field.
+func (m *ScheduleItemMutation) SetCreatedAt(t time.Time) {
+	m.createdAt = &t
+}
+
+// CreatedAt returns the value of the "createdAt" field in the mutation.
+func (m *ScheduleItemMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.createdAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "createdAt" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "createdAt" field.
+func (m *ScheduleItemMutation) ResetCreatedAt() {
+	m.createdAt = nil
+}
+
+// SetUpdatedAt sets the "updatedAt" field.
+func (m *ScheduleItemMutation) SetUpdatedAt(t time.Time) {
+	m.updatedAt = &t
+}
+
+// UpdatedAt returns the value of the "updatedAt" field in the mutation.
+func (m *ScheduleItemMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updatedAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updatedAt" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updatedAt" field.
+func (m *ScheduleItemMutation) ResetUpdatedAt() {
+	m.updatedAt = nil
+}
+
+// SetCreatedBy sets the "createdBy" field.
+func (m *ScheduleItemMutation) SetCreatedBy(u uuid.UUID) {
+	m.createdBy = &u
+}
+
+// CreatedBy returns the value of the "createdBy" field in the mutation.
+func (m *ScheduleItemMutation) CreatedBy() (r uuid.UUID, exists bool) {
+	v := m.createdBy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "createdBy" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldCreatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ClearCreatedBy clears the value of the "createdBy" field.
+func (m *ScheduleItemMutation) ClearCreatedBy() {
+	m.createdBy = nil
+	m.clearedFields[scheduleitem.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "createdBy" field was cleared in this mutation.
+func (m *ScheduleItemMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[scheduleitem.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "createdBy" field.
+func (m *ScheduleItemMutation) ResetCreatedBy() {
+	m.createdBy = nil
+	delete(m.clearedFields, scheduleitem.FieldCreatedBy)
+}
+
+// SetUpdatedBy sets the "updatedBy" field.
+func (m *ScheduleItemMutation) SetUpdatedBy(u uuid.UUID) {
+	m.updatedBy = &u
+}
+
+// UpdatedBy returns the value of the "updatedBy" field in the mutation.
+func (m *ScheduleItemMutation) UpdatedBy() (r uuid.UUID, exists bool) {
+	v := m.updatedBy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedBy returns the old "updatedBy" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldUpdatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedBy: %w", err)
+	}
+	return oldValue.UpdatedBy, nil
+}
+
+// ClearUpdatedBy clears the value of the "updatedBy" field.
+func (m *ScheduleItemMutation) ClearUpdatedBy() {
+	m.updatedBy = nil
+	m.clearedFields[scheduleitem.FieldUpdatedBy] = struct{}{}
+}
+
+// UpdatedByCleared returns if the "updatedBy" field was cleared in this mutation.
+func (m *ScheduleItemMutation) UpdatedByCleared() bool {
+	_, ok := m.clearedFields[scheduleitem.FieldUpdatedBy]
+	return ok
+}
+
+// ResetUpdatedBy resets all changes to the "updatedBy" field.
+func (m *ScheduleItemMutation) ResetUpdatedBy() {
+	m.updatedBy = nil
+	delete(m.clearedFields, scheduleitem.FieldUpdatedBy)
+}
+
+// SetTitle sets the "title" field.
+func (m *ScheduleItemMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *ScheduleItemMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *ScheduleItemMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetDescription sets the "description" field.
+func (m *ScheduleItemMutation) SetDescription(s string) {
+	m.description = &s
+}
+
+// Description returns the value of the "description" field in the mutation.
+func (m *ScheduleItemMutation) Description() (r string, exists bool) {
+	v := m.description
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDescription returns the old "description" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDescription: %w", err)
+	}
+	return oldValue.Description, nil
+}
+
+// ClearDescription clears the value of the "description" field.
+func (m *ScheduleItemMutation) ClearDescription() {
+	m.description = nil
+	m.clearedFields[scheduleitem.FieldDescription] = struct{}{}
+}
+
+// DescriptionCleared returns if the "description" field was cleared in this mutation.
+func (m *ScheduleItemMutation) DescriptionCleared() bool {
+	_, ok := m.clearedFields[scheduleitem.FieldDescription]
+	return ok
+}
+
+// ResetDescription resets all changes to the "description" field.
+func (m *ScheduleItemMutation) ResetDescription() {
+	m.description = nil
+	delete(m.clearedFields, scheduleitem.FieldDescription)
+}
+
+// SetStart sets the "start" field.
+func (m *ScheduleItemMutation) SetStart(t time.Time) {
+	m.start = &t
+}
+
+// Start returns the value of the "start" field in the mutation.
+func (m *ScheduleItemMutation) Start() (r time.Time, exists bool) {
+	v := m.start
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStart returns the old "start" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldStart(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStart is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStart requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStart: %w", err)
+	}
+	return oldValue.Start, nil
+}
+
+// ResetStart resets all changes to the "start" field.
+func (m *ScheduleItemMutation) ResetStart() {
+	m.start = nil
+}
+
+// SetEnd sets the "end" field.
+func (m *ScheduleItemMutation) SetEnd(t time.Time) {
+	m.end = &t
+}
+
+// End returns the value of the "end" field in the mutation.
+func (m *ScheduleItemMutation) End() (r time.Time, exists bool) {
+	v := m.end
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEnd returns the old "end" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldEnd(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEnd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEnd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEnd: %w", err)
+	}
+	return oldValue.End, nil
+}
+
+// ResetEnd resets all changes to the "end" field.
+func (m *ScheduleItemMutation) ResetEnd() {
+	m.end = nil
+}
+
+// SetCardinality sets the "cardinality" field.
+func (m *ScheduleItemMutation) SetCardinality(i int) {
+	m.cardinality = &i
+	m.addcardinality = nil
+}
+
+// Cardinality returns the value of the "cardinality" field in the mutation.
+func (m *ScheduleItemMutation) Cardinality() (r int, exists bool) {
+	v := m.cardinality
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCardinality returns the old "cardinality" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldCardinality(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCardinality is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCardinality requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCardinality: %w", err)
+	}
+	return oldValue.Cardinality, nil
+}
+
+// AddCardinality adds i to the "cardinality" field.
+func (m *ScheduleItemMutation) AddCardinality(i int) {
+	if m.addcardinality != nil {
+		*m.addcardinality += i
+	} else {
+		m.addcardinality = &i
+	}
+}
+
+// AddedCardinality returns the value that was added to the "cardinality" field in this mutation.
+func (m *ScheduleItemMutation) AddedCardinality() (r int, exists bool) {
+	v := m.addcardinality
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCardinality resets all changes to the "cardinality" field.
+func (m *ScheduleItemMutation) ResetCardinality() {
+	m.cardinality = nil
+	m.addcardinality = nil
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *ScheduleItemMutation) SetProjectID(s string) {
+	m.project = &s
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *ScheduleItemMutation) ProjectID() (r string, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldProjectID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *ScheduleItemMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *ScheduleItemMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[scheduleitem.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *ScheduleItemMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *ScheduleItemMutation) ProjectIDs() (ids []string) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *ScheduleItemMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// AddAssigneeIDs adds the "assignees" edge to the User entity by ids.
+func (m *ScheduleItemMutation) AddAssigneeIDs(ids ...uuid.UUID) {
+	if m.assignees == nil {
+		m.assignees = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.assignees[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAssignees clears the "assignees" edge to the User entity.
+func (m *ScheduleItemMutation) ClearAssignees() {
+	m.clearedassignees = true
+}
+
+// AssigneesCleared reports if the "assignees" edge to the User entity was cleared.
+func (m *ScheduleItemMutation) AssigneesCleared() bool {
+	return m.clearedassignees
+}
+
+// RemoveAssigneeIDs removes the "assignees" edge to the User entity by IDs.
+func (m *ScheduleItemMutation) RemoveAssigneeIDs(ids ...uuid.UUID) {
+	if m.removedassignees == nil {
+		m.removedassignees = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.assignees, ids[i])
+		m.removedassignees[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAssignees returns the removed IDs of the "assignees" edge to the User entity.
+func (m *ScheduleItemMutation) RemovedAssigneesIDs() (ids []uuid.UUID) {
+	for id := range m.removedassignees {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AssigneesIDs returns the "assignees" edge IDs in the mutation.
+func (m *ScheduleItemMutation) AssigneesIDs() (ids []uuid.UUID) {
+	for id := range m.assignees {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAssignees resets all changes to the "assignees" edge.
+func (m *ScheduleItemMutation) ResetAssignees() {
+	m.assignees = nil
+	m.clearedassignees = false
+	m.removedassignees = nil
+}
+
+// AddTagIDs adds the "tags" edge to the ImageTag entity by ids.
+func (m *ScheduleItemMutation) AddTagIDs(ids ...string) {
+	if m.tags == nil {
+		m.tags = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.tags[ids[i]] = struct{}{}
+	}
+}
+
+// ClearTags clears the "tags" edge to the ImageTag entity.
+func (m *ScheduleItemMutation) ClearTags() {
+	m.clearedtags = true
+}
+
+// TagsCleared reports if the "tags" edge to the ImageTag entity was cleared.
+func (m *ScheduleItemMutation) TagsCleared() bool {
+	return m.clearedtags
+}
+
+// RemoveTagIDs removes the "tags" edge to the ImageTag entity by IDs.
+func (m *ScheduleItemMutation) RemoveTagIDs(ids ...string) {
+	if m.removedtags == nil {
+		m.removedtags = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.tags, ids[i])
+		m.removedtags[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedTags returns the removed IDs of the "tags" edge to the ImageTag entity.
+func (m *ScheduleItemMutation) RemovedTagsIDs() (ids []string) {
+	for id := range m.removedtags {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// TagsIDs returns the "tags" edge IDs in the mutation.
+func (m *ScheduleItemMutation) TagsIDs() (ids []string) {
+	for id := range m.tags {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetTags resets all changes to the "tags" edge.
+func (m *ScheduleItemMutation) ResetTags() {
+	m.tags = nil
+	m.clearedtags = false
+	m.removedtags = nil
+}
+
+// Where appends a list predicates to the ScheduleItemMutation builder.
+func (m *ScheduleItemMutation) Where(ps ...predicate.ScheduleItem) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ScheduleItemMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ScheduleItemMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ScheduleItem, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ScheduleItemMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ScheduleItemMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ScheduleItem).
+func (m *ScheduleItemMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ScheduleItemMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.createdAt != nil {
+		fields = append(fields, scheduleitem.FieldCreatedAt)
+	}
+	if m.updatedAt != nil {
+		fields = append(fields, scheduleitem.FieldUpdatedAt)
+	}
+	if m.createdBy != nil {
+		fields = append(fields, scheduleitem.FieldCreatedBy)
+	}
+	if m.updatedBy != nil {
+		fields = append(fields, scheduleitem.FieldUpdatedBy)
+	}
+	if m.title != nil {
+		fields = append(fields, scheduleitem.FieldTitle)
+	}
+	if m.description != nil {
+		fields = append(fields, scheduleitem.FieldDescription)
+	}
+	if m.start != nil {
+		fields = append(fields, scheduleitem.FieldStart)
+	}
+	if m.end != nil {
+		fields = append(fields, scheduleitem.FieldEnd)
+	}
+	if m.cardinality != nil {
+		fields = append(fields, scheduleitem.FieldCardinality)
+	}
+	if m.project != nil {
+		fields = append(fields, scheduleitem.FieldProjectID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ScheduleItemMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case scheduleitem.FieldCreatedAt:
+		return m.CreatedAt()
+	case scheduleitem.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case scheduleitem.FieldCreatedBy:
+		return m.CreatedBy()
+	case scheduleitem.FieldUpdatedBy:
+		return m.UpdatedBy()
+	case scheduleitem.FieldTitle:
+		return m.Title()
+	case scheduleitem.FieldDescription:
+		return m.Description()
+	case scheduleitem.FieldStart:
+		return m.Start()
+	case scheduleitem.FieldEnd:
+		return m.End()
+	case scheduleitem.FieldCardinality:
+		return m.Cardinality()
+	case scheduleitem.FieldProjectID:
+		return m.ProjectID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ScheduleItemMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case scheduleitem.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case scheduleitem.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case scheduleitem.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case scheduleitem.FieldUpdatedBy:
+		return m.OldUpdatedBy(ctx)
+	case scheduleitem.FieldTitle:
+		return m.OldTitle(ctx)
+	case scheduleitem.FieldDescription:
+		return m.OldDescription(ctx)
+	case scheduleitem.FieldStart:
+		return m.OldStart(ctx)
+	case scheduleitem.FieldEnd:
+		return m.OldEnd(ctx)
+	case scheduleitem.FieldCardinality:
+		return m.OldCardinality(ctx)
+	case scheduleitem.FieldProjectID:
+		return m.OldProjectID(ctx)
+	}
+	return nil, fmt.Errorf("unknown ScheduleItem field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ScheduleItemMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case scheduleitem.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case scheduleitem.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case scheduleitem.FieldCreatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case scheduleitem.FieldUpdatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedBy(v)
+		return nil
+	case scheduleitem.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case scheduleitem.FieldDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDescription(v)
+		return nil
+	case scheduleitem.FieldStart:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStart(v)
+		return nil
+	case scheduleitem.FieldEnd:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEnd(v)
+		return nil
+	case scheduleitem.FieldCardinality:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCardinality(v)
+		return nil
+	case scheduleitem.FieldProjectID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ScheduleItem field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ScheduleItemMutation) AddedFields() []string {
+	var fields []string
+	if m.addcardinality != nil {
+		fields = append(fields, scheduleitem.FieldCardinality)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ScheduleItemMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case scheduleitem.FieldCardinality:
+		return m.AddedCardinality()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ScheduleItemMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case scheduleitem.FieldCardinality:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCardinality(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ScheduleItem numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ScheduleItemMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(scheduleitem.FieldCreatedBy) {
+		fields = append(fields, scheduleitem.FieldCreatedBy)
+	}
+	if m.FieldCleared(scheduleitem.FieldUpdatedBy) {
+		fields = append(fields, scheduleitem.FieldUpdatedBy)
+	}
+	if m.FieldCleared(scheduleitem.FieldDescription) {
+		fields = append(fields, scheduleitem.FieldDescription)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ScheduleItemMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ScheduleItemMutation) ClearField(name string) error {
+	switch name {
+	case scheduleitem.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	case scheduleitem.FieldUpdatedBy:
+		m.ClearUpdatedBy()
+		return nil
+	case scheduleitem.FieldDescription:
+		m.ClearDescription()
+		return nil
+	}
+	return fmt.Errorf("unknown ScheduleItem nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ScheduleItemMutation) ResetField(name string) error {
+	switch name {
+	case scheduleitem.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case scheduleitem.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case scheduleitem.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case scheduleitem.FieldUpdatedBy:
+		m.ResetUpdatedBy()
+		return nil
+	case scheduleitem.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case scheduleitem.FieldDescription:
+		m.ResetDescription()
+		return nil
+	case scheduleitem.FieldStart:
+		m.ResetStart()
+		return nil
+	case scheduleitem.FieldEnd:
+		m.ResetEnd()
+		return nil
+	case scheduleitem.FieldCardinality:
+		m.ResetCardinality()
+		return nil
+	case scheduleitem.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	}
+	return fmt.Errorf("unknown ScheduleItem field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ScheduleItemMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.project != nil {
+		edges = append(edges, scheduleitem.EdgeProject)
+	}
+	if m.assignees != nil {
+		edges = append(edges, scheduleitem.EdgeAssignees)
+	}
+	if m.tags != nil {
+		edges = append(edges, scheduleitem.EdgeTags)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ScheduleItemMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case scheduleitem.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case scheduleitem.EdgeAssignees:
+		ids := make([]ent.Value, 0, len(m.assignees))
+		for id := range m.assignees {
+			ids = append(ids, id)
+		}
+		return ids
+	case scheduleitem.EdgeTags:
+		ids := make([]ent.Value, 0, len(m.tags))
+		for id := range m.tags {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ScheduleItemMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedassignees != nil {
+		edges = append(edges, scheduleitem.EdgeAssignees)
+	}
+	if m.removedtags != nil {
+		edges = append(edges, scheduleitem.EdgeTags)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ScheduleItemMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case scheduleitem.EdgeAssignees:
+		ids := make([]ent.Value, 0, len(m.removedassignees))
+		for id := range m.removedassignees {
+			ids = append(ids, id)
+		}
+		return ids
+	case scheduleitem.EdgeTags:
+		ids := make([]ent.Value, 0, len(m.removedtags))
+		for id := range m.removedtags {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ScheduleItemMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedproject {
+		edges = append(edges, scheduleitem.EdgeProject)
+	}
+	if m.clearedassignees {
+		edges = append(edges, scheduleitem.EdgeAssignees)
+	}
+	if m.clearedtags {
+		edges = append(edges, scheduleitem.EdgeTags)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ScheduleItemMutation) EdgeCleared(name string) bool {
+	switch name {
+	case scheduleitem.EdgeProject:
+		return m.clearedproject
+	case scheduleitem.EdgeAssignees:
+		return m.clearedassignees
+	case scheduleitem.EdgeTags:
+		return m.clearedtags
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ScheduleItemMutation) ClearEdge(name string) error {
+	switch name {
+	case scheduleitem.EdgeProject:
+		m.ClearProject()
+		return nil
+	}
+	return fmt.Errorf("unknown ScheduleItem unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ScheduleItemMutation) ResetEdge(name string) error {
+	switch name {
+	case scheduleitem.EdgeProject:
+		m.ResetProject()
+		return nil
+	case scheduleitem.EdgeAssignees:
+		m.ResetAssignees()
+		return nil
+	case scheduleitem.EdgeTags:
+		m.ResetTags()
+		return nil
+	}
+	return fmt.Errorf("unknown ScheduleItem edge %s", name)
+}
+
 // TimeOffsetMutation represents an operation that mutates the TimeOffset nodes in the graph.
 type TimeOffsetMutation struct {
 	config
@@ -10448,6 +11815,8 @@ type UploadMutation struct {
 	cycleStartedAt        *time.Time
 	errorImageIds         *[]string
 	appenderrorImageIds   []string
+	timeline              *[]schema.TimelineTrack
+	appendtimeline        []schema.TimelineTrack
 	clearedFields         map[string]struct{}
 	project               *string
 	clearedproject        bool
@@ -11248,6 +12617,71 @@ func (m *UploadMutation) ResetErrorImageIds() {
 	delete(m.clearedFields, upload.FieldErrorImageIds)
 }
 
+// SetTimeline sets the "timeline" field.
+func (m *UploadMutation) SetTimeline(st []schema.TimelineTrack) {
+	m.timeline = &st
+	m.appendtimeline = nil
+}
+
+// Timeline returns the value of the "timeline" field in the mutation.
+func (m *UploadMutation) Timeline() (r []schema.TimelineTrack, exists bool) {
+	v := m.timeline
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTimeline returns the old "timeline" field's value of the Upload entity.
+// If the Upload object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UploadMutation) OldTimeline(ctx context.Context) (v []schema.TimelineTrack, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTimeline is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTimeline requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTimeline: %w", err)
+	}
+	return oldValue.Timeline, nil
+}
+
+// AppendTimeline adds st to the "timeline" field.
+func (m *UploadMutation) AppendTimeline(st []schema.TimelineTrack) {
+	m.appendtimeline = append(m.appendtimeline, st...)
+}
+
+// AppendedTimeline returns the list of values that were appended to the "timeline" field in this mutation.
+func (m *UploadMutation) AppendedTimeline() ([]schema.TimelineTrack, bool) {
+	if len(m.appendtimeline) == 0 {
+		return nil, false
+	}
+	return m.appendtimeline, true
+}
+
+// ClearTimeline clears the value of the "timeline" field.
+func (m *UploadMutation) ClearTimeline() {
+	m.timeline = nil
+	m.appendtimeline = nil
+	m.clearedFields[upload.FieldTimeline] = struct{}{}
+}
+
+// TimelineCleared returns if the "timeline" field was cleared in this mutation.
+func (m *UploadMutation) TimelineCleared() bool {
+	_, ok := m.clearedFields[upload.FieldTimeline]
+	return ok
+}
+
+// ResetTimeline resets all changes to the "timeline" field.
+func (m *UploadMutation) ResetTimeline() {
+	m.timeline = nil
+	m.appendtimeline = nil
+	delete(m.clearedFields, upload.FieldTimeline)
+}
+
 // ClearProject clears the "project" edge to the Project entity.
 func (m *UploadMutation) ClearProject() {
 	m.clearedproject = true
@@ -11417,7 +12851,7 @@ func (m *UploadMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UploadMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 16)
 	if m.createdAt != nil {
 		fields = append(fields, upload.FieldCreatedAt)
 	}
@@ -11463,6 +12897,9 @@ func (m *UploadMutation) Fields() []string {
 	if m.errorImageIds != nil {
 		fields = append(fields, upload.FieldErrorImageIds)
 	}
+	if m.timeline != nil {
+		fields = append(fields, upload.FieldTimeline)
+	}
 	return fields
 }
 
@@ -11501,6 +12938,8 @@ func (m *UploadMutation) Field(name string) (ent.Value, bool) {
 		return m.CycleStartedAt()
 	case upload.FieldErrorImageIds:
 		return m.ErrorImageIds()
+	case upload.FieldTimeline:
+		return m.Timeline()
 	}
 	return nil, false
 }
@@ -11540,6 +12979,8 @@ func (m *UploadMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldCycleStartedAt(ctx)
 	case upload.FieldErrorImageIds:
 		return m.OldErrorImageIds(ctx)
+	case upload.FieldTimeline:
+		return m.OldTimeline(ctx)
 	}
 	return nil, fmt.Errorf("unknown Upload field %s", name)
 }
@@ -11654,6 +13095,13 @@ func (m *UploadMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetErrorImageIds(v)
 		return nil
+	case upload.FieldTimeline:
+		v, ok := value.([]schema.TimelineTrack)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTimeline(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Upload field %s", name)
 }
@@ -11738,6 +13186,9 @@ func (m *UploadMutation) ClearedFields() []string {
 	if m.FieldCleared(upload.FieldErrorImageIds) {
 		fields = append(fields, upload.FieldErrorImageIds)
 	}
+	if m.FieldCleared(upload.FieldTimeline) {
+		fields = append(fields, upload.FieldTimeline)
+	}
 	return fields
 }
 
@@ -11766,6 +13217,9 @@ func (m *UploadMutation) ClearField(name string) error {
 		return nil
 	case upload.FieldErrorImageIds:
 		m.ClearErrorImageIds()
+		return nil
+	case upload.FieldTimeline:
+		m.ClearTimeline()
 		return nil
 	}
 	return fmt.Errorf("unknown Upload nullable field %s", name)
@@ -11819,6 +13273,9 @@ func (m *UploadMutation) ResetField(name string) error {
 		return nil
 	case upload.FieldErrorImageIds:
 		m.ResetErrorImageIds()
+		return nil
+	case upload.FieldTimeline:
+		m.ResetTimeline()
 		return nil
 	}
 	return fmt.Errorf("unknown Upload field %s", name)
@@ -12003,6 +13460,9 @@ type UserMutation struct {
 	apiKeys                   map[string]struct{}
 	removedapiKeys            map[string]struct{}
 	clearedapiKeys            bool
+	scheduleItems             map[string]struct{}
+	removedscheduleItems      map[string]struct{}
+	clearedscheduleItems      bool
 	done                      bool
 	oldValue                  func(context.Context) (*User, error)
 	predicates                []predicate.User
@@ -13161,6 +14621,60 @@ func (m *UserMutation) ResetApiKeys() {
 	m.removedapiKeys = nil
 }
 
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by ids.
+func (m *UserMutation) AddScheduleItemIDs(ids ...string) {
+	if m.scheduleItems == nil {
+		m.scheduleItems = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.scheduleItems[ids[i]] = struct{}{}
+	}
+}
+
+// ClearScheduleItems clears the "scheduleItems" edge to the ScheduleItem entity.
+func (m *UserMutation) ClearScheduleItems() {
+	m.clearedscheduleItems = true
+}
+
+// ScheduleItemsCleared reports if the "scheduleItems" edge to the ScheduleItem entity was cleared.
+func (m *UserMutation) ScheduleItemsCleared() bool {
+	return m.clearedscheduleItems
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (m *UserMutation) RemoveScheduleItemIDs(ids ...string) {
+	if m.removedscheduleItems == nil {
+		m.removedscheduleItems = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.scheduleItems, ids[i])
+		m.removedscheduleItems[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedScheduleItems returns the removed IDs of the "scheduleItems" edge to the ScheduleItem entity.
+func (m *UserMutation) RemovedScheduleItemsIDs() (ids []string) {
+	for id := range m.removedscheduleItems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ScheduleItemsIDs returns the "scheduleItems" edge IDs in the mutation.
+func (m *UserMutation) ScheduleItemsIDs() (ids []string) {
+	for id := range m.scheduleItems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetScheduleItems resets all changes to the "scheduleItems" edge.
+func (m *UserMutation) ResetScheduleItems() {
+	m.scheduleItems = nil
+	m.clearedscheduleItems = false
+	m.removedscheduleItems = nil
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -13634,7 +15148,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.cameras != nil {
 		edges = append(edges, user.EdgeCameras)
 	}
@@ -13652,6 +15166,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.apiKeys != nil {
 		edges = append(edges, user.EdgeApiKeys)
+	}
+	if m.scheduleItems != nil {
+		edges = append(edges, user.EdgeScheduleItems)
 	}
 	return edges
 }
@@ -13694,13 +15211,19 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeScheduleItems:
+		ids := make([]ent.Value, 0, len(m.scheduleItems))
+		for id := range m.scheduleItems {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedcameras != nil {
 		edges = append(edges, user.EdgeCameras)
 	}
@@ -13715,6 +15238,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedapiKeys != nil {
 		edges = append(edges, user.EdgeApiKeys)
+	}
+	if m.removedscheduleItems != nil {
+		edges = append(edges, user.EdgeScheduleItems)
 	}
 	return edges
 }
@@ -13753,13 +15279,19 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeScheduleItems:
+		ids := make([]ent.Value, 0, len(m.removedscheduleItems))
+		for id := range m.removedscheduleItems {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.clearedcameras {
 		edges = append(edges, user.EdgeCameras)
 	}
@@ -13777,6 +15309,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedapiKeys {
 		edges = append(edges, user.EdgeApiKeys)
+	}
+	if m.clearedscheduleItems {
+		edges = append(edges, user.EdgeScheduleItems)
 	}
 	return edges
 }
@@ -13797,6 +15332,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedactiveProject
 	case user.EdgeApiKeys:
 		return m.clearedapiKeys
+	case user.EdgeScheduleItems:
+		return m.clearedscheduleItems
 	}
 	return false
 }
@@ -13833,6 +15370,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeApiKeys:
 		m.ResetApiKeys()
+		return nil
+	case user.EdgeScheduleItems:
+		m.ResetScheduleItems()
 		return nil
 	}
 	return fmt.Errorf("unknown User edge %s", name)

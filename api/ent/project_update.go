@@ -17,6 +17,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -192,6 +193,46 @@ func (_u *ProjectUpdate) SetNillableUploadReviewEnabled(v *bool) *ProjectUpdate 
 	return _u
 }
 
+// SetStartAt sets the "startAt" field.
+func (_u *ProjectUpdate) SetStartAt(v time.Time) *ProjectUpdate {
+	_u.mutation.SetStartAt(v)
+	return _u
+}
+
+// SetNillableStartAt sets the "startAt" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableStartAt(v *time.Time) *ProjectUpdate {
+	if v != nil {
+		_u.SetStartAt(*v)
+	}
+	return _u
+}
+
+// ClearStartAt clears the value of the "startAt" field.
+func (_u *ProjectUpdate) ClearStartAt() *ProjectUpdate {
+	_u.mutation.ClearStartAt()
+	return _u
+}
+
+// SetEndAt sets the "endAt" field.
+func (_u *ProjectUpdate) SetEndAt(v time.Time) *ProjectUpdate {
+	_u.mutation.SetEndAt(v)
+	return _u
+}
+
+// SetNillableEndAt sets the "endAt" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableEndAt(v *time.Time) *ProjectUpdate {
+	if v != nil {
+		_u.SetEndAt(*v)
+	}
+	return _u
+}
+
+// ClearEndAt clears the value of the "endAt" field.
+func (_u *ProjectUpdate) ClearEndAt() *ProjectUpdate {
+	_u.mutation.ClearEndAt()
+	return _u
+}
+
 // AddUploadIDs adds the "uploads" edge to the Upload entity by IDs.
 func (_u *ProjectUpdate) AddUploadIDs(ids ...string) *ProjectUpdate {
 	_u.mutation.AddUploadIDs(ids...)
@@ -235,6 +276,21 @@ func (_u *ProjectUpdate) AddImageTags(v ...*ImageTag) *ProjectUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddImageTagIDs(ids...)
+}
+
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_u *ProjectUpdate) AddScheduleItemIDs(ids ...string) *ProjectUpdate {
+	_u.mutation.AddScheduleItemIDs(ids...)
+	return _u
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ProjectUpdate) AddScheduleItems(v ...*ScheduleItem) *ProjectUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddScheduleItemIDs(ids...)
 }
 
 // AddProjectAssignmentIDs adds the "projectAssignments" edge to the ProjectAssignment entity by IDs.
@@ -333,6 +389,27 @@ func (_u *ProjectUpdate) RemoveImageTags(v ...*ImageTag) *ProjectUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveImageTagIDs(ids...)
+}
+
+// ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ProjectUpdate) ClearScheduleItems() *ProjectUpdate {
+	_u.mutation.ClearScheduleItems()
+	return _u
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to ScheduleItem entities by IDs.
+func (_u *ProjectUpdate) RemoveScheduleItemIDs(ids ...string) *ProjectUpdate {
+	_u.mutation.RemoveScheduleItemIDs(ids...)
+	return _u
+}
+
+// RemoveScheduleItems removes "scheduleItems" edges to ScheduleItem entities.
+func (_u *ProjectUpdate) RemoveScheduleItems(v ...*ScheduleItem) *ProjectUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveScheduleItemIDs(ids...)
 }
 
 // ClearProjectAssignments clears all "projectAssignments" edges to the ProjectAssignment entity.
@@ -507,6 +584,18 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.UploadReviewEnabled(); ok {
 		_spec.SetField(project.FieldUploadReviewEnabled, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.StartAt(); ok {
+		_spec.SetField(project.FieldStartAt, field.TypeTime, value)
+	}
+	if _u.mutation.StartAtCleared() {
+		_spec.ClearField(project.FieldStartAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EndAt(); ok {
+		_spec.SetField(project.FieldEndAt, field.TypeTime, value)
+	}
+	if _u.mutation.EndAtCleared() {
+		_spec.ClearField(project.FieldEndAt, field.TypeTime)
+	}
 	if _u.mutation.UploadsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -635,6 +724,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ScheduleItemsTable,
+			Columns: []string{project.ScheduleItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedScheduleItemsIDs(); len(nodes) > 0 && !_u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ScheduleItemsTable,
+			Columns: []string{project.ScheduleItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ScheduleItemsTable,
+			Columns: []string{project.ScheduleItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {
@@ -910,6 +1044,46 @@ func (_u *ProjectUpdateOne) SetNillableUploadReviewEnabled(v *bool) *ProjectUpda
 	return _u
 }
 
+// SetStartAt sets the "startAt" field.
+func (_u *ProjectUpdateOne) SetStartAt(v time.Time) *ProjectUpdateOne {
+	_u.mutation.SetStartAt(v)
+	return _u
+}
+
+// SetNillableStartAt sets the "startAt" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableStartAt(v *time.Time) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetStartAt(*v)
+	}
+	return _u
+}
+
+// ClearStartAt clears the value of the "startAt" field.
+func (_u *ProjectUpdateOne) ClearStartAt() *ProjectUpdateOne {
+	_u.mutation.ClearStartAt()
+	return _u
+}
+
+// SetEndAt sets the "endAt" field.
+func (_u *ProjectUpdateOne) SetEndAt(v time.Time) *ProjectUpdateOne {
+	_u.mutation.SetEndAt(v)
+	return _u
+}
+
+// SetNillableEndAt sets the "endAt" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableEndAt(v *time.Time) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetEndAt(*v)
+	}
+	return _u
+}
+
+// ClearEndAt clears the value of the "endAt" field.
+func (_u *ProjectUpdateOne) ClearEndAt() *ProjectUpdateOne {
+	_u.mutation.ClearEndAt()
+	return _u
+}
+
 // AddUploadIDs adds the "uploads" edge to the Upload entity by IDs.
 func (_u *ProjectUpdateOne) AddUploadIDs(ids ...string) *ProjectUpdateOne {
 	_u.mutation.AddUploadIDs(ids...)
@@ -953,6 +1127,21 @@ func (_u *ProjectUpdateOne) AddImageTags(v ...*ImageTag) *ProjectUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.AddImageTagIDs(ids...)
+}
+
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_u *ProjectUpdateOne) AddScheduleItemIDs(ids ...string) *ProjectUpdateOne {
+	_u.mutation.AddScheduleItemIDs(ids...)
+	return _u
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ProjectUpdateOne) AddScheduleItems(v ...*ScheduleItem) *ProjectUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddScheduleItemIDs(ids...)
 }
 
 // AddProjectAssignmentIDs adds the "projectAssignments" edge to the ProjectAssignment entity by IDs.
@@ -1051,6 +1240,27 @@ func (_u *ProjectUpdateOne) RemoveImageTags(v ...*ImageTag) *ProjectUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveImageTagIDs(ids...)
+}
+
+// ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ProjectUpdateOne) ClearScheduleItems() *ProjectUpdateOne {
+	_u.mutation.ClearScheduleItems()
+	return _u
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to ScheduleItem entities by IDs.
+func (_u *ProjectUpdateOne) RemoveScheduleItemIDs(ids ...string) *ProjectUpdateOne {
+	_u.mutation.RemoveScheduleItemIDs(ids...)
+	return _u
+}
+
+// RemoveScheduleItems removes "scheduleItems" edges to ScheduleItem entities.
+func (_u *ProjectUpdateOne) RemoveScheduleItems(v ...*ScheduleItem) *ProjectUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveScheduleItemIDs(ids...)
 }
 
 // ClearProjectAssignments clears all "projectAssignments" edges to the ProjectAssignment entity.
@@ -1255,6 +1465,18 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	if value, ok := _u.mutation.UploadReviewEnabled(); ok {
 		_spec.SetField(project.FieldUploadReviewEnabled, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.StartAt(); ok {
+		_spec.SetField(project.FieldStartAt, field.TypeTime, value)
+	}
+	if _u.mutation.StartAtCleared() {
+		_spec.ClearField(project.FieldStartAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.EndAt(); ok {
+		_spec.SetField(project.FieldEndAt, field.TypeTime, value)
+	}
+	if _u.mutation.EndAtCleared() {
+		_spec.ClearField(project.FieldEndAt, field.TypeTime)
+	}
 	if _u.mutation.UploadsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1383,6 +1605,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ScheduleItemsTable,
+			Columns: []string{project.ScheduleItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedScheduleItemsIDs(); len(nodes) > 0 && !_u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ScheduleItemsTable,
+			Columns: []string{project.ScheduleItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.ScheduleItemsTable,
+			Columns: []string{project.ScheduleItemsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

@@ -13,61 +13,63 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
-	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
+	"github.com/shutterbase/shutterbase/ent/user"
 )
 
-// ImageTagQuery is the builder for querying ImageTag entities.
-type ImageTagQuery struct {
+// ScheduleItemQuery is the builder for querying ScheduleItem entities.
+type ScheduleItemQuery struct {
 	config
-	ctx                *QueryContext
-	order              []imagetag.OrderOption
-	inters             []Interceptor
-	predicates         []predicate.ImageTag
-	withProject        *ProjectQuery
-	withTagAssignments *ImageTagAssignmentQuery
-	withFKs            bool
-	modifiers          []func(*sql.Selector)
+	ctx           *QueryContext
+	order         []scheduleitem.OrderOption
+	inters        []Interceptor
+	predicates    []predicate.ScheduleItem
+	withProject   *ProjectQuery
+	withAssignees *UserQuery
+	withTags      *ImageTagQuery
+	modifiers     []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the ImageTagQuery builder.
-func (_q *ImageTagQuery) Where(ps ...predicate.ImageTag) *ImageTagQuery {
+// Where adds a new predicate for the ScheduleItemQuery builder.
+func (_q *ScheduleItemQuery) Where(ps ...predicate.ScheduleItem) *ScheduleItemQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *ImageTagQuery) Limit(limit int) *ImageTagQuery {
+func (_q *ScheduleItemQuery) Limit(limit int) *ScheduleItemQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *ImageTagQuery) Offset(offset int) *ImageTagQuery {
+func (_q *ScheduleItemQuery) Offset(offset int) *ScheduleItemQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *ImageTagQuery) Unique(unique bool) *ImageTagQuery {
+func (_q *ScheduleItemQuery) Unique(unique bool) *ScheduleItemQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *ImageTagQuery) Order(o ...imagetag.OrderOption) *ImageTagQuery {
+func (_q *ScheduleItemQuery) Order(o ...scheduleitem.OrderOption) *ScheduleItemQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
 // QueryProject chains the current query on the "project" edge.
-func (_q *ImageTagQuery) QueryProject() *ProjectQuery {
+func (_q *ScheduleItemQuery) QueryProject() *ProjectQuery {
 	query := (&ProjectClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -78,9 +80,9 @@ func (_q *ImageTagQuery) QueryProject() *ProjectQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(imagetag.Table, imagetag.FieldID, selector),
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, selector),
 			sqlgraph.To(project.Table, project.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, imagetag.ProjectTable, imagetag.ProjectColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, scheduleitem.ProjectTable, scheduleitem.ProjectColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -88,9 +90,9 @@ func (_q *ImageTagQuery) QueryProject() *ProjectQuery {
 	return query
 }
 
-// QueryTagAssignments chains the current query on the "tagAssignments" edge.
-func (_q *ImageTagQuery) QueryTagAssignments() *ImageTagAssignmentQuery {
-	query := (&ImageTagAssignmentClient{config: _q.config}).Query()
+// QueryAssignees chains the current query on the "assignees" edge.
+func (_q *ScheduleItemQuery) QueryAssignees() *UserQuery {
+	query := (&UserClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -100,9 +102,9 @@ func (_q *ImageTagQuery) QueryTagAssignments() *ImageTagAssignmentQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(imagetag.Table, imagetag.FieldID, selector),
-			sqlgraph.To(imagetagassignment.Table, imagetagassignment.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, imagetag.TagAssignmentsTable, imagetag.TagAssignmentsColumn),
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, scheduleitem.AssigneesTable, scheduleitem.AssigneesPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -110,21 +112,43 @@ func (_q *ImageTagQuery) QueryTagAssignments() *ImageTagAssignmentQuery {
 	return query
 }
 
-// First returns the first ImageTag entity from the query.
-// Returns a *NotFoundError when no ImageTag was found.
-func (_q *ImageTagQuery) First(ctx context.Context) (*ImageTag, error) {
+// QueryTags chains the current query on the "tags" edge.
+func (_q *ScheduleItemQuery) QueryTags() *ImageTagQuery {
+	query := (&ImageTagClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, selector),
+			sqlgraph.To(imagetag.Table, imagetag.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, scheduleitem.TagsTable, scheduleitem.TagsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// First returns the first ScheduleItem entity from the query.
+// Returns a *NotFoundError when no ScheduleItem was found.
+func (_q *ScheduleItemQuery) First(ctx context.Context) (*ScheduleItem, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{imagetag.Label}
+		return nil, &NotFoundError{scheduleitem.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *ImageTagQuery) FirstX(ctx context.Context) *ImageTag {
+func (_q *ScheduleItemQuery) FirstX(ctx context.Context) *ScheduleItem {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -132,22 +156,22 @@ func (_q *ImageTagQuery) FirstX(ctx context.Context) *ImageTag {
 	return node
 }
 
-// FirstID returns the first ImageTag ID from the query.
-// Returns a *NotFoundError when no ImageTag ID was found.
-func (_q *ImageTagQuery) FirstID(ctx context.Context) (id string, err error) {
+// FirstID returns the first ScheduleItem ID from the query.
+// Returns a *NotFoundError when no ScheduleItem ID was found.
+func (_q *ScheduleItemQuery) FirstID(ctx context.Context) (id string, err error) {
 	var ids []string
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{imagetag.Label}
+		err = &NotFoundError{scheduleitem.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *ImageTagQuery) FirstIDX(ctx context.Context) string {
+func (_q *ScheduleItemQuery) FirstIDX(ctx context.Context) string {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -155,10 +179,10 @@ func (_q *ImageTagQuery) FirstIDX(ctx context.Context) string {
 	return id
 }
 
-// Only returns a single ImageTag entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one ImageTag entity is found.
-// Returns a *NotFoundError when no ImageTag entities are found.
-func (_q *ImageTagQuery) Only(ctx context.Context) (*ImageTag, error) {
+// Only returns a single ScheduleItem entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one ScheduleItem entity is found.
+// Returns a *NotFoundError when no ScheduleItem entities are found.
+func (_q *ScheduleItemQuery) Only(ctx context.Context) (*ScheduleItem, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -167,14 +191,14 @@ func (_q *ImageTagQuery) Only(ctx context.Context) (*ImageTag, error) {
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{imagetag.Label}
+		return nil, &NotFoundError{scheduleitem.Label}
 	default:
-		return nil, &NotSingularError{imagetag.Label}
+		return nil, &NotSingularError{scheduleitem.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *ImageTagQuery) OnlyX(ctx context.Context) *ImageTag {
+func (_q *ScheduleItemQuery) OnlyX(ctx context.Context) *ScheduleItem {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -182,10 +206,10 @@ func (_q *ImageTagQuery) OnlyX(ctx context.Context) *ImageTag {
 	return node
 }
 
-// OnlyID is like Only, but returns the only ImageTag ID in the query.
-// Returns a *NotSingularError when more than one ImageTag ID is found.
+// OnlyID is like Only, but returns the only ScheduleItem ID in the query.
+// Returns a *NotSingularError when more than one ScheduleItem ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *ImageTagQuery) OnlyID(ctx context.Context) (id string, err error) {
+func (_q *ScheduleItemQuery) OnlyID(ctx context.Context) (id string, err error) {
 	var ids []string
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -194,15 +218,15 @@ func (_q *ImageTagQuery) OnlyID(ctx context.Context) (id string, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{imagetag.Label}
+		err = &NotFoundError{scheduleitem.Label}
 	default:
-		err = &NotSingularError{imagetag.Label}
+		err = &NotSingularError{scheduleitem.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *ImageTagQuery) OnlyIDX(ctx context.Context) string {
+func (_q *ScheduleItemQuery) OnlyIDX(ctx context.Context) string {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -210,18 +234,18 @@ func (_q *ImageTagQuery) OnlyIDX(ctx context.Context) string {
 	return id
 }
 
-// All executes the query and returns a list of ImageTags.
-func (_q *ImageTagQuery) All(ctx context.Context) ([]*ImageTag, error) {
+// All executes the query and returns a list of ScheduleItems.
+func (_q *ScheduleItemQuery) All(ctx context.Context) ([]*ScheduleItem, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*ImageTag, *ImageTagQuery]()
-	return withInterceptors[[]*ImageTag](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*ScheduleItem, *ScheduleItemQuery]()
+	return withInterceptors[[]*ScheduleItem](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *ImageTagQuery) AllX(ctx context.Context) []*ImageTag {
+func (_q *ScheduleItemQuery) AllX(ctx context.Context) []*ScheduleItem {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -229,20 +253,20 @@ func (_q *ImageTagQuery) AllX(ctx context.Context) []*ImageTag {
 	return nodes
 }
 
-// IDs executes the query and returns a list of ImageTag IDs.
-func (_q *ImageTagQuery) IDs(ctx context.Context) (ids []string, err error) {
+// IDs executes the query and returns a list of ScheduleItem IDs.
+func (_q *ScheduleItemQuery) IDs(ctx context.Context) (ids []string, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(imagetag.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(scheduleitem.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *ImageTagQuery) IDsX(ctx context.Context) []string {
+func (_q *ScheduleItemQuery) IDsX(ctx context.Context) []string {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -251,16 +275,16 @@ func (_q *ImageTagQuery) IDsX(ctx context.Context) []string {
 }
 
 // Count returns the count of the given query.
-func (_q *ImageTagQuery) Count(ctx context.Context) (int, error) {
+func (_q *ScheduleItemQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*ImageTagQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*ScheduleItemQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *ImageTagQuery) CountX(ctx context.Context) int {
+func (_q *ScheduleItemQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -269,7 +293,7 @@ func (_q *ImageTagQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *ImageTagQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *ScheduleItemQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -282,7 +306,7 @@ func (_q *ImageTagQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *ImageTagQuery) ExistX(ctx context.Context) bool {
+func (_q *ScheduleItemQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -290,20 +314,21 @@ func (_q *ImageTagQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the ImageTagQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the ScheduleItemQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *ImageTagQuery) Clone() *ImageTagQuery {
+func (_q *ScheduleItemQuery) Clone() *ScheduleItemQuery {
 	if _q == nil {
 		return nil
 	}
-	return &ImageTagQuery{
-		config:             _q.config,
-		ctx:                _q.ctx.Clone(),
-		order:              append([]imagetag.OrderOption{}, _q.order...),
-		inters:             append([]Interceptor{}, _q.inters...),
-		predicates:         append([]predicate.ImageTag{}, _q.predicates...),
-		withProject:        _q.withProject.Clone(),
-		withTagAssignments: _q.withTagAssignments.Clone(),
+	return &ScheduleItemQuery{
+		config:        _q.config,
+		ctx:           _q.ctx.Clone(),
+		order:         append([]scheduleitem.OrderOption{}, _q.order...),
+		inters:        append([]Interceptor{}, _q.inters...),
+		predicates:    append([]predicate.ScheduleItem{}, _q.predicates...),
+		withProject:   _q.withProject.Clone(),
+		withAssignees: _q.withAssignees.Clone(),
+		withTags:      _q.withTags.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -312,7 +337,7 @@ func (_q *ImageTagQuery) Clone() *ImageTagQuery {
 
 // WithProject tells the query-builder to eager-load the nodes that are connected to
 // the "project" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *ImageTagQuery) WithProject(opts ...func(*ProjectQuery)) *ImageTagQuery {
+func (_q *ScheduleItemQuery) WithProject(opts ...func(*ProjectQuery)) *ScheduleItemQuery {
 	query := (&ProjectClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
@@ -321,14 +346,25 @@ func (_q *ImageTagQuery) WithProject(opts ...func(*ProjectQuery)) *ImageTagQuery
 	return _q
 }
 
-// WithTagAssignments tells the query-builder to eager-load the nodes that are connected to
-// the "tagAssignments" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *ImageTagQuery) WithTagAssignments(opts ...func(*ImageTagAssignmentQuery)) *ImageTagQuery {
-	query := (&ImageTagAssignmentClient{config: _q.config}).Query()
+// WithAssignees tells the query-builder to eager-load the nodes that are connected to
+// the "assignees" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ScheduleItemQuery) WithAssignees(opts ...func(*UserQuery)) *ScheduleItemQuery {
+	query := (&UserClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
-	_q.withTagAssignments = query
+	_q.withAssignees = query
+	return _q
+}
+
+// WithTags tells the query-builder to eager-load the nodes that are connected to
+// the "tags" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ScheduleItemQuery) WithTags(opts ...func(*ImageTagQuery)) *ScheduleItemQuery {
+	query := (&ImageTagClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withTags = query
 	return _q
 }
 
@@ -342,15 +378,15 @@ func (_q *ImageTagQuery) WithTagAssignments(opts ...func(*ImageTagAssignmentQuer
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.ImageTag.Query().
-//		GroupBy(imagetag.FieldCreatedAt).
+//	client.ScheduleItem.Query().
+//		GroupBy(scheduleitem.FieldCreatedAt).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *ImageTagQuery) GroupBy(field string, fields ...string) *ImageTagGroupBy {
+func (_q *ScheduleItemQuery) GroupBy(field string, fields ...string) *ScheduleItemGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &ImageTagGroupBy{build: _q}
+	grbuild := &ScheduleItemGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = imagetag.Label
+	grbuild.label = scheduleitem.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -364,23 +400,23 @@ func (_q *ImageTagQuery) GroupBy(field string, fields ...string) *ImageTagGroupB
 //		CreatedAt time.Time `json:"createdAt"`
 //	}
 //
-//	client.ImageTag.Query().
-//		Select(imagetag.FieldCreatedAt).
+//	client.ScheduleItem.Query().
+//		Select(scheduleitem.FieldCreatedAt).
 //		Scan(ctx, &v)
-func (_q *ImageTagQuery) Select(fields ...string) *ImageTagSelect {
+func (_q *ScheduleItemQuery) Select(fields ...string) *ScheduleItemSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &ImageTagSelect{ImageTagQuery: _q}
-	sbuild.label = imagetag.Label
+	sbuild := &ScheduleItemSelect{ScheduleItemQuery: _q}
+	sbuild.label = scheduleitem.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a ImageTagSelect configured with the given aggregations.
-func (_q *ImageTagQuery) Aggregate(fns ...AggregateFunc) *ImageTagSelect {
+// Aggregate returns a ScheduleItemSelect configured with the given aggregations.
+func (_q *ScheduleItemQuery) Aggregate(fns ...AggregateFunc) *ScheduleItemSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *ImageTagQuery) prepareQuery(ctx context.Context) error {
+func (_q *ScheduleItemQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -392,7 +428,7 @@ func (_q *ImageTagQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !imagetag.ValidColumn(f) {
+		if !scheduleitem.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -406,24 +442,21 @@ func (_q *ImageTagQuery) prepareQuery(ctx context.Context) error {
 	return nil
 }
 
-func (_q *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ImageTag, error) {
+func (_q *ScheduleItemQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ScheduleItem, error) {
 	var (
-		nodes       = []*ImageTag{}
-		withFKs     = _q.withFKs
+		nodes       = []*ScheduleItem{}
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withProject != nil,
-			_q.withTagAssignments != nil,
+			_q.withAssignees != nil,
+			_q.withTags != nil,
 		}
 	)
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, imagetag.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*ImageTag).scanValues(nil, columns)
+		return (*ScheduleItem).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &ImageTag{config: _q.config}
+		node := &ScheduleItem{config: _q.config}
 		nodes = append(nodes, node)
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
@@ -442,23 +475,30 @@ func (_q *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ima
 	}
 	if query := _q.withProject; query != nil {
 		if err := _q.loadProject(ctx, query, nodes, nil,
-			func(n *ImageTag, e *Project) { n.Edges.Project = e }); err != nil {
+			func(n *ScheduleItem, e *Project) { n.Edges.Project = e }); err != nil {
 			return nil, err
 		}
 	}
-	if query := _q.withTagAssignments; query != nil {
-		if err := _q.loadTagAssignments(ctx, query, nodes,
-			func(n *ImageTag) { n.Edges.TagAssignments = []*ImageTagAssignment{} },
-			func(n *ImageTag, e *ImageTagAssignment) { n.Edges.TagAssignments = append(n.Edges.TagAssignments, e) }); err != nil {
+	if query := _q.withAssignees; query != nil {
+		if err := _q.loadAssignees(ctx, query, nodes,
+			func(n *ScheduleItem) { n.Edges.Assignees = []*User{} },
+			func(n *ScheduleItem, e *User) { n.Edges.Assignees = append(n.Edges.Assignees, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withTags; query != nil {
+		if err := _q.loadTags(ctx, query, nodes,
+			func(n *ScheduleItem) { n.Edges.Tags = []*ImageTag{} },
+			func(n *ScheduleItem, e *ImageTag) { n.Edges.Tags = append(n.Edges.Tags, e) }); err != nil {
 			return nil, err
 		}
 	}
 	return nodes, nil
 }
 
-func (_q *ImageTagQuery) loadProject(ctx context.Context, query *ProjectQuery, nodes []*ImageTag, init func(*ImageTag), assign func(*ImageTag, *Project)) error {
+func (_q *ScheduleItemQuery) loadProject(ctx context.Context, query *ProjectQuery, nodes []*ScheduleItem, init func(*ScheduleItem), assign func(*ScheduleItem, *Project)) error {
 	ids := make([]string, 0, len(nodes))
-	nodeids := make(map[string][]*ImageTag)
+	nodeids := make(map[string][]*ScheduleItem)
 	for i := range nodes {
 		fk := nodes[i].ProjectID
 		if _, ok := nodeids[fk]; !ok {
@@ -485,9 +525,70 @@ func (_q *ImageTagQuery) loadProject(ctx context.Context, query *ProjectQuery, n
 	}
 	return nil
 }
-func (_q *ImageTagQuery) loadTagAssignments(ctx context.Context, query *ImageTagAssignmentQuery, nodes []*ImageTag, init func(*ImageTag), assign func(*ImageTag, *ImageTagAssignment)) error {
+func (_q *ScheduleItemQuery) loadAssignees(ctx context.Context, query *UserQuery, nodes []*ScheduleItem, init func(*ScheduleItem), assign func(*ScheduleItem, *User)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[string]*ScheduleItem)
+	nids := make(map[uuid.UUID]map[*ScheduleItem]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(scheduleitem.AssigneesTable)
+		s.Join(joinT).On(s.C(user.FieldID), joinT.C(scheduleitem.AssigneesPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(scheduleitem.AssigneesPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(scheduleitem.AssigneesPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullString)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := values[0].(*sql.NullString).String
+				inValue := *values[1].(*uuid.UUID)
+				if nids[inValue] == nil {
+					nids[inValue] = map[*ScheduleItem]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*User](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "assignees" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
+	}
+	return nil
+}
+func (_q *ScheduleItemQuery) loadTags(ctx context.Context, query *ImageTagQuery, nodes []*ScheduleItem, init func(*ScheduleItem), assign func(*ScheduleItem, *ImageTag)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[string]*ImageTag)
+	nodeids := make(map[string]*ScheduleItem)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -495,28 +596,29 @@ func (_q *ImageTagQuery) loadTagAssignments(ctx context.Context, query *ImageTag
 			init(nodes[i])
 		}
 	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(imagetagassignment.FieldImageTagID)
-	}
-	query.Where(predicate.ImageTagAssignment(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(imagetag.TagAssignmentsColumn), fks...))
+	query.withFKs = true
+	query.Where(predicate.ImageTag(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(scheduleitem.TagsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.ImageTagID
-		node, ok := nodeids[fk]
+		fk := n.schedule_item_tags
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "schedule_item_tags" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "image_tag_id" returned %v for node %v`, fk, n.ID)
+			return fmt.Errorf(`unexpected referenced foreign-key "schedule_item_tags" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}
 	return nil
 }
 
-func (_q *ImageTagQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *ScheduleItemQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
@@ -528,8 +630,8 @@ func (_q *ImageTagQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *ImageTagQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(imagetag.Table, imagetag.Columns, sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString))
+func (_q *ScheduleItemQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(scheduleitem.Table, scheduleitem.Columns, sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -538,14 +640,14 @@ func (_q *ImageTagQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, imagetag.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, scheduleitem.FieldID)
 		for i := range fields {
-			if fields[i] != imagetag.FieldID {
+			if fields[i] != scheduleitem.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
 		if _q.withProject != nil {
-			_spec.Node.AddColumnOnce(imagetag.FieldProjectID)
+			_spec.Node.AddColumnOnce(scheduleitem.FieldProjectID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {
@@ -571,12 +673,12 @@ func (_q *ImageTagQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *ImageTagQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *ScheduleItemQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(imagetag.Table)
+	t1 := builder.Table(scheduleitem.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = imagetag.Columns
+		columns = scheduleitem.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -609,7 +711,7 @@ func (_q *ImageTagQuery) sqlQuery(ctx context.Context) *sql.Selector {
 // ForUpdate locks the selected rows against concurrent updates, and prevent them from being
 // updated, deleted or "selected ... for update" by other sessions, until the transaction is
 // either committed or rolled-back.
-func (_q *ImageTagQuery) ForUpdate(opts ...sql.LockOption) *ImageTagQuery {
+func (_q *ScheduleItemQuery) ForUpdate(opts ...sql.LockOption) *ScheduleItemQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -622,7 +724,7 @@ func (_q *ImageTagQuery) ForUpdate(opts ...sql.LockOption) *ImageTagQuery {
 // ForShare behaves similarly to ForUpdate, except that it acquires a shared mode lock
 // on any rows that are read. Other sessions can read the rows, but cannot modify them
 // until your transaction commits.
-func (_q *ImageTagQuery) ForShare(opts ...sql.LockOption) *ImageTagQuery {
+func (_q *ScheduleItemQuery) ForShare(opts ...sql.LockOption) *ScheduleItemQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -632,28 +734,28 @@ func (_q *ImageTagQuery) ForShare(opts ...sql.LockOption) *ImageTagQuery {
 	return _q
 }
 
-// ImageTagGroupBy is the group-by builder for ImageTag entities.
-type ImageTagGroupBy struct {
+// ScheduleItemGroupBy is the group-by builder for ScheduleItem entities.
+type ScheduleItemGroupBy struct {
 	selector
-	build *ImageTagQuery
+	build *ScheduleItemQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *ImageTagGroupBy) Aggregate(fns ...AggregateFunc) *ImageTagGroupBy {
+func (_g *ScheduleItemGroupBy) Aggregate(fns ...AggregateFunc) *ScheduleItemGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *ImageTagGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *ScheduleItemGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*ImageTagQuery, *ImageTagGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*ScheduleItemQuery, *ScheduleItemGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *ImageTagGroupBy) sqlScan(ctx context.Context, root *ImageTagQuery, v any) error {
+func (_g *ScheduleItemGroupBy) sqlScan(ctx context.Context, root *ScheduleItemQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -680,28 +782,28 @@ func (_g *ImageTagGroupBy) sqlScan(ctx context.Context, root *ImageTagQuery, v a
 	return sql.ScanSlice(rows, v)
 }
 
-// ImageTagSelect is the builder for selecting fields of ImageTag entities.
-type ImageTagSelect struct {
-	*ImageTagQuery
+// ScheduleItemSelect is the builder for selecting fields of ScheduleItem entities.
+type ScheduleItemSelect struct {
+	*ScheduleItemQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *ImageTagSelect) Aggregate(fns ...AggregateFunc) *ImageTagSelect {
+func (_s *ScheduleItemSelect) Aggregate(fns ...AggregateFunc) *ScheduleItemSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *ImageTagSelect) Scan(ctx context.Context, v any) error {
+func (_s *ScheduleItemSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*ImageTagQuery, *ImageTagSelect](ctx, _s.ImageTagQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*ScheduleItemQuery, *ScheduleItemSelect](ctx, _s.ScheduleItemQuery, _s, _s.inters, v)
 }
 
-func (_s *ImageTagSelect) sqlScan(ctx context.Context, root *ImageTagQuery, v any) error {
+func (_s *ScheduleItemSelect) sqlScan(ctx context.Context, root *ScheduleItemQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

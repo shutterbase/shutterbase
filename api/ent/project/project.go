@@ -40,12 +40,18 @@ const (
 	FieldAiSystemMessage = "ai_system_message"
 	// FieldUploadReviewEnabled holds the string denoting the uploadreviewenabled field in the database.
 	FieldUploadReviewEnabled = "upload_review_enabled"
+	// FieldStartAt holds the string denoting the startat field in the database.
+	FieldStartAt = "start_at"
+	// FieldEndAt holds the string denoting the endat field in the database.
+	FieldEndAt = "end_at"
 	// EdgeUploads holds the string denoting the uploads edge name in mutations.
 	EdgeUploads = "uploads"
 	// EdgeImages holds the string denoting the images edge name in mutations.
 	EdgeImages = "images"
 	// EdgeImageTags holds the string denoting the imagetags edge name in mutations.
 	EdgeImageTags = "imageTags"
+	// EdgeScheduleItems holds the string denoting the scheduleitems edge name in mutations.
+	EdgeScheduleItems = "scheduleItems"
 	// EdgeProjectAssignments holds the string denoting the projectassignments edge name in mutations.
 	EdgeProjectAssignments = "projectAssignments"
 	// EdgeActiveForUsers holds the string denoting the activeforusers edge name in mutations.
@@ -73,6 +79,13 @@ const (
 	ImageTagsInverseTable = "image_tags"
 	// ImageTagsColumn is the table column denoting the imageTags relation/edge.
 	ImageTagsColumn = "project_id"
+	// ScheduleItemsTable is the table that holds the scheduleItems relation/edge.
+	ScheduleItemsTable = "schedule_items"
+	// ScheduleItemsInverseTable is the table name for the ScheduleItem entity.
+	// It exists in this package in order to avoid circular dependency with the "scheduleitem" package.
+	ScheduleItemsInverseTable = "schedule_items"
+	// ScheduleItemsColumn is the table column denoting the scheduleItems relation/edge.
+	ScheduleItemsColumn = "project_id"
 	// ProjectAssignmentsTable is the table that holds the projectAssignments relation/edge.
 	ProjectAssignmentsTable = "project_assignments"
 	// ProjectAssignmentsInverseTable is the table name for the ProjectAssignment entity.
@@ -105,6 +118,8 @@ var Columns = []string{
 	FieldLocationCity,
 	FieldAiSystemMessage,
 	FieldUploadReviewEnabled,
+	FieldStartAt,
+	FieldEndAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -219,6 +234,16 @@ func ByUploadReviewEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUploadReviewEnabled, opts...).ToFunc()
 }
 
+// ByStartAt orders the results by the startAt field.
+func ByStartAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldStartAt, opts...).ToFunc()
+}
+
+// ByEndAt orders the results by the endAt field.
+func ByEndAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldEndAt, opts...).ToFunc()
+}
+
 // ByUploadsCount orders the results by uploads count.
 func ByUploadsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -258,6 +283,20 @@ func ByImageTagsCount(opts ...sql.OrderTermOption) OrderOption {
 func ByImageTags(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newImageTagsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByScheduleItemsCount orders the results by scheduleItems count.
+func ByScheduleItemsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newScheduleItemsStep(), opts...)
+	}
+}
+
+// ByScheduleItems orders the results by scheduleItems terms.
+func ByScheduleItems(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newScheduleItemsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -307,6 +346,13 @@ func newImageTagsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ImageTagsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ImageTagsTable, ImageTagsColumn),
+	)
+}
+func newScheduleItemsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ScheduleItemsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ScheduleItemsTable, ScheduleItemsColumn),
 	)
 }
 func newProjectAssignmentsStep() *sqlgraph.Step {

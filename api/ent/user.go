@@ -77,9 +77,11 @@ type UserEdges struct {
 	ActiveProject *Project `json:"activeProject,omitempty"`
 	// ApiKeys holds the value of the apiKeys edge.
 	ApiKeys []*ApiKey `json:"apiKeys,omitempty"`
+	// ScheduleItems holds the value of the scheduleItems edge.
+	ScheduleItems []*ScheduleItem `json:"scheduleItems,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // CamerasOrErr returns the Cameras value or an error if the edge
@@ -136,6 +138,15 @@ func (e UserEdges) ApiKeysOrErr() ([]*ApiKey, error) {
 		return e.ApiKeys, nil
 	}
 	return nil, &NotLoadedError{edge: "apiKeys"}
+}
+
+// ScheduleItemsOrErr returns the ScheduleItems value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) ScheduleItemsOrErr() ([]*ScheduleItem, error) {
+	if e.loadedTypes[6] {
+		return e.ScheduleItems, nil
+	}
+	return nil, &NotLoadedError{edge: "scheduleItems"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -330,6 +341,11 @@ func (_m *User) QueryActiveProject() *ProjectQuery {
 // QueryApiKeys queries the "apiKeys" edge of the User entity.
 func (_m *User) QueryApiKeys() *ApiKeyQuery {
 	return NewUserClient(_m.config).QueryApiKeys(_m)
+}
+
+// QueryScheduleItems queries the "scheduleItems" edge of the User entity.
+func (_m *User) QueryScheduleItems() *ScheduleItemQuery {
+	return NewUserClient(_m.config).QueryScheduleItems(_m)
 }
 
 // Update returns a builder for updating this User.

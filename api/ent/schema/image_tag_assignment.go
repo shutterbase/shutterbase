@@ -15,7 +15,9 @@ func (ImageTagAssignment) Mixin() []ent.Mixin {
 
 func (ImageTagAssignment) Fields() []ent.Field {
 	return []ent.Field{
-		field.Enum("type").Values("manual", "inferred", "default").StructTag(`json:"type"`),
+		// "scheduled" assignments are owned by the upload timeline editor (S15):
+		// its re-sync only ever touches scheduled rows, so manual tags survive.
+		field.Enum("type").Values("manual", "inferred", "default", "scheduled").StructTag(`json:"type"`),
 		field.String("image_id").StructTag(`json:"-"`),
 		field.String("image_tag_id").StructTag(`json:"-"`),
 	}

@@ -91,9 +91,10 @@ type Type string
 
 // Type values.
 const (
-	TypeManual   Type = "manual"
-	TypeInferred Type = "inferred"
-	TypeDefault  Type = "default"
+	TypeManual    Type = "manual"
+	TypeInferred  Type = "inferred"
+	TypeDefault   Type = "default"
+	TypeScheduled Type = "scheduled"
 )
 
 func (_type Type) String() string {
@@ -103,7 +104,7 @@ func (_type Type) String() string {
 // TypeValidator is a validator for the "type" field enum values. It is called by the builders before save.
 func TypeValidator(_type Type) error {
 	switch _type {
-	case TypeManual, TypeInferred, TypeDefault:
+	case TypeManual, TypeInferred, TypeDefault, TypeScheduled:
 		return nil
 	default:
 		return fmt.Errorf("imagetagassignment: invalid enum value for type field: %q", _type)

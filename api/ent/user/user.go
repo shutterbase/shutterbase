@@ -64,6 +64,8 @@ const (
 	EdgeActiveProject = "activeProject"
 	// EdgeApiKeys holds the string denoting the apikeys edge name in mutations.
 	EdgeApiKeys = "apiKeys"
+	// EdgeScheduleItems holds the string denoting the scheduleitems edge name in mutations.
+	EdgeScheduleItems = "scheduleItems"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// CamerasTable is the table that holds the cameras relation/edge.
@@ -108,6 +110,11 @@ const (
 	ApiKeysInverseTable = "api_keys"
 	// ApiKeysColumn is the table column denoting the apiKeys relation/edge.
 	ApiKeysColumn = "user_id"
+	// ScheduleItemsTable is the table that holds the scheduleItems relation/edge. The primary key declared below.
+	ScheduleItemsTable = "schedule_item_assignees"
+	// ScheduleItemsInverseTable is the table name for the ScheduleItem entity.
+	// It exists in this package in order to avoid circular dependency with the "scheduleitem" package.
+	ScheduleItemsInverseTable = "schedule_items"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -132,6 +139,12 @@ var Columns = []string{
 	FieldActiveProjectID,
 	FieldHotkeys,
 }
+
+var (
+	// ScheduleItemsPrimaryKey and ScheduleItemsColumn2 are the table columns denoting the
+	// primary key for the scheduleItems relation (M2M).
+	ScheduleItemsPrimaryKey = []string{"schedule_item_id", "user_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -386,6 +399,20 @@ func ByApiKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newApiKeysStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByScheduleItemsCount orders the results by scheduleItems count.
+func ByScheduleItemsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newScheduleItemsStep(), opts...)
+	}
+}
+
+// ByScheduleItems orders the results by scheduleItems terms.
+func ByScheduleItems(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newScheduleItemsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newCamerasStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -426,5 +453,12 @@ func newApiKeysStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ApiKeysInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ApiKeysTable, ApiKeysColumn),
+	)
+}
+func newScheduleItemsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ScheduleItemsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, ScheduleItemsTable, ScheduleItemsPrimaryKey...),
 	)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -32,6 +33,7 @@ type ProjectQuery struct {
 	withUploads            *UploadQuery
 	withImages             *ImageQuery
 	withImageTags          *ImageTagQuery
+	withScheduleItems      *ScheduleItemQuery
 	withProjectAssignments *ProjectAssignmentQuery
 	withActiveForUsers     *UserQuery
 	modifiers              []func(*sql.Selector)
@@ -130,6 +132,28 @@ func (_q *ProjectQuery) QueryImageTags() *ImageTagQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(imagetag.Table, imagetag.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ImageTagsTable, project.ImageTagsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryScheduleItems chains the current query on the "scheduleItems" edge.
+func (_q *ProjectQuery) QueryScheduleItems() *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ScheduleItemsTable, project.ScheduleItemsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -376,6 +400,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withUploads:            _q.withUploads.Clone(),
 		withImages:             _q.withImages.Clone(),
 		withImageTags:          _q.withImageTags.Clone(),
+		withScheduleItems:      _q.withScheduleItems.Clone(),
 		withProjectAssignments: _q.withProjectAssignments.Clone(),
 		withActiveForUsers:     _q.withActiveForUsers.Clone(),
 		// clone intermediate query.
@@ -414,6 +439,17 @@ func (_q *ProjectQuery) WithImageTags(opts ...func(*ImageTagQuery)) *ProjectQuer
 		opt(query)
 	}
 	_q.withImageTags = query
+	return _q
+}
+
+// WithScheduleItems tells the query-builder to eager-load the nodes that are connected to
+// the "scheduleItems" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithScheduleItems(opts ...func(*ScheduleItemQuery)) *ProjectQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withScheduleItems = query
 	return _q
 }
 
@@ -517,10 +553,11 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withUploads != nil,
 			_q.withImages != nil,
 			_q.withImageTags != nil,
+			_q.withScheduleItems != nil,
 			_q.withProjectAssignments != nil,
 			_q.withActiveForUsers != nil,
 		}
@@ -564,6 +601,13 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadImageTags(ctx, query, nodes,
 			func(n *Project) { n.Edges.ImageTags = []*ImageTag{} },
 			func(n *Project, e *ImageTag) { n.Edges.ImageTags = append(n.Edges.ImageTags, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withScheduleItems; query != nil {
+		if err := _q.loadScheduleItems(ctx, query, nodes,
+			func(n *Project) { n.Edges.ScheduleItems = []*ScheduleItem{} },
+			func(n *Project, e *ScheduleItem) { n.Edges.ScheduleItems = append(n.Edges.ScheduleItems, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -656,11 +700,42 @@ func (_q *ProjectQuery) loadImageTags(ctx context.Context, query *ImageTagQuery,
 			init(nodes[i])
 		}
 	}
+	query.withFKs = true
 	if len(query.ctx.Fields) > 0 {
 		query.ctx.AppendFieldOnce(imagetag.FieldProjectID)
 	}
 	query.Where(predicate.ImageTag(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.ImageTagsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadScheduleItems(ctx context.Context, query *ScheduleItemQuery, nodes []*Project, init func(*Project), assign func(*Project, *ScheduleItem)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(scheduleitem.FieldProjectID)
+	}
+	query.Where(predicate.ScheduleItem(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.ScheduleItemsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

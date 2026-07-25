@@ -20,6 +20,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -37,6 +38,7 @@ type UserQuery struct {
 	withProjectAssignments *ProjectAssignmentQuery
 	withActiveProject      *ProjectQuery
 	withApiKeys            *ApiKeyQuery
+	withScheduleItems      *ScheduleItemQuery
 	modifiers              []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -199,6 +201,28 @@ func (_q *UserQuery) QueryApiKeys() *ApiKeyQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(apikey.Table, apikey.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.ApiKeysTable, user.ApiKeysColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryScheduleItems chains the current query on the "scheduleItems" edge.
+func (_q *UserQuery) QueryScheduleItems() *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, user.ScheduleItemsTable, user.ScheduleItemsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -404,6 +428,7 @@ func (_q *UserQuery) Clone() *UserQuery {
 		withProjectAssignments: _q.withProjectAssignments.Clone(),
 		withActiveProject:      _q.withActiveProject.Clone(),
 		withApiKeys:            _q.withApiKeys.Clone(),
+		withScheduleItems:      _q.withScheduleItems.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -473,6 +498,17 @@ func (_q *UserQuery) WithApiKeys(opts ...func(*ApiKeyQuery)) *UserQuery {
 		opt(query)
 	}
 	_q.withApiKeys = query
+	return _q
+}
+
+// WithScheduleItems tells the query-builder to eager-load the nodes that are connected to
+// the "scheduleItems" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithScheduleItems(opts ...func(*ScheduleItemQuery)) *UserQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withScheduleItems = query
 	return _q
 }
 
@@ -554,13 +590,14 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [7]bool{
 			_q.withCameras != nil,
 			_q.withUploads != nil,
 			_q.withImages != nil,
 			_q.withProjectAssignments != nil,
 			_q.withActiveProject != nil,
 			_q.withApiKeys != nil,
+			_q.withScheduleItems != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -624,6 +661,13 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadApiKeys(ctx, query, nodes,
 			func(n *User) { n.Edges.ApiKeys = []*ApiKey{} },
 			func(n *User, e *ApiKey) { n.Edges.ApiKeys = append(n.Edges.ApiKeys, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withScheduleItems; query != nil {
+		if err := _q.loadScheduleItems(ctx, query, nodes,
+			func(n *User) { n.Edges.ScheduleItems = []*ScheduleItem{} },
+			func(n *User, e *ScheduleItem) { n.Edges.ScheduleItems = append(n.Edges.ScheduleItems, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -809,6 +853,67 @@ func (_q *UserQuery) loadApiKeys(ctx context.Context, query *ApiKeyQuery, nodes 
 			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadScheduleItems(ctx context.Context, query *ScheduleItemQuery, nodes []*User, init func(*User), assign func(*User, *ScheduleItem)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[uuid.UUID]*User)
+	nids := make(map[string]map[*User]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(user.ScheduleItemsTable)
+		s.Join(joinT).On(s.C(scheduleitem.FieldID), joinT.C(user.ScheduleItemsPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(user.ScheduleItemsPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(user.ScheduleItemsPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(uuid.UUID)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := *values[0].(*uuid.UUID)
+				inValue := values[1].(*sql.NullString).String
+				if nids[inValue] == nil {
+					nids[inValue] = map[*User]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*ScheduleItem](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "scheduleItems" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }

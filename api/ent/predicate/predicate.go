@@ -33,6 +33,9 @@ type ProjectAssignment func(*sql.Selector)
 // Role is the predicate function for role builders.
 type Role func(*sql.Selector)
 
+// ScheduleItem is the predicate function for scheduleitem builders.
+type ScheduleItem func(*sql.Selector)
+
 // TimeOffset is the predicate function for timeoffset builders.
 type TimeOffset func(*sql.Selector)
 

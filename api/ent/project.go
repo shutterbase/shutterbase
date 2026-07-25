@@ -44,6 +44,10 @@ type Project struct {
 	AiSystemMessage string `json:"aiSystemMessage"`
 	// UploadReviewEnabled holds the value of the "uploadReviewEnabled" field.
 	UploadReviewEnabled bool `json:"uploadReviewEnabled"`
+	// StartAt holds the value of the "startAt" field.
+	StartAt *time.Time `json:"startAt,omitempty"`
+	// EndAt holds the value of the "endAt" field.
+	EndAt *time.Time `json:"endAt,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -58,13 +62,15 @@ type ProjectEdges struct {
 	Images []*Image `json:"images,omitempty"`
 	// ImageTags holds the value of the imageTags edge.
 	ImageTags []*ImageTag `json:"imageTags,omitempty"`
+	// ScheduleItems holds the value of the scheduleItems edge.
+	ScheduleItems []*ScheduleItem `json:"scheduleItems,omitempty"`
 	// ProjectAssignments holds the value of the projectAssignments edge.
 	ProjectAssignments []*ProjectAssignment `json:"projectAssignments,omitempty"`
 	// ActiveForUsers holds the value of the activeForUsers edge.
 	ActiveForUsers []*User `json:"activeForUsers,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // UploadsOrErr returns the Uploads value or an error if the edge
@@ -94,10 +100,19 @@ func (e ProjectEdges) ImageTagsOrErr() ([]*ImageTag, error) {
 	return nil, &NotLoadedError{edge: "imageTags"}
 }
 
+// ScheduleItemsOrErr returns the ScheduleItems value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) ScheduleItemsOrErr() ([]*ScheduleItem, error) {
+	if e.loadedTypes[3] {
+		return e.ScheduleItems, nil
+	}
+	return nil, &NotLoadedError{edge: "scheduleItems"}
+}
+
 // ProjectAssignmentsOrErr returns the ProjectAssignments value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ProjectAssignmentsOrErr() ([]*ProjectAssignment, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[4] {
 		return e.ProjectAssignments, nil
 	}
 	return nil, &NotLoadedError{edge: "projectAssignments"}
@@ -106,7 +121,7 @@ func (e ProjectEdges) ProjectAssignmentsOrErr() ([]*ProjectAssignment, error) {
 // ActiveForUsersOrErr returns the ActiveForUsers value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ActiveForUsersOrErr() ([]*User, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.ActiveForUsers, nil
 	}
 	return nil, &NotLoadedError{edge: "activeForUsers"}
@@ -123,7 +138,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case project.FieldID, project.FieldName, project.FieldDescription, project.FieldCopyright, project.FieldCopyrightReference, project.FieldLocationName, project.FieldLocationCode, project.FieldLocationCity, project.FieldAiSystemMessage:
 			values[i] = new(sql.NullString)
-		case project.FieldCreatedAt, project.FieldUpdatedAt:
+		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldStartAt, project.FieldEndAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -226,6 +241,20 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.UploadReviewEnabled = value.Bool
 			}
+		case project.FieldStartAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field startAt", values[i])
+			} else if value.Valid {
+				_m.StartAt = new(time.Time)
+				*_m.StartAt = value.Time
+			}
+		case project.FieldEndAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field endAt", values[i])
+			} else if value.Valid {
+				_m.EndAt = new(time.Time)
+				*_m.EndAt = value.Time
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -252,6 +281,11 @@ func (_m *Project) QueryImages() *ImageQuery {
 // QueryImageTags queries the "imageTags" edge of the Project entity.
 func (_m *Project) QueryImageTags() *ImageTagQuery {
 	return NewProjectClient(_m.config).QueryImageTags(_m)
+}
+
+// QueryScheduleItems queries the "scheduleItems" edge of the Project entity.
+func (_m *Project) QueryScheduleItems() *ScheduleItemQuery {
+	return NewProjectClient(_m.config).QueryScheduleItems(_m)
 }
 
 // QueryProjectAssignments queries the "projectAssignments" edge of the Project entity.
@@ -329,6 +363,16 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("uploadReviewEnabled=")
 	builder.WriteString(fmt.Sprintf("%v", _m.UploadReviewEnabled))
+	builder.WriteString(", ")
+	if v := _m.StartAt; v != nil {
+		builder.WriteString("startAt=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.EndAt; v != nil {
+		builder.WriteString("endAt=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

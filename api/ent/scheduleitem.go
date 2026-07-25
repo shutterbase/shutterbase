@@ -10,12 +10,12 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 )
 
-// ImageTag is the model entity for the ImageTag schema.
-type ImageTag struct {
+// ScheduleItem is the model entity for the ScheduleItem schema.
+type ScheduleItem struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID string `json:"id"`
@@ -27,37 +27,40 @@ type ImageTag struct {
 	CreatedBy *uuid.UUID `json:"createdBy,omitempty"`
 	// UpdatedBy holds the value of the "updatedBy" field.
 	UpdatedBy *uuid.UUID `json:"updatedBy,omitempty"`
-	// Name holds the value of the "name" field.
-	Name string `json:"name"`
+	// Title holds the value of the "title" field.
+	Title string `json:"title"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description"`
-	// IsAlbum holds the value of the "isAlbum" field.
-	IsAlbum bool `json:"isAlbum"`
-	// Type holds the value of the "type" field.
-	Type imagetag.Type `json:"type"`
+	// Start holds the value of the "start" field.
+	Start time.Time `json:"start"`
+	// End holds the value of the "end" field.
+	End time.Time `json:"end"`
+	// Cardinality holds the value of the "cardinality" field.
+	Cardinality int `json:"cardinality"`
 	// ProjectID holds the value of the "project_id" field.
 	ProjectID string `json:"-"`
 	// Edges holds the relations/edges for other nodes in the graph.
-	// The values are being populated by the ImageTagQuery when eager-loading is set.
-	Edges              ImageTagEdges `json:"edges"`
-	schedule_item_tags *string
-	selectValues       sql.SelectValues
+	// The values are being populated by the ScheduleItemQuery when eager-loading is set.
+	Edges        ScheduleItemEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
-// ImageTagEdges holds the relations/edges for other nodes in the graph.
-type ImageTagEdges struct {
+// ScheduleItemEdges holds the relations/edges for other nodes in the graph.
+type ScheduleItemEdges struct {
 	// Project holds the value of the project edge.
 	Project *Project `json:"project,omitempty"`
-	// TagAssignments holds the value of the tagAssignments edge.
-	TagAssignments []*ImageTagAssignment `json:"tagAssignments,omitempty"`
+	// Assignees holds the value of the assignees edge.
+	Assignees []*User `json:"assignees,omitempty"`
+	// Tags holds the value of the tags edge.
+	Tags []*ImageTag `json:"tags,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e ImageTagEdges) ProjectOrErr() (*Project, error) {
+func (e ScheduleItemEdges) ProjectOrErr() (*Project, error) {
 	if e.Project != nil {
 		return e.Project, nil
 	} else if e.loadedTypes[0] {
@@ -66,30 +69,37 @@ func (e ImageTagEdges) ProjectOrErr() (*Project, error) {
 	return nil, &NotLoadedError{edge: "project"}
 }
 
-// TagAssignmentsOrErr returns the TagAssignments value or an error if the edge
+// AssigneesOrErr returns the Assignees value or an error if the edge
 // was not loaded in eager-loading.
-func (e ImageTagEdges) TagAssignmentsOrErr() ([]*ImageTagAssignment, error) {
+func (e ScheduleItemEdges) AssigneesOrErr() ([]*User, error) {
 	if e.loadedTypes[1] {
-		return e.TagAssignments, nil
+		return e.Assignees, nil
 	}
-	return nil, &NotLoadedError{edge: "tagAssignments"}
+	return nil, &NotLoadedError{edge: "assignees"}
+}
+
+// TagsOrErr returns the Tags value or an error if the edge
+// was not loaded in eager-loading.
+func (e ScheduleItemEdges) TagsOrErr() ([]*ImageTag, error) {
+	if e.loadedTypes[2] {
+		return e.Tags, nil
+	}
+	return nil, &NotLoadedError{edge: "tags"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
-func (*ImageTag) scanValues(columns []string) ([]any, error) {
+func (*ScheduleItem) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case imagetag.FieldCreatedBy, imagetag.FieldUpdatedBy:
+		case scheduleitem.FieldCreatedBy, scheduleitem.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case imagetag.FieldIsAlbum:
-			values[i] = new(sql.NullBool)
-		case imagetag.FieldID, imagetag.FieldName, imagetag.FieldDescription, imagetag.FieldType, imagetag.FieldProjectID:
+		case scheduleitem.FieldCardinality:
+			values[i] = new(sql.NullInt64)
+		case scheduleitem.FieldID, scheduleitem.FieldTitle, scheduleitem.FieldDescription, scheduleitem.FieldProjectID:
 			values[i] = new(sql.NullString)
-		case imagetag.FieldCreatedAt, imagetag.FieldUpdatedAt:
+		case scheduleitem.FieldCreatedAt, scheduleitem.FieldUpdatedAt, scheduleitem.FieldStart, scheduleitem.FieldEnd:
 			values[i] = new(sql.NullTime)
-		case imagetag.ForeignKeys[0]: // schedule_item_tags
-			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -98,81 +108,80 @@ func (*ImageTag) scanValues(columns []string) ([]any, error) {
 }
 
 // assignValues assigns the values that were returned from sql.Rows (after scanning)
-// to the ImageTag fields.
-func (_m *ImageTag) assignValues(columns []string, values []any) error {
+// to the ScheduleItem fields.
+func (_m *ScheduleItem) assignValues(columns []string, values []any) error {
 	if m, n := len(values), len(columns); m < n {
 		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
 	for i := range columns {
 		switch columns[i] {
-		case imagetag.FieldID:
+		case scheduleitem.FieldID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value.Valid {
 				_m.ID = value.String
 			}
-		case imagetag.FieldCreatedAt:
+		case scheduleitem.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field createdAt", values[i])
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
 			}
-		case imagetag.FieldUpdatedAt:
+		case scheduleitem.FieldUpdatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field updatedAt", values[i])
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
 			}
-		case imagetag.FieldCreatedBy:
+		case scheduleitem.FieldCreatedBy:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field createdBy", values[i])
 			} else if value.Valid {
 				_m.CreatedBy = new(uuid.UUID)
 				*_m.CreatedBy = *value.S.(*uuid.UUID)
 			}
-		case imagetag.FieldUpdatedBy:
+		case scheduleitem.FieldUpdatedBy:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field updatedBy", values[i])
 			} else if value.Valid {
 				_m.UpdatedBy = new(uuid.UUID)
 				*_m.UpdatedBy = *value.S.(*uuid.UUID)
 			}
-		case imagetag.FieldName:
+		case scheduleitem.FieldTitle:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field name", values[i])
+				return fmt.Errorf("unexpected type %T for field title", values[i])
 			} else if value.Valid {
-				_m.Name = value.String
+				_m.Title = value.String
 			}
-		case imagetag.FieldDescription:
+		case scheduleitem.FieldDescription:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field description", values[i])
 			} else if value.Valid {
 				_m.Description = value.String
 			}
-		case imagetag.FieldIsAlbum:
-			if value, ok := values[i].(*sql.NullBool); !ok {
-				return fmt.Errorf("unexpected type %T for field isAlbum", values[i])
+		case scheduleitem.FieldStart:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field start", values[i])
 			} else if value.Valid {
-				_m.IsAlbum = value.Bool
+				_m.Start = value.Time
 			}
-		case imagetag.FieldType:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field type", values[i])
+		case scheduleitem.FieldEnd:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field end", values[i])
 			} else if value.Valid {
-				_m.Type = imagetag.Type(value.String)
+				_m.End = value.Time
 			}
-		case imagetag.FieldProjectID:
+		case scheduleitem.FieldCardinality:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field cardinality", values[i])
+			} else if value.Valid {
+				_m.Cardinality = int(value.Int64)
+			}
+		case scheduleitem.FieldProjectID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field project_id", values[i])
 			} else if value.Valid {
 				_m.ProjectID = value.String
-			}
-		case imagetag.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field schedule_item_tags", values[i])
-			} else if value.Valid {
-				_m.schedule_item_tags = new(string)
-				*_m.schedule_item_tags = value.String
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -181,44 +190,49 @@ func (_m *ImageTag) assignValues(columns []string, values []any) error {
 	return nil
 }
 
-// Value returns the ent.Value that was dynamically selected and assigned to the ImageTag.
+// Value returns the ent.Value that was dynamically selected and assigned to the ScheduleItem.
 // This includes values selected through modifiers, order, etc.
-func (_m *ImageTag) Value(name string) (ent.Value, error) {
+func (_m *ScheduleItem) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
-// QueryProject queries the "project" edge of the ImageTag entity.
-func (_m *ImageTag) QueryProject() *ProjectQuery {
-	return NewImageTagClient(_m.config).QueryProject(_m)
+// QueryProject queries the "project" edge of the ScheduleItem entity.
+func (_m *ScheduleItem) QueryProject() *ProjectQuery {
+	return NewScheduleItemClient(_m.config).QueryProject(_m)
 }
 
-// QueryTagAssignments queries the "tagAssignments" edge of the ImageTag entity.
-func (_m *ImageTag) QueryTagAssignments() *ImageTagAssignmentQuery {
-	return NewImageTagClient(_m.config).QueryTagAssignments(_m)
+// QueryAssignees queries the "assignees" edge of the ScheduleItem entity.
+func (_m *ScheduleItem) QueryAssignees() *UserQuery {
+	return NewScheduleItemClient(_m.config).QueryAssignees(_m)
 }
 
-// Update returns a builder for updating this ImageTag.
-// Note that you need to call ImageTag.Unwrap() before calling this method if this ImageTag
+// QueryTags queries the "tags" edge of the ScheduleItem entity.
+func (_m *ScheduleItem) QueryTags() *ImageTagQuery {
+	return NewScheduleItemClient(_m.config).QueryTags(_m)
+}
+
+// Update returns a builder for updating this ScheduleItem.
+// Note that you need to call ScheduleItem.Unwrap() before calling this method if this ScheduleItem
 // was returned from a transaction, and the transaction was committed or rolled back.
-func (_m *ImageTag) Update() *ImageTagUpdateOne {
-	return NewImageTagClient(_m.config).UpdateOne(_m)
+func (_m *ScheduleItem) Update() *ScheduleItemUpdateOne {
+	return NewScheduleItemClient(_m.config).UpdateOne(_m)
 }
 
-// Unwrap unwraps the ImageTag entity that was returned from a transaction after it was closed,
+// Unwrap unwraps the ScheduleItem entity that was returned from a transaction after it was closed,
 // so that all future queries will be executed through the driver which created the transaction.
-func (_m *ImageTag) Unwrap() *ImageTag {
+func (_m *ScheduleItem) Unwrap() *ScheduleItem {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: ImageTag is not a transactional entity")
+		panic("ent: ScheduleItem is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m
 }
 
 // String implements the fmt.Stringer.
-func (_m *ImageTag) String() string {
+func (_m *ScheduleItem) String() string {
 	var builder strings.Builder
-	builder.WriteString("ImageTag(")
+	builder.WriteString("ScheduleItem(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("createdAt=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
@@ -236,17 +250,20 @@ func (_m *ImageTag) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
-	builder.WriteString("name=")
-	builder.WriteString(_m.Name)
+	builder.WriteString("title=")
+	builder.WriteString(_m.Title)
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(_m.Description)
 	builder.WriteString(", ")
-	builder.WriteString("isAlbum=")
-	builder.WriteString(fmt.Sprintf("%v", _m.IsAlbum))
+	builder.WriteString("start=")
+	builder.WriteString(_m.Start.Format(time.ANSIC))
 	builder.WriteString(", ")
-	builder.WriteString("type=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Type))
+	builder.WriteString("end=")
+	builder.WriteString(_m.End.Format(time.ANSIC))
+	builder.WriteString(", ")
+	builder.WriteString("cardinality=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Cardinality))
 	builder.WriteString(", ")
 	builder.WriteString("project_id=")
 	builder.WriteString(_m.ProjectID)
@@ -254,5 +271,5 @@ func (_m *ImageTag) String() string {
 	return builder.String()
 }
 
-// ImageTags is a parsable slice of ImageTag.
-type ImageTags []*ImageTag
+// ScheduleItems is a parsable slice of ScheduleItem.
+type ScheduleItems []*ScheduleItem

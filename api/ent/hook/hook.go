@@ -117,6 +117,18 @@ func (f RoleFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.RoleMutation", m)
 }
 
+// The ScheduleItemFunc type is an adapter to allow the use of ordinary
+// function as ScheduleItem mutator.
+type ScheduleItemFunc func(context.Context, *ent.ScheduleItemMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ScheduleItemFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ScheduleItemMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ScheduleItemMutation", m)
+}
+
 // The TimeOffsetFunc type is an adapter to allow the use of ordinary
 // function as TimeOffset mutator.
 type TimeOffsetFunc func(context.Context, *ent.TimeOffsetMutation) (ent.Value, error)

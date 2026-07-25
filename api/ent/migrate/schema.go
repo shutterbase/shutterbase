@@ -225,6 +225,7 @@ var (
 		{Name: "is_album", Type: field.TypeBool, Default: false},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"template", "default", "manual", "custom"}},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
+		{Name: "schedule_item_tags", Type: field.TypeString, Nullable: true, Size: 15},
 	}
 	// ImageTagsTable holds the schema information for the "image_tags" table.
 	ImageTagsTable = &schema.Table{
@@ -237,6 +238,12 @@ var (
 				Columns:    []*schema.Column{ImageTagsColumns[9]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "image_tags_schedule_items_tags",
+				Columns:    []*schema.Column{ImageTagsColumns[10]},
+				RefColumns: []*schema.Column{ScheduleItemsColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
@@ -259,7 +266,7 @@ var (
 		{Name: "updatedAt", Type: field.TypeTime},
 		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "type", Type: field.TypeEnum, Enums: []string{"manual", "inferred", "default"}},
+		{Name: "type", Type: field.TypeEnum, Enums: []string{"manual", "inferred", "default", "scheduled"}},
 		{Name: "image_id", Type: field.TypeString, Size: 15},
 		{Name: "image_tag_id", Type: field.TypeString, Size: 15},
 	}
@@ -316,6 +323,8 @@ var (
 		{Name: "location_city", Type: field.TypeString},
 		{Name: "ai_system_message", Type: field.TypeString, Nullable: true},
 		{Name: "upload_review_enabled", Type: field.TypeBool, Default: false},
+		{Name: "start_at", Type: field.TypeTime, Nullable: true},
+		{Name: "end_at", Type: field.TypeTime, Nullable: true},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{
@@ -393,6 +402,46 @@ var (
 		Columns:    RolesColumns,
 		PrimaryKey: []*schema.Column{RolesColumns[0]},
 	}
+	// ScheduleItemsColumns holds the columns for the "schedule_items" table.
+	ScheduleItemsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "title", Type: field.TypeString},
+		{Name: "description", Type: field.TypeString, Nullable: true},
+		{Name: "start", Type: field.TypeTime},
+		{Name: "end", Type: field.TypeTime},
+		{Name: "cardinality", Type: field.TypeInt, Default: 1},
+		{Name: "project_id", Type: field.TypeString, Size: 15},
+	}
+	// ScheduleItemsTable holds the schema information for the "schedule_items" table.
+	ScheduleItemsTable = &schema.Table{
+		Name:       "schedule_items",
+		Columns:    ScheduleItemsColumns,
+		PrimaryKey: []*schema.Column{ScheduleItemsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "schedule_items_projects_scheduleItems",
+				Columns:    []*schema.Column{ScheduleItemsColumns[10]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "scheduleitem_project_id",
+				Unique:  false,
+				Columns: []*schema.Column{ScheduleItemsColumns[10]},
+			},
+			{
+				Name:    "scheduleitem_project_id_start",
+				Unique:  false,
+				Columns: []*schema.Column{ScheduleItemsColumns[10], ScheduleItemsColumns[7]},
+			},
+		},
+	}
 	// TimeOffsetsColumns holds the columns for the "time_offsets" table.
 	TimeOffsetsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -441,6 +490,7 @@ var (
 		{Name: "time_to_ready_seconds", Type: field.TypeInt, Default: 0},
 		{Name: "cycle_started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "error_image_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "timeline", Type: field.TypeJSON, Nullable: true},
 		{Name: "camera_id", Type: field.TypeString, Size: 15},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
 		{Name: "user_id", Type: field.TypeUUID},
@@ -453,19 +503,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "uploads_cameras_uploads",
-				Columns:    []*schema.Column{UploadsColumns[13]},
+				Columns:    []*schema.Column{UploadsColumns[14]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "uploads_projects_uploads",
-				Columns:    []*schema.Column{UploadsColumns[14]},
+				Columns:    []*schema.Column{UploadsColumns[15]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "uploads_users_uploads",
-				Columns:    []*schema.Column{UploadsColumns[15]},
+				Columns:    []*schema.Column{UploadsColumns[16]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -474,22 +524,22 @@ var (
 			{
 				Name:    "upload_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[14]},
+				Columns: []*schema.Column{UploadsColumns[15]},
 			},
 			{
 				Name:    "upload_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[15]},
+				Columns: []*schema.Column{UploadsColumns[16]},
 			},
 			{
 				Name:    "upload_camera_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[13]},
+				Columns: []*schema.Column{UploadsColumns[14]},
 			},
 			{
 				Name:    "upload_project_id_state",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[14], UploadsColumns[6]},
+				Columns: []*schema.Column{UploadsColumns[15], UploadsColumns[6]},
 			},
 		},
 	}
@@ -541,6 +591,31 @@ var (
 			},
 		},
 	}
+	// ScheduleItemAssigneesColumns holds the columns for the "schedule_item_assignees" table.
+	ScheduleItemAssigneesColumns = []*schema.Column{
+		{Name: "schedule_item_id", Type: field.TypeString, Size: 15},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// ScheduleItemAssigneesTable holds the schema information for the "schedule_item_assignees" table.
+	ScheduleItemAssigneesTable = &schema.Table{
+		Name:       "schedule_item_assignees",
+		Columns:    ScheduleItemAssigneesColumns,
+		PrimaryKey: []*schema.Column{ScheduleItemAssigneesColumns[0], ScheduleItemAssigneesColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "schedule_item_assignees_schedule_item_id",
+				Columns:    []*schema.Column{ScheduleItemAssigneesColumns[0]},
+				RefColumns: []*schema.Column{ScheduleItemsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "schedule_item_assignees_user_id",
+				Columns:    []*schema.Column{ScheduleItemAssigneesColumns[1]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
@@ -552,9 +627,11 @@ var (
 		ProjectsTable,
 		ProjectAssignmentsTable,
 		RolesTable,
+		ScheduleItemsTable,
 		TimeOffsetsTable,
 		UploadsTable,
 		UsersTable,
+		ScheduleItemAssigneesTable,
 	}
 )
 
@@ -566,14 +643,18 @@ func init() {
 	ImagesTable.ForeignKeys[2].RefTable = UploadsTable
 	ImagesTable.ForeignKeys[3].RefTable = UsersTable
 	ImageTagsTable.ForeignKeys[0].RefTable = ProjectsTable
+	ImageTagsTable.ForeignKeys[1].RefTable = ScheduleItemsTable
 	ImageTagAssignmentsTable.ForeignKeys[0].RefTable = ImagesTable
 	ImageTagAssignmentsTable.ForeignKeys[1].RefTable = ImageTagsTable
 	ProjectAssignmentsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ProjectAssignmentsTable.ForeignKeys[1].RefTable = RolesTable
 	ProjectAssignmentsTable.ForeignKeys[2].RefTable = UsersTable
+	ScheduleItemsTable.ForeignKeys[0].RefTable = ProjectsTable
 	TimeOffsetsTable.ForeignKeys[0].RefTable = CamerasTable
 	UploadsTable.ForeignKeys[0].RefTable = CamerasTable
 	UploadsTable.ForeignKeys[1].RefTable = ProjectsTable
 	UploadsTable.ForeignKeys[2].RefTable = UsersTable
 	UsersTable.ForeignKeys[0].RefTable = ProjectsTable
+	ScheduleItemAssigneesTable.ForeignKeys[0].RefTable = ScheduleItemsTable
+	ScheduleItemAssigneesTable.ForeignKeys[1].RefTable = UsersTable
 }
