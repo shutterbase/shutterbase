@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -88,6 +89,15 @@ func (s *Server) getImageTag(c *gin.Context) {
 	c.JSON(http.StatusOK, s.imageTagResponse(c.Request.Context(), t))
 }
 
+// validTemplateName guards the one thing that makes a template tag work: the
+// "$" prefix. service.renderTemplate only substitutes names starting with it
+// ($PROJECT/$DATE/$WEEKDAY/$COPYRIGHT, anything else "$X" -> literal "X"), and
+// logs-and-ignores the rest — so a template tag without it is silently dead.
+// Non-template types may be named anything.
+func validTemplateName(t imagetag.Type, name string) bool {
+	return t != imagetag.TypeTemplate || strings.HasPrefix(name, "$")
+}
+
 type createImageTagPayload struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
@@ -108,8 +118,8 @@ func (s *Server) createImageTag(c *gin.Context) {
 		apiError(c, http.StatusBadRequest, "invalid_type", "invalid tag type")
 		return
 	}
-	if t == imagetag.TypeTemplate {
-		apiError(c, http.StatusBadRequest, "invalid_type", "template tags are not creatable via the API")
+	if !validTemplateName(t, payload.Name) {
+		apiError(c, http.StatusBadRequest, "invalid_template_name", `a template tag's name must start with "$" (e.g. $COPYRIGHT)`)
 		return
 	}
 	if !allow(c, authorization.CanCreateImageTag(authUser(c), payload.ProjectID, string(t))) {
@@ -158,12 +168,23 @@ func (s *Server) updateImageTag(c *gin.Context) {
 	resultingType := string(existing.Type)
 	if payload.Type != nil {
 		t := imagetag.Type(*payload.Type)
-		if err := imagetag.TypeValidator(t); err != nil || t == imagetag.TypeTemplate {
+		if err := imagetag.TypeValidator(t); err != nil {
 			apiError(c, http.StatusBadRequest, "invalid_type", "invalid tag type")
 			return
 		}
 		params.Type = &t
 		resultingType = string(t)
+	}
+	// The resulting name matters, not just the new one: renaming a template tag
+	// out of its "$" prefix would leave it rendering nothing, same as creating
+	// one without it.
+	resultingName := existing.Name
+	if payload.Name != nil {
+		resultingName = *payload.Name
+	}
+	if !validTemplateName(imagetag.Type(resultingType), resultingName) {
+		apiError(c, http.StatusBadRequest, "invalid_template_name", `a template tag's name must start with "$" (e.g. $COPYRIGHT)`)
+		return
 	}
 	// authz by the resulting type, scoped to the tag's project (§4.4).
 	if !allow(c, authorization.CanEditImageTag(authUser(c), existing.ProjectID, resultingType)) {

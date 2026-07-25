@@ -189,8 +189,14 @@ func TestCanCreateImageTag(t *testing.T) {
 	assert.True(t, CanCreateImageTag(editor, proj, "custom"), "custom editor allowed")
 	assert.False(t, CanCreateImageTag(none, proj, "custom"), "custom non-member denied")
 
-	// template + unknown -> never.
-	assert.False(t, CanCreateImageTag(admin, proj, "template"))
+	// template -> admin/projectAdmin only: it drives automatic tagging for the
+	// whole project, so it sits with default/manual, not with custom.
+	assert.True(t, CanCreateImageTag(admin, proj, "template"), "template admin allowed")
+	assert.True(t, CanCreateImageTag(pAdmin, proj, "template"), "template projectAdmin allowed")
+	assert.False(t, CanCreateImageTag(editor, proj, "template"), "template editor denied")
+	assert.False(t, CanCreateImageTag(none, proj, "template"), "template non-member denied")
+
+	// unknown -> never.
 	assert.False(t, CanCreateImageTag(admin, proj, "bogus"))
 }
 
