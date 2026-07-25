@@ -37,5 +37,14 @@ bunx playwright show-report              # last HTML report
 - `smoke.spec.ts` — every route renders without JS errors (admin).
 - `gallery.spec.ts` — density / search / tag filter / sort / orientation.
 - `project-tags.spec.ts` — tag create + delete through the dialog.
+- `upload.spec.ts` — the browser ingest pipeline end to end: real JPEG → WASM resize/EXIF
+  → presigned S3 PUT → image record. **Extra prerequisites:** the WASM module must be built
+  (`./image-wasm/hack/build.sh`) and S3/RustFS must be reachable, because this spec moves
+  real bytes. Fixture in `fixtures/` — its name carries a 4-digit frame number and its EXIF
+  carries `DateTimeOriginal`, both of which the pipeline requires.
+
+Note on `smoke.spec.ts`: route-render coverage is not pipeline coverage. It visits
+`/uploads/:id/edit`, but the page's WASM offset mapping is a lazy `computed` with no
+template consumer, so rendering never evaluates it. `upload.spec.ts` is what covers it.
 
 The suite runs serially (`workers: 1`) because all tests share one backend DB.

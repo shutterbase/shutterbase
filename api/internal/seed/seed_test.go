@@ -104,4 +104,13 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 	// Invariant: timeOffset = serverTime - cameraTime (drift).
 	assert.Equal(t, m.DriftSeconds, int(freshOff.ServerTime.Sub(freshOff.CameraTime).Seconds()))
 	assert.Equal(t, freshOff.TimeOffset, int(freshOff.ServerTime.Sub(freshOff.CameraTime).Seconds()))
+
+	// Every seeded user must be able to upload: the browser pipeline refuses to
+	// process an image when the user has no copyrightTag, so a seed without one
+	// leaves a fresh dev DB unable to upload at all.
+	for key, id := range m.Users {
+		u, err := c.User.Get(ctx, id)
+		require.NoError(t, err)
+		assert.NotEmpty(t, u.CopyrightTag, "seeded user %s needs a copyrightTag", key)
+	}
 }

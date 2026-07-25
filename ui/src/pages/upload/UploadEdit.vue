@@ -95,14 +95,7 @@ const uploadedImages = ref<Image[]>([]);
 const displayedImages = computed(() => [...uploadedImages.value, ...images.value]);
 
 const cameraTimeOffsets = ref<TimeOffset[]>([]);
-const timeOffsets = computed(() =>
-  cameraTimeOffsets.value.map((timeOffset) => ({
-    free: (): void => {},
-    time_offset: BigInt(timeOffset.timeOffset),
-    server_time: BigInt(dateTimeUtil.parseBackendTime(timeOffset.serverTime).getTime() / 1000),
-    camera_time: BigInt(dateTimeUtil.parseBackendTime(timeOffset.cameraTime).getTime() / 1000),
-  })),
-);
+const timeOffsets = computed(() => dateTimeUtil.toWasmTimeOffsets(cameraTimeOffsets.value));
 
 const uploadForProcessor = computed(() => upload.value as UploadsResponse);
 const fileProcessor = new FileProcessor(uploadForProcessor, images, timeOffsets);
