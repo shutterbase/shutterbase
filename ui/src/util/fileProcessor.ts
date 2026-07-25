@@ -189,6 +189,9 @@ export class FileProcessor {
         return;
       }
 
+      // The copyright tag is no longer needed for processing (the server names
+      // the file), but a photographer without one would get an unnamed image —
+      // still worth refusing here rather than after the S3 upload.
       const copyrightTag = useUserStore().user?.copyrightTag;
       if (copyrightTag == null || copyrightTag == "") {
         error("No copyright tag available");
@@ -197,9 +200,7 @@ export class FileProcessor {
       }
 
       const options: FileProcessorOptions = {
-        file_name: image.originalFileName,
         time_offsets: this.timeOffsets.value,
-        copyright_tag: copyrightTag,
         dimensions: FILE_DIMENSIONS,
         thumbnail_size: 256,
         // cookie-session: WASM uploads use credentials:include, no bearer token.
@@ -217,7 +218,6 @@ export class FileProcessor {
         image.storageId = processingResult.storage_id;
         image.cameraTime = DateTime.fromSeconds(processingResult.camera_time_unix_seconds);
         image.correctedTime = DateTime.fromSeconds(processingResult.corrected_camera_time_unix_seconds);
-        image.computedFileName = processingResult.computed_file_name;
         image.thumbnail = processingResult.thumbnail;
         image.exifData = Object.fromEntries(processingResult.metadata);
         image.width = processingResult.original_width;
@@ -249,6 +249,11 @@ export class FileProcessor {
         })
         .then((response) => {
           image.id = response.id;
+          // The server owns the canonical name — it renders the timestamp in the
+          // event zone (TIMEZONE), which a browser cannot know. Taking it from
+          // the response keeps the tile identical to the persisted name instead
+          // of computing a second, browser-zone version of the same rule.
+          image.computedFileName = response.computedFileName;
           resolve();
         })
         .catch((err) => {
