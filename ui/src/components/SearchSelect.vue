@@ -21,8 +21,11 @@
           :placeholder="placeholder"
           autocomplete="off"
           @change="query = $event.target.value"
-          @blur="query = ''"
         />
+        <!-- No @blur query reset: clicking an option blurs the input FIRST,
+             and re-filtering re-renders the list between mousedown and
+             mouseup — the selection lands on a detached node and dies. The
+             dropdown's after-leave transition clears the query instead. -->
         <ComboboxButton class="absolute inset-y-0 right-0 flex items-center px-2 text-primary-400 hover:text-primary-600 dark:hover:text-primary-200">
           <ChevronUpDownIcon class="h-5 w-5" aria-hidden="true" />
           <span class="sr-only">Toggle options</span>

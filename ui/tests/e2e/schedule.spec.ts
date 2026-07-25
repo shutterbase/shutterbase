@@ -28,6 +28,13 @@ test.describe.serial("schedule module", () => {
     await dialog.getByLabel("Start").fill(START);
     await dialog.getByLabel("End").fill(END);
     await dialog.getByLabel("Cardinality").fill("1");
+
+    // Tag suggestions are picked through the searchable combobox (hundreds of
+    // tags in a real project — no chip cloud): type, pick, chip appears.
+    await dialog.getByPlaceholder(/Search tags/).fill("podi");
+    await dialog.getByRole("option", { name: /Podium/ }).click();
+    await expect(dialog.getByRole("button", { name: "Remove tag Podium" })).toBeVisible();
+
     await dialog.getByRole("button", { name: "Add item" }).click();
     await expect(dialog).toBeHidden();
 
@@ -116,6 +123,8 @@ test.describe.serial("schedule module", () => {
 
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Edit schedule item")).toBeVisible();
+    // The tag suggestion picked at creation persisted and renders as a chip.
+    await expect(dialog.getByRole("button", { name: "Remove tag Podium" })).toBeVisible();
     await dialog.getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("button").filter({ hasText: TITLE })).toHaveCount(0);
     await page.reload();

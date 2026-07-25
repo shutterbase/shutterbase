@@ -78,27 +78,42 @@
                   </label>
                 </div>
 
-                <!-- tag suggestions -->
+                <!-- tag suggestions: searchable picker + removable chips —
+                     projects end up with hundreds of tags, a chip cloud
+                     doesn't scale. -->
                 <div>
                   <p class="text-sm font-medium text-primary-700 dark:text-primary-200">Tag suggestions</p>
                   <p class="text-xs text-primary-500 dark:text-primary-400">Applied by the upload timeline to photos taken in this window.</p>
-                  <div class="mt-2 flex max-h-40 flex-wrap gap-2 overflow-y-auto">
-                    <button
-                      v-for="tag in selectableTags"
-                      :key="tag.id"
-                      type="button"
-                      @click="toggleTag(tag.id)"
-                      :class="[
-                        'cursor-pointer rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
-                        draft.tagIds.includes(tag.id)
-                          ? 'border-accent-500 bg-accent-500/15 text-accent-700 dark:text-accent-200'
-                          : 'border-primary-200 text-primary-500 hover:border-primary-300 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200',
-                      ]"
-                    >
-                      {{ tag.name }}
-                    </button>
-                    <p v-if="selectableTags.length === 0" class="text-xs text-primary-400">No tags in this project yet.</p>
+                  <div class="mt-2">
+                    <SearchSelect
+                      id="tag-suggestion-search"
+                      v-model="tagPick"
+                      aria-label="Search tags"
+                      placeholder="Search tags…"
+                      empty-text="No tag matches"
+                      width-class="w-full"
+                      :options="tagOptions"
+                      :disabled="tagOptions.length === 0 && draft.tagIds.length === 0"
+                    />
                   </div>
+                  <div v-if="draft.tagIds.length" class="mt-2 flex flex-wrap gap-1.5">
+                    <span
+                      v-for="tagId in draft.tagIds"
+                      :key="tagId"
+                      class="inline-flex items-center gap-1 rounded-full border border-accent-500 bg-accent-500/15 py-0.5 pl-2.5 pr-1 text-xs font-medium text-accent-700 dark:text-accent-200"
+                    >
+                      {{ tagName(tagId) }}
+                      <button
+                        type="button"
+                        class="flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-accent-500/25"
+                        :aria-label="`Remove tag ${tagName(tagId)}`"
+                        @click="removeTag(tagId)"
+                      >
+                        <XMarkIcon class="h-3 w-3" />
+                      </button>
+                    </span>
+                  </div>
+                  <p v-else-if="selectableTags.length === 0" class="mt-2 text-xs text-primary-400">No tags in this project yet.</p>
                 </div>
               </div>
 
@@ -131,6 +146,7 @@ import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } fro
 import { CalendarDaysIcon, TrashIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import { DateTime } from "luxon";
 import { computed, ref, watch } from "vue";
+import SearchSelect, { SearchSelectOption } from "src/components/SearchSelect.vue";
 import { ImageTag, ScheduleItem } from "src/types/api";
 import { ScheduleItemCreate, ScheduleItemUpdate } from "src/api/scheduleItems";
 
@@ -191,10 +207,28 @@ const valid = computed(
   () => draft.value.title.trim() !== "" && draft.value.start !== "" && draft.value.end !== "" && toISO(draft.value.end) > toISO(draft.value.start) && draft.value.cardinality >= 1,
 );
 
-function toggleTag(id: string) {
-  const idx = draft.value.tagIds.indexOf(id);
-  if (idx >= 0) draft.value.tagIds.splice(idx, 1);
-  else draft.value.tagIds.push(id);
+// Searchable tag picker: choosing an option adds a chip and resets the input.
+const tagPick = ref("");
+const tagOptions = computed<SearchSelectOption[]>(() =>
+  selectableTags.value
+    .filter((t) => !draft.value.tagIds.includes(t.id))
+    .map((t) => ({ value: t.id, label: t.name, hint: t.type }))
+    .sort((a, b) => a.label.localeCompare(b.label)),
+);
+watch(tagPick, (id) => {
+  if (id && !draft.value.tagIds.includes(id)) draft.value.tagIds.push(id);
+  if (id) tagPick.value = "";
+});
+
+// Chip labels: prefer the loaded project tags; an item may still reference a
+// tag that fell out of the selectable set (e.g. type changed) — fall back to
+// the item's own embedded tag names.
+function tagName(id: string): string {
+  return props.projectTags.find((t) => t.id === id)?.name ?? props.item?.tags.find((t) => t.id === id)?.name ?? id;
+}
+
+function removeTag(id: string) {
+  draft.value.tagIds = draft.value.tagIds.filter((t) => t !== id);
 }
 
 function save() {
