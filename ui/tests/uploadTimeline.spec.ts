@@ -13,6 +13,7 @@ import {
   initialTracks,
   moveEdge,
   setEnabled,
+  stepEdgeByImages,
   timelineWindow,
   toApiTracks,
 } from "src/util/uploadTimeline";
@@ -109,6 +110,36 @@ describe("moveEdge", () => {
   });
 });
 
+describe("stepEdgeByImages — hotkeys step pictures, not minutes", () => {
+  // four pictures an hour apart; the axis ends MIN_TRACK_MS past the last one
+  const images = [img("a", T0), img("b", T0 + H), img("c", T0 + 2 * H), img("d", T0 + 3 * H)];
+  const window = timelineWindow(images, []);
+  const t = track("t", T0 + H, T0 + 3 * H, { tagId: "x" }); // covers b, c
+
+  const step = (edge: "start" | "end", delta: number) => stepEdgeByImages(images, t, edge, delta, window);
+  const covered = (start: number, end: number) => imagesInTrack(images, { ...t, start, end }).map((i) => i.id);
+
+  it("the out-point takes in / drops exactly one picture per step", () => {
+    expect(covered(t.start, step("end", 1))).toEqual(["b", "c", "d"]);
+    expect(covered(t.start, step("end", -1))).toEqual(["b"]);
+  });
+
+  it("the in-point takes in / drops exactly one picture per step", () => {
+    expect(covered(step("start", -1), t.end)).toEqual(["a", "b", "c"]);
+    expect(covered(step("start", 1), t.end)).toEqual(["c"]);
+  });
+
+  it("stepping past the last picture parks at the axis end, keeping it covered", () => {
+    expect(step("end", 10)).toBe(window.end);
+    expect(covered(t.start, step("end", 10))).toEqual(["b", "c", "d"]);
+  });
+
+  it("clamps at the first picture and no-ops without images", () => {
+    expect(step("start", -10)).toBe(T0);
+    expect(stepEdgeByImages([], t, "end", 1, window)).toBe(t.end);
+  });
+});
+
 describe("setEnabled", () => {
   it("refuses enabling into a schedule collision", () => {
     const a = sched("a", T0, T0 + 2 * H);
@@ -146,13 +177,36 @@ describe("initialTracks (transcript 21:37)", () => {
     expect(tracks[0].enabled).toBe(true);
   });
 
-  it("persisted state wins and restores disabled lanes verbatim", () => {
+  it("restores persisted lanes verbatim, incl. disabled ones", () => {
     const persisted = [{ tagId: "x", start: new Date(T0).toISOString(), end: new Date(T0 + H).toISOString(), enabled: false }];
-    const tracks = initialTracks(persisted, [scheduleItem("hit", T0, T0 + H)], images, labels);
+    const tracks = initialTracks(persisted, [], images, labels);
     expect(tracks).toHaveLength(1);
     expect(tracks[0].tagId).toBe("x");
     expect(tracks[0].label).toBe("tag-x");
     expect(tracks[0].enabled).toBe(false);
+  });
+
+  it("merges items assigned AFTER the timeline was applied, keeping edited lanes untouched", () => {
+    // "old" was already applied and its out-point dragged back; "new" was
+    // assigned in the schedule afterwards and must show up on its own.
+    const persisted = [{ scheduleItemId: "old", start: new Date(T0).toISOString(), end: new Date(T0 + H).toISOString(), enabled: true }];
+    const mine = [scheduleItem("old", T0, T0 + 3 * H), scheduleItem("new", T0 + 90 * 60_000, T0 + 2 * H)];
+    const tracks = initialTracks(persisted, mine, images, labels);
+    expect(tracks.map((t) => t.scheduleItemId)).toEqual(["old", "new"]);
+    expect(tracks[0].end).toBe(T0 + H); // the dragged out-point survives
+    expect(tracks[1].enabled).toBe(true);
+  });
+
+  it("a merged item overlapping an enabled lane arrives disabled", () => {
+    const persisted = [{ scheduleItemId: "old", start: new Date(T0).toISOString(), end: new Date(T0 + 3 * H).toISOString(), enabled: true }];
+    const tracks = initialTracks(persisted, [scheduleItem("new", T0 + H, T0 + 2 * H)], images, labels);
+    expect(tracks[1].scheduleItemId).toBe("new");
+    expect(tracks[1].enabled).toBe(false);
+  });
+
+  it("keeps the persisted timeline while no image carries a time yet", () => {
+    const persisted = [{ tagId: "x", start: new Date(T0).toISOString(), end: new Date(T0 + H).toISOString(), enabled: true }];
+    expect(initialTracks(persisted, [scheduleItem("hit", T0, T0 + H)], [], labels)).toHaveLength(1);
   });
 });
 

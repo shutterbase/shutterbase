@@ -84,6 +84,21 @@ export function moveEdge(track: EditorTrack, edge: "start" | "end", to: number, 
   return { ...track, end };
 }
 
+// stepEdgeByImages: keyboard nudging steps in PICTURES, not minutes — the
+// photographer thinks in frames, and a minute may hold 0 or 30 of them.
+// `delta` is the arrow direction (negative = left) times the step size; the
+// edge snaps onto an image time so each step moves the covered set by exactly
+// that many pictures ([start, end): the in-point lands ON its first image, the
+// out-point on the first excluded one). Past the last image the edge parks at
+// the axis end so the final picture stays coverable.
+export function stepEdgeByImages(images: TimedImage[], track: EditorTrack, edge: "start" | "end", delta: number, window: { start: number; end: number }): number {
+  const times = images.map((i) => i.time).sort((a, b) => a - b);
+  if (times.length === 0) return edge === "start" ? track.start : track.end;
+  const current = edge === "end" ? times.filter((t) => t < track.end).length : times.findIndex((t) => t >= track.start);
+  const index = Math.min(Math.max((current === -1 ? times.length : current) + delta, 0), times.length);
+  return index < times.length ? times[index] : window.end;
+}
+
 // setEnabled: enabling a schedule track is refused while it would overlap
 // another enabled schedule track (the mirror of the server's 400).
 export function setEnabled(track: EditorTrack, enabled: boolean, tracks: EditorTrack[]): EditorTrack | null {
@@ -112,39 +127,31 @@ export function boundaryImages(images: TimedImage[], track: EditorTrack): { befo
   };
 }
 
-// initialTracks: what the editor opens with. The persisted upload timeline
-// wins (the editor reopens exactly as left, incl. disabled lanes); otherwise
-// the uploader's own schedule items intersecting the image span are
-// pre-populated at their real windows (transcript 21:37).
+// initialTracks: what the editor opens with. The persisted upload timeline is
+// restored verbatim (the editor reopens exactly as left, incl. disabled lanes),
+// then the uploader's own schedule items intersecting the image span are merged
+// on top at their real windows (transcript 21:37) — an item assigned AFTER the
+// timeline was first applied still shows up on its own. Already-present items
+// are skipped by addScheduleTrack, so restored lanes keep their edited
+// in/out points and their enabled flag.
 export function initialTracks(
   persisted: TimelineTrack[] | undefined,
   myItems: ScheduleItem[],
   images: TimedImage[],
   labels: { scheduleItem: (id: string) => string; tag: (id: string) => string },
 ): EditorTrack[] {
-  if (persisted && persisted.length > 0) {
-    return persisted.map((t, i) => ({
-      key: `p${i}`,
-      scheduleItemId: t.scheduleItemId || undefined,
-      tagId: t.tagId || undefined,
-      label: t.scheduleItemId ? labels.scheduleItem(t.scheduleItemId) : labels.tag(t.tagId ?? ""),
-      start: Date.parse(t.start),
-      end: Date.parse(t.end),
-      enabled: t.enabled,
-    }));
-  }
-  if (images.length === 0) return [];
+  const restored = (persisted ?? []).map((t, i) => ({
+    key: `p${i}`,
+    scheduleItemId: t.scheduleItemId || undefined,
+    tagId: t.tagId || undefined,
+    label: t.scheduleItemId ? labels.scheduleItem(t.scheduleItemId) : labels.tag(t.tagId ?? ""),
+    start: Date.parse(t.start),
+    end: Date.parse(t.end),
+    enabled: t.enabled,
+  }));
+  if (images.length === 0) return restored;
   const span = { start: Math.min(...images.map((i) => i.time)), end: Math.max(...images.map((i) => i.time)) };
-  return myItems
-    .filter((item) => Date.parse(item.start) < span.end && Date.parse(item.end) > span.start)
-    .map((item) => ({
-      key: `s${item.id}`,
-      scheduleItemId: item.id,
-      label: item.title,
-      start: Date.parse(item.start),
-      end: Date.parse(item.end),
-      enabled: true,
-    }));
+  return myItems.filter((item) => Date.parse(item.start) < span.end && Date.parse(item.end) > span.start).reduce(addScheduleTrack, restored);
 }
 
 // addTagTrack / addScheduleTrack: the lane pickers. New tag lanes span the

@@ -3,9 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold tracking-tight text-primary-900 dark:text-white">Tagging timeline</h2>
-        <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">
-          Your schedule items land here automatically — drag the in/out points, stack extra tag lanes, then apply.
-        </p>
+        <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">Your schedule items land here automatically — drag the in/out points, stack extra tag lanes, then apply.</p>
       </div>
 
       <div class="flex flex-wrap items-center gap-2" v-if="!readonly">
@@ -51,21 +49,11 @@
     <div v-else class="mt-4 select-none rounded-lg border border-primary-200 bg-surface p-4 dark:border-primary-800 dark:bg-surface-dark">
       <!-- image density strip -->
       <div class="relative ml-36 h-4">
-        <span
-          v-for="timed in timedImages"
-          :key="timed.id"
-          class="absolute top-1 h-2 w-px bg-primary-300 dark:bg-primary-600"
-          :style="{ left: `${pct(timed.time)}%` }"
-        ></span>
+        <span v-for="timed in timedImages" :key="timed.id" class="absolute top-1 h-2 w-px bg-primary-300 dark:bg-primary-600" :style="{ left: `${pct(timed.time)}%` }"></span>
       </div>
 
       <!-- lanes -->
-      <div
-        v-for="tr in tracks"
-        :key="tr.key"
-        class="flex items-center gap-2 py-1.5"
-        @click="selectedKey = tr.key"
-      >
+      <div v-for="tr in tracks" :key="tr.key" class="flex items-center gap-2 py-1.5" @click="selectedKey = tr.key">
         <div class="flex w-34 flex-shrink-0 items-center gap-1.5 overflow-hidden" style="width: 8.5rem">
           <component :is="tr.scheduleItemId ? CalendarDaysIcon : TagIcon" class="h-3.5 w-3.5 flex-shrink-0 text-primary-400" />
           <span class="min-w-0 flex-1 truncate text-xs font-medium text-primary-700 dark:text-primary-200" :title="tr.label">{{ tr.label }}</span>
@@ -89,9 +77,7 @@
             :data-testid="`lane-${tr.key}`"
             :class="[
               'absolute inset-y-1 rounded-md border text-[10px] leading-none transition-shadow',
-              tr.scheduleItemId
-                ? 'border-accent-500 bg-accent-500/25 text-accent-800 dark:text-accent-100'
-                : 'border-sky-500 bg-sky-500/20 text-sky-800 dark:text-sky-100',
+              tr.scheduleItemId ? 'border-accent-500 bg-accent-500/25 text-accent-800 dark:text-accent-100' : 'border-sky-500 bg-sky-500/20 text-sky-800 dark:text-sky-100',
               tr.enabled ? '' : 'opacity-35 saturate-0',
               selectedKey === tr.key ? 'shadow-md ring-1 ring-accent-500/70' : '',
               readonly ? '' : 'cursor-pointer',
@@ -121,12 +107,7 @@
 
       <!-- hour labels (transcript 26:47: real clock underneath) -->
       <div class="relative ml-36 mt-1 h-4">
-        <span
-          v-for="tick in hourTicks"
-          :key="tick.time"
-          class="absolute -translate-x-1/2 text-[10px] tabular-nums text-primary-400"
-          :style="{ left: `${tick.pct}%` }"
-        >
+        <span v-for="tick in hourTicks" :key="tick.time" class="absolute -translate-x-1/2 text-[10px] tabular-nums text-primary-400" :style="{ left: `${tick.pct}%` }">
           {{ tick.label }}
         </span>
       </div>
@@ -136,7 +117,9 @@
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-sm font-medium text-primary-700 dark:text-primary-200">{{ selected.label }}</span>
           <span class="text-xs tabular-nums text-primary-400">{{ formatTime(selected.start) }} – {{ formatTime(selected.end) }}</span>
-          <span v-if="!selected.enabled" class="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-500 dark:bg-primary-800 dark:text-primary-300">disabled</span>
+          <span v-if="!selected.enabled" class="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-500 dark:bg-primary-800 dark:text-primary-300"
+            >disabled</span
+          >
           <template v-if="!readonly">
             <button type="button" class="lane-btn" @click="toggleEnabled(selected)">
               {{ selected.enabled ? "Disable" : "Enable" }}
@@ -149,16 +132,28 @@
               <TrashIcon class="h-3.5 w-3.5" />
               Remove lane
             </button>
-            <span class="text-[10px] text-primary-400">⇧←/→ in-point · ←/→ out-point · ⌥ ×10</span>
+            <span class="text-[10px] text-primary-400">⇧←/→ in-point · ←/→ out-point · 1 image per step · ⌥ ×10</span>
           </template>
         </div>
 
         <!-- boundary previews (transcript 23:06): what falls in and out at the edges -->
-        <div class="mt-3 flex items-end gap-3 overflow-x-auto">
-          <figure v-for="entry in boundaryPreviews" :key="entry.role" class="w-24 flex-shrink-0 text-center">
-            <img v-if="entry.src" :src="entry.src" :alt="entry.role" :class="['h-16 w-24 rounded-md object-cover', entry.inside ? 'ring-2 ring-accent-500' : 'opacity-50 grayscale']" />
-            <div v-else class="flex h-16 w-24 items-center justify-center rounded-md border border-dashed border-primary-200 text-[10px] text-primary-300 dark:border-primary-700">—</div>
-            <figcaption class="mt-1 text-[10px] text-primary-400">{{ entry.role }}<template v-if="entry.time"> · {{ formatTime(entry.time) }}</template></figcaption>
+        <div class="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <figure v-for="entry in boundaryPreviews" :key="entry.role" class="text-center">
+            <img
+              v-if="entry.src"
+              :src="entry.src"
+              :alt="entry.role"
+              :class="['mx-auto aspect-[3/2] w-[85%] rounded-md object-cover', entry.inside ? 'ring-2 ring-accent-500' : 'opacity-50 grayscale']"
+            />
+            <div
+              v-else
+              class="mx-auto flex aspect-[3/2] w-[85%] items-center justify-center rounded-md border border-dashed border-primary-200 text-xs text-primary-300 dark:border-primary-700"
+            >
+              —
+            </div>
+            <figcaption class="mt-1.5 text-xs text-primary-400">
+              {{ entry.role }}<template v-if="entry.time"> · {{ formatTime(entry.time) }}</template>
+            </figcaption>
           </figure>
         </div>
       </div>
@@ -187,6 +182,7 @@ import {
   initialTracks,
   moveEdge,
   setEnabled,
+  stepEdgeByImages,
   timelineWindow,
   toApiTracks,
 } from "src/util/uploadTimeline";
@@ -254,6 +250,9 @@ function seedTracks() {
   if (initial.length > 0) {
     tracks.value = initial;
     seeded = true;
+    // Lanes beyond the persisted set are unapplied schedule items (freshly
+    // assigned, or the very first seed) — enable Apply without a dummy edit.
+    if (initial.length > (props.upload.timeline?.length ?? 0)) dirty.value = true;
   }
 }
 watch(timedImages, seedTracks);
@@ -386,14 +385,15 @@ function startDrag(track: EditorTrack, edge: "start" | "end", event: PointerEven
 }
 
 // Keyboard nudging (transcript 26:15): arrows = out-point, shift = in-point,
-// alt = coarse steps. Handled on the focused lane bar.
+// alt = coarse steps. Steps are IMAGES, not minutes. Handled on the focused
+// lane bar.
 function onKeydown(track: EditorTrack, event: KeyboardEvent) {
   if (props.readonly) return;
   if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
   event.preventDefault();
-  const step = (event.altKey ? 10 : 1) * 60_000 * (event.key === "ArrowLeft" ? -1 : 1);
+  const delta = (event.altKey ? 10 : 1) * (event.key === "ArrowLeft" ? -1 : 1);
   const edge = event.shiftKey ? "start" : "end";
-  const to = (edge === "start" ? track.start : track.end) + step;
+  const to = stepEdgeByImages(timedImages.value, track, edge, delta, window_.value);
   replaceTrack(moveEdge(track, edge, to, tracks.value, window_.value));
 }
 
