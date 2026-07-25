@@ -117,6 +117,11 @@ func InitConfig() error {
 		// $DATE/$WEEKDAY default tags so a shoot running past midnight still tags
 		// to the event day (-3 => captures before 03:00 count as the previous day).
 		config.Int("DATE_TAG_HOUR_OFFSET").Default(-3),
+		// TIMEZONE is the EVENT's wall clock — the zone computedFileName and the
+		// $DATE/$WEEKDAY tags are rendered in. Photographers name and search
+		// photos by the clock they shot them on, so UTC filenames read hours off
+		// at a German event. IANA name; an unknown zone falls back to UTC.
+		config.String("TIMEZONE").NotEmpty().Default("Europe/Berlin"),
 
 		// upload review flow (S15). TAGGING_IDLE_THRESHOLD caps the gap between
 		// two tagging actions that still counts as working time when measuring a

@@ -60,6 +60,15 @@ func (d *Connection) initClient() error {
 	}
 }
 
+// DSN exposes the Postgres connection string for consumers that need their own
+// dedicated connection (the LISTEN side of the event fan-out). Empty for SQLite.
+func (d *Connection) DSN() string {
+	if d.Options.DatabaseType != "psql" {
+		return ""
+	}
+	return d.dsn()
+}
+
 func (d *Connection) dsn() string {
 	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s search_path=%s TimeZone=%s",
 		d.Options.Host, d.Options.Username, d.Options.Password, d.Options.Database, d.Options.Port, d.Options.SSLMode, d.Options.Schema, d.Options.TimeZone)

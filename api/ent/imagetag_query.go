@@ -28,6 +28,7 @@ type ImageTagQuery struct {
 	predicates         []predicate.ImageTag
 	withProject        *ProjectQuery
 	withTagAssignments *ImageTagAssignmentQuery
+	withFKs            bool
 	modifiers          []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -408,12 +409,16 @@ func (_q *ImageTagQuery) prepareQuery(ctx context.Context) error {
 func (_q *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ImageTag, error) {
 	var (
 		nodes       = []*ImageTag{}
+		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
 		loadedTypes = [2]bool{
 			_q.withProject != nil,
 			_q.withTagAssignments != nil,
 		}
 	)
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, imagetag.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*ImageTag).scanValues(nil, columns)
 	}

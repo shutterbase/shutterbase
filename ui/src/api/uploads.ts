@@ -1,5 +1,5 @@
 import { http } from "src/boot/axios";
-import { Upload, ListResponse, UploadState } from "src/types/api";
+import { Upload, ListResponse, UploadState, TimelineTrack } from "src/types/api";
 
 export interface UploadListParams {
   projectId?: string;
@@ -45,4 +45,14 @@ export async function update(id: string, body: UploadUpdate): Promise<Upload> {
 
 export async function remove(id: string): Promise<void> {
   await http.delete(`/uploads/${id}`);
+}
+
+// Upload with the apply diff the timeline endpoint reports back.
+export type UploadWithApplied = Upload & { applied?: { created: number; deleted: number } };
+
+// Persist the tagging-timeline editor state; the server reconciles all
+// "scheduled" tag assignments against it atomically.
+export async function applyTimeline(id: string, tracks: TimelineTrack[]): Promise<UploadWithApplied> {
+  const { data } = await http.put<UploadWithApplied>(`/uploads/${id}/timeline`, { tracks });
+  return data;
 }

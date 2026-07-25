@@ -18,6 +18,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -346,6 +347,21 @@ func (_u *UserUpdate) AddApiKeys(v ...*ApiKey) *UserUpdate {
 	return _u.AddApiKeyIDs(ids...)
 }
 
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_u *UserUpdate) AddScheduleItemIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddScheduleItemIDs(ids...)
+	return _u
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_u *UserUpdate) AddScheduleItems(v ...*ScheduleItem) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddScheduleItemIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -460,6 +476,27 @@ func (_u *UserUpdate) RemoveApiKeys(v ...*ApiKey) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveApiKeyIDs(ids...)
+}
+
+// ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
+func (_u *UserUpdate) ClearScheduleItems() *UserUpdate {
+	_u.mutation.ClearScheduleItems()
+	return _u
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to ScheduleItem entities by IDs.
+func (_u *UserUpdate) RemoveScheduleItemIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveScheduleItemIDs(ids...)
+	return _u
+}
+
+// RemoveScheduleItems removes "scheduleItems" edges to ScheduleItem entities.
+func (_u *UserUpdate) RemoveScheduleItems(v ...*ScheduleItem) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveScheduleItemIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -857,6 +894,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   user.ScheduleItemsTable,
+			Columns: user.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedScheduleItemsIDs(); len(nodes) > 0 && !_u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   user.ScheduleItemsTable,
+			Columns: user.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   user.ScheduleItemsTable,
+			Columns: user.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{user.Label}
@@ -1187,6 +1269,21 @@ func (_u *UserUpdateOne) AddApiKeys(v ...*ApiKey) *UserUpdateOne {
 	return _u.AddApiKeyIDs(ids...)
 }
 
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_u *UserUpdateOne) AddScheduleItemIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddScheduleItemIDs(ids...)
+	return _u
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_u *UserUpdateOne) AddScheduleItems(v ...*ScheduleItem) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddScheduleItemIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -1301,6 +1398,27 @@ func (_u *UserUpdateOne) RemoveApiKeys(v ...*ApiKey) *UserUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveApiKeyIDs(ids...)
+}
+
+// ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
+func (_u *UserUpdateOne) ClearScheduleItems() *UserUpdateOne {
+	_u.mutation.ClearScheduleItems()
+	return _u
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to ScheduleItem entities by IDs.
+func (_u *UserUpdateOne) RemoveScheduleItemIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveScheduleItemIDs(ids...)
+	return _u
+}
+
+// RemoveScheduleItems removes "scheduleItems" edges to ScheduleItem entities.
+func (_u *UserUpdateOne) RemoveScheduleItems(v ...*ScheduleItem) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveScheduleItemIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -1721,6 +1839,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   user.ScheduleItemsTable,
+			Columns: user.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedScheduleItemsIDs(); len(nodes) > 0 && !_u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   user.ScheduleItemsTable,
+			Columns: user.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   user.ScheduleItemsTable,
+			Columns: user.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

@@ -17,6 +17,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -251,6 +252,24 @@ func (_u *UploadUpdate) ClearErrorImageIds() *UploadUpdate {
 	return _u
 }
 
+// SetTimeline sets the "timeline" field.
+func (_u *UploadUpdate) SetTimeline(v []schema.TimelineTrack) *UploadUpdate {
+	_u.mutation.SetTimeline(v)
+	return _u
+}
+
+// AppendTimeline appends value to the "timeline" field.
+func (_u *UploadUpdate) AppendTimeline(v []schema.TimelineTrack) *UploadUpdate {
+	_u.mutation.AppendTimeline(v)
+	return _u
+}
+
+// ClearTimeline clears the value of the "timeline" field.
+func (_u *UploadUpdate) ClearTimeline() *UploadUpdate {
+	_u.mutation.ClearTimeline()
+	return _u
+}
+
 // SetProject sets the "project" edge to the Project entity.
 func (_u *UploadUpdate) SetProject(v *Project) *UploadUpdate {
 	return _u.SetProjectID(v.ID)
@@ -470,6 +489,17 @@ func (_u *UploadUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.ErrorImageIdsCleared() {
 		_spec.ClearField(upload.FieldErrorImageIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Timeline(); ok {
+		_spec.SetField(upload.FieldTimeline, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTimeline(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, upload.FieldTimeline, value)
+		})
+	}
+	if _u.mutation.TimelineCleared() {
+		_spec.ClearField(upload.FieldTimeline, field.TypeJSON)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -840,6 +870,24 @@ func (_u *UploadUpdateOne) ClearErrorImageIds() *UploadUpdateOne {
 	return _u
 }
 
+// SetTimeline sets the "timeline" field.
+func (_u *UploadUpdateOne) SetTimeline(v []schema.TimelineTrack) *UploadUpdateOne {
+	_u.mutation.SetTimeline(v)
+	return _u
+}
+
+// AppendTimeline appends value to the "timeline" field.
+func (_u *UploadUpdateOne) AppendTimeline(v []schema.TimelineTrack) *UploadUpdateOne {
+	_u.mutation.AppendTimeline(v)
+	return _u
+}
+
+// ClearTimeline clears the value of the "timeline" field.
+func (_u *UploadUpdateOne) ClearTimeline() *UploadUpdateOne {
+	_u.mutation.ClearTimeline()
+	return _u
+}
+
 // SetProject sets the "project" edge to the Project entity.
 func (_u *UploadUpdateOne) SetProject(v *Project) *UploadUpdateOne {
 	return _u.SetProjectID(v.ID)
@@ -1089,6 +1137,17 @@ func (_u *UploadUpdateOne) sqlSave(ctx context.Context) (_node *Upload, err erro
 	}
 	if _u.mutation.ErrorImageIdsCleared() {
 		_spec.ClearField(upload.FieldErrorImageIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.Timeline(); ok {
+		_spec.SetField(upload.FieldTimeline, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTimeline(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, upload.FieldTimeline, value)
+		})
+	}
+	if _u.mutation.TimelineCleared() {
+		_spec.ClearField(upload.FieldTimeline, field.TypeJSON)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{

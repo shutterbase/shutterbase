@@ -65,7 +65,10 @@ WORKDIR /usr/app
 
 # exiftool: the /download route shells out to it to inject corrected EXIF
 # (replaces the old standalone exif-worker service).
-RUN apk add --no-cache exiftool
+# tzdata: TIMEZONE (the event's wall clock, used for computedFileName and the
+# $DATE/$WEEKDAY tags) is an IANA name — without the zone database alpine has no
+# "Europe/Berlin" and every timestamp silently falls back to UTC.
+RUN apk add --no-cache exiftool tzdata
 
 RUN chown -R 1000:1000 /usr/app
 COPY --chown=1000:1000 --from=builder /usr/src/server /usr/app/server

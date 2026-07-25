@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -52,6 +53,8 @@ type Upload struct {
 	CycleStartedAt *time.Time `json:"cycleStartedAt,omitempty"`
 	// ErrorImageIds holds the value of the "errorImageIds" field.
 	ErrorImageIds []string `json:"errorImageIds"`
+	// Timeline holds the value of the "timeline" field.
+	Timeline []schema.TimelineTrack `json:"timeline"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the UploadQuery when eager-loading is set.
 	Edges        UploadEdges `json:"edges"`
@@ -122,7 +125,7 @@ func (*Upload) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case upload.FieldCreatedBy, upload.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case upload.FieldErrorImageIds:
+		case upload.FieldErrorImageIds, upload.FieldTimeline:
 			values[i] = new([]byte)
 		case upload.FieldReviewCycles, upload.FieldTaggingSeconds, upload.FieldTimeToReadySeconds:
 			values[i] = new(sql.NullInt64)
@@ -249,6 +252,14 @@ func (_m *Upload) assignValues(columns []string, values []any) error {
 					return fmt.Errorf("unmarshal field errorImageIds: %w", err)
 				}
 			}
+		case upload.FieldTimeline:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field timeline", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.Timeline); err != nil {
+					return fmt.Errorf("unmarshal field timeline: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -357,6 +368,9 @@ func (_m *Upload) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("errorImageIds=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ErrorImageIds))
+	builder.WriteString(", ")
+	builder.WriteString("timeline=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Timeline))
 	builder.WriteByte(')')
 	return builder.String()
 }

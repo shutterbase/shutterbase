@@ -24,6 +24,28 @@
       </router-link>
     </div>
 
+    <!-- My schedule (S15): the photographer's next covered items, straight off
+         the dashboard (transcript 12:44). Only exists with an active project. -->
+    <section v-if="activeProjectId && upcoming.length" class="mt-16">
+      <p class="label-mono text-accent-600 dark:text-accent-400">My schedule</p>
+      <h2 class="display mt-2 text-2xl text-primary-900 dark:text-white">Up next for you.</h2>
+      <ul class="mt-6 max-w-3xl divide-y divide-primary-100 rounded-lg border border-primary-200 bg-surface shadow-panel dark:divide-primary-800 dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark">
+        <li v-for="entry in upcoming" :key="entry.id">
+          <router-link :to="{ name: 'schedule' }" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-primary-50 dark:hover:bg-primary-900/40">
+            <span :class="['h-2.5 w-2.5 flex-shrink-0 rounded-full border', statusDot(entry)]"></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium text-primary-900 dark:text-white">{{ entry.title }}</span>
+              <span class="block text-xs tabular-nums text-primary-500 dark:text-primary-400">{{ formatWindow(entry) }}</span>
+            </span>
+            <span class="text-xs text-primary-400">{{ entry.assignees.length }}/{{ entry.cardinality }}</span>
+          </router-link>
+        </li>
+      </ul>
+      <router-link :to="{ name: 'schedule' }" class="mt-3 inline-block text-sm font-medium text-accent-600 underline-offset-2 hover:underline dark:text-accent-400">
+        Open the full schedule →
+      </router-link>
+    </section>
+
     <!-- Administration. Each entry is gated on the role that can actually use it,
          so the section simply does not exist for a plain photographer. -->
     <section v-if="adminItems.length" class="mt-16">
@@ -44,13 +66,47 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, ref, Ref } from "vue";
+import { DateTime } from "luxon";
 import { storeToRefs } from "pinia";
+import { api } from "src/api";
+import { ScheduleItem } from "src/types/api";
+import { occupancyStatus } from "src/util/schedule";
 import { useUserStore } from "src/stores/user-store";
 import { CameraIcon, FolderIcon, PhotoIcon, UsersIcon, UserGroupIcon, TagIcon, Cog6ToothIcon, RectangleStackIcon } from "@heroicons/vue/24/solid";
 
 const userStore = useUserStore();
 const { activeProjectId } = storeToRefs(userStore);
+
+// Next 5 items the user covers, from now on. Quietly absent on error — the
+// dashboard must never block on a widget.
+const upcoming: Ref<ScheduleItem[]> = ref([]);
+onMounted(async () => {
+  if (!activeProjectId.value) return;
+  try {
+    const result = await api.scheduleItems.list({
+      projectId: activeProjectId.value,
+      mine: true,
+      from: new Date().toISOString(),
+      sort: "start",
+      order: "asc",
+      limit: 5,
+    });
+    upcoming.value = result.items;
+  } catch {
+    upcoming.value = [];
+  }
+});
+
+const statusDots: Record<string, string> = {
+  empty: "border-blue-400 bg-blue-500/40",
+  partial: "border-yellow-400 bg-yellow-400/50",
+  full: "border-green-500 bg-green-500/40",
+  over: "border-violet-500 bg-violet-500/50",
+};
+const statusDot = (item: ScheduleItem) => statusDots[occupancyStatus(item.assignees.length, item.cardinality)];
+const formatWindow = (item: ScheduleItem) =>
+  `${DateTime.fromISO(item.start).toFormat("ccc dd.LL. HH:mm")} – ${DateTime.fromISO(item.end).toFormat("HH:mm")}`;
 
 const cardClasses =
   "group flex cursor-pointer flex-col gap-3 rounded-lg border border-primary-200 bg-surface p-6 shadow-panel transition-colors hover:border-accent-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark dark:hover:border-accent-500";

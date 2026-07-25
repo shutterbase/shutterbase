@@ -87,6 +87,9 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 			SetFirstName(first).
 			SetLastName(last).
 			SetEmail(username + "@shutterbase.test").
+			// Required by the browser upload pipeline (FileProcessor refuses to
+			// process without one) — a seeded user must be able to upload.
+			SetCopyrightTag(username).
 			SetPasswordHash(passwordHash).
 			SetActive(true).
 			SetVerified(true).

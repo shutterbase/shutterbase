@@ -25,6 +25,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -55,6 +56,8 @@ type Client struct {
 	ProjectAssignment *ProjectAssignmentClient
 	// Role is the client for interacting with the Role builders.
 	Role *RoleClient
+	// ScheduleItem is the client for interacting with the ScheduleItem builders.
+	ScheduleItem *ScheduleItemClient
 	// TimeOffset is the client for interacting with the TimeOffset builders.
 	TimeOffset *TimeOffsetClient
 	// Upload is the client for interacting with the Upload builders.
@@ -81,6 +84,7 @@ func (c *Client) init() {
 	c.Project = NewProjectClient(c.config)
 	c.ProjectAssignment = NewProjectAssignmentClient(c.config)
 	c.Role = NewRoleClient(c.config)
+	c.ScheduleItem = NewScheduleItemClient(c.config)
 	c.TimeOffset = NewTimeOffsetClient(c.config)
 	c.Upload = NewUploadClient(c.config)
 	c.User = NewUserClient(c.config)
@@ -185,6 +189,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Project:            NewProjectClient(cfg),
 		ProjectAssignment:  NewProjectAssignmentClient(cfg),
 		Role:               NewRoleClient(cfg),
+		ScheduleItem:       NewScheduleItemClient(cfg),
 		TimeOffset:         NewTimeOffsetClient(cfg),
 		Upload:             NewUploadClient(cfg),
 		User:               NewUserClient(cfg),
@@ -216,6 +221,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Project:            NewProjectClient(cfg),
 		ProjectAssignment:  NewProjectAssignmentClient(cfg),
 		Role:               NewRoleClient(cfg),
+		ScheduleItem:       NewScheduleItemClient(cfg),
 		TimeOffset:         NewTimeOffsetClient(cfg),
 		Upload:             NewUploadClient(cfg),
 		User:               NewUserClient(cfg),
@@ -249,7 +255,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.ApiKey, c.AuditLog, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment,
-		c.Project, c.ProjectAssignment, c.Role, c.TimeOffset, c.Upload, c.User,
+		c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem, c.TimeOffset, c.Upload,
+		c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -260,7 +267,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.ApiKey, c.AuditLog, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment,
-		c.Project, c.ProjectAssignment, c.Role, c.TimeOffset, c.Upload, c.User,
+		c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem, c.TimeOffset, c.Upload,
+		c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -287,6 +295,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ProjectAssignment.mutate(ctx, m)
 	case *RoleMutation:
 		return c.Role.mutate(ctx, m)
+	case *ScheduleItemMutation:
+		return c.ScheduleItem.mutate(ctx, m)
 	case *TimeOffsetMutation:
 		return c.TimeOffset.mutate(ctx, m)
 	case *UploadMutation:
@@ -1476,6 +1486,22 @@ func (c *ProjectClient) QueryImageTags(_m *Project) *ImageTagQuery {
 	return query
 }
 
+// QueryScheduleItems queries the scheduleItems edge of a Project.
+func (c *ProjectClient) QueryScheduleItems(_m *Project) *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.ScheduleItemsTable, project.ScheduleItemsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryProjectAssignments queries the projectAssignments edge of a Project.
 func (c *ProjectClient) QueryProjectAssignments(_m *Project) *ProjectAssignmentQuery {
 	query := (&ProjectAssignmentClient{config: c.config}).Query()
@@ -1860,6 +1886,187 @@ func (c *RoleClient) mutate(ctx context.Context, m *RoleMutation) (Value, error)
 		return (&RoleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Role mutation op: %q", m.Op())
+	}
+}
+
+// ScheduleItemClient is a client for the ScheduleItem schema.
+type ScheduleItemClient struct {
+	config
+}
+
+// NewScheduleItemClient returns a client for the ScheduleItem from the given config.
+func NewScheduleItemClient(c config) *ScheduleItemClient {
+	return &ScheduleItemClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `scheduleitem.Hooks(f(g(h())))`.
+func (c *ScheduleItemClient) Use(hooks ...Hook) {
+	c.hooks.ScheduleItem = append(c.hooks.ScheduleItem, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `scheduleitem.Intercept(f(g(h())))`.
+func (c *ScheduleItemClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ScheduleItem = append(c.inters.ScheduleItem, interceptors...)
+}
+
+// Create returns a builder for creating a ScheduleItem entity.
+func (c *ScheduleItemClient) Create() *ScheduleItemCreate {
+	mutation := newScheduleItemMutation(c.config, OpCreate)
+	return &ScheduleItemCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ScheduleItem entities.
+func (c *ScheduleItemClient) CreateBulk(builders ...*ScheduleItemCreate) *ScheduleItemCreateBulk {
+	return &ScheduleItemCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ScheduleItemClient) MapCreateBulk(slice any, setFunc func(*ScheduleItemCreate, int)) *ScheduleItemCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ScheduleItemCreateBulk{err: fmt.Errorf("calling to ScheduleItemClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ScheduleItemCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ScheduleItemCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ScheduleItem.
+func (c *ScheduleItemClient) Update() *ScheduleItemUpdate {
+	mutation := newScheduleItemMutation(c.config, OpUpdate)
+	return &ScheduleItemUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ScheduleItemClient) UpdateOne(_m *ScheduleItem) *ScheduleItemUpdateOne {
+	mutation := newScheduleItemMutation(c.config, OpUpdateOne, withScheduleItem(_m))
+	return &ScheduleItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ScheduleItemClient) UpdateOneID(id string) *ScheduleItemUpdateOne {
+	mutation := newScheduleItemMutation(c.config, OpUpdateOne, withScheduleItemID(id))
+	return &ScheduleItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ScheduleItem.
+func (c *ScheduleItemClient) Delete() *ScheduleItemDelete {
+	mutation := newScheduleItemMutation(c.config, OpDelete)
+	return &ScheduleItemDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ScheduleItemClient) DeleteOne(_m *ScheduleItem) *ScheduleItemDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ScheduleItemClient) DeleteOneID(id string) *ScheduleItemDeleteOne {
+	builder := c.Delete().Where(scheduleitem.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ScheduleItemDeleteOne{builder}
+}
+
+// Query returns a query builder for ScheduleItem.
+func (c *ScheduleItemClient) Query() *ScheduleItemQuery {
+	return &ScheduleItemQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeScheduleItem},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ScheduleItem entity by its id.
+func (c *ScheduleItemClient) Get(ctx context.Context, id string) (*ScheduleItem, error) {
+	return c.Query().Where(scheduleitem.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ScheduleItemClient) GetX(ctx context.Context, id string) *ScheduleItem {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a ScheduleItem.
+func (c *ScheduleItemClient) QueryProject(_m *ScheduleItem) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, scheduleitem.ProjectTable, scheduleitem.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAssignees queries the assignees edge of a ScheduleItem.
+func (c *ScheduleItemClient) QueryAssignees(_m *ScheduleItem) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, scheduleitem.AssigneesTable, scheduleitem.AssigneesPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTags queries the tags edge of a ScheduleItem.
+func (c *ScheduleItemClient) QueryTags(_m *ScheduleItem) *ImageTagQuery {
+	query := (&ImageTagClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, id),
+			sqlgraph.To(imagetag.Table, imagetag.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, scheduleitem.TagsTable, scheduleitem.TagsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ScheduleItemClient) Hooks() []Hook {
+	return c.hooks.ScheduleItem
+}
+
+// Interceptors returns the client interceptors.
+func (c *ScheduleItemClient) Interceptors() []Interceptor {
+	return c.inters.ScheduleItem
+}
+
+func (c *ScheduleItemClient) mutate(ctx context.Context, m *ScheduleItemMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ScheduleItemCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ScheduleItemUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ScheduleItemUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ScheduleItemDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ScheduleItem mutation op: %q", m.Op())
 	}
 }
 
@@ -2413,6 +2620,22 @@ func (c *UserClient) QueryApiKeys(_m *User) *ApiKeyQuery {
 	return query
 }
 
+// QueryScheduleItems queries the scheduleItems edge of a User.
+func (c *UserClient) QueryScheduleItems(_m *User) *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, user.ScheduleItemsTable, user.ScheduleItemsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	return c.hooks.User
@@ -2442,11 +2665,12 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 type (
 	hooks struct {
 		ApiKey, AuditLog, Camera, Image, ImageTag, ImageTagAssignment, Project,
-		ProjectAssignment, Role, TimeOffset, Upload, User []ent.Hook
+		ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload, User []ent.Hook
 	}
 	inters struct {
 		ApiKey, AuditLog, Camera, Image, ImageTag, ImageTagAssignment, Project,
-		ProjectAssignment, Role, TimeOffset, Upload, User []ent.Interceptor
+		ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
+		User []ent.Interceptor
 	}
 )
 

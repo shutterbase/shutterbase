@@ -154,6 +154,43 @@ func TestDateTagHourOffsetRollover(t *testing.T) {
 
 // Found-or-create: a second image on the same project/day reuses the same default
 // tag rows rather than creating duplicates.
+// The reported bug: a photo shot at 10:30 in Berlin was named "..._08-30-00_..."
+// (UTC), two hours off every clock in the UI. The canonical name carries the
+// EVENT's wall clock — and follows DST rather than a fixed offset.
+func TestComputedFileNameUsesEventZone(t *testing.T) {
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	require.NoError(t, err)
+
+	summer := time.Date(2026, 8, 11, 8, 30, 0, 0, time.UTC) // 10:30 CEST
+	require.NotNil(t, computedFileName("PS_04953.jpg", &summer, "MAPA", berlin))
+	assert.Equal(t, "20260811_10-30-00_4953_MAPA", *computedFileName("PS_04953.jpg", &summer, "MAPA", berlin))
+
+	winter := time.Date(2026, 12, 11, 8, 30, 0, 0, time.UTC) // 09:30 CET
+	assert.Equal(t, "20261211_09-30-00_4953_MAPA", *computedFileName("PS_04953.jpg", &winter, "MAPA", berlin))
+
+	// Missing capture time or frame number leaves the name unset rather than
+	// fabricating one.
+	assert.Nil(t, computedFileName("PS_04953.jpg", nil, "MAPA", berlin))
+	assert.Nil(t, computedFileName("nodigits.jpg", &summer, "MAPA", berlin))
+}
+
+// DATE_TAG_HOUR_OFFSET is a wall-clock rule ("before 03:00 counts as the previous
+// day"), so the shift happens in the event zone: 04:00 CEST belongs to its own
+// day. Shifting UTC instead moved that boundary to 05:00 local.
+func TestDateTagBoundaryUsesEventZone(t *testing.T) {
+	svc, _, m, repo := newImageSvc(t)
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	require.NoError(t, err)
+	svc.loc = berlin // $DATE is already a seeded template tag
+
+	captured := time.Date(2026, 8, 12, 2, 0, 0, 0, time.UTC) // 04:00 CEST
+	svc.createForTest(t, m, "DSC_4321.jpg", captured)
+
+	tags := defaultTagNames(t, repo, m.Project)
+	assert.Contains(t, tags, "20260812", "04:00 local is past the 03:00 boundary — its own day")
+	assert.NotContains(t, tags, "20260811")
+}
+
 func TestDefaultTagFoundOrCreate(t *testing.T) {
 	svc, _, m, repo := newImageSvc(t)
 	addTemplate(t, repo, m.Project, "$PROJECT")

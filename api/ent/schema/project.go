@@ -25,6 +25,10 @@ func (Project) Fields() []ent.Field {
 		field.String("aiSystemMessage").Optional().StructTag(`json:"aiSystemMessage"`),
 		// Opt-in upload review flow (see Upload.state).
 		field.Bool("uploadReviewEnabled").Default(false).StructTag(`json:"uploadReviewEnabled"`),
+		// Event period (S15): frames the schedule calendar. Optional — the
+		// calendar falls back to the schedule-item span, then the current week.
+		field.Time("startAt").Optional().Nillable().StructTag(`json:"startAt,omitempty"`),
+		field.Time("endAt").Optional().Nillable().StructTag(`json:"endAt,omitempty"`),
 	}
 }
 
@@ -33,6 +37,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("uploads", Upload.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("images", Image.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("imageTags", ImageTag.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("scheduleItems", ScheduleItem.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("projectAssignments", ProjectAssignment.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.From("activeForUsers", User.Type).Ref("activeProject"),
 	}

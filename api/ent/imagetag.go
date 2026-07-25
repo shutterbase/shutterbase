@@ -39,8 +39,9 @@ type ImageTag struct {
 	ProjectID string `json:"-"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ImageTagQuery when eager-loading is set.
-	Edges        ImageTagEdges `json:"edges"`
-	selectValues sql.SelectValues
+	Edges              ImageTagEdges `json:"edges"`
+	schedule_item_tags *string
+	selectValues       sql.SelectValues
 }
 
 // ImageTagEdges holds the relations/edges for other nodes in the graph.
@@ -87,6 +88,8 @@ func (*ImageTag) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case imagetag.FieldCreatedAt, imagetag.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
+		case imagetag.ForeignKeys[0]: // schedule_item_tags
+			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -163,6 +166,13 @@ func (_m *ImageTag) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field project_id", values[i])
 			} else if value.Valid {
 				_m.ProjectID = value.String
+			}
+		case imagetag.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field schedule_item_tags", values[i])
+			} else if value.Valid {
+				_m.schedule_item_tags = new(string)
+				*_m.schedule_item_tags = value.String
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])

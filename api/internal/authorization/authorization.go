@@ -360,6 +360,34 @@ func CanAddImagesToUpload(u *ent.User, up *ent.Upload, reviewEnabled bool) bool 
 	return !reviewEnabled || up.State == upload.StateOpen || isProjectAdmin(u, up.ProjectID)
 }
 
+// CanApplyUploadTimeline: the timeline editor writes OFFICIAL ("scheduled") tag
+// assignments, so the review freeze applies — once the upload left open, only a
+// reviewer may re-apply (S15).
+func CanApplyUploadTimeline(u *ent.User, up *ent.Upload, reviewEnabled bool) bool {
+	if !CanModifyUpload(u, up) {
+		return false
+	}
+	return !reviewEnabled || up.State == upload.StateOpen || isProjectAdmin(u, up.ProjectID)
+}
+
+// --- Schedule items (S15) ---
+
+// CanManageScheduleItem: item CRUD — admin or projectAdmin of this project.
+func CanManageScheduleItem(u *ent.User, projectID string) bool {
+	return isProjectAdmin(u, projectID)
+}
+
+// CanManageScheduleAssignment reports whether u may add/remove target on a
+// schedule item. A projectEditor+ manages THEMSELVES (pull principle; no
+// cardinality cap — overbooking is allowed by design); admin/projectAdmin
+// manage anyone.
+func CanManageScheduleAssignment(u *ent.User, projectID string, target uuid.UUID) bool {
+	if isProjectAdmin(u, projectID) {
+		return true
+	}
+	return IsSelf(u, target) && HasRoleInProject(u, projectID, RoleProjectEditor)
+}
+
 // --- Project assignments (§4.7) ---
 
 // CanManageProjectAssignment: a global admin, or a projectAdmin of THIS project.

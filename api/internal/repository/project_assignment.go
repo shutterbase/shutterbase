@@ -25,6 +25,16 @@ func (r *Repository) GetProjectAssignment(ctx context.Context, id string) (*ent.
 	return item, err
 }
 
+// IsUserAssignedToProject reports whether the user holds ANY role in the
+// project — a direct row check, for callers holding a bare user id (the
+// eager-loaded Edges.ProjectAssignments shortcut only exists on the REQUEST
+// user resolved by the auth middleware).
+func (r *Repository) IsUserAssignedToProject(ctx context.Context, userID uuid.UUID, projectID string) (bool, error) {
+	return r.Client.ProjectAssignment.Query().
+		Where(projectassignment.UserID(userID), projectassignment.ProjectID(projectID)).
+		Exist(ctx)
+}
+
 type GetProjectAssignmentParameters struct {
 	ProjectID            *string
 	UserID               *uuid.UUID

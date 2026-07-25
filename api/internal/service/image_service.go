@@ -31,10 +31,24 @@ type Enqueuer interface {
 var last4 = regexp.MustCompile(`.*(\d{4})`)
 
 const (
-	computedTimeLayout = "20060102_15-04-05" // computedFileName timestamp (UTC)
+	computedTimeLayout = "20060102_15-04-05" // computedFileName timestamp (event zone)
 	dateTagLayout      = "20060102"          // $DATE
 	weekdayTagLayout   = "Monday"            // $WEEKDAY
 )
+
+// EventLocation resolves TIMEZONE — the event's wall clock, the zone every
+// human-facing timestamp the server renders (computedFileName, $DATE/$WEEKDAY)
+// is formatted in. An unloadable zone falls back to UTC with a warning rather
+// than killing the server; names are then off, not missing.
+func EventLocation() *time.Location {
+	name := config.Get().String("TIMEZONE")
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		log.Warn().Err(err).Str("timezone", name).Msg("unknown TIMEZONE; falling back to UTC")
+		return time.UTC
+	}
+	return loc
+}
 
 // ImageService orchestrates the create-side effects of an image so the repository
 // stays pure DB (SPEC §4.3): it computes computedFileName + capturedAtCorrected
@@ -46,13 +60,24 @@ type ImageService struct {
 	// dateTagHourOffset shifts capturedAtCorrected before $DATE/$WEEKDAY derivation
 	// (DATE_TAG_HOUR_OFFSET, default -3). Field-injected so unit tests are config-free.
 	dateTagHourOffset int
+	// loc is the event zone (TIMEZONE) every rendered timestamp uses. nil = UTC,
+	// so a zero-value service in a test still behaves deterministically.
+	loc *time.Location
 }
 
 // NewImageService wires the service for production. Reads DATE_TAG_HOUR_OFFSET
-// from config (default -3). Unit tests build the struct directly to stay
+// and TIMEZONE from config. Unit tests build the struct directly to stay
 // config-free, mirroring the AIService pattern.
 func NewImageService(repo *repository.Repository, ai Enqueuer) *ImageService {
-	return &ImageService{repo: repo, ai: ai, dateTagHourOffset: config.Get().Int("DATE_TAG_HOUR_OFFSET")}
+	return &ImageService{repo: repo, ai: ai, dateTagHourOffset: config.Get().Int("DATE_TAG_HOUR_OFFSET"), loc: EventLocation()}
+}
+
+// location is the service's event zone, UTC when unset (tests).
+func (s *ImageService) location() *time.Location {
+	if s.loc == nil {
+		return time.UTC
+	}
+	return s.loc
 }
 
 // CreateImageParameters is the create payload minus the server-computed fields
@@ -87,7 +112,7 @@ func (s *ImageService) CreateImage(ctx context.Context, params *CreateImageParam
 
 	createParams := &repository.CreateImageParameters{
 		FileName:            params.FileName,
-		ComputedFileName:    computedFileName(params.FileName, corrected, user.CopyrightTag),
+		ComputedFileName:    computedFileName(params.FileName, corrected, user.CopyrightTag, s.location()),
 		StorageID:           params.StorageID,
 		Size:                params.Size,
 		Width:               params.Width,
@@ -234,13 +259,15 @@ func (s *ImageService) renderTemplate(template string, project *ent.Project, use
 	}
 }
 
-// shiftedCapture applies DATE_TAG_HOUR_OFFSET to capturedAtCorrected (in UTC, for
-// determinism). ok=false when there is no capture time.
+// shiftedCapture applies DATE_TAG_HOUR_OFFSET to capturedAtCorrected in the event
+// zone — "captures before 03:00 count as the previous day" is a wall-clock rule,
+// so shifting UTC moved the boundary by the zone's offset (05:00 local in a
+// German summer). ok=false when there is no capture time.
 func (s *ImageService) shiftedCapture(corrected *time.Time) (time.Time, bool) {
 	if corrected == nil {
 		return time.Time{}, false
 	}
-	return corrected.UTC().Add(time.Duration(s.dateTagHourOffset) * time.Hour), true
+	return corrected.In(s.location()).Add(time.Duration(s.dateTagHourOffset) * time.Hour), true
 }
 
 func (s *ImageService) findOrCreateDefaultTag(ctx context.Context, projectID, name string) (*ent.ImageTag, error) {
@@ -261,10 +288,12 @@ func (s *ImageService) findOrCreateDefaultTag(ctx context.Context, projectID, na
 	})
 }
 
-// computedFileName ports the WASM rule: "<correctedTime>_<last4>_<copyrightTag>".
+// computedFileName is the canonical photo name: "<correctedTime>_<last4>_<copyrightTag>",
+// the timestamp in the EVENT zone (`loc`) — the wall clock the photographer shot
+// on, which is what they search and sort by.
 // nil corrected (no capture time) or a name without 4 consecutive digits leaves
 // computedFileName unset (the DB column is optional) rather than fabricating one.
-func computedFileName(fileName string, corrected *time.Time, copyrightTag string) *string {
+func computedFileName(fileName string, corrected *time.Time, copyrightTag string, loc *time.Location) *string {
 	if corrected == nil {
 		return nil
 	}
@@ -272,7 +301,7 @@ func computedFileName(fileName string, corrected *time.Time, copyrightTag string
 	if m == nil {
 		return nil
 	}
-	name := fmt.Sprintf("%s_%s_%s", corrected.UTC().Format(computedTimeLayout), m[1], copyrightTag)
+	name := fmt.Sprintf("%s_%s_%s", corrected.In(loc).Format(computedTimeLayout), m[1], copyrightTag)
 	return &name
 }
 

@@ -44,6 +44,13 @@
                 :aria-label="field.label"
                 class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
               />
+              <input
+                v-else-if="field.type === FieldType.DATETIME"
+                v-model="editData[field.key]"
+                type="datetime-local"
+                :aria-label="field.label"
+                class="h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
+              />
               <label v-else-if="field.type === FieldType.BOOLEAN" class="inline-flex cursor-pointer items-center gap-2 py-2">
                 <input
                   v-model="editData[field.key]"
@@ -70,7 +77,22 @@
 </template>
 
 <script setup lang="ts" generic="T extends Identifiable">
+import { DateTime } from "luxon";
 import { Ref, UnwrapNestedRefs, computed, reactive, ref, watch } from "vue";
+
+// datetime-local speaks "yyyy-MM-dd'T'HH:mm" local time; the API speaks ISO.
+// An empty input maps to the zero time — the backend's "clear this field".
+const CLEAR_TIME = "0001-01-01T00:00:00Z";
+function isoToInput(value: unknown): string {
+  if (!value || typeof value !== "string") return "";
+  const dt = DateTime.fromISO(value);
+  return dt.isValid ? dt.toFormat("yyyy-MM-dd'T'HH:mm") : "";
+}
+function inputToISO(value: unknown): string {
+  if (!value || typeof value !== "string") return CLEAR_TIME;
+  const dt = DateTime.fromISO(value);
+  return dt.isValid ? (dt.toUTC().toISO() ?? CLEAR_TIME) : CLEAR_TIME;
+}
 
 interface Props {
   headline: string;
@@ -87,6 +109,7 @@ const _item = computed(() => props.item as T);
 function displayValue(field: Field<T>): any {
   const value = props.item?.[field.key];
   if (field.type === FieldType.BOOLEAN) return value ? "Yes" : "No";
+  if (field.type === FieldType.DATETIME) return value ? DateTime.fromISO(value as string).toFormat("dd.LL.yyyy HH:mm") : "—";
   return value;
 }
 
@@ -119,7 +142,7 @@ function setEditData() {
   if (!props.item) return;
 
   for (const field of props.fields) {
-    editData[field.key] = props.item[field.key];
+    editData[field.key] = field.type === FieldType.DATETIME ? isoToInput(props.item[field.key]) : props.item[field.key];
   }
 
   if (props.alwaysEdit) {
@@ -133,7 +156,8 @@ function checkEdits() {
   if (!props.item) return false;
   if (!editData) return false;
   for (const field of props.fields) {
-    if (props.item[field.key] !== editData[field.key]) {
+    const current = field.type === FieldType.DATETIME ? isoToInput(props.item[field.key]) : props.item[field.key];
+    if (current !== editData[field.key]) {
       return true;
     }
   }
@@ -142,7 +166,13 @@ function checkEdits() {
 
 function saveEdit() {
   edit.value = false;
-  emit("editSave", editData);
+  const payload = { ...editData } as EditData<T>;
+  for (const field of props.fields) {
+    if (field.type === FieldType.DATETIME) {
+      payload[field.key] = inputToISO(editData[field.key]);
+    }
+  }
+  emit("editSave", payload);
 }
 </script>
 
@@ -161,6 +191,7 @@ export enum FieldType {
   TEXT = "text",
   SELECT = "select",
   BOOLEAN = "boolean",
+  DATETIME = "datetime",
 }
 
 export type EditData<T> = {

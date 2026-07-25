@@ -131,6 +131,16 @@ func UploadReviewEnabled(v bool) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldUploadReviewEnabled, v))
 }
 
+// StartAt applies equality check predicate on the "startAt" field. It's identical to StartAtEQ.
+func StartAt(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldStartAt, v))
+}
+
+// EndAt applies equality check predicate on the "endAt" field. It's identical to EndAtEQ.
+func EndAt(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldEndAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "createdAt" field.
 func CreatedAtEQ(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldCreatedAt, v))
@@ -851,6 +861,106 @@ func UploadReviewEnabledNEQ(v bool) predicate.Project {
 	return predicate.Project(sql.FieldNEQ(FieldUploadReviewEnabled, v))
 }
 
+// StartAtEQ applies the EQ predicate on the "startAt" field.
+func StartAtEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldStartAt, v))
+}
+
+// StartAtNEQ applies the NEQ predicate on the "startAt" field.
+func StartAtNEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldStartAt, v))
+}
+
+// StartAtIn applies the In predicate on the "startAt" field.
+func StartAtIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldStartAt, vs...))
+}
+
+// StartAtNotIn applies the NotIn predicate on the "startAt" field.
+func StartAtNotIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldStartAt, vs...))
+}
+
+// StartAtGT applies the GT predicate on the "startAt" field.
+func StartAtGT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldStartAt, v))
+}
+
+// StartAtGTE applies the GTE predicate on the "startAt" field.
+func StartAtGTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldStartAt, v))
+}
+
+// StartAtLT applies the LT predicate on the "startAt" field.
+func StartAtLT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldStartAt, v))
+}
+
+// StartAtLTE applies the LTE predicate on the "startAt" field.
+func StartAtLTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldStartAt, v))
+}
+
+// StartAtIsNil applies the IsNil predicate on the "startAt" field.
+func StartAtIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldStartAt))
+}
+
+// StartAtNotNil applies the NotNil predicate on the "startAt" field.
+func StartAtNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldStartAt))
+}
+
+// EndAtEQ applies the EQ predicate on the "endAt" field.
+func EndAtEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldEndAt, v))
+}
+
+// EndAtNEQ applies the NEQ predicate on the "endAt" field.
+func EndAtNEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldEndAt, v))
+}
+
+// EndAtIn applies the In predicate on the "endAt" field.
+func EndAtIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldEndAt, vs...))
+}
+
+// EndAtNotIn applies the NotIn predicate on the "endAt" field.
+func EndAtNotIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldEndAt, vs...))
+}
+
+// EndAtGT applies the GT predicate on the "endAt" field.
+func EndAtGT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldEndAt, v))
+}
+
+// EndAtGTE applies the GTE predicate on the "endAt" field.
+func EndAtGTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldEndAt, v))
+}
+
+// EndAtLT applies the LT predicate on the "endAt" field.
+func EndAtLT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldEndAt, v))
+}
+
+// EndAtLTE applies the LTE predicate on the "endAt" field.
+func EndAtLTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldEndAt, v))
+}
+
+// EndAtIsNil applies the IsNil predicate on the "endAt" field.
+func EndAtIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldEndAt))
+}
+
+// EndAtNotNil applies the NotNil predicate on the "endAt" field.
+func EndAtNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldEndAt))
+}
+
 // HasUploads applies the HasEdge predicate on the "uploads" edge.
 func HasUploads() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
@@ -912,6 +1022,29 @@ func HasImageTags() predicate.Project {
 func HasImageTagsWith(preds ...predicate.ImageTag) predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
 		step := newImageTagsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasScheduleItems applies the HasEdge predicate on the "scheduleItems" edge.
+func HasScheduleItems() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ScheduleItemsTable, ScheduleItemsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasScheduleItemsWith applies the HasEdge predicate on the "scheduleItems" edge with a given conditions (other predicates).
+func HasScheduleItemsWith(preds ...predicate.ScheduleItem) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newScheduleItemsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

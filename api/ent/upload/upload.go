@@ -8,6 +8,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"github.com/shutterbase/shutterbase/ent/schema"
 )
 
 const (
@@ -45,6 +46,8 @@ const (
 	FieldCycleStartedAt = "cycle_started_at"
 	// FieldErrorImageIds holds the string denoting the errorimageids field in the database.
 	FieldErrorImageIds = "error_image_ids"
+	// FieldTimeline holds the string denoting the timeline field in the database.
+	FieldTimeline = "timeline"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
 	// EdgeUser holds the string denoting the user edge name in mutations.
@@ -103,6 +106,7 @@ var Columns = []string{
 	FieldTimeToReadySeconds,
 	FieldCycleStartedAt,
 	FieldErrorImageIds,
+	FieldTimeline,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -138,6 +142,8 @@ var (
 	TimeToReadySecondsValidator func(int) error
 	// DefaultErrorImageIds holds the default value on creation for the "errorImageIds" field.
 	DefaultErrorImageIds []string
+	// DefaultTimeline holds the default value on creation for the "timeline" field.
+	DefaultTimeline []schema.TimelineTrack
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.

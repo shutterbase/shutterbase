@@ -17,7 +17,10 @@ services:
       retries: 10
 
   rustfs:
-    image: rustfs/rustfs:latest
+    # PINNED, do not float to :latest — see api/test/harness/harness.go. Builds
+    # from 1.0.0-beta.9 on stopped answering CORS preflights, which silently
+    # breaks browser uploads (the presigned PUT is blocked by the browser).
+    image: rustfs/rustfs:1.0.0-alpha.90
     restart: unless-stopped
     environment:
       RUSTFS_ACCESS_KEY: shutterbaseadmin

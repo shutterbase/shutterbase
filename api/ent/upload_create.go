@@ -14,6 +14,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
@@ -195,6 +196,12 @@ func (_c *UploadCreate) SetErrorImageIds(v []string) *UploadCreate {
 	return _c
 }
 
+// SetTimeline sets the "timeline" field.
+func (_c *UploadCreate) SetTimeline(v []schema.TimelineTrack) *UploadCreate {
+	_c.mutation.SetTimeline(v)
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *UploadCreate) SetID(v string) *UploadCreate {
 	_c.mutation.SetID(v)
@@ -301,6 +308,10 @@ func (_c *UploadCreate) defaults() {
 	if _, ok := _c.mutation.ErrorImageIds(); !ok {
 		v := upload.DefaultErrorImageIds
 		_c.mutation.SetErrorImageIds(v)
+	}
+	if _, ok := _c.mutation.Timeline(); !ok {
+		v := upload.DefaultTimeline
+		_c.mutation.SetTimeline(v)
 	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := upload.DefaultID()
@@ -461,6 +472,10 @@ func (_c *UploadCreate) createSpec() (*Upload, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ErrorImageIds(); ok {
 		_spec.SetField(upload.FieldErrorImageIds, field.TypeJSON, value)
 		_node.ErrorImageIds = value
+	}
+	if value, ok := _c.mutation.Timeline(); ok {
+		_spec.SetField(upload.FieldTimeline, field.TypeJSON, value)
+		_node.Timeline = value
 	}
 	if nodes := _c.mutation.ProjectIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"time"
+
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
@@ -10,6 +12,18 @@ import (
 )
 
 type Upload struct{ ent.Schema }
+
+// TimelineTrack is one lane of the upload tagging timeline (S15). Exactly one
+// of ScheduleItemID (a schedule-item lane, mutually exclusive with its
+// siblings) or TagID (a free tag lane, stacks with anything) is set. Start/End
+// are the applied window; Enabled=false keeps the lane visible but inert.
+type TimelineTrack struct {
+	ScheduleItemID string    `json:"scheduleItemId,omitempty"`
+	TagID          string    `json:"tagId,omitempty"`
+	Start          time.Time `json:"start"`
+	End            time.Time `json:"end"`
+	Enabled        bool      `json:"enabled"`
+}
 
 func (Upload) Mixin() []ent.Mixin {
 	return []ent.Mixin{StringIDMixin{}, AuditMixin{}}
@@ -39,6 +53,9 @@ func (Upload) Fields() []ent.Field {
 		field.Time("cycleStartedAt").Optional().Nillable().StructTag(`json:"cycleStartedAt,omitempty"`),
 		// Images that carried the review error tag at ANY time, across cycles.
 		field.JSON("errorImageIds", []string{}).Optional().Default([]string{}).StructTag(`json:"errorImageIds"`),
+		// Persisted editor state of the tagging timeline; the applied
+		// "scheduled" tag assignments are derived from it server-side.
+		field.JSON("timeline", []TimelineTrack{}).Optional().Default([]TimelineTrack{}).StructTag(`json:"timeline"`),
 	}
 }
 

@@ -32,6 +32,8 @@ type Tx struct {
 	ProjectAssignment *ProjectAssignmentClient
 	// Role is the client for interacting with the Role builders.
 	Role *RoleClient
+	// ScheduleItem is the client for interacting with the ScheduleItem builders.
+	ScheduleItem *ScheduleItemClient
 	// TimeOffset is the client for interacting with the TimeOffset builders.
 	TimeOffset *TimeOffsetClient
 	// Upload is the client for interacting with the Upload builders.
@@ -178,6 +180,7 @@ func (tx *Tx) init() {
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectAssignment = NewProjectAssignmentClient(tx.config)
 	tx.Role = NewRoleClient(tx.config)
+	tx.ScheduleItem = NewScheduleItemClient(tx.config)
 	tx.TimeOffset = NewTimeOffsetClient(tx.config)
 	tx.Upload = NewUploadClient(tx.config)
 	tx.User = NewUserClient(tx.config)

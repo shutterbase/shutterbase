@@ -9,7 +9,6 @@
 mod callback;
 mod error;
 mod exif_meta;
-mod filename;
 mod imaging;
 mod log;
 mod qr;
@@ -46,10 +45,8 @@ pub fn start() {
 #[wasm_bindgen]
 #[derive(Deserialize)]
 pub struct FileProcessorOptions {
-    file_name: String,
     dimensions: Vec<u32>,
     time_offsets: Vec<TimeOffsetResult>,
-    copyright_tag: String,
     thumbnail_size: u32,
     api_url: String,
     // Binds the presigned upload URL request to an upload the caller may write to.
@@ -67,13 +64,12 @@ pub struct FileProcessorResult {
     // would wrap/truncate under u32. JS numbers hold the full realistic range.
     camera_time_unix_seconds: i64,
     corrected_camera_time_unix_seconds: i64,
-    computed_file_name: String,
     metadata: HashMap<String, String>,
     original_width: u32,
     original_height: u32,
 }
 
-/// Decode → read EXIF → compute corrected time + filename → thumbnail at each
+/// Decode → read EXIF → compute corrected time → thumbnail at each
 /// dimension → upload original + thumbnails to S3. Reports progress via `callback`.
 #[wasm_bindgen]
 pub async fn process_file(
@@ -94,8 +90,6 @@ pub async fn process_file(
     let metadata = exif_meta::read(&data)?;
     let camera_time = time_offset::camera_time(&metadata)?;
     let corrected_time = time_offset::corrected_camera_time(&metadata, &options.time_offsets)?;
-    let computed_file_name =
-        filename::calculate(&options.file_name, corrected_time, &options.copyright_tag)?;
 
     let object_id = Uuid::new_v4().to_string();
     let prefix = &object_id[..2];
@@ -140,7 +134,6 @@ pub async fn process_file(
         original_size,
         camera_time_unix_seconds: camera_time.timestamp(),
         corrected_camera_time_unix_seconds: corrected_time.timestamp(),
-        computed_file_name,
         metadata: metadata.tags,
         original_width,
         original_height,

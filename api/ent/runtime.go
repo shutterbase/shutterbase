@@ -15,6 +15,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/schema"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
 	"github.com/shutterbase/shutterbase/ent/upload"
@@ -328,6 +329,39 @@ func init() {
 	role.DefaultID = roleDescID.Default.(func() string)
 	// role.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	role.IDValidator = roleDescID.Validators[0].(func(string) error)
+	scheduleitemMixin := schema.ScheduleItem{}.Mixin()
+	scheduleitemMixinFields0 := scheduleitemMixin[0].Fields()
+	_ = scheduleitemMixinFields0
+	scheduleitemMixinFields1 := scheduleitemMixin[1].Fields()
+	_ = scheduleitemMixinFields1
+	scheduleitemFields := schema.ScheduleItem{}.Fields()
+	_ = scheduleitemFields
+	// scheduleitemDescCreatedAt is the schema descriptor for createdAt field.
+	scheduleitemDescCreatedAt := scheduleitemMixinFields1[0].Descriptor()
+	// scheduleitem.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	scheduleitem.DefaultCreatedAt = scheduleitemDescCreatedAt.Default.(func() time.Time)
+	// scheduleitemDescUpdatedAt is the schema descriptor for updatedAt field.
+	scheduleitemDescUpdatedAt := scheduleitemMixinFields1[1].Descriptor()
+	// scheduleitem.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	scheduleitem.DefaultUpdatedAt = scheduleitemDescUpdatedAt.Default.(func() time.Time)
+	// scheduleitem.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	scheduleitem.UpdateDefaultUpdatedAt = scheduleitemDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// scheduleitemDescTitle is the schema descriptor for title field.
+	scheduleitemDescTitle := scheduleitemFields[0].Descriptor()
+	// scheduleitem.TitleValidator is a validator for the "title" field. It is called by the builders before save.
+	scheduleitem.TitleValidator = scheduleitemDescTitle.Validators[0].(func(string) error)
+	// scheduleitemDescCardinality is the schema descriptor for cardinality field.
+	scheduleitemDescCardinality := scheduleitemFields[4].Descriptor()
+	// scheduleitem.DefaultCardinality holds the default value on creation for the cardinality field.
+	scheduleitem.DefaultCardinality = scheduleitemDescCardinality.Default.(int)
+	// scheduleitem.CardinalityValidator is a validator for the "cardinality" field. It is called by the builders before save.
+	scheduleitem.CardinalityValidator = scheduleitemDescCardinality.Validators[0].(func(int) error)
+	// scheduleitemDescID is the schema descriptor for id field.
+	scheduleitemDescID := scheduleitemMixinFields0[0].Descriptor()
+	// scheduleitem.DefaultID holds the default value on creation for the id field.
+	scheduleitem.DefaultID = scheduleitemDescID.Default.(func() string)
+	// scheduleitem.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	scheduleitem.IDValidator = scheduleitemDescID.Validators[0].(func(string) error)
 	timeoffsetMixin := schema.TimeOffset{}.Mixin()
 	timeoffsetMixinFields0 := timeoffsetMixin[0].Fields()
 	_ = timeoffsetMixinFields0
@@ -394,6 +428,10 @@ func init() {
 	uploadDescErrorImageIds := uploadFields[10].Descriptor()
 	// upload.DefaultErrorImageIds holds the default value on creation for the errorImageIds field.
 	upload.DefaultErrorImageIds = uploadDescErrorImageIds.Default.([]string)
+	// uploadDescTimeline is the schema descriptor for timeline field.
+	uploadDescTimeline := uploadFields[11].Descriptor()
+	// upload.DefaultTimeline holds the default value on creation for the timeline field.
+	upload.DefaultTimeline = uploadDescTimeline.Default.([]schema.TimelineTrack)
 	// uploadDescID is the schema descriptor for id field.
 	uploadDescID := uploadMixinFields0[0].Descriptor()
 	// upload.DefaultID holds the default value on creation for the id field.

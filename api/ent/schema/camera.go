@@ -17,7 +17,9 @@ func (Camera) Mixin() []ent.Mixin {
 
 func (Camera) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("name").MinLen(3).StructTag(`json:"name"`),
+		// NotEmpty, not MinLen(3): real camera names are two characters ("R5",
+		// "Z6") and the old minimum rejected them with an opaque 400.
+		field.String("name").NotEmpty().StructTag(`json:"name"`),
 		field.UUID("user_id", uuid.UUID{}).StructTag(`json:"-"`),
 	}
 }

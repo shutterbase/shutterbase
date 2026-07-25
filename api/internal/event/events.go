@@ -8,6 +8,8 @@ const (
 	EventObjectPing EventObject = "ping"
 	// EventObjectTime carries the server clock used for camera time-sync.
 	EventObjectTime EventObject = "time"
+	// EventObjectScheduleItem announces a schedule change in a project (S15).
+	EventObjectScheduleItem EventObject = "scheduleItem"
 )
 
 // EventAction is the verb of a websocket message (what happened).
@@ -18,4 +20,16 @@ const (
 	EventActionPing EventAction = "ping"
 	// EventActionTick is emitted every TickInterval with the current server time.
 	EventActionTick EventAction = "tick"
+	// EventActionChanged is a coarse invalidation signal: the SPA refetches the
+	// project's schedule rather than patching state from the payload.
+	EventActionChanged EventAction = "changed"
 )
+
+// ScheduleEventData is the payload of scheduleItem/changed. Deliberately
+// minimal (ids only): the WS manager broadcasts to every authed client with no
+// per-project filtering (see the package ponytail note), so the payload must
+// not carry names or other content.
+type ScheduleEventData struct {
+	ProjectID string `json:"projectId"`
+	ItemID    string `json:"itemId,omitempty"`
+}
