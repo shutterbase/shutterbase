@@ -48,6 +48,7 @@ const projectId = computed(() => `${route.params.id}`);
 
 const assignments = ref<ProjectAssignment[]>([]);
 const roles = ref<Role[]>([]);
+const PROJECT_ROLE_KEYS = ["projectAdmin", "projectEditor", "projectViewer"];
 const users = ref<User[]>([]);
 
 const showUnexpectedErrorMessage = ref(false);
@@ -92,7 +93,11 @@ async function loadData() {
     // Roles + the user picker are only needed for management (admins).
     if (canManage.value) {
       const [rolesRes, usersRes] = await Promise.all([api.roles.list({ limit: 100 }), api.users.list({ limit: 500 })]);
-      roles.value = rolesRes.items;
+      // Only the three project roles are assignable — projectAdmin is the
+      // ceiling. The roles table may hold other rows (the PocketBase import
+      // carries over the legacy global "admin"), and the API rejects those with
+      // invalid_role, so never offer one (mirrors authorization.IsProjectRole).
+      roles.value = rolesRes.items.filter((r) => PROJECT_ROLE_KEYS.includes(r.key));
       users.value = usersRes.items;
     }
   } catch (error: any) {

@@ -200,6 +200,27 @@ func TestCanCreateImageTag(t *testing.T) {
 	assert.False(t, CanCreateImageTag(admin, proj, "bogus"))
 }
 
+// projectAdmin is the ceiling of a project membership. "admin" is the GLOBAL
+// user enum: assignable-looking (the roles table can hold such a row after the
+// PocketBase import) but meaningless in project scope — IsAssigned would count
+// the member while every HasRoleInProject rejects them.
+func TestIsProjectRole(t *testing.T) {
+	assert.True(t, IsProjectRole(RoleProjectAdmin))
+	assert.True(t, IsProjectRole(RoleProjectEditor))
+	assert.True(t, IsProjectRole(RoleProjectViewer))
+
+	assert.False(t, IsProjectRole("admin"), "the global admin role is not a project role")
+	assert.False(t, IsProjectRole("user"))
+	assert.False(t, IsProjectRole(""))
+
+	// the reason it must be refused: the assignment row exists (so the roster
+	// shows the person) while authorization sees no membership whatsoever.
+	stuck := usr(user.RoleUser, pa(proj, "admin"))
+	assert.Equal(t, "", ProjectRole(stuck, proj), "an unranked role is no role")
+	assert.False(t, IsAssigned(stuck, proj), "not even counted as a member")
+	assert.False(t, HasRoleInProject(stuck, proj, RoleProjectViewer), "no viewer access")
+}
+
 // --- assignment + project helpers ---
 
 func TestManageAndViewHelpers(t *testing.T) {

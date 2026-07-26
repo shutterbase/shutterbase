@@ -43,6 +43,15 @@ var projectRoleRank = map[string]int{
 	RoleProjectAdmin:  3,
 }
 
+// IsProjectRole reports whether a role key may be assigned to a project
+// membership. projectAdmin is the ceiling — "admin" is the GLOBAL user enum, not
+// a project role. Assigning it creates an assignment row that ProjectRole
+// ignores (unranked keys never beat ""), so the roster lists the person as a
+// member while authorization sees no membership at all: not even viewer access,
+// with nothing in the UI explaining why. The roles table can hold such rows —
+// the PocketBase import carries over whatever the legacy DB had.
+func IsProjectRole(key string) bool { return projectRoleRank[key] > 0 }
+
 // --- Checker combinators (context-based) ---
 
 // Checker is an authorization check evaluated against a gin context.

@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { UserIcon, CameraIcon, CommandLineIcon } from "@heroicons/vue/24/outline";
+import { UserIcon, CameraIcon, CommandLineIcon, KeyIcon } from "@heroicons/vue/24/outline";
 import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -50,6 +50,7 @@ function updateNavigationItems() {
     { name: "General", icon: UserIcon, href: `${BASE_URL}/${itemId}/general`, current: false },
     { name: "Cameras", icon: CameraIcon, href: `${BASE_URL}/${itemId}/cameras`, current: false },
     { name: "Hotkeys", icon: CommandLineIcon, href: `${BASE_URL}/${itemId}/hotkeys`, current: false },
+    { name: "API keys", icon: KeyIcon, href: `${BASE_URL}/${itemId}/api-keys`, current: false },
   ];
 
   items.forEach((item) => {

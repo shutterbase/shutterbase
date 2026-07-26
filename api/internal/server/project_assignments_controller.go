@@ -100,6 +100,26 @@ func (s *Server) getProjectAssignment(c *gin.Context) {
 	c.JSON(http.StatusOK, s.projectAssignmentResponse(c.Request.Context(), a))
 }
 
+// isAssignableProjectRole rejects a roleId that is not one of the three project
+// roles. projectAdmin is the ceiling of a project membership: the global "admin"
+// is a user-level enum, and a roles-table row for it (the PocketBase import
+// carries over the legacy rows) would otherwise be assignable here, producing an
+// assignment the authorization layer does not recognise as membership at all.
+// Answers the request itself on failure; the caller just returns.
+func (s *Server) isAssignableProjectRole(c *gin.Context, roleID string) bool {
+	role, err := s.Repository.GetRole(c.Request.Context(), roleID)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_role", "unknown roleId")
+		return false
+	}
+	if !authorization.IsProjectRole(role.Key) {
+		apiError(c, http.StatusBadRequest, "invalid_role",
+			"only projectAdmin, projectEditor and projectViewer can be assigned to a project")
+		return false
+	}
+	return true
+}
+
 type createProjectAssignmentPayload struct {
 	ProjectID string `json:"projectId" binding:"required"`
 	UserID    string `json:"userId" binding:"required"`
@@ -119,6 +139,9 @@ func (s *Server) createProjectAssignment(c *gin.Context) {
 	uid, err := uuid.Parse(payload.UserID)
 	if err != nil {
 		apiError(c, http.StatusBadRequest, "invalid_user_id", "invalid userId")
+		return
+	}
+	if !s.isAssignableProjectRole(c, payload.RoleID) {
 		return
 	}
 	a, err := s.Repository.CreateProjectAssignment(c.Request.Context(), &repository.CreateProjectAssignmentParameters{
@@ -150,6 +173,9 @@ func (s *Server) updateProjectAssignment(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+	if payload.RoleID != nil && !s.isAssignableProjectRole(c, *payload.RoleID) {
 		return
 	}
 	a, err := s.Repository.UpdateProjectAssignment(c.Request.Context(), id, &repository.UpdateProjectAssignmentParameters{RoleID: payload.RoleID})

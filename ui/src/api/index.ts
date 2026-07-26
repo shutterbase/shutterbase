@@ -12,6 +12,7 @@ import * as roles from "./roles";
 import * as users from "./users";
 import * as auth from "./auth";
 import * as statistics from "./statistics";
+import * as apiKeys from "./apiKeys";
 
 export const api = {
   images,
@@ -27,6 +28,7 @@ export const api = {
   users,
   auth,
   statistics,
+  apiKeys,
 };
 
 export default api;
