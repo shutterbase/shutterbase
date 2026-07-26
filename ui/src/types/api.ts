@@ -98,9 +98,14 @@ export interface Image {
   tags: ImageTagAssignment[];
   imageTags: string[];
   downloadUrls: DownloadUrls;
+  inferredAt?: string | null;
+  aiStatus?: AiStatus | null;
+  aiError?: string;
   createdAt: string;
   updatedAt: string;
 }
+
+export type AiStatus = "pending" | "processing" | "done" | "error";
 
 export interface ImageTag {
   id: string;
@@ -196,6 +201,9 @@ export interface UploadMetrics {
   timeToReadySeconds: number;
   reviewCycles: number;
   errorCount: number;
+  aiDone: number;
+  aiInFlight: number;
+  aiError: number;
 }
 
 export interface Upload {

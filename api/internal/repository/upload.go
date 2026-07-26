@@ -290,6 +290,11 @@ type UploadMetrics struct {
 	TimeToReadySeconds int     `json:"timeToReadySeconds"`
 	ReviewCycles       int     `json:"reviewCycles"`
 	ErrorCount         int     `json:"errorCount"`
+	// AI detection progress: counts of this upload's images by queue state
+	// (in-flight = pending + processing). Zero-valued on AI-less projects.
+	AiDone     int `json:"aiDone"`
+	AiInFlight int `json:"aiInFlight"`
+	AiError    int `json:"aiError"`
 }
 
 // GetUploadMetrics builds the metric block for the given uploads. Two grouped
@@ -336,6 +341,34 @@ func (r *Repository) GetUploadMetrics(ctx context.Context, uploads []*ent.Upload
 	for id, count := range tagCounts {
 		if m, ok := out[id]; ok {
 			m.TagCount = count
+		}
+	}
+
+	var aiCounts []struct {
+		UploadID string `json:"upload_id"`
+		AiStatus string `json:"ai_status"`
+		Count    int    `json:"count"`
+	}
+	if err := r.Client.Image.Query().
+		Where(image.UploadIDIn(ids...), image.AiStatusNotNil()).
+		GroupBy(image.FieldUploadID, image.FieldAiStatus).
+		Aggregate(ent.Count()).
+		Scan(ctx, &aiCounts); err != nil {
+		log.Error().Err(err).Msg("error counting upload AI statuses")
+		return nil, err
+	}
+	for _, row := range aiCounts {
+		m, ok := out[row.UploadID]
+		if !ok {
+			continue
+		}
+		switch row.AiStatus {
+		case "done":
+			m.AiDone += row.Count
+		case "error":
+			m.AiError += row.Count
+		default: // pending | processing
+			m.AiInFlight += row.Count
 		}
 	}
 

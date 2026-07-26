@@ -47,6 +47,18 @@
 
     <!-- toolbar -->
     <div v-if="showFilter" class="flex flex-wrap items-center gap-2.5">
+      <!-- multi-select AI rerun -->
+      <button
+        v-if="selectionCount > 0"
+        type="button"
+        :class="[triggerBase, triggerActive]"
+        :title="`Rerun AI detection on ${selectionCount} selected images`"
+        @click="emit('rerunAi')"
+      >
+        <SparklesIcon class="h-[18px] w-[18px]" />
+        <span>Rerun AI ({{ selectionCount }})</span>
+      </button>
+
       <!-- search -->
       <div class="relative min-w-[200px] flex-1">
         <MagnifyingGlassIcon class="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-primary-400" />
@@ -208,6 +220,7 @@ import {
   ViewColumnsIcon,
   TableCellsIcon,
   RectangleStackIcon,
+  SparklesIcon,
 } from "@heroicons/vue/24/outline";
 import { Popover, PopoverButton, PopoverPanel, Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
 import { storeToRefs } from "pinia";
@@ -222,10 +235,13 @@ interface Props {
   totalImageCount: number;
   showFilter: boolean;
   density?: Density;
+  // multi-selected image count — enables the "Rerun AI" toolbar action
+  selectionCount?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
   totalImageCount: 0,
   density: "comfortable",
+  selectionCount: 0,
 });
 
 const emit = defineEmits<{
@@ -233,6 +249,7 @@ const emit = defineEmits<{
   filterTags: [ImageTag[]];
   aspectRatioFilter: [string];
   "update:density": [Density];
+  rerunAi: [];
 }>();
 
 const { activeProject, preferredImageSortOrder, projectTags } = storeToRefs(useUserStore());

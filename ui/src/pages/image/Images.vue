@@ -6,9 +6,11 @@
         v-model:density="density"
         :total-image-count="totalImageCount"
         :show-filter="displayMode === DisplayMode.GRID"
+        :selection-count="imageIndices.length"
         @search="updateSearchText"
         @filter-tags="updateFilterTags"
         @aspect-ratio-filter="updateAspectRatioFilter"
+        @rerun-ai="rerunSelection"
       />
       <div v-if="displayMode === DisplayMode.GRID">
         <div :class="['mt-8 select-none', gridClasses]">
@@ -18,6 +20,7 @@
             :key="image.id"
             :density="density"
             :selected="index === imageIndex || imageIndices.includes(index)"
+            :ai-position="aiPositions[image.id]"
             @select="selectImage"
           />
         </div>
@@ -32,12 +35,29 @@
       <div class="mx-auto mt-8 flex max-w-screen-2xl flex-col-reverse gap-6 lg:flex-row">
         <Sidebar :item="images[imageIndex]" />
         <figure class="min-w-0 flex-1">
-          <img
-            :src="heroSrc(images[imageIndex])"
-            @error="onHeroError(images[imageIndex])"
-            :alt="images[imageIndex].computedFileName"
-            class="mx-auto max-h-[max(18rem,calc(100vh-24rem))] max-w-full rounded-sm drop-shadow-lg"
-          />
+          <!-- inline-block wrapper hugs the rendered img exactly, so the
+               relative (0..1) face boxes map to plain percentages -->
+          <div class="relative mx-auto block w-fit">
+            <img
+              :src="heroSrc(images[imageIndex])"
+              @error="onHeroError(images[imageIndex])"
+              :alt="images[imageIndex].computedFileName"
+              class="mx-auto max-h-[max(18rem,calc(100vh-24rem))] max-w-full rounded-sm drop-shadow-lg"
+            />
+            <template v-if="facesVisible">
+              <div
+                v-for="(face, i) in faces"
+                :key="i"
+                :style="faceBoxStyle(face)"
+                :class="[
+                  'absolute rounded-sm border-2 border-accent-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.4)] transition-colors',
+                  face.personRef ? 'cursor-pointer hover:border-accent-200 hover:bg-accent-400/20' : '',
+                ]"
+                :title="face.personRef ? 'Show photos of this person' : ''"
+                @click="face.personRef && openPersonDialog(face.personRef)"
+              ></div>
+            </template>
+          </div>
           <figcaption class="mt-3 flex items-baseline justify-center gap-4">
             <span class="truncate font-data text-sm text-primary-700 dark:text-primary-200">{{ images[imageIndex].computedFileName }}</span>
             <span class="label-mono-sm shrink-0 text-primary-500 dark:text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
@@ -56,6 +76,15 @@
     @selected="addImageTag"
     :image="images[imageIndex]"
   />
+  <AiImageListDialog
+    :shown="aiDialogVisible"
+    :mode="aiDialogMode"
+    :project-id="activeProject.id"
+    :person-ref="aiDialogPersonRef"
+    :image-id="imageIndex !== -1 ? images[imageIndex]?.id : undefined"
+    @close="aiDialogVisible = false"
+    @select="selectFromAiDialog"
+  />
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 <script setup lang="ts">
@@ -73,14 +102,21 @@ import { onMounted, onUnmounted, reactive, ref, computed, watch, nextTick } from
 import { useRouter } from "vue-router";
 import { useDebounceFn, useStorage } from "@vueuse/core";
 
+import AiImageListDialog from "src/components/image/AiImageListDialog.vue";
+import { api } from "src/api";
+import { AiFace } from "src/api/ai";
+import { faceBoxStyle } from "src/util/aiDetection";
+import * as websocket from "src/util/websocket";
+
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
 import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, aspectRatioFilter, updateAspectRatioFilter, filtered } from "./imageQueryLogic";
-import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading } from "./imageQueryLogic";
+import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading, activeProject } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
 import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
 import { nextImage, previousImage, previousRow, nextRow, repeatLastTagAssignment, toggleTagByName } from "./imageQueryLogic";
+import { aiPositions, refreshAiPositions, applyAiEvent, rerunAiSelection } from "./imageQueryLogic";
 import { useHotkeyAction, useHotkeyContext, useTagHotkey } from "src/util/hotkeys";
-import { emitter } from "src/boot/mitt";
+import { emitter, showNotificationToast } from "src/boot/mitt";
 import { debug } from "src/util/logger";
 
 const router = useRouter();
@@ -262,11 +298,96 @@ function scrollToSelectedImage() {
   }
 }
 
+// --- AI detection: live status, face overlay, person/similar dialogs --------
+
+const faces = ref<AiFace[]>([]);
+const facesVisible = ref(false);
+const aiDialogVisible = ref(false);
+const aiDialogMode = ref<"person" | "similar">("similar");
+const aiDialogPersonRef = ref<string | undefined>(undefined);
+
+emitter.on("ai-toggle-faces", toggleFaces);
+emitter.on("ai-show-similar", showSimilarDialog);
+
+function toggleFaces() {
+  facesVisible.value = !facesVisible.value;
+  if (facesVisible.value) loadFaces();
+}
+
+async function loadFaces() {
+  faces.value = [];
+  const image = images.value[imageIndex.value];
+  if (!image) return;
+  try {
+    faces.value = await api.ai.faces(image.id);
+    if (faces.value.length === 0) {
+      showNotificationToast({ headline: "No faces detected in this image", type: "info" });
+    }
+  } catch (error: any) {
+    const status = error?.response?.status;
+    showNotificationToast({
+      headline: status === 404 ? "This image has not been analyzed yet" : "Face lookup unavailable",
+      type: "info",
+    });
+    facesVisible.value = false;
+  }
+}
+
+// changing the displayed image refreshes the overlay (when active)
+watch(imageIndex, () => {
+  if (facesVisible.value) loadFaces();
+});
+
+function openPersonDialog(personRef: string) {
+  aiDialogMode.value = "person";
+  aiDialogPersonRef.value = personRef;
+  aiDialogVisible.value = true;
+}
+
+function showSimilarDialog() {
+  aiDialogMode.value = "similar";
+  aiDialogVisible.value = true;
+}
+
+function selectFromAiDialog(imageId: string) {
+  const index = images.value.findIndex((image) => image.id === imageId);
+  if (index === -1) {
+    showNotificationToast({ headline: "Image is not in the current view — adjust filters to navigate to it", type: "info" });
+    return;
+  }
+  aiDialogVisible.value = false;
+  imageIndex.value = index;
+  showDetail();
+}
+
+// selection rerun (button in the header, active when a selection exists)
+async function rerunSelection() {
+  await rerunAiSelection();
+  refreshAiPositionsDebounced();
+}
+
+// live queue updates: patch statuses from the broadcast, refresh positions in
+// one debounced batch (events arrive per image).
+const refreshAiPositionsDebounced = useDebounceFn(refreshAiPositions, 1000);
+let wsListenerId: string | null = null;
+onMounted(() => {
+  websocket.connect();
+  wsListenerId = websocket.on({ object: "image", action: "changed" }, (message) => {
+    applyAiEvent(message.data as { projectId: string; imageId: string; status: string });
+    refreshAiPositionsDebounced();
+  });
+});
+// initial + post-load position fetch
+watch(() => images.value.length, refreshAiPositionsDebounced);
+
 onUnmounted(() => {
   window.removeEventListener("scroll", onScroll);
   emitter.off("show-tagging-dialog", showTaggingDialog);
   emitter.off("reset-tagging-dialog", resetTaggingDialog);
   emitter.off("current-image-deleted", handleCurrentImageDeleted);
   emitter.off("update-image-grid-scroll-position", scrollToSelectedImage);
+  emitter.off("ai-toggle-faces", toggleFaces);
+  emitter.off("ai-show-similar", showSimilarDialog);
+  if (wsListenerId) websocket.off(wsListenerId);
 });
 </script>

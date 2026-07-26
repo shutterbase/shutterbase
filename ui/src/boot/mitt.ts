@@ -7,6 +7,8 @@ type Events = {
   "reset-tagging-dialog": void;
   "update-image-grid-scroll-position": void;
   "current-image-deleted": string; // ID of the deleted image
+  "ai-toggle-faces": void; // sidebar toggles the face overlay in the viewer
+  "ai-show-similar": void; // sidebar opens the similar-images dialog
 };
 
 export const emitter: Emitter<Events> = mitt<Events>();

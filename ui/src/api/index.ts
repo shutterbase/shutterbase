@@ -1,4 +1,5 @@
 // Central data seam: components call api.<resource>.<method>, never axios directly.
+import * as ai from "./ai";
 import * as images from "./images";
 import * as imageTags from "./imageTags";
 import * as imageTagAssignments from "./imageTagAssignments";
@@ -15,6 +16,7 @@ import * as statistics from "./statistics";
 import * as apiKeys from "./apiKeys";
 
 export const api = {
+  ai,
   images,
   imageTags,
   imageTagAssignments,
