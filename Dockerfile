@@ -43,6 +43,9 @@ FROM golang:1.26.4-alpine AS builder
 WORKDIR /usr/src
 COPY api/go.mod /usr/src/go.mod
 COPY api/go.sum /usr/src/go.sum
+# The AI-server contract is a nested module resolved via `replace ../pkg/aiserver`
+# (relative to go.mod at /usr/src => /usr/pkg/aiserver).
+COPY pkg /usr/pkg
 RUN go mod download
 
 COPY api/cmd /usr/src/cmd
