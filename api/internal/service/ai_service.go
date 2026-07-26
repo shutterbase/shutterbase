@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
@@ -109,8 +110,12 @@ func (s *AIService) Enqueue(imageID string) {
 // processing (crash mid-inference) back to pending. It returns immediately;
 // the goroutine runs until ctx is cancelled.
 func (s *AIService) Start(ctx context.Context) {
+	// Only rows untouched for a while count as orphaned: during a rolling
+	// deploy the OTHER replica's in-flight images are also "processing", and
+	// re-queuing those would double-process them (claiming bumps updatedAt).
 	if n, err := s.repo.Client.Image.Update().
-		Where(entimage.AiStatusEQ(entimage.AiStatusProcessing)).
+		Where(entimage.AiStatusEQ(entimage.AiStatusProcessing),
+			entimage.UpdatedAtLT(time.Now().Add(-10*time.Minute))).
 		SetAiStatus(entimage.AiStatusPending).
 		Save(ctx); err != nil {
 		log.Error().Err(err).Msg("AI: boot recovery failed")
@@ -177,7 +182,10 @@ func (s *AIService) step(ctx context.Context) bool {
 }
 
 // claimNext moves the oldest pending image to processing and returns it; nil
-// when the queue is empty or the global backoff is armed.
+// when the queue is empty or the global backoff is armed. On Postgres the row
+// is claimed under FOR UPDATE SKIP LOCKED so concurrent replicas (FSG prod
+// runs 2) never double-claim an image; SQLite (single-process tests) takes the
+// plain read-then-update path.
 func (s *AIService) claimNext(ctx context.Context) *ent.Image {
 	s.lock.Lock()
 	backoff := s.backoffUntil
@@ -186,11 +194,20 @@ func (s *AIService) claimNext(ctx context.Context) *ent.Image {
 		return nil
 	}
 
-	img, err := s.repo.Client.Image.Query().
-		Where(entimage.AiStatusEQ(entimage.AiStatusPending)).
-		Order(ent.Asc(entimage.FieldAiQueuedAt)).
-		First(ctx)
+	tx, err := s.repo.Client.Tx(ctx)
 	if err != nil {
+		log.Error().Err(err).Msg("AI: claim tx failed")
+		return nil
+	}
+	q := tx.Image.Query().
+		Where(entimage.AiStatusEQ(entimage.AiStatusPending)).
+		Order(ent.Asc(entimage.FieldAiQueuedAt))
+	if s.repo.IsPostgres() {
+		q = q.ForUpdate(entsql.WithLockAction(entsql.SkipLocked))
+	}
+	img, err := q.First(ctx)
+	if err != nil {
+		_ = tx.Rollback()
 		if !ent.IsNotFound(err) {
 			log.Error().Err(err).Msg("AI: claim query failed")
 		}
@@ -198,7 +215,12 @@ func (s *AIService) claimNext(ctx context.Context) *ent.Image {
 	}
 	img, err = img.Update().SetAiStatus(entimage.AiStatusProcessing).Save(ctx)
 	if err != nil {
-		log.Error().Err(err).Str("image", img.ID).Msg("AI: claim update failed")
+		_ = tx.Rollback()
+		log.Error().Err(err).Msg("AI: claim update failed")
+		return nil
+	}
+	if err := tx.Commit(); err != nil {
+		log.Error().Err(err).Msg("AI: claim commit failed")
 		return nil
 	}
 	s.publish(ctx, img)
