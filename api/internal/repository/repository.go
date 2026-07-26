@@ -48,6 +48,10 @@ func (r *Repository) isPostgres() bool {
 	return r.Options.DatabaseConnection.Options.DatabaseType == "psql"
 }
 
+// IsPostgres reports whether the backing database is Postgres — callers gate
+// Postgres-only SQL (row locking) on it; SQLite (tests) takes the plain path.
+func (r *Repository) IsPostgres() bool { return r.isPostgres() }
+
 // ErrInvalidSort is returned when a requested sort key is not on a resource's
 // allowlist. Controllers map it to 400 {"code":"invalid_sort"}.
 var ErrInvalidSort = errors.New("invalid_sort")

@@ -248,17 +248,24 @@ func TestBackoffAndDeadLetter(t *testing.T) {
 	assert.Equal(t, 0, svc.repo.Client.Image.GetX(ctx, img).AiAttempts)
 }
 
-// Boot recovery: rows orphaned in processing are re-queued by Start.
+// Boot recovery: STALE processing rows are re-queued by Start; fresh ones are
+// left alone (they belong to another replica mid-flight during a rolling deploy).
 func TestBootRecovery(t *testing.T) {
 	svc, m := newSvc(t, &StubInference{Tags: []string{"none"}})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	img := m.Images[0]
+	stale, fresh := m.Images[0], m.Images[1]
 
-	svc.repo.Client.Image.UpdateOneID(img).
+	svc.repo.Client.Image.UpdateOneID(stale).
+		SetAiStatus(entimage.AiStatusProcessing).SetAiQueuedAt(time.Now()).SaveX(ctx)
+	// age the row past the orphan threshold (updatedAt is bumped by the save above)
+	svc.repo.Client.Image.UpdateOneID(stale).
+		SetUpdatedAt(time.Now().Add(-15 * time.Minute)).SaveX(ctx)
+	svc.repo.Client.Image.UpdateOneID(fresh).
 		SetAiStatus(entimage.AiStatusProcessing).SetAiQueuedAt(time.Now()).SaveX(ctx)
 
 	svc.Start(ctx)
 	cancel() // dispatcher exits; recovery already ran synchronously
-	assert.Equal(t, "pending", aiStatus(t, svc, img))
+	assert.Equal(t, "pending", aiStatus(t, svc, stale), "stale processing row must be re-queued")
+	assert.Equal(t, "processing", aiStatus(t, svc, fresh), "fresh processing row must be left to its replica")
 }
