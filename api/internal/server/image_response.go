@@ -97,6 +97,9 @@ type ImageResponse struct {
 	Tags                []assignmentRef        `json:"tags"`
 	ImageTags           []string               `json:"imageTags"`
 	DownloadUrls        map[string]string      `json:"downloadUrls"`
+	InferredAt          *string                `json:"inferredAt"`
+	AiStatus            *string                `json:"aiStatus"`
+	AiError             string                 `json:"aiError,omitempty"`
 	CreatedAt           string                 `json:"createdAt"`
 	UpdatedAt           string                 `json:"updatedAt"`
 }
@@ -135,8 +138,14 @@ func ToImageResponse(ctx context.Context, img *ent.Image, signer DownloadURLSign
 		StorageID:           img.StorageId,
 		ImageTags:           img.ImageTags,
 		DownloadUrls:        map[string]string{},
+		InferredAt:          rfc3339(img.InferredAt),
+		AiError:             img.AiError,
 		CreatedAt:           img.CreatedAt.Format(timeLayout),
 		UpdatedAt:           img.UpdatedAt.Format(timeLayout),
+	}
+	if img.AiStatus != nil {
+		status := string(*img.AiStatus)
+		resp.AiStatus = &status
 	}
 	if resp.ExifData == nil {
 		resp.ExifData = map[string]interface{}{}

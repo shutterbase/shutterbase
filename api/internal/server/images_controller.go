@@ -262,5 +262,7 @@ func (s *Server) deleteImage(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+	// The AI server keeps its own analysis per imageRef; tell it to forget.
+	s.forgetAIImage(img.ProjectID, img.ID)
 	c.Status(http.StatusNoContent)
 }

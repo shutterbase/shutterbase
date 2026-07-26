@@ -216,6 +216,9 @@ func (s *Server) updateProject(c *gin.Context) {
 			log.Error().Err(err).Str("project", p.ID).Msg("failed to ensure review error tag")
 		}
 	}
+	// Keep the AI server's prompt + tag vocabulary current (fire-and-forget;
+	// every ingest carries the same payload, so this is a freshness hint).
+	s.primeAIServer(p.ID)
 	c.JSON(http.StatusOK, projectResponse(p))
 }
 
