@@ -216,6 +216,23 @@ func TestCRUDRoundTrips(t *testing.T) {
 		paID := pa["id"].(string)
 		assert.NotNil(t, pa["role"])
 
+		// projectAdmin is the ceiling: a non-project role (the global "admin",
+		// which the PocketBase import can leave in the roles table) is refused on
+		// create and on update rather than producing a member no rank check knows.
+		globalRole, err := c.Role.Create().SetKey("admin").SetDescription("global role row").Save(ctx)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = c.Role.DeleteOneID(globalRole.ID).Exec(ctx) })
+
+		resp = doJSON(t, client, http.MethodPost, "/api/v1/project-assignments", map[string]any{
+			"projectId": projectID, "userId": m.Users["user"].String(), "roleId": globalRole.ID,
+		})
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		assert.Equal(t, "invalid_role", decodeBody(t, resp)["code"])
+
+		resp = doJSON(t, client, http.MethodPut, "/api/v1/project-assignments/"+paID, map[string]any{"roleId": globalRole.ID})
+		require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		assert.Equal(t, "invalid_role", decodeBody(t, resp)["code"])
+
 		resp = doJSON(t, client, http.MethodPut, "/api/v1/project-assignments/"+paID, map[string]any{"roleId": m.Roles["projectEditor"]})
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		resp.Body.Close()
