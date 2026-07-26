@@ -2906,6 +2906,11 @@ type ImageMutation struct {
 	capturedAt                 *time.Time
 	capturedAtCorrected        *time.Time
 	inferredAt                 *time.Time
+	aiStatus                   *image.AiStatus
+	aiQueuedAt                 *time.Time
+	aiAttempts                 *int
+	addaiAttempts              *int
+	aiError                    *string
 	size                       *int
 	addsize                    *int
 	width                      *int
@@ -3585,6 +3590,209 @@ func (m *ImageMutation) ResetInferredAt() {
 	delete(m.clearedFields, image.FieldInferredAt)
 }
 
+// SetAiStatus sets the "aiStatus" field.
+func (m *ImageMutation) SetAiStatus(is image.AiStatus) {
+	m.aiStatus = &is
+}
+
+// AiStatus returns the value of the "aiStatus" field in the mutation.
+func (m *ImageMutation) AiStatus() (r image.AiStatus, exists bool) {
+	v := m.aiStatus
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiStatus returns the old "aiStatus" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldAiStatus(ctx context.Context) (v *image.AiStatus, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiStatus: %w", err)
+	}
+	return oldValue.AiStatus, nil
+}
+
+// ClearAiStatus clears the value of the "aiStatus" field.
+func (m *ImageMutation) ClearAiStatus() {
+	m.aiStatus = nil
+	m.clearedFields[image.FieldAiStatus] = struct{}{}
+}
+
+// AiStatusCleared returns if the "aiStatus" field was cleared in this mutation.
+func (m *ImageMutation) AiStatusCleared() bool {
+	_, ok := m.clearedFields[image.FieldAiStatus]
+	return ok
+}
+
+// ResetAiStatus resets all changes to the "aiStatus" field.
+func (m *ImageMutation) ResetAiStatus() {
+	m.aiStatus = nil
+	delete(m.clearedFields, image.FieldAiStatus)
+}
+
+// SetAiQueuedAt sets the "aiQueuedAt" field.
+func (m *ImageMutation) SetAiQueuedAt(t time.Time) {
+	m.aiQueuedAt = &t
+}
+
+// AiQueuedAt returns the value of the "aiQueuedAt" field in the mutation.
+func (m *ImageMutation) AiQueuedAt() (r time.Time, exists bool) {
+	v := m.aiQueuedAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiQueuedAt returns the old "aiQueuedAt" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldAiQueuedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiQueuedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiQueuedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiQueuedAt: %w", err)
+	}
+	return oldValue.AiQueuedAt, nil
+}
+
+// ClearAiQueuedAt clears the value of the "aiQueuedAt" field.
+func (m *ImageMutation) ClearAiQueuedAt() {
+	m.aiQueuedAt = nil
+	m.clearedFields[image.FieldAiQueuedAt] = struct{}{}
+}
+
+// AiQueuedAtCleared returns if the "aiQueuedAt" field was cleared in this mutation.
+func (m *ImageMutation) AiQueuedAtCleared() bool {
+	_, ok := m.clearedFields[image.FieldAiQueuedAt]
+	return ok
+}
+
+// ResetAiQueuedAt resets all changes to the "aiQueuedAt" field.
+func (m *ImageMutation) ResetAiQueuedAt() {
+	m.aiQueuedAt = nil
+	delete(m.clearedFields, image.FieldAiQueuedAt)
+}
+
+// SetAiAttempts sets the "aiAttempts" field.
+func (m *ImageMutation) SetAiAttempts(i int) {
+	m.aiAttempts = &i
+	m.addaiAttempts = nil
+}
+
+// AiAttempts returns the value of the "aiAttempts" field in the mutation.
+func (m *ImageMutation) AiAttempts() (r int, exists bool) {
+	v := m.aiAttempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiAttempts returns the old "aiAttempts" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldAiAttempts(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiAttempts is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiAttempts requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiAttempts: %w", err)
+	}
+	return oldValue.AiAttempts, nil
+}
+
+// AddAiAttempts adds i to the "aiAttempts" field.
+func (m *ImageMutation) AddAiAttempts(i int) {
+	if m.addaiAttempts != nil {
+		*m.addaiAttempts += i
+	} else {
+		m.addaiAttempts = &i
+	}
+}
+
+// AddedAiAttempts returns the value that was added to the "aiAttempts" field in this mutation.
+func (m *ImageMutation) AddedAiAttempts() (r int, exists bool) {
+	v := m.addaiAttempts
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAiAttempts resets all changes to the "aiAttempts" field.
+func (m *ImageMutation) ResetAiAttempts() {
+	m.aiAttempts = nil
+	m.addaiAttempts = nil
+}
+
+// SetAiError sets the "aiError" field.
+func (m *ImageMutation) SetAiError(s string) {
+	m.aiError = &s
+}
+
+// AiError returns the value of the "aiError" field in the mutation.
+func (m *ImageMutation) AiError() (r string, exists bool) {
+	v := m.aiError
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiError returns the old "aiError" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldAiError(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiError is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiError requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiError: %w", err)
+	}
+	return oldValue.AiError, nil
+}
+
+// ClearAiError clears the value of the "aiError" field.
+func (m *ImageMutation) ClearAiError() {
+	m.aiError = nil
+	m.clearedFields[image.FieldAiError] = struct{}{}
+}
+
+// AiErrorCleared returns if the "aiError" field was cleared in this mutation.
+func (m *ImageMutation) AiErrorCleared() bool {
+	_, ok := m.clearedFields[image.FieldAiError]
+	return ok
+}
+
+// ResetAiError resets all changes to the "aiError" field.
+func (m *ImageMutation) ResetAiError() {
+	m.aiError = nil
+	delete(m.clearedFields, image.FieldAiError)
+}
+
 // SetSize sets the "size" field.
 func (m *ImageMutation) SetSize(i int) {
 	m.size = &i
@@ -4121,7 +4329,7 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 23)
 	if m.createdAt != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
@@ -4157,6 +4365,18 @@ func (m *ImageMutation) Fields() []string {
 	}
 	if m.inferredAt != nil {
 		fields = append(fields, image.FieldInferredAt)
+	}
+	if m.aiStatus != nil {
+		fields = append(fields, image.FieldAiStatus)
+	}
+	if m.aiQueuedAt != nil {
+		fields = append(fields, image.FieldAiQueuedAt)
+	}
+	if m.aiAttempts != nil {
+		fields = append(fields, image.FieldAiAttempts)
+	}
+	if m.aiError != nil {
+		fields = append(fields, image.FieldAiError)
 	}
 	if m.size != nil {
 		fields = append(fields, image.FieldSize)
@@ -4211,6 +4431,14 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.CapturedAtCorrected()
 	case image.FieldInferredAt:
 		return m.InferredAt()
+	case image.FieldAiStatus:
+		return m.AiStatus()
+	case image.FieldAiQueuedAt:
+		return m.AiQueuedAt()
+	case image.FieldAiAttempts:
+		return m.AiAttempts()
+	case image.FieldAiError:
+		return m.AiError()
 	case image.FieldSize:
 		return m.Size()
 	case image.FieldWidth:
@@ -4258,6 +4486,14 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldCapturedAtCorrected(ctx)
 	case image.FieldInferredAt:
 		return m.OldInferredAt(ctx)
+	case image.FieldAiStatus:
+		return m.OldAiStatus(ctx)
+	case image.FieldAiQueuedAt:
+		return m.OldAiQueuedAt(ctx)
+	case image.FieldAiAttempts:
+		return m.OldAiAttempts(ctx)
+	case image.FieldAiError:
+		return m.OldAiError(ctx)
 	case image.FieldSize:
 		return m.OldSize(ctx)
 	case image.FieldWidth:
@@ -4365,6 +4601,34 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetInferredAt(v)
 		return nil
+	case image.FieldAiStatus:
+		v, ok := value.(image.AiStatus)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiStatus(v)
+		return nil
+	case image.FieldAiQueuedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiQueuedAt(v)
+		return nil
+	case image.FieldAiAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiAttempts(v)
+		return nil
+	case image.FieldAiError:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiError(v)
+		return nil
 	case image.FieldSize:
 		v, ok := value.(int)
 		if !ok {
@@ -4422,6 +4686,9 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *ImageMutation) AddedFields() []string {
 	var fields []string
+	if m.addaiAttempts != nil {
+		fields = append(fields, image.FieldAiAttempts)
+	}
 	if m.addsize != nil {
 		fields = append(fields, image.FieldSize)
 	}
@@ -4439,6 +4706,8 @@ func (m *ImageMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *ImageMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case image.FieldAiAttempts:
+		return m.AddedAiAttempts()
 	case image.FieldSize:
 		return m.AddedSize()
 	case image.FieldWidth:
@@ -4454,6 +4723,13 @@ func (m *ImageMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *ImageMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case image.FieldAiAttempts:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAiAttempts(v)
+		return nil
 	case image.FieldSize:
 		v, ok := value.(int)
 		if !ok {
@@ -4507,6 +4783,15 @@ func (m *ImageMutation) ClearedFields() []string {
 	if m.FieldCleared(image.FieldInferredAt) {
 		fields = append(fields, image.FieldInferredAt)
 	}
+	if m.FieldCleared(image.FieldAiStatus) {
+		fields = append(fields, image.FieldAiStatus)
+	}
+	if m.FieldCleared(image.FieldAiQueuedAt) {
+		fields = append(fields, image.FieldAiQueuedAt)
+	}
+	if m.FieldCleared(image.FieldAiError) {
+		fields = append(fields, image.FieldAiError)
+	}
 	if m.FieldCleared(image.FieldWidth) {
 		fields = append(fields, image.FieldWidth)
 	}
@@ -4550,6 +4835,15 @@ func (m *ImageMutation) ClearField(name string) error {
 		return nil
 	case image.FieldInferredAt:
 		m.ClearInferredAt()
+		return nil
+	case image.FieldAiStatus:
+		m.ClearAiStatus()
+		return nil
+	case image.FieldAiQueuedAt:
+		m.ClearAiQueuedAt()
+		return nil
+	case image.FieldAiError:
+		m.ClearAiError()
 		return nil
 	case image.FieldWidth:
 		m.ClearWidth()
@@ -4600,6 +4894,18 @@ func (m *ImageMutation) ResetField(name string) error {
 		return nil
 	case image.FieldInferredAt:
 		m.ResetInferredAt()
+		return nil
+	case image.FieldAiStatus:
+		m.ResetAiStatus()
+		return nil
+	case image.FieldAiQueuedAt:
+		m.ResetAiQueuedAt()
+		return nil
+	case image.FieldAiAttempts:
+		m.ResetAiAttempts()
+		return nil
+	case image.FieldAiError:
+		m.ResetAiError()
 		return nil
 	case image.FieldSize:
 		m.ResetSize()

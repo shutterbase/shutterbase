@@ -116,6 +116,21 @@ func InferredAt(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldInferredAt, v))
 }
 
+// AiQueuedAt applies equality check predicate on the "aiQueuedAt" field. It's identical to AiQueuedAtEQ.
+func AiQueuedAt(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiQueuedAt, v))
+}
+
+// AiAttempts applies equality check predicate on the "aiAttempts" field. It's identical to AiAttemptsEQ.
+func AiAttempts(v int) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiAttempts, v))
+}
+
+// AiError applies equality check predicate on the "aiError" field. It's identical to AiErrorEQ.
+func AiError(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiError, v))
+}
+
 // Size applies equality check predicate on the "size" field. It's identical to SizeEQ.
 func Size(v int) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldSize, v))
@@ -704,6 +719,201 @@ func InferredAtIsNil() predicate.Image {
 // InferredAtNotNil applies the NotNil predicate on the "inferredAt" field.
 func InferredAtNotNil() predicate.Image {
 	return predicate.Image(sql.FieldNotNull(FieldInferredAt))
+}
+
+// AiStatusEQ applies the EQ predicate on the "aiStatus" field.
+func AiStatusEQ(v AiStatus) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiStatus, v))
+}
+
+// AiStatusNEQ applies the NEQ predicate on the "aiStatus" field.
+func AiStatusNEQ(v AiStatus) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldAiStatus, v))
+}
+
+// AiStatusIn applies the In predicate on the "aiStatus" field.
+func AiStatusIn(vs ...AiStatus) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldAiStatus, vs...))
+}
+
+// AiStatusNotIn applies the NotIn predicate on the "aiStatus" field.
+func AiStatusNotIn(vs ...AiStatus) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldAiStatus, vs...))
+}
+
+// AiStatusIsNil applies the IsNil predicate on the "aiStatus" field.
+func AiStatusIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldAiStatus))
+}
+
+// AiStatusNotNil applies the NotNil predicate on the "aiStatus" field.
+func AiStatusNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldAiStatus))
+}
+
+// AiQueuedAtEQ applies the EQ predicate on the "aiQueuedAt" field.
+func AiQueuedAtEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiQueuedAt, v))
+}
+
+// AiQueuedAtNEQ applies the NEQ predicate on the "aiQueuedAt" field.
+func AiQueuedAtNEQ(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldAiQueuedAt, v))
+}
+
+// AiQueuedAtIn applies the In predicate on the "aiQueuedAt" field.
+func AiQueuedAtIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldAiQueuedAt, vs...))
+}
+
+// AiQueuedAtNotIn applies the NotIn predicate on the "aiQueuedAt" field.
+func AiQueuedAtNotIn(vs ...time.Time) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldAiQueuedAt, vs...))
+}
+
+// AiQueuedAtGT applies the GT predicate on the "aiQueuedAt" field.
+func AiQueuedAtGT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldAiQueuedAt, v))
+}
+
+// AiQueuedAtGTE applies the GTE predicate on the "aiQueuedAt" field.
+func AiQueuedAtGTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldAiQueuedAt, v))
+}
+
+// AiQueuedAtLT applies the LT predicate on the "aiQueuedAt" field.
+func AiQueuedAtLT(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldAiQueuedAt, v))
+}
+
+// AiQueuedAtLTE applies the LTE predicate on the "aiQueuedAt" field.
+func AiQueuedAtLTE(v time.Time) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldAiQueuedAt, v))
+}
+
+// AiQueuedAtIsNil applies the IsNil predicate on the "aiQueuedAt" field.
+func AiQueuedAtIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldAiQueuedAt))
+}
+
+// AiQueuedAtNotNil applies the NotNil predicate on the "aiQueuedAt" field.
+func AiQueuedAtNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldAiQueuedAt))
+}
+
+// AiAttemptsEQ applies the EQ predicate on the "aiAttempts" field.
+func AiAttemptsEQ(v int) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiAttempts, v))
+}
+
+// AiAttemptsNEQ applies the NEQ predicate on the "aiAttempts" field.
+func AiAttemptsNEQ(v int) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldAiAttempts, v))
+}
+
+// AiAttemptsIn applies the In predicate on the "aiAttempts" field.
+func AiAttemptsIn(vs ...int) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldAiAttempts, vs...))
+}
+
+// AiAttemptsNotIn applies the NotIn predicate on the "aiAttempts" field.
+func AiAttemptsNotIn(vs ...int) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldAiAttempts, vs...))
+}
+
+// AiAttemptsGT applies the GT predicate on the "aiAttempts" field.
+func AiAttemptsGT(v int) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldAiAttempts, v))
+}
+
+// AiAttemptsGTE applies the GTE predicate on the "aiAttempts" field.
+func AiAttemptsGTE(v int) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldAiAttempts, v))
+}
+
+// AiAttemptsLT applies the LT predicate on the "aiAttempts" field.
+func AiAttemptsLT(v int) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldAiAttempts, v))
+}
+
+// AiAttemptsLTE applies the LTE predicate on the "aiAttempts" field.
+func AiAttemptsLTE(v int) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldAiAttempts, v))
+}
+
+// AiErrorEQ applies the EQ predicate on the "aiError" field.
+func AiErrorEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiError, v))
+}
+
+// AiErrorNEQ applies the NEQ predicate on the "aiError" field.
+func AiErrorNEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldAiError, v))
+}
+
+// AiErrorIn applies the In predicate on the "aiError" field.
+func AiErrorIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldAiError, vs...))
+}
+
+// AiErrorNotIn applies the NotIn predicate on the "aiError" field.
+func AiErrorNotIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldAiError, vs...))
+}
+
+// AiErrorGT applies the GT predicate on the "aiError" field.
+func AiErrorGT(v string) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldAiError, v))
+}
+
+// AiErrorGTE applies the GTE predicate on the "aiError" field.
+func AiErrorGTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldAiError, v))
+}
+
+// AiErrorLT applies the LT predicate on the "aiError" field.
+func AiErrorLT(v string) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldAiError, v))
+}
+
+// AiErrorLTE applies the LTE predicate on the "aiError" field.
+func AiErrorLTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldAiError, v))
+}
+
+// AiErrorContains applies the Contains predicate on the "aiError" field.
+func AiErrorContains(v string) predicate.Image {
+	return predicate.Image(sql.FieldContains(FieldAiError, v))
+}
+
+// AiErrorHasPrefix applies the HasPrefix predicate on the "aiError" field.
+func AiErrorHasPrefix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasPrefix(FieldAiError, v))
+}
+
+// AiErrorHasSuffix applies the HasSuffix predicate on the "aiError" field.
+func AiErrorHasSuffix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasSuffix(FieldAiError, v))
+}
+
+// AiErrorIsNil applies the IsNil predicate on the "aiError" field.
+func AiErrorIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldAiError))
+}
+
+// AiErrorNotNil applies the NotNil predicate on the "aiError" field.
+func AiErrorNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldAiError))
+}
+
+// AiErrorEqualFold applies the EqualFold predicate on the "aiError" field.
+func AiErrorEqualFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldEqualFold(FieldAiError, v))
+}
+
+// AiErrorContainsFold applies the ContainsFold predicate on the "aiError" field.
+func AiErrorContainsFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldContainsFold(FieldAiError, v))
 }
 
 // SizeEQ applies the EQ predicate on the "size" field.

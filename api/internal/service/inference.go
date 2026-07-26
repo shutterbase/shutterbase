@@ -4,17 +4,41 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/mxcd/go-config/config"
 	openai "github.com/sashabaranov/go-openai"
+
+	"github.com/shutterbase/shutterbase/pkg/aiserver"
 )
 
-// ImageInference is the single seam the AI tagging service talks to. An impl
-// takes a presigned image URL plus the project's system prompt and returns the
-// tag names it inferred. Provider-specific transport (OpenAI, OpenRouter, a
-// future REST gateway) lives behind this; the service stays provider-agnostic.
+// InferenceRequest carries everything a provider may need. The simple
+// providers (stub, openai) only read ImageURL + Prompt; the http provider
+// forwards the full context so the AI server can prime itself and constrain
+// its output to AvailableTags.
+type InferenceRequest struct {
+	ImageID       string
+	ImageURL      string
+	ProjectID     string
+	ProjectName   string
+	Prompt        string
+	AvailableTags []string
+	CapturedAt    *time.Time
+	Author        string
+}
+
+// InferredTag is one tag with the provider's confidence (1.0 when the provider
+// has no notion of confidence).
+type InferredTag struct {
+	Name       string
+	Confidence float64
+}
+
+// ImageInference is the single seam the AI tagging service talks to.
+// Provider-specific transport (OpenAI, OpenRouter, the aiserver contract)
+// lives behind this; the service stays provider-agnostic.
 type ImageInference interface {
-	Infer(ctx context.Context, imageURL, systemPrompt string) ([]string, error)
+	Infer(ctx context.Context, req InferenceRequest) ([]InferredTag, error)
 }
 
 // NewInference selects an implementation from AI_PROVIDER. Unknown providers are
@@ -29,36 +53,42 @@ func NewInference() (ImageInference, error) {
 	case "openrouter":
 		// OpenRouter speaks the OpenAI wire protocol, so go-openai with a base
 		// URL override is the real client — no stub needed.
-		// ponytail: upgrade to the aikido Go lib if/when it lands as an
-		// importable module; the OpenAI-compatible path covers it until then.
 		return newOpenAIInference("https://openrouter.ai/api/v1"), nil
 	case "http":
-		return &HTTPInference{}, nil
+		// The generic AI-server contract (pkg/aiserver), e.g. fsai.
+		return &HTTPInference{
+			Client: aiserver.NewClient(config.Get().String("AI_HTTP_ENDPOINT"), config.Get().String("AI_API_KEY")),
+		}, nil
 	default:
 		return nil, errors.New("unknown AI_PROVIDER: " + provider)
 	}
 }
 
 // StubInference is deterministic. Tests inject Tags to drive a known result;
-// with Tags nil it echoes the system prompt as a single tag (dev no-op that
-// never matches a real project tag, so it produces no assignments).
+// with Tags nil it echoes the prompt as a single tag (dev no-op that never
+// matches a real project tag, so it produces no assignments).
 type StubInference struct {
 	Tags []string
 }
 
-func (s *StubInference) Infer(_ context.Context, _ string, systemPrompt string) ([]string, error) {
-	if s.Tags != nil {
-		return s.Tags, nil
+func (s *StubInference) Infer(_ context.Context, req InferenceRequest) ([]InferredTag, error) {
+	names := s.Tags
+	if names == nil {
+		names = []string{req.Prompt}
 	}
-	return []string{systemPrompt}, nil
+	tags := make([]InferredTag, 0, len(names))
+	for _, n := range names {
+		tags = append(tags, InferredTag{Name: n, Confidence: 1})
+	}
+	return tags, nil
 }
 
 // openAIInference ports the old hook's go-openai usage: system prompt + the
 // image URL as a single vision message. baseURL "" = OpenAI; set it for any
 // OpenAI-compatible gateway (OpenRouter).
 type openAIInference struct {
-	model  string
-	apiKey string
+	model   string
+	apiKey  string
 	baseURL string
 }
 
@@ -70,7 +100,7 @@ func newOpenAIInference(baseURL string) *openAIInference {
 	}
 }
 
-func (o *openAIInference) Infer(ctx context.Context, imageURL, systemPrompt string) ([]string, error) {
+func (o *openAIInference) Infer(ctx context.Context, req InferenceRequest) ([]InferredTag, error) {
 	cfg := openai.DefaultConfig(o.apiKey)
 	if o.baseURL != "" {
 		cfg.BaseURL = o.baseURL
@@ -80,32 +110,51 @@ func (o *openAIInference) Infer(ctx context.Context, imageURL, systemPrompt stri
 	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model: o.model,
 		Messages: []openai.ChatCompletionMessage{
-			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
+			{Role: openai.ChatMessageRoleSystem, Content: req.Prompt},
 			{Role: openai.ChatMessageRoleUser, MultiContent: []openai.ChatMessagePart{{
 				Type:     openai.ChatMessagePartTypeImageURL,
-				ImageURL: &openai.ChatMessageImageURL{URL: imageURL},
+				ImageURL: &openai.ChatMessageImageURL{URL: req.ImageURL},
 			}}},
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	tags := make([]string, 0, len(resp.Choices))
+	tags := make([]InferredTag, 0, len(resp.Choices))
 	for _, choice := range resp.Choices {
 		if t := strings.TrimSpace(choice.Message.Content); t != "" {
-			tags = append(tags, t)
+			tags = append(tags, InferredTag{Name: t, Confidence: 1})
 		}
 	}
 	return tags, nil
 }
 
-// HTTPInference is a placeholder for a future generic REST inference gateway.
-// ponytail: not built — no consumer yet. Construct it (AI_PROVIDER=http) and
-// fill Infer when a concrete gateway exists; selecting it today is a clear error.
+// HTTPInference speaks the shutterbase AI-server contract. The full request
+// context (project priming incl. the allowed tag vocabulary) rides along with
+// every ingest, so the server needs no separate priming call to stay current.
 type HTTPInference struct {
-	Endpoint string
+	Client *aiserver.Client
 }
 
-func (h *HTTPInference) Infer(_ context.Context, _ string, _ string) ([]string, error) {
-	return nil, errors.New("http inference provider not implemented")
+func (h *HTTPInference) Infer(ctx context.Context, req InferenceRequest) ([]InferredTag, error) {
+	resp, err := h.Client.Ingest(ctx, req.ProjectID, aiserver.IngestRequest{
+		Project: aiserver.Project{
+			ID:     req.ProjectID,
+			Name:   req.ProjectName,
+			Prompt: req.Prompt,
+			Tags:   req.AvailableTags,
+		},
+		ImageRef:   req.ImageID,
+		ImageURL:   req.ImageURL,
+		CapturedAt: req.CapturedAt,
+		Author:     req.Author,
+	})
+	if err != nil {
+		return nil, err
+	}
+	tags := make([]InferredTag, 0, len(resp.Tags))
+	for _, t := range resp.Tags {
+		tags = append(tags, InferredTag{Name: t.Name, Confidence: t.Confidence})
+	}
+	return tags, nil
 }

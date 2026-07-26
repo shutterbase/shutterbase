@@ -132,6 +132,10 @@ var (
 		{Name: "captured_at", Type: field.TypeTime, Nullable: true},
 		{Name: "captured_at_corrected", Type: field.TypeTime, Nullable: true},
 		{Name: "inferred_at", Type: field.TypeTime, Nullable: true},
+		{Name: "ai_status", Type: field.TypeEnum, Nullable: true, Enums: []string{"pending", "processing", "done", "error"}},
+		{Name: "ai_queued_at", Type: field.TypeTime, Nullable: true},
+		{Name: "ai_attempts", Type: field.TypeInt, Default: 0},
+		{Name: "ai_error", Type: field.TypeString, Nullable: true},
 		{Name: "size", Type: field.TypeInt},
 		{Name: "width", Type: field.TypeInt, Nullable: true},
 		{Name: "height", Type: field.TypeInt, Nullable: true},
@@ -148,25 +152,25 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "images_cameras_images",
-				Columns:    []*schema.Column{ImagesColumns[16]},
+				Columns:    []*schema.Column{ImagesColumns[20]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "images_projects_images",
-				Columns:    []*schema.Column{ImagesColumns[17]},
+				Columns:    []*schema.Column{ImagesColumns[21]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_uploads_images",
-				Columns:    []*schema.Column{ImagesColumns[18]},
+				Columns:    []*schema.Column{ImagesColumns[22]},
 				RefColumns: []*schema.Column{UploadsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_users_images",
-				Columns:    []*schema.Column{ImagesColumns[19]},
+				Columns:    []*schema.Column{ImagesColumns[23]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -175,22 +179,22 @@ var (
 			{
 				Name:    "image_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[17]},
+				Columns: []*schema.Column{ImagesColumns[21]},
 			},
 			{
 				Name:    "image_upload_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[18]},
+				Columns: []*schema.Column{ImagesColumns[22]},
 			},
 			{
 				Name:    "image_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[19]},
+				Columns: []*schema.Column{ImagesColumns[23]},
 			},
 			{
 				Name:    "image_camera_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[16]},
+				Columns: []*schema.Column{ImagesColumns[20]},
 			},
 			{
 				Name:    "image_captured_at_corrected",
@@ -200,7 +204,12 @@ var (
 			{
 				Name:    "image_project_id_captured_at_corrected",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[17], ImagesColumns[11]},
+				Columns: []*schema.Column{ImagesColumns[21], ImagesColumns[11]},
+			},
+			{
+				Name:    "image_ai_status_ai_queued_at",
+				Unique:  false,
+				Columns: []*schema.Column{ImagesColumns[13], ImagesColumns[14]},
 			},
 			{
 				Name:    "image_image_tags",

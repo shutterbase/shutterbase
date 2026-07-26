@@ -33,13 +33,22 @@ func NewBus(ws *Manager, db *sql.DB, dsn string) *Bus {
 // Publish sends a schedule event to all replicas' clients. On a NOTIFY error it
 // degrades to a local broadcast so at least this replica's clients stay fresh.
 func (b *Bus) Publish(ctx context.Context, msg WebsocketMessage[ScheduleEventData]) {
+	PublishEvent(b, ctx, msg)
+}
+
+// PublishEvent is the payload-generic fan-out (methods can't be generic). The
+// listen loop re-broadcasts payloads as raw JSON, so any payload type works.
+func PublishEvent[T any](b *Bus, ctx context.Context, msg WebsocketMessage[T]) {
+	if b == nil {
+		return // services in unit tests run without a bus
+	}
 	if b.db == nil {
 		Broadcast(b.ws, msg)
 		return
 	}
 	payload, err := json.Marshal(msg)
 	if err != nil {
-		log.Error().Err(err).Msg("error marshalling schedule event")
+		log.Error().Err(err).Msg("error marshalling event")
 		return
 	}
 	if _, err := b.db.ExecContext(ctx, `SELECT pg_notify($1, $2)`, notifyChannel, string(payload)); err != nil {
@@ -85,9 +94,11 @@ func (b *Bus) listenOnce(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		var msg WebsocketMessage[ScheduleEventData]
+		// Payload-agnostic: re-broadcast the data verbatim (json.RawMessage
+		// round-trips), so schedule and AI events share one channel.
+		var msg WebsocketMessage[json.RawMessage]
 		if err := json.Unmarshal([]byte(n.Payload), &msg); err != nil {
-			log.Warn().Err(err).Msg("dropping malformed schedule event payload")
+			log.Warn().Err(err).Msg("dropping malformed event payload")
 			continue
 		}
 		Broadcast(b.ws, msg)

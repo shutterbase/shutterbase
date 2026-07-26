@@ -162,6 +162,62 @@ func (_c *ImageCreate) SetNillableInferredAt(v *time.Time) *ImageCreate {
 	return _c
 }
 
+// SetAiStatus sets the "aiStatus" field.
+func (_c *ImageCreate) SetAiStatus(v image.AiStatus) *ImageCreate {
+	_c.mutation.SetAiStatus(v)
+	return _c
+}
+
+// SetNillableAiStatus sets the "aiStatus" field if the given value is not nil.
+func (_c *ImageCreate) SetNillableAiStatus(v *image.AiStatus) *ImageCreate {
+	if v != nil {
+		_c.SetAiStatus(*v)
+	}
+	return _c
+}
+
+// SetAiQueuedAt sets the "aiQueuedAt" field.
+func (_c *ImageCreate) SetAiQueuedAt(v time.Time) *ImageCreate {
+	_c.mutation.SetAiQueuedAt(v)
+	return _c
+}
+
+// SetNillableAiQueuedAt sets the "aiQueuedAt" field if the given value is not nil.
+func (_c *ImageCreate) SetNillableAiQueuedAt(v *time.Time) *ImageCreate {
+	if v != nil {
+		_c.SetAiQueuedAt(*v)
+	}
+	return _c
+}
+
+// SetAiAttempts sets the "aiAttempts" field.
+func (_c *ImageCreate) SetAiAttempts(v int) *ImageCreate {
+	_c.mutation.SetAiAttempts(v)
+	return _c
+}
+
+// SetNillableAiAttempts sets the "aiAttempts" field if the given value is not nil.
+func (_c *ImageCreate) SetNillableAiAttempts(v *int) *ImageCreate {
+	if v != nil {
+		_c.SetAiAttempts(*v)
+	}
+	return _c
+}
+
+// SetAiError sets the "aiError" field.
+func (_c *ImageCreate) SetAiError(v string) *ImageCreate {
+	_c.mutation.SetAiError(v)
+	return _c
+}
+
+// SetNillableAiError sets the "aiError" field if the given value is not nil.
+func (_c *ImageCreate) SetNillableAiError(v *string) *ImageCreate {
+	if v != nil {
+		_c.SetAiError(*v)
+	}
+	return _c
+}
+
 // SetSize sets the "size" field.
 func (_c *ImageCreate) SetSize(v int) *ImageCreate {
 	_c.mutation.SetSize(v)
@@ -316,6 +372,10 @@ func (_c *ImageCreate) defaults() {
 		v := image.DefaultImageTags
 		_c.mutation.SetImageTags(v)
 	}
+	if _, ok := _c.mutation.AiAttempts(); !ok {
+		v := image.DefaultAiAttempts
+		_c.mutation.SetAiAttempts(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := image.DefaultID()
 		_c.mutation.SetID(v)
@@ -345,6 +405,14 @@ func (_c *ImageCreate) check() error {
 		if err := image.StorageIdValidator(v); err != nil {
 			return &ValidationError{Name: "storageId", err: fmt.Errorf(`ent: validator failed for field "Image.storageId": %w`, err)}
 		}
+	}
+	if v, ok := _c.mutation.AiStatus(); ok {
+		if err := image.AiStatusValidator(v); err != nil {
+			return &ValidationError{Name: "aiStatus", err: fmt.Errorf(`ent: validator failed for field "Image.aiStatus": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.AiAttempts(); !ok {
+		return &ValidationError{Name: "aiAttempts", err: errors.New(`ent: missing required field "Image.aiAttempts"`)}
 	}
 	if _, ok := _c.mutation.Size(); !ok {
 		return &ValidationError{Name: "size", err: errors.New(`ent: missing required field "Image.size"`)}
@@ -475,6 +543,22 @@ func (_c *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.InferredAt(); ok {
 		_spec.SetField(image.FieldInferredAt, field.TypeTime, value)
 		_node.InferredAt = &value
+	}
+	if value, ok := _c.mutation.AiStatus(); ok {
+		_spec.SetField(image.FieldAiStatus, field.TypeEnum, value)
+		_node.AiStatus = &value
+	}
+	if value, ok := _c.mutation.AiQueuedAt(); ok {
+		_spec.SetField(image.FieldAiQueuedAt, field.TypeTime, value)
+		_node.AiQueuedAt = &value
+	}
+	if value, ok := _c.mutation.AiAttempts(); ok {
+		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)
+		_node.AiAttempts = value
+	}
+	if value, ok := _c.mutation.AiError(); ok {
+		_spec.SetField(image.FieldAiError, field.TypeString, value)
+		_node.AiError = value
 	}
 	if value, ok := _c.mutation.Size(); ok {
 		_spec.SetField(image.FieldSize, field.TypeInt, value)

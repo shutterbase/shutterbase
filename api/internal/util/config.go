@@ -110,6 +110,15 @@ func InitConfig() error {
 		config.String("AI_API_KEY").Sensitive().Default(""),
 		config.String("AI_TIMEOUT").Default("60s"),
 		config.String("OPENAI_API_KEY").Sensitive().Default(""),
+		// Base URL of an AI server speaking the pkg/aiserver contract
+		// (AI_PROVIDER=http), e.g. https://fsai.fsintra.net
+		config.String("AI_HTTP_ENDPOINT").Default(""),
+		// Thumbnail rendition sent to inference; must be one of THUMBNAIL_SIZES.
+		// 512 keeps OpenAI token cost down; the fsai contract wants 2048.
+		config.Int("AI_IMAGE_SIZE").Default(512),
+		// Parallel inference workers draining the queue. Sized to the AI
+		// server's capacity (fsai: ≈ number of 26b vision lanes).
+		config.Int("AI_CONCURRENCY").Default(3),
 
 		// image processing
 		config.String("THUMBNAIL_SIZES").NotEmpty().Default("256,512,1024,2048"),

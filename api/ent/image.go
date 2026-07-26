@@ -47,6 +47,14 @@ type Image struct {
 	CapturedAtCorrected *time.Time `json:"capturedAtCorrected,omitempty"`
 	// InferredAt holds the value of the "inferredAt" field.
 	InferredAt *time.Time `json:"inferredAt,omitempty"`
+	// AiStatus holds the value of the "aiStatus" field.
+	AiStatus *image.AiStatus `json:"aiStatus,omitempty"`
+	// AiQueuedAt holds the value of the "aiQueuedAt" field.
+	AiQueuedAt *time.Time `json:"-"`
+	// AiAttempts holds the value of the "aiAttempts" field.
+	AiAttempts int `json:"-"`
+	// AiError holds the value of the "aiError" field.
+	AiError string `json:"aiError,omitempty"`
 	// Size holds the value of the "size" field.
 	Size int `json:"size"`
 	// Width holds the value of the "width" field.
@@ -146,11 +154,11 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case image.FieldExifData, image.FieldImageTags:
 			values[i] = new([]byte)
-		case image.FieldSize, image.FieldWidth, image.FieldHeight:
+		case image.FieldAiAttempts, image.FieldSize, image.FieldWidth, image.FieldHeight:
 			values[i] = new(sql.NullInt64)
-		case image.FieldID, image.FieldFileName, image.FieldComputedFileName, image.FieldStorageId, image.FieldUploadID, image.FieldProjectID, image.FieldCameraID:
+		case image.FieldID, image.FieldFileName, image.FieldComputedFileName, image.FieldStorageId, image.FieldAiStatus, image.FieldAiError, image.FieldUploadID, image.FieldProjectID, image.FieldCameraID:
 			values[i] = new(sql.NullString)
-		case image.FieldCreatedAt, image.FieldUpdatedAt, image.FieldCapturedAt, image.FieldCapturedAtCorrected, image.FieldInferredAt:
+		case image.FieldCreatedAt, image.FieldUpdatedAt, image.FieldCapturedAt, image.FieldCapturedAtCorrected, image.FieldInferredAt, image.FieldAiQueuedAt:
 			values[i] = new(sql.NullTime)
 		case image.FieldUserID:
 			values[i] = new(uuid.UUID)
@@ -255,6 +263,32 @@ func (_m *Image) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.InferredAt = new(time.Time)
 				*_m.InferredAt = value.Time
+			}
+		case image.FieldAiStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field aiStatus", values[i])
+			} else if value.Valid {
+				_m.AiStatus = new(image.AiStatus)
+				*_m.AiStatus = image.AiStatus(value.String)
+			}
+		case image.FieldAiQueuedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field aiQueuedAt", values[i])
+			} else if value.Valid {
+				_m.AiQueuedAt = new(time.Time)
+				*_m.AiQueuedAt = value.Time
+			}
+		case image.FieldAiAttempts:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field aiAttempts", values[i])
+			} else if value.Valid {
+				_m.AiAttempts = int(value.Int64)
+			}
+		case image.FieldAiError:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field aiError", values[i])
+			} else if value.Valid {
+				_m.AiError = value.String
 			}
 		case image.FieldSize:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -406,6 +440,22 @@ func (_m *Image) String() string {
 		builder.WriteString("inferredAt=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	if v := _m.AiStatus; v != nil {
+		builder.WriteString("aiStatus=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AiQueuedAt; v != nil {
+		builder.WriteString("aiQueuedAt=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("aiAttempts=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AiAttempts))
+	builder.WriteString(", ")
+	builder.WriteString("aiError=")
+	builder.WriteString(_m.AiError)
 	builder.WriteString(", ")
 	builder.WriteString("size=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Size))

@@ -2,6 +2,10 @@ module github.com/shutterbase/shutterbase
 
 go 1.26.4
 
+// The AI server contract is a nested module so external AI backends (fsai) can
+// import it without pulling in the whole app; locally it resolves in-repo.
+replace github.com/shutterbase/shutterbase/pkg/aiserver => ../pkg/aiserver
+
 require (
 	entgo.io/ent v0.14.5
 	github.com/gorilla/sessions v1.4.0
@@ -13,6 +17,7 @@ require (
 	github.com/mxcd/go-basicauth v1.4.0
 	github.com/mxcd/go-config v1.5.1
 	github.com/sashabaranov/go-openai v1.41.2
+	github.com/shutterbase/shutterbase/pkg/aiserver v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.43.0

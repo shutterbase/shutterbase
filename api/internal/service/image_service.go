@@ -139,7 +139,11 @@ func (s *ImageService) CreateImage(ctx context.Context, params *CreateImageParam
 		return nil, err
 	}
 
-	s.ai.Enqueue(image.ID)
+	// Only queue when the project actually runs AI (null aiStatus = "not
+	// applicable" in the queue model, not "waiting forever").
+	if strings.TrimSpace(project.AiSystemMessage) != "" {
+		s.ai.Enqueue(image.ID)
+	}
 
 	return s.repo.GetImage(ctx, image.ID)
 }
