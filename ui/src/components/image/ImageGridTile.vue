@@ -25,15 +25,21 @@
       <CheckIcon class="h-3.5 w-3.5 text-white" />
     </div>
 
+    <!-- AI detection status -->
+    <div v-if="image.aiStatus" :title="aiTitle" class="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary-950/70 px-1.5 py-1 shadow-sm">
+      <SparklesIcon v-if="image.aiStatus === 'done'" class="h-3.5 w-3.5 text-accent-300" />
+      <ArrowPathIcon v-else-if="image.aiStatus === 'processing'" class="h-3.5 w-3.5 animate-spin text-accent-300" />
+      <ClockIcon v-else-if="image.aiStatus === 'pending'" class="h-3.5 w-3.5 text-primary-200" />
+      <ExclamationTriangleIcon v-else class="h-3.5 w-3.5 text-red-400" />
+      <span v-if="aiLabel" class="label-mono-sm text-primary-100">{{ aiLabel }}</span>
+    </div>
+
     <!-- caption: below the image in gallery mode, EXIF-style hover readout otherwise -->
     <figcaption v-if="density === 'gallery'" class="px-3 py-2.5">
       <p class="truncate text-sm font-medium text-primary-800 dark:text-primary-100">{{ image.computedFileName }}</p>
       <p class="label-mono-sm mt-1 truncate text-primary-500 dark:text-primary-400">{{ capturedAt }}</p>
     </figcaption>
-    <figcaption
-      v-else
-      class="pointer-events-none absolute inset-x-0 bottom-0 bg-primary-950/80 px-2.5 py-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-    >
+    <figcaption v-else class="pointer-events-none absolute inset-x-0 bottom-0 bg-primary-950/80 px-2.5 py-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
       <p class="truncate text-xs font-medium text-white">{{ image.computedFileName }}</p>
       <p class="label-mono-sm mt-0.5 truncate text-accent-300">{{ capturedAt }}</p>
     </figcaption>
@@ -42,10 +48,11 @@
 
 <script setup lang="ts">
 import * as dateTimeUtil from "src/util/dateTimeUtil";
+import { aiBadgeLabel, aiBadgeTitle } from "src/util/aiDetection";
 import { ImageWithTagsType } from "src/types/custom";
 import { devPlaceholder } from "src/util/devPlaceholder";
 import { computed, ref } from "vue";
-import { CheckIcon, PhotoIcon } from "@heroicons/vue/24/solid";
+import { ArrowPathIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, PhotoIcon, SparklesIcon } from "@heroicons/vue/24/solid";
 
 type Density = "gallery" | "comfortable" | "dense";
 
@@ -53,10 +60,13 @@ interface Props {
   image: ImageWithTagsType;
   selected?: boolean;
   density?: Density;
+  // global queue position for pending images (from api.ai.queueStatus)
+  aiPosition?: number;
 }
 const props = withDefaults(defineProps<Props>(), {
   selected: false,
   density: "comfortable",
+  aiPosition: 0,
 });
 
 const emit = defineEmits<{
@@ -64,6 +74,8 @@ const emit = defineEmits<{
 }>();
 
 const capturedAt = computed(() => dateTimeUtil.dateTimeFromBackend(props.image.capturedAtCorrected));
+const aiLabel = computed(() => aiBadgeLabel(props.image.aiStatus, props.aiPosition));
+const aiTitle = computed(() => aiBadgeTitle(props.image.aiStatus, props.aiPosition, props.image.aiError));
 
 // Missing thumbnail: dev builds swap in the deterministic local placeholder
 // (see devPlaceholder.ts); in prod the neutral icon tile shows instead.

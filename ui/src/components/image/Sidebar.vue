@@ -53,7 +53,10 @@
 
       <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
         <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Image Tags</h3>
-        <p v-if="officialTagsFrozen(item)" class="mb-3 flex items-start gap-1.5 rounded-md border border-warning-200 bg-warning-50 px-2.5 py-2 text-xs text-warning-800 dark:border-warning-800/70 dark:bg-warning-950/40 dark:text-warning-200">
+        <p
+          v-if="officialTagsFrozen(item)"
+          class="mb-3 flex items-start gap-1.5 rounded-md border border-warning-200 bg-warning-50 px-2.5 py-2 text-xs text-warning-800 dark:border-warning-800/70 dark:bg-warning-950/40 dark:text-warning-200"
+        >
           <LockClosedIcon class="mt-px h-4 w-4 shrink-0" />
           <span>This upload is submitted for review — official tags are frozen. Custom tags can still be changed.</span>
         </p>
@@ -68,6 +71,33 @@
           add
         </p>
       </div>
+      <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
+        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">AI Detection</h3>
+        <div class="flex items-center gap-2">
+          <SparklesIcon v-if="item.aiStatus === 'done'" class="h-4 w-4 text-accent-500" />
+          <ArrowPathIcon v-else-if="item.aiStatus === 'processing'" class="h-4 w-4 animate-spin text-accent-500" />
+          <ClockIcon v-else-if="item.aiStatus === 'pending'" class="h-4 w-4 text-primary-400" />
+          <ExclamationTriangleIcon v-else-if="item.aiStatus === 'error'" class="h-4 w-4 text-error-500" />
+          <p class="font-data text-sm text-primary-800 dark:text-primary-100">{{ aiStatusText }}</p>
+        </div>
+        <p v-if="item.aiStatus === 'error' && item.aiError" class="mt-1 truncate text-xs text-error-600 dark:text-error-400" :title="item.aiError">{{ item.aiError }}</p>
+        <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+          <p @click="() => emitter.emit('ai-toggle-faces')" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
+            faces
+          </p>
+          <p @click="() => emitter.emit('ai-show-similar')" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
+            similar images
+          </p>
+          <p
+            v-if="userStore.isProjectEditorOrHigher()"
+            @click="rerunAi"
+            class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer"
+          >
+            rerun
+          </p>
+        </div>
+      </div>
+
       <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
         <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Download Links</h3>
         <div class="flex flex-wrap gap-2">
@@ -157,7 +187,9 @@ import { useUserStore } from "src/stores/user-store";
 import { ImagesResponse } from "src/types/pocketbase";
 import Clipboard from "src/components/Clipboard.vue";
 import { LockClosedIcon } from "@heroicons/vue/24/outline";
+import { ArrowPathIcon, ClockIcon, ExclamationTriangleIcon, SparklesIcon } from "@heroicons/vue/24/solid";
 import { canEditImageTag, officialTagsFrozen } from "src/pages/upload/uploadUtil";
+import { aiPositions, aiQueueTotal } from "src/pages/image/imageQueryLogic";
 
 const userStore = useUserStore();
 
@@ -175,6 +207,37 @@ const props = withDefaults(defineProps<Props>(), {});
 const tagAssignments = computed(() => {
   return props.item?.tags || [];
 });
+
+const aiStatusText = computed(() => {
+  const item = props.item;
+  if (!item) return "";
+  switch (item.aiStatus) {
+    case "pending": {
+      const position = aiPositions.value[item.id];
+      return position ? `queued — position ${position} of ${aiQueueTotal.value}` : "queued";
+    }
+    case "processing":
+      return "detecting…";
+    case "done":
+      return item.inferredAt ? `done (${dateTimeFromBackend(item.inferredAt)})` : "done";
+    case "error":
+      return "failed";
+    default:
+      return "not run";
+  }
+});
+
+async function rerunAi() {
+  if (!props.item) return;
+  try {
+    await api.ai.rerunImage(props.item.id);
+    props.item.aiStatus = "pending";
+    showNotificationToast({ headline: "AI detection queued", type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
 
 function removable(tagAssignment: ImageTagAssignmentType): boolean {
   if (!userStore.isProjectEditorOrHigher()) return false;

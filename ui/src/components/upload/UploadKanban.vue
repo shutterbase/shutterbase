@@ -59,12 +59,9 @@
             dragged?.id === upload.id ? 'opacity-50' : '',
           ]"
         >
-          <a
-            href="#"
-            @click.prevent="emit('open', upload)"
-            class="block truncate font-medium text-primary-900 hover:text-accent-600 dark:text-white dark:hover:text-accent-400"
-            >{{ upload.name }}</a
-          >
+          <a href="#" @click.prevent="emit('open', upload)" class="block truncate font-medium text-primary-900 hover:text-accent-600 dark:text-white dark:hover:text-accent-400">{{
+            upload.name
+          }}</a>
           <p class="mt-0.5 truncate text-sm text-primary-500 dark:text-primary-400">{{ upload.user?.firstName }} {{ upload.user?.lastName }}</p>
 
           <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -95,15 +92,7 @@
 import { ref } from "vue";
 import { Upload, UploadState } from "src/types/api";
 import { PlusIcon } from "@heroicons/vue/24/outline";
-import {
-  UPLOAD_STATES,
-  UPLOAD_STATE_LABEL,
-  UPLOAD_STATE_HINT,
-  TRANSITION_LABEL,
-  allowedTransitions,
-  formatDuration,
-  formatTaggingRate,
-} from "src/util/uploadReview";
+import { UPLOAD_STATES, UPLOAD_STATE_LABEL, UPLOAD_STATE_HINT, TRANSITION_LABEL, allowedTransitions, formatDuration, formatTaggingRate } from "src/util/uploadReview";
 
 interface Props {
   uploads: Upload[];
@@ -130,9 +119,7 @@ const actionQuiet =
 // somebody is actively working floats up. Sorted here rather than relying on the
 // fetch order so a card jumps to the top the moment it is moved, without a reload.
 function column(state: UploadState): Upload[] {
-  return props.uploads
-    .filter((u) => (u.state ?? "open") === state)
-    .sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
+  return props.uploads.filter((u) => (u.state ?? "open") === state).sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
 }
 
 function transitionsFor(upload: Upload): UploadState[] {
@@ -161,6 +148,14 @@ function metricsFor(upload: Upload): Metric[] {
   }
   if (m.errorCount > 0) {
     out.push({ label: "Tagging errors", value: `${m.errorCount}`, alert: true });
+  }
+  const aiTotal = (m.aiDone ?? 0) + (m.aiInFlight ?? 0) + (m.aiError ?? 0);
+  if (aiTotal > 0) {
+    out.push({
+      label: "AI detection",
+      value: `${m.aiDone}/${aiTotal}${m.aiError ? ` (${m.aiError} failed)` : ""}`,
+      alert: m.aiError > 0,
+    });
   }
   return out;
 }

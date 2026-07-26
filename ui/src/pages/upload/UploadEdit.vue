@@ -26,7 +26,24 @@
           </button>
         </div>
 
-        <p v-if="showUploadEdit(upload) && !canAddMoreImages" class="mt-4 flex items-start gap-1.5 rounded-md border border-warning-200 bg-warning-50 px-2.5 py-2 text-xs text-warning-800 dark:border-warning-800/70 dark:bg-warning-950/40 dark:text-warning-200">
+        <!-- AI detection progress: this upload's images + the global queue ahead -->
+        <div v-if="aiSummary" class="mt-3 flex flex-wrap items-center gap-3">
+          <span
+            class="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-2.5 py-1 text-xs font-medium text-primary-700 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200"
+          >
+            <SparklesIcon class="h-4 w-4 text-accent-500" />
+            AI {{ aiSummary }}
+          </span>
+          <button v-if="canRerunAi" type="button" @click="rerunAi(false)" :class="[transitionBase, transitionQuiet]">Rerun AI</button>
+          <button v-if="canRerunAi && aiStatusData && aiStatusData.error > 0" type="button" @click="rerunAi(true)" :class="[transitionBase, transitionQuiet]">
+            Rerun failed only
+          </button>
+        </div>
+
+        <p
+          v-if="showUploadEdit(upload) && !canAddMoreImages"
+          class="mt-4 flex items-start gap-1.5 rounded-md border border-warning-200 bg-warning-50 px-2.5 py-2 text-xs text-warning-800 dark:border-warning-800/70 dark:bg-warning-950/40 dark:text-warning-200"
+        >
           <LockClosedIcon class="mt-px h-4 w-4 shrink-0" />
           <span>This upload is submitted for review — official tags are frozen and it takes no further images until a project admin sends it back.</span>
         </p>
@@ -62,8 +79,12 @@ import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { FileProcessor, Image, newImage, newImageFromBackendImage } from "src/util/fileProcessor";
 import { error } from "src/util/logger";
 import { showUploadEdit } from "./uploadUtil";
-import { CheckCircleIcon, ClockIcon, LockClosedIcon, PencilSquareIcon } from "@heroicons/vue/24/outline";
+import { CheckCircleIcon, ClockIcon, LockClosedIcon, PencilSquareIcon, SparklesIcon } from "@heroicons/vue/24/outline";
 import { UPLOAD_STATE_LABEL, UPLOAD_STATE_HINT, TRANSITION_LABEL, allowedTransitions, canAddImages } from "src/util/uploadReview";
+import { AiUploadStatus } from "src/api/ai";
+import { aiUploadSummary } from "src/util/aiDetection";
+import * as websocket from "src/util/websocket";
+import { useDebounceFn } from "@vueuse/core";
 
 const route = useRoute();
 
@@ -80,7 +101,7 @@ const unexpectedError = ref(null);
 async function getUpload() {
   try {
     upload.value = await api.uploads.get(id);
-    await Promise.all([requestImages(), requestTimeOffsets()]);
+    await Promise.all([requestImages(), requestTimeOffsets(), refreshAiStatus()]);
   } catch (err: any) {
     unexpectedError.value = err;
     showUnexpectedErrorMessage.value = true;
@@ -139,20 +160,54 @@ async function deleteImage(item: Image): Promise<void> {
   }
 }
 
+// --- AI detection rollup ---
+
+const aiStatusData = ref<AiUploadStatus | null>(null);
+const aiSummary = computed(() => (aiStatusData.value ? aiUploadSummary(aiStatusData.value) : ""));
+const canRerunAi = computed(() => userStore.isProjectAdminOrHigher() || upload.value?.user?.id === userId);
+
+async function refreshAiStatus() {
+  try {
+    aiStatusData.value = await api.ai.uploadStatus(id);
+  } catch {
+    aiStatusData.value = null; // rollup is decoration
+  }
+}
+const refreshAiStatusDebounced = useDebounceFn(refreshAiStatus, 1000);
+
+async function rerunAi(failedOnly: boolean) {
+  try {
+    const queued = await api.ai.rerunUpload(id, failedOnly);
+    showNotificationToast({ headline: `AI detection queued for ${queued} image${queued === 1 ? "" : "s"}`, type: "success" });
+    refreshAiStatusDebounced();
+  } catch (err: any) {
+    unexpectedError.value = err;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+let wsListenerId: string | null = null;
+onMounted(() => {
+  websocket.connect();
+  wsListenerId = websocket.on({ object: "image", action: "changed" }, (message) => {
+    const data = message.data as { uploadId?: string };
+    if (data.uploadId === id) refreshAiStatusDebounced();
+  });
+});
+onUnmounted(() => {
+  if (wsListenerId) websocket.off(wsListenerId);
+});
+
 // --- review state ---
 
 const reviewEnabled = computed(() => !!activeProject.value?.uploadReviewEnabled);
 const isReviewer = computed(() => userStore.isProjectAdminOrHigher());
 
 const transitions = computed(() =>
-  !upload.value || !reviewEnabled.value
-    ? []
-    : allowedTransitions(upload.value.state ?? "open", { isReviewer: isReviewer.value, isOwner: upload.value.user?.id === userId }),
+  !upload.value || !reviewEnabled.value ? [] : allowedTransitions(upload.value.state ?? "open", { isReviewer: isReviewer.value, isOwner: upload.value.user?.id === userId }),
 );
 
-const canAddMoreImages = computed(() =>
-  canAddImages({ reviewEnabled: reviewEnabled.value, uploadState: upload.value?.state, isReviewer: isReviewer.value }),
-);
+const canAddMoreImages = computed(() => canAddImages({ reviewEnabled: reviewEnabled.value, uploadState: upload.value?.state, isReviewer: isReviewer.value }));
 
 // The timeline writes OFFICIAL (scheduled) tags, so it freezes under exactly
 // the same review rule as adding images (server: CanApplyUploadTimeline).

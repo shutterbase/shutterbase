@@ -147,6 +147,68 @@ export async function addImageTag(image: ImageWithTagsType, tag: ImageTag) {
   }
 }
 
+// --- AI detection state -----------------------------------------------------
+
+// global queue positions for the loaded pending images (imageId -> 1-based)
+export const aiPositions = ref<Record<string, number>>({});
+export const aiQueueTotal = ref(0);
+
+// refreshAiPositions re-reads status + position for every loaded image that is
+// still in flight. One batched call; grid badges and the sidebar read the map.
+export async function refreshAiPositions() {
+  const inFlight = images.value.filter((i) => i.aiStatus === "pending" || i.aiStatus === "processing").map((i) => i.id);
+  if (inFlight.length === 0) {
+    aiPositions.value = {};
+    return;
+  }
+  try {
+    const status = await api.ai.queueStatus(activeProject.value.id, inFlight.slice(0, 200));
+    const map: Record<string, number> = {};
+    for (const item of status.items) {
+      if (item.position) map[item.imageId] = item.position;
+      const img = images.value.find((i) => i.id === item.imageId);
+      if (img) img.aiStatus = item.status ?? null;
+    }
+    aiPositions.value = map;
+    aiQueueTotal.value = status.queueTotal;
+  } catch {
+    // positions are decoration — never surface an error for them
+  }
+}
+
+// applyAiEvent patches a websocket image/changed event into the loaded list.
+// A "done" image is refetched so its fresh inferred tags appear live.
+export function applyAiEvent(data: { projectId: string; imageId: string; status: string }) {
+  if (data.projectId !== activeProject.value?.id) return;
+  const img = images.value.find((i) => i.id === data.imageId);
+  if (!img) return;
+  img.aiStatus = (data.status || null) as ImageWithTagsType["aiStatus"];
+  if (data.status === "done") {
+    api.images
+      .get(data.imageId)
+      .then((fresh) => {
+        const idx = images.value.findIndex((i) => i.id === data.imageId);
+        if (idx !== -1) images.value[idx] = fresh;
+      })
+      .catch(() => undefined);
+  }
+}
+
+// rerunAiSelection re-queues the current selection (multi-select + current).
+export async function rerunAiSelection() {
+  const targets = new Set(imageIndices.value);
+  if (imageIndex.value !== -1) targets.add(imageIndex.value);
+  const ids = [...targets].map((i) => images.value[i]?.id).filter((id): id is string => !!id);
+  if (ids.length === 0) return;
+  try {
+    const queued = await api.ai.rerunBatch(activeProject.value.id, ids);
+    showNotificationToast({ headline: `AI detection queued for ${queued} image${queued === 1 ? "" : "s"}`, type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
 // Hotkey handlers: bound to their action ids by Images.vue (useHotkeyAction),
 // so they are only active while the images page is mounted. Context gating in
 // the dispatcher keeps them silent while the tagging dialog is open.
