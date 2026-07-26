@@ -16,7 +16,7 @@ import { loginAs, collectJsErrors } from "./helpers";
 // test genuinely resizes and uploads bytes.
 
 // The name matters: the pipeline extracts a 4-digit frame number from it
-// (image-wasm/src/filename.rs), so a fixture without one is rejected outright.
+// (api/internal/service/image_service.go), so a fixture without one is rejected.
 const FIXTURE_NAME = "20240817-0B8A0042.jpg";
 const FIXTURE = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", FIXTURE_NAME);
 

@@ -39,6 +39,11 @@ export const userRoutes = [
         path: "hotkeys",
         component: () => import("pages/user/UserHotkeys.vue"),
       },
+      {
+        name: "user-api-keys",
+        path: "api-keys",
+        component: () => import("pages/user/UserApiKeys.vue"),
+      },
       // {
       //   name: "camera",
       //   path: "cameras/:cameraid",

@@ -165,6 +165,23 @@ export interface Camera {
   updatedAt: string;
 }
 
+// API keys (§4.13). `token` is present ONLY in the create response — the secret
+// is stored as an argon2 hash and can never be read back.
+export interface ApiKey {
+  id: string;
+  keyId: string;
+  name: string;
+  userId: string;
+  revoked: boolean;
+  lastUsedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiKeyWithToken extends ApiKey {
+  token: string;
+}
+
 // Upload review flow (§4.9): open -> ready (photographer submits) -> reviewed
 // (projectAdmin accepts); ready -> open sends it back for rework.
 export type UploadState = "open" | "ready" | "reviewed";
