@@ -342,10 +342,11 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 	return nil
 }
 
-// availableTags is the vocabulary sent to the AI server: every project tag
-// except templates (unrendered "$X" patterns are not assignable).
-func (s *AIService) availableTags(ctx context.Context, projectID string) []string {
-	tags, err := s.repo.Client.ImageTag.Query().
+// AvailableTagNames is the vocabulary sent to the AI server: every project tag
+// except templates (unrendered "$X" patterns are not assignable). Shared by the
+// per-ingest request and the project prime hook so both stay in sync.
+func AvailableTagNames(ctx context.Context, repo *repository.Repository, projectID string) []string {
+	tags, err := repo.Client.ImageTag.Query().
 		Where(imagetag.ProjectID(projectID), imagetag.TypeNEQ(imagetag.TypeTemplate)).
 		All(ctx)
 	if err != nil {
@@ -357,6 +358,10 @@ func (s *AIService) availableTags(ctx context.Context, projectID string) []strin
 		names = append(names, t.Name)
 	}
 	return names
+}
+
+func (s *AIService) availableTags(ctx context.Context, projectID string) []string {
+	return AvailableTagNames(ctx, s.repo, projectID)
 }
 
 // objectName picks the AI_IMAGE_SIZE rendition; unset (<=0, which would hit

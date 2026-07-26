@@ -9,6 +9,7 @@ func (s *Server) registerAPIRoutes() {
 	api := s.Engine.Group(s.options.ApiBaseURL)
 
 	s.registerImageRoutes(api)
+	s.registerAIRoutes(api)
 	s.registerImageTagRoutes(api)
 	s.registerImageTagAssignmentRoutes(api)
 	s.registerProjectRoutes(api)

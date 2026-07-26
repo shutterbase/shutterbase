@@ -17,6 +17,8 @@ import (
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
+	"github.com/shutterbase/shutterbase/pkg/aiserver"
+
 	"github.com/shutterbase/shutterbase/internal/authentication"
 	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/event"
@@ -58,6 +60,10 @@ type Server struct {
 	s3Client       *s3.S3Client
 	imageService   *service.ImageService
 	ai             *service.AIService
+	// aiRemote is the AI server behind the pkg/aiserver contract — the source
+	// of faces / person-search / similar-image lookups. nil unless
+	// AI_PROVIDER=http (the endpoints then answer 501).
+	aiRemote       aiserver.Server
 	ws             *event.Manager
 	bus            *event.Bus
 	thumbnailSizes []int
@@ -117,6 +123,12 @@ func NewServer(options *Options) (*Server, error) {
 	}
 	aiService := service.NewAIService(repo, s3Client, inference)
 	imageService := service.NewImageService(repo, aiService)
+	// The http provider's contract client doubles as the faces/persons/similar
+	// lookup backend for the AI proxy endpoints.
+	var aiRemote aiserver.Server
+	if h, ok := inference.(*service.HTTPInference); ok {
+		aiRemote = h.Client
+	}
 
 	s := &Server{
 		Engine:         engine,
@@ -125,6 +137,7 @@ func NewServer(options *Options) (*Server, error) {
 		s3Client:       s3Client,
 		imageService:   imageService,
 		ai:             aiService,
+		aiRemote:       aiRemote,
 		thumbnailSizes: util.GetThumbnailSizes(),
 		// statistics LRU, 5-min TTL (SPEC §4.13 TagCountCache).
 		tagCountCache:    expirable.NewLRU[string, []repository.TagStatistic](256, nil, 5*time.Minute),
