@@ -177,6 +177,9 @@ func NewServer(options *Options) (*Server, error) {
 	// Schedule events fan out across replicas via Postgres LISTEN/NOTIFY; on
 	// SQLite (single process) the bus broadcasts locally.
 	s.bus = event.NewBus(s.ws, options.Database.DB, options.Database.DSN())
+	// AI status transitions ride the same bus; the AI service is built before
+	// the bus exists, so it is attached here.
+	aiService.SetBus(s.bus)
 
 	// Serve the embedded SPA for everything the API/WS/auth groups didn't claim.
 	s.registerSPA()

@@ -10,6 +10,8 @@ const (
 	EventObjectTime EventObject = "time"
 	// EventObjectScheduleItem announces a schedule change in a project (S15).
 	EventObjectScheduleItem EventObject = "scheduleItem"
+	// EventObjectImage announces an image change (AI detection status).
+	EventObjectImage EventObject = "image"
 )
 
 // EventAction is the verb of a websocket message (what happened).
@@ -32,4 +34,14 @@ const (
 type ScheduleEventData struct {
 	ProjectID string `json:"projectId"`
 	ItemID    string `json:"itemId,omitempty"`
+}
+
+// AIEventData is the payload of image/changed AI-status transitions. Same
+// ids-only rule as ScheduleEventData (every authed client receives it); Status
+// is the new aiStatus value so open pages can patch in place.
+type AIEventData struct {
+	ProjectID string `json:"projectId"`
+	UploadID  string `json:"uploadId,omitempty"`
+	ImageID   string `json:"imageId"`
+	Status    string `json:"status"`
 }

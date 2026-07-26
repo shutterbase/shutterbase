@@ -25,6 +25,13 @@ func (Image) Fields() []ent.Field {
 		field.Time("capturedAt").Optional().Nillable().StructTag(`json:"capturedAt,omitempty"`),
 		field.Time("capturedAtCorrected").Optional().Nillable().StructTag(`json:"capturedAtCorrected,omitempty"`),
 		field.Time("inferredAt").Optional().Nillable().StructTag(`json:"inferredAt,omitempty"`),
+		// AI detection queue state. Null = never queued (AI off for the
+		// project at upload time); the queue itself is these columns — FIFO by
+		// aiQueuedAt — so it survives restarts.
+		field.Enum("aiStatus").Values("pending", "processing", "done", "error").Optional().Nillable().StructTag(`json:"aiStatus,omitempty"`),
+		field.Time("aiQueuedAt").Optional().Nillable().StructTag(`json:"-"`),
+		field.Int("aiAttempts").Default(0).StructTag(`json:"-"`),
+		field.String("aiError").Optional().StructTag(`json:"aiError,omitempty"`),
 		field.Int("size").NonNegative().StructTag(`json:"size"`),
 		field.Int("width").Optional().Nillable().NonNegative().StructTag(`json:"width,omitempty"`),
 		field.Int("height").Optional().Nillable().NonNegative().StructTag(`json:"height,omitempty"`),
@@ -53,6 +60,8 @@ func (Image) Indexes() []ent.Index {
 		index.Fields("camera_id"),
 		index.Fields("capturedAtCorrected"),
 		index.Fields("project_id", "capturedAtCorrected"),
+		// Queue drain + position counts scan pending rows in FIFO order.
+		index.Fields("aiStatus", "aiQueuedAt"),
 		// GIN jsonb_path_ops on the denormalized tag list (AND-match via @>).
 		index.Fields("imageTags").Annotations(entsql.IndexType("GIN"), entsql.OpClass("jsonb_path_ops")),
 	}

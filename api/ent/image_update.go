@@ -199,6 +199,87 @@ func (_u *ImageUpdate) ClearInferredAt() *ImageUpdate {
 	return _u
 }
 
+// SetAiStatus sets the "aiStatus" field.
+func (_u *ImageUpdate) SetAiStatus(v image.AiStatus) *ImageUpdate {
+	_u.mutation.SetAiStatus(v)
+	return _u
+}
+
+// SetNillableAiStatus sets the "aiStatus" field if the given value is not nil.
+func (_u *ImageUpdate) SetNillableAiStatus(v *image.AiStatus) *ImageUpdate {
+	if v != nil {
+		_u.SetAiStatus(*v)
+	}
+	return _u
+}
+
+// ClearAiStatus clears the value of the "aiStatus" field.
+func (_u *ImageUpdate) ClearAiStatus() *ImageUpdate {
+	_u.mutation.ClearAiStatus()
+	return _u
+}
+
+// SetAiQueuedAt sets the "aiQueuedAt" field.
+func (_u *ImageUpdate) SetAiQueuedAt(v time.Time) *ImageUpdate {
+	_u.mutation.SetAiQueuedAt(v)
+	return _u
+}
+
+// SetNillableAiQueuedAt sets the "aiQueuedAt" field if the given value is not nil.
+func (_u *ImageUpdate) SetNillableAiQueuedAt(v *time.Time) *ImageUpdate {
+	if v != nil {
+		_u.SetAiQueuedAt(*v)
+	}
+	return _u
+}
+
+// ClearAiQueuedAt clears the value of the "aiQueuedAt" field.
+func (_u *ImageUpdate) ClearAiQueuedAt() *ImageUpdate {
+	_u.mutation.ClearAiQueuedAt()
+	return _u
+}
+
+// SetAiAttempts sets the "aiAttempts" field.
+func (_u *ImageUpdate) SetAiAttempts(v int) *ImageUpdate {
+	_u.mutation.ResetAiAttempts()
+	_u.mutation.SetAiAttempts(v)
+	return _u
+}
+
+// SetNillableAiAttempts sets the "aiAttempts" field if the given value is not nil.
+func (_u *ImageUpdate) SetNillableAiAttempts(v *int) *ImageUpdate {
+	if v != nil {
+		_u.SetAiAttempts(*v)
+	}
+	return _u
+}
+
+// AddAiAttempts adds value to the "aiAttempts" field.
+func (_u *ImageUpdate) AddAiAttempts(v int) *ImageUpdate {
+	_u.mutation.AddAiAttempts(v)
+	return _u
+}
+
+// SetAiError sets the "aiError" field.
+func (_u *ImageUpdate) SetAiError(v string) *ImageUpdate {
+	_u.mutation.SetAiError(v)
+	return _u
+}
+
+// SetNillableAiError sets the "aiError" field if the given value is not nil.
+func (_u *ImageUpdate) SetNillableAiError(v *string) *ImageUpdate {
+	if v != nil {
+		_u.SetAiError(*v)
+	}
+	return _u
+}
+
+// ClearAiError clears the value of the "aiError" field.
+func (_u *ImageUpdate) ClearAiError() *ImageUpdate {
+	_u.mutation.ClearAiError()
+	return _u
+}
+
 // SetSize sets the "size" field.
 func (_u *ImageUpdate) SetSize(v int) *ImageUpdate {
 	_u.mutation.ResetSize()
@@ -463,6 +544,11 @@ func (_u *ImageUpdate) check() error {
 			return &ValidationError{Name: "storageId", err: fmt.Errorf(`ent: validator failed for field "Image.storageId": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AiStatus(); ok {
+		if err := image.AiStatusValidator(v); err != nil {
+			return &ValidationError{Name: "aiStatus", err: fmt.Errorf(`ent: validator failed for field "Image.aiStatus": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Size(); ok {
 		if err := image.SizeValidator(v); err != nil {
 			return &ValidationError{Name: "size", err: fmt.Errorf(`ent: validator failed for field "Image.size": %w`, err)}
@@ -563,6 +649,30 @@ func (_u *ImageUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.InferredAtCleared() {
 		_spec.ClearField(image.FieldInferredAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AiStatus(); ok {
+		_spec.SetField(image.FieldAiStatus, field.TypeEnum, value)
+	}
+	if _u.mutation.AiStatusCleared() {
+		_spec.ClearField(image.FieldAiStatus, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.AiQueuedAt(); ok {
+		_spec.SetField(image.FieldAiQueuedAt, field.TypeTime, value)
+	}
+	if _u.mutation.AiQueuedAtCleared() {
+		_spec.ClearField(image.FieldAiQueuedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AiAttempts(); ok {
+		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAiAttempts(); ok {
+		_spec.AddField(image.FieldAiAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AiError(); ok {
+		_spec.SetField(image.FieldAiError, field.TypeString, value)
+	}
+	if _u.mutation.AiErrorCleared() {
+		_spec.ClearField(image.FieldAiError, field.TypeString)
 	}
 	if value, ok := _u.mutation.Size(); ok {
 		_spec.SetField(image.FieldSize, field.TypeInt, value)
@@ -933,6 +1043,87 @@ func (_u *ImageUpdateOne) ClearInferredAt() *ImageUpdateOne {
 	return _u
 }
 
+// SetAiStatus sets the "aiStatus" field.
+func (_u *ImageUpdateOne) SetAiStatus(v image.AiStatus) *ImageUpdateOne {
+	_u.mutation.SetAiStatus(v)
+	return _u
+}
+
+// SetNillableAiStatus sets the "aiStatus" field if the given value is not nil.
+func (_u *ImageUpdateOne) SetNillableAiStatus(v *image.AiStatus) *ImageUpdateOne {
+	if v != nil {
+		_u.SetAiStatus(*v)
+	}
+	return _u
+}
+
+// ClearAiStatus clears the value of the "aiStatus" field.
+func (_u *ImageUpdateOne) ClearAiStatus() *ImageUpdateOne {
+	_u.mutation.ClearAiStatus()
+	return _u
+}
+
+// SetAiQueuedAt sets the "aiQueuedAt" field.
+func (_u *ImageUpdateOne) SetAiQueuedAt(v time.Time) *ImageUpdateOne {
+	_u.mutation.SetAiQueuedAt(v)
+	return _u
+}
+
+// SetNillableAiQueuedAt sets the "aiQueuedAt" field if the given value is not nil.
+func (_u *ImageUpdateOne) SetNillableAiQueuedAt(v *time.Time) *ImageUpdateOne {
+	if v != nil {
+		_u.SetAiQueuedAt(*v)
+	}
+	return _u
+}
+
+// ClearAiQueuedAt clears the value of the "aiQueuedAt" field.
+func (_u *ImageUpdateOne) ClearAiQueuedAt() *ImageUpdateOne {
+	_u.mutation.ClearAiQueuedAt()
+	return _u
+}
+
+// SetAiAttempts sets the "aiAttempts" field.
+func (_u *ImageUpdateOne) SetAiAttempts(v int) *ImageUpdateOne {
+	_u.mutation.ResetAiAttempts()
+	_u.mutation.SetAiAttempts(v)
+	return _u
+}
+
+// SetNillableAiAttempts sets the "aiAttempts" field if the given value is not nil.
+func (_u *ImageUpdateOne) SetNillableAiAttempts(v *int) *ImageUpdateOne {
+	if v != nil {
+		_u.SetAiAttempts(*v)
+	}
+	return _u
+}
+
+// AddAiAttempts adds value to the "aiAttempts" field.
+func (_u *ImageUpdateOne) AddAiAttempts(v int) *ImageUpdateOne {
+	_u.mutation.AddAiAttempts(v)
+	return _u
+}
+
+// SetAiError sets the "aiError" field.
+func (_u *ImageUpdateOne) SetAiError(v string) *ImageUpdateOne {
+	_u.mutation.SetAiError(v)
+	return _u
+}
+
+// SetNillableAiError sets the "aiError" field if the given value is not nil.
+func (_u *ImageUpdateOne) SetNillableAiError(v *string) *ImageUpdateOne {
+	if v != nil {
+		_u.SetAiError(*v)
+	}
+	return _u
+}
+
+// ClearAiError clears the value of the "aiError" field.
+func (_u *ImageUpdateOne) ClearAiError() *ImageUpdateOne {
+	_u.mutation.ClearAiError()
+	return _u
+}
+
 // SetSize sets the "size" field.
 func (_u *ImageUpdateOne) SetSize(v int) *ImageUpdateOne {
 	_u.mutation.ResetSize()
@@ -1210,6 +1401,11 @@ func (_u *ImageUpdateOne) check() error {
 			return &ValidationError{Name: "storageId", err: fmt.Errorf(`ent: validator failed for field "Image.storageId": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AiStatus(); ok {
+		if err := image.AiStatusValidator(v); err != nil {
+			return &ValidationError{Name: "aiStatus", err: fmt.Errorf(`ent: validator failed for field "Image.aiStatus": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Size(); ok {
 		if err := image.SizeValidator(v); err != nil {
 			return &ValidationError{Name: "size", err: fmt.Errorf(`ent: validator failed for field "Image.size": %w`, err)}
@@ -1327,6 +1523,30 @@ func (_u *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error)
 	}
 	if _u.mutation.InferredAtCleared() {
 		_spec.ClearField(image.FieldInferredAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AiStatus(); ok {
+		_spec.SetField(image.FieldAiStatus, field.TypeEnum, value)
+	}
+	if _u.mutation.AiStatusCleared() {
+		_spec.ClearField(image.FieldAiStatus, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.AiQueuedAt(); ok {
+		_spec.SetField(image.FieldAiQueuedAt, field.TypeTime, value)
+	}
+	if _u.mutation.AiQueuedAtCleared() {
+		_spec.ClearField(image.FieldAiQueuedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AiAttempts(); ok {
+		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedAiAttempts(); ok {
+		_spec.AddField(image.FieldAiAttempts, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AiError(); ok {
+		_spec.SetField(image.FieldAiError, field.TypeString, value)
+	}
+	if _u.mutation.AiErrorCleared() {
+		_spec.ClearField(image.FieldAiError, field.TypeString)
 	}
 	if value, ok := _u.mutation.Size(); ok {
 		_spec.SetField(image.FieldSize, field.TypeInt, value)

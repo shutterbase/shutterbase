@@ -3,6 +3,7 @@
 package image
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -38,6 +39,14 @@ const (
 	FieldCapturedAtCorrected = "captured_at_corrected"
 	// FieldInferredAt holds the string denoting the inferredat field in the database.
 	FieldInferredAt = "inferred_at"
+	// FieldAiStatus holds the string denoting the aistatus field in the database.
+	FieldAiStatus = "ai_status"
+	// FieldAiQueuedAt holds the string denoting the aiqueuedat field in the database.
+	FieldAiQueuedAt = "ai_queued_at"
+	// FieldAiAttempts holds the string denoting the aiattempts field in the database.
+	FieldAiAttempts = "ai_attempts"
+	// FieldAiError holds the string denoting the aierror field in the database.
+	FieldAiError = "ai_error"
 	// FieldSize holds the string denoting the size field in the database.
 	FieldSize = "size"
 	// FieldWidth holds the string denoting the width field in the database.
@@ -116,6 +125,10 @@ var Columns = []string{
 	FieldCapturedAt,
 	FieldCapturedAtCorrected,
 	FieldInferredAt,
+	FieldAiStatus,
+	FieldAiQueuedAt,
+	FieldAiAttempts,
+	FieldAiError,
 	FieldSize,
 	FieldWidth,
 	FieldHeight,
@@ -148,6 +161,8 @@ var (
 	StorageIdValidator func(string) error
 	// DefaultImageTags holds the default value on creation for the "imageTags" field.
 	DefaultImageTags []string
+	// DefaultAiAttempts holds the default value on creation for the "aiAttempts" field.
+	DefaultAiAttempts int
 	// SizeValidator is a validator for the "size" field. It is called by the builders before save.
 	SizeValidator func(int) error
 	// WidthValidator is a validator for the "width" field. It is called by the builders before save.
@@ -159,6 +174,31 @@ var (
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
 	IDValidator func(string) error
 )
+
+// AiStatus defines the type for the "aiStatus" enum field.
+type AiStatus string
+
+// AiStatus values.
+const (
+	AiStatusPending    AiStatus = "pending"
+	AiStatusProcessing AiStatus = "processing"
+	AiStatusDone       AiStatus = "done"
+	AiStatusError      AiStatus = "error"
+)
+
+func (as AiStatus) String() string {
+	return string(as)
+}
+
+// AiStatusValidator is a validator for the "aiStatus" field enum values. It is called by the builders before save.
+func AiStatusValidator(as AiStatus) error {
+	switch as {
+	case AiStatusPending, AiStatusProcessing, AiStatusDone, AiStatusError:
+		return nil
+	default:
+		return fmt.Errorf("image: invalid enum value for aiStatus field: %q", as)
+	}
+}
 
 // OrderOption defines the ordering options for the Image queries.
 type OrderOption func(*sql.Selector)
@@ -216,6 +256,26 @@ func ByCapturedAtCorrected(opts ...sql.OrderTermOption) OrderOption {
 // ByInferredAt orders the results by the inferredAt field.
 func ByInferredAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldInferredAt, opts...).ToFunc()
+}
+
+// ByAiStatus orders the results by the aiStatus field.
+func ByAiStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiStatus, opts...).ToFunc()
+}
+
+// ByAiQueuedAt orders the results by the aiQueuedAt field.
+func ByAiQueuedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiQueuedAt, opts...).ToFunc()
+}
+
+// ByAiAttempts orders the results by the aiAttempts field.
+func ByAiAttempts(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiAttempts, opts...).ToFunc()
+}
+
+// ByAiError orders the results by the aiError field.
+func ByAiError(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiError, opts...).ToFunc()
 }
 
 // BySize orders the results by the size field.
