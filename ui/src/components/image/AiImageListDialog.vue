@@ -11,7 +11,13 @@
             <h3 class="display text-lg text-primary-900 dark:text-white">{{ title }}</h3>
             <p class="label-mono-sm mt-0.5 text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
           </div>
-          <XMarkIcon class="h-5 w-5 cursor-pointer text-primary-400 hover:text-primary-600 dark:hover:text-primary-200" @click="emit('close')" />
+          <div class="flex items-center gap-4">
+            <label v-if="mode === 'person'" class="flex cursor-pointer items-center gap-1.5 text-sm text-primary-600 dark:text-primary-300">
+              <input v-model="crossProject" type="checkbox" class="accent-accent-600" />
+              all my projects
+            </label>
+            <XMarkIcon class="h-5 w-5 cursor-pointer text-primary-400 hover:text-primary-600 dark:hover:text-primary-200" @click="emit('close')" />
+          </div>
         </div>
 
         <div class="max-h-[65vh] overflow-y-auto p-5">
@@ -22,6 +28,11 @@
                 v-if="mode === 'similar' && entry.similarity !== undefined"
                 class="label-mono-sm pointer-events-none absolute bottom-1 right-1 rounded bg-primary-950/70 px-1 text-accent-300"
                 >{{ Math.round(entry.similarity * 100) }}%</span
+              >
+              <span
+                v-if="entry.image.project.id !== projectId"
+                class="label-mono-sm pointer-events-none absolute bottom-1 right-1 max-w-full truncate rounded bg-primary-950/70 px-1 text-accent-300"
+                >{{ entry.image.project.name }}</span
               >
             </div>
           </div>
@@ -87,20 +98,23 @@ const total = ref(0);
 const hasMore = ref(false);
 const loading = ref(false);
 const notAnalyzed = ref(false);
+// person mode: also query the user's other projects (person ids are global)
+const crossProject = ref(false);
 
 const title = computed(() => (props.mode === "person" ? "Photos of this person" : "Similar images"));
 const subtitle = computed(() => {
-  if (props.mode === "person" && total.value > 0) return `${total.value} photo${total.value === 1 ? "" : "s"} in this project`;
+  if (props.mode === "person" && total.value > 0) return `${total.value} photo${total.value === 1 ? "" : "s"} ${crossProject.value ? "across your projects" : "in this project"}`;
   return "";
 });
-const hasNext = computed(() => (props.mode === "person" ? (page.value + 1) * PAGE_SIZE < total.value : hasMore.value));
+const hasNext = computed(() => (props.mode === "person" && !crossProject.value ? (page.value + 1) * PAGE_SIZE < total.value : hasMore.value));
 const pageLabel = computed(() => {
-  if (props.mode === "person" && total.value > 0) return `page ${page.value + 1} / ${Math.max(1, Math.ceil(total.value / PAGE_SIZE))}`;
+  // cross-project pages are per-project slices, so total/PAGE_SIZE math doesn't apply
+  if (props.mode === "person" && !crossProject.value && total.value > 0) return `page ${page.value + 1} / ${Math.max(1, Math.ceil(total.value / PAGE_SIZE))}`;
   return `page ${page.value + 1}`;
 });
 
 watch(
-  () => [props.shown, props.mode, props.personRef, props.imageId],
+  () => [props.shown, props.mode, props.personRef, props.imageId, crossProject.value],
   () => {
     if (!props.shown) return;
     page.value = 0;
@@ -116,9 +130,10 @@ async function load() {
   items.value = [];
   try {
     if (props.mode === "person" && props.personRef) {
-      const result = await api.ai.personImages(props.projectId, props.personRef, page.value, PAGE_SIZE);
+      const result = await api.ai.personImages(props.projectId, props.personRef, page.value, PAGE_SIZE, crossProject.value);
       items.value = result.items.map((i) => ({ image: i.image }));
       total.value = result.total;
+      hasMore.value = result.hasMore;
     } else if (props.mode === "similar" && props.imageId) {
       const result = await api.ai.similar(props.imageId, page.value, PAGE_SIZE);
       items.value = result.items.map((i) => ({ image: i.image, similarity: i.similarity }));

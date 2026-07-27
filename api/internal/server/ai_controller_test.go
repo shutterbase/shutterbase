@@ -197,6 +197,10 @@ func TestAIRerunBatchScopesToProject(t *testing.T) {
 type fakeRemote struct {
 	faces    aiserver.FacesResponse
 	facesErr error
+	// personQueried records the project ids PersonImages was called with;
+	// personTotals (optional) serves a per-project Total, unknown ids -> 404.
+	personQueried []string
+	personTotals  map[string]int
 }
 
 func (f *fakeRemote) Prime(context.Context, string, aiserver.Project) error { return nil }
@@ -206,9 +210,17 @@ func (f *fakeRemote) Ingest(context.Context, string, aiserver.IngestRequest) (ai
 func (f *fakeRemote) Faces(context.Context, string, string) (aiserver.FacesResponse, error) {
 	return f.faces, f.facesErr
 }
-func (f *fakeRemote) PersonImages(_ context.Context, _ string, _ string, page, pageSize int) (aiserver.PersonImagesResponse, error) {
+func (f *fakeRemote) PersonImages(_ context.Context, projectID string, _ string, page, pageSize int) (aiserver.PersonImagesResponse, error) {
+	f.personQueried = append(f.personQueried, projectID)
+	total := 1
+	if f.personTotals != nil {
+		var ok bool
+		if total, ok = f.personTotals[projectID]; !ok {
+			return aiserver.PersonImagesResponse{}, aiserver.ErrNotFound
+		}
+	}
 	return aiserver.PersonImagesResponse{
-		Items: []aiserver.PersonImage{{ImageRef: "ghost"}}, Total: 1, Page: page, PageSize: pageSize,
+		Items: []aiserver.PersonImage{{ImageRef: "ghost"}}, Total: total, Page: page, PageSize: pageSize,
 	}, nil
 }
 func (f *fakeRemote) Similar(context.Context, string, string, int, int) (aiserver.SimilarResponse, error) {
@@ -271,4 +283,53 @@ func TestAIPersonImagesDropsUnknownRefs(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Empty(t, body.Items, "unresolvable refs must be dropped")
 	assert.Equal(t, 1, body.Total)
+}
+
+// crossProject=true fans out over the user's viewable projects (all of them
+// for admins, assigned ones otherwise) and sums the totals; without the flag
+// only the requested project is queried.
+func TestAIPersonImagesCrossProject(t *testing.T) {
+	s, m := newAITestServer(t)
+	ctx := context.Background()
+	other := s.Repository.Client.Project.Create().
+		SetName("Other Event").
+		SetDescription("second project").
+		SetCopyright("Test Team").
+		SetCopyrightReference("https://example.test").
+		SetLocationName("Elsewhere").
+		SetLocationCode("ELS").
+		SetLocationCity("Elsewhere").
+		SaveX(ctx)
+	fake := &fakeRemote{personTotals: map[string]int{m.Project: 3, other.ID: 2}}
+	s.aiRemote = fake
+
+	get := func(u *ent.User, query string) (int, map[string]any) {
+		t.Helper()
+		c, rec := aiCtx(t, u, http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/persons/p1/images"+query, "")
+		c.Params = gin.Params{{Key: "id", Value: m.Project}, {Key: "personRef", Value: "p1"}}
+		s.aiPersonImages(c)
+		var body map[string]any
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		return rec.Code, body
+	}
+
+	code, body := get(adminUser(), "?crossProject=true")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, []string{m.Project, other.ID}, fake.personQueried, "requested project first, then the others")
+	assert.EqualValues(t, 5, body["total"], "totals sum across projects")
+	assert.Equal(t, false, body["hasMore"])
+
+	fake.personQueried = nil
+	code, _ = get(adminUser(), "")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, []string{m.Project}, fake.personQueried, "no flag -> single project")
+
+	// non-admin: only assigned projects join the fan-out.
+	viewer, err := s.Repository.GetEffectiveUser(ctx, m.Users["projectViewer"])
+	require.NoError(t, err)
+	fake.personQueried = nil
+	code, body = get(viewer, "?crossProject=true")
+	require.Equal(t, http.StatusOK, code)
+	assert.Equal(t, []string{m.Project}, fake.personQueried, "unassigned project must not be queried")
+	assert.EqualValues(t, 3, body["total"])
 }
