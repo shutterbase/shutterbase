@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -275,6 +276,12 @@ func (s *Server) aiImageFaces(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"faces": resp.Faces})
 }
 
+// aiPersonImages pages through a person's appearances. With crossProject=true
+// it widens to every project the user may view: the AI server's person ids are
+// global, so the same personRef is valid in each project. Page N is then the
+// concatenation of page N of every project (per-project paging, no merged
+// offset math); total sums the per-project totals and hasMore flags any
+// project with a further page.
 func (s *Server) aiPersonImages(c *gin.Context) {
 	projectID, ok := getIdParam(c)
 	if !ok {
@@ -284,34 +291,77 @@ func (s *Server) aiPersonImages(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if !allow(c, authorization.CanViewProject(authUser(c), projectID)) {
+	u := authUser(c)
+	if !allow(c, authorization.CanViewProject(u, projectID)) {
 		return
 	}
 	page, pageSize := aiPageParams(c)
-	resp, err := remote.PersonImages(c.Request.Context(), projectID, c.Param("personRef"), page, pageSize)
-	if abortAIError(c, err) {
-		return
+	ctx := c.Request.Context()
+
+	projectIDs := []string{projectID}
+	if c.Query("crossProject") == "true" {
+		projectIDs = append(projectIDs, s.otherViewableProjectIDs(ctx, u, projectID)...)
 	}
 
-	refs := make([]string, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		refs = append(refs, item.ImageRef)
-	}
-	images := s.resolveImageRefs(c.Request.Context(), projectID, refs)
-	items := make([]gin.H, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		img, ok := images[item.ImageRef]
-		if !ok {
-			continue // deleted in shutterbase but still known to the AI server
+	items := make([]gin.H, 0)
+	total := 0
+	hasMore := false
+	for i, pid := range projectIDs {
+		resp, err := remote.PersonImages(ctx, pid, c.Param("personRef"), page, pageSize)
+		if i == 0 && abortAIError(c, err) {
+			return // the requested project keeps its single-project error semantics
 		}
-		items = append(items, gin.H{
-			"image": ToImageResponse(c.Request.Context(), img, s.s3Client, s.thumbnailSizes),
-			"x":     item.X, "y": item.Y, "w": item.W, "h": item.H,
-		})
+		if err != nil {
+			continue // other projects are best-effort: person unknown there, or upstream hiccup
+		}
+		total += resp.Total
+		if (page+1)*pageSize < resp.Total {
+			hasMore = true
+		}
+		refs := make([]string, 0, len(resp.Items))
+		for _, item := range resp.Items {
+			refs = append(refs, item.ImageRef)
+		}
+		images := s.resolveImageRefs(ctx, pid, refs)
+		for _, item := range resp.Items {
+			img, ok := images[item.ImageRef]
+			if !ok {
+				continue // deleted in shutterbase but still known to the AI server
+			}
+			items = append(items, gin.H{
+				"image": ToImageResponse(ctx, img, s.s3Client, s.thumbnailSizes),
+				"x":     item.X, "y": item.Y, "w": item.W, "h": item.H,
+			})
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"items": items, "total": resp.Total, "page": resp.Page, "pageSize": resp.PageSize,
+		"items": items, "total": total, "page": page, "pageSize": pageSize, "hasMore": hasMore,
 	})
+}
+
+// otherViewableProjectIDs lists the projects (minus exclude) the user may view:
+// all of them for admins, assigned ones otherwise. Sorted so cross-project
+// paging walks the projects in a stable order.
+func (s *Server) otherViewableProjectIDs(ctx context.Context, u *ent.User, exclude string) []string {
+	var ids []string
+	if authorization.IsAdminUser(u) {
+		var err error
+		ids, err = s.Repository.Client.Project.Query().IDs(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("AI: listing projects for cross-project person search failed")
+			return nil
+		}
+	} else {
+		ids = authorization.AssignedProjectIDs(u)
+	}
+	sort.Strings(ids)
+	out := ids[:0]
+	for _, id := range ids {
+		if id != exclude {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 func (s *Server) aiImageSimilar(c *gin.Context) {

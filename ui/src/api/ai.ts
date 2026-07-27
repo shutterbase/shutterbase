@@ -42,9 +42,10 @@ export interface AiPersonImage {
 
 export interface AiPersonImagesPage {
   items: AiPersonImage[];
-  total: number;
+  total: number; // crossProject: summed over all queried projects
   page: number;
   pageSize: number;
+  hasMore: boolean;
 }
 
 export interface AiSimilarImage {
@@ -93,8 +94,10 @@ export async function faces(imageId: string): Promise<AiFace[]> {
   return data.faces;
 }
 
-export async function personImages(projectId: string, personRef: string, page: number, pageSize = 20): Promise<AiPersonImagesPage> {
-  const { data } = await http.get<AiPersonImagesPage>(`/projects/${projectId}/ai/persons/${encodeURIComponent(personRef)}/images`, { params: { page, pageSize } });
+export async function personImages(projectId: string, personRef: string, page: number, pageSize = 20, crossProject = false): Promise<AiPersonImagesPage> {
+  const { data } = await http.get<AiPersonImagesPage>(`/projects/${projectId}/ai/persons/${encodeURIComponent(personRef)}/images`, {
+    params: { page, pageSize, ...(crossProject ? { crossProject: "true" } : {}) },
+  });
   return data;
 }
 
