@@ -339,6 +339,38 @@ func (s *Server) aiPersonImages(c *gin.Context) {
 	})
 }
 
+// personImageIDs resolves a personRef to the project's image ids via the AI
+// server, for the gallery's implicit person filter. An unknown/stale ref
+// yields an empty list (empty grid), not an error. Reports ok=false only when
+// it already wrote an HTTP error.
+func (s *Server) personImageIDs(c *gin.Context, projectID, personRef string) ([]string, bool) {
+	remote, ok := s.remote(c)
+	if !ok {
+		return nil, false
+	}
+	ids := []string{}
+	// ponytail: person appearances are at most a few hundred; cap at 1000 ids
+	// (10 pages) instead of streaming — revisit if clustering ever exceeds that.
+	for page := 0; page < 10; page++ {
+		resp, err := remote.PersonImages(c.Request.Context(), projectID, personRef, page, aiserver.MaxPageSize)
+		if errors.Is(err, aiserver.ErrNotFound) {
+			return []string{}, true
+		}
+		if err != nil {
+			log.Error().Err(err).Msg("AI server request failed")
+			apiError(c, http.StatusBadGateway, "ai_server_error", "AI server request failed")
+			return nil, false
+		}
+		for _, item := range resp.Items {
+			ids = append(ids, item.ImageRef)
+		}
+		if len(resp.Items) < aiserver.MaxPageSize || len(ids) >= resp.Total {
+			break
+		}
+	}
+	return ids, true
+}
+
 // otherViewableProjectIDs lists the projects (minus exclude) the user may view:
 // all of them for admins, assigned ones otherwise. Sorted so cross-project
 // paging walks the projects in a stable order.

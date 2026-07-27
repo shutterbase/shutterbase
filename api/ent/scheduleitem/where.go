@@ -116,6 +116,11 @@ func ProjectID(v string) predicate.ScheduleItem {
 	return predicate.ScheduleItem(sql.FieldEQ(FieldProjectID, v))
 }
 
+// ParentID applies equality check predicate on the "parent_id" field. It's identical to ParentIDEQ.
+func ParentID(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldEQ(FieldParentID, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "createdAt" field.
 func CreatedAtEQ(v time.Time) predicate.ScheduleItem {
 	return predicate.ScheduleItem(sql.FieldEQ(FieldCreatedAt, v))
@@ -621,6 +626,101 @@ func ProjectIDContainsFold(v string) predicate.ScheduleItem {
 	return predicate.ScheduleItem(sql.FieldContainsFold(FieldProjectID, v))
 }
 
+// ParentIDEQ applies the EQ predicate on the "parent_id" field.
+func ParentIDEQ(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldEQ(FieldParentID, v))
+}
+
+// ParentIDNEQ applies the NEQ predicate on the "parent_id" field.
+func ParentIDNEQ(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldNEQ(FieldParentID, v))
+}
+
+// ParentIDIn applies the In predicate on the "parent_id" field.
+func ParentIDIn(vs ...string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldIn(FieldParentID, vs...))
+}
+
+// ParentIDNotIn applies the NotIn predicate on the "parent_id" field.
+func ParentIDNotIn(vs ...string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldNotIn(FieldParentID, vs...))
+}
+
+// ParentIDGT applies the GT predicate on the "parent_id" field.
+func ParentIDGT(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldGT(FieldParentID, v))
+}
+
+// ParentIDGTE applies the GTE predicate on the "parent_id" field.
+func ParentIDGTE(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldGTE(FieldParentID, v))
+}
+
+// ParentIDLT applies the LT predicate on the "parent_id" field.
+func ParentIDLT(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldLT(FieldParentID, v))
+}
+
+// ParentIDLTE applies the LTE predicate on the "parent_id" field.
+func ParentIDLTE(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldLTE(FieldParentID, v))
+}
+
+// ParentIDContains applies the Contains predicate on the "parent_id" field.
+func ParentIDContains(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldContains(FieldParentID, v))
+}
+
+// ParentIDHasPrefix applies the HasPrefix predicate on the "parent_id" field.
+func ParentIDHasPrefix(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldHasPrefix(FieldParentID, v))
+}
+
+// ParentIDHasSuffix applies the HasSuffix predicate on the "parent_id" field.
+func ParentIDHasSuffix(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldHasSuffix(FieldParentID, v))
+}
+
+// ParentIDIsNil applies the IsNil predicate on the "parent_id" field.
+func ParentIDIsNil() predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldIsNull(FieldParentID))
+}
+
+// ParentIDNotNil applies the NotNil predicate on the "parent_id" field.
+func ParentIDNotNil() predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldNotNull(FieldParentID))
+}
+
+// ParentIDEqualFold applies the EqualFold predicate on the "parent_id" field.
+func ParentIDEqualFold(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldEqualFold(FieldParentID, v))
+}
+
+// ParentIDContainsFold applies the ContainsFold predicate on the "parent_id" field.
+func ParentIDContainsFold(v string) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldContainsFold(FieldParentID, v))
+}
+
+// KindEQ applies the EQ predicate on the "kind" field.
+func KindEQ(v Kind) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldEQ(FieldKind, v))
+}
+
+// KindNEQ applies the NEQ predicate on the "kind" field.
+func KindNEQ(v Kind) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldNEQ(FieldKind, v))
+}
+
+// KindIn applies the In predicate on the "kind" field.
+func KindIn(vs ...Kind) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldIn(FieldKind, vs...))
+}
+
+// KindNotIn applies the NotIn predicate on the "kind" field.
+func KindNotIn(vs ...Kind) predicate.ScheduleItem {
+	return predicate.ScheduleItem(sql.FieldNotIn(FieldKind, vs...))
+}
+
 // HasProject applies the HasEdge predicate on the "project" edge.
 func HasProject() predicate.ScheduleItem {
 	return predicate.ScheduleItem(func(s *sql.Selector) {
@@ -682,6 +782,52 @@ func HasTags() predicate.ScheduleItem {
 func HasTagsWith(preds ...predicate.ImageTag) predicate.ScheduleItem {
 	return predicate.ScheduleItem(func(s *sql.Selector) {
 		step := newTagsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasParent applies the HasEdge predicate on the "parent" edge.
+func HasParent() predicate.ScheduleItem {
+	return predicate.ScheduleItem(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ParentTable, ParentColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasParentWith applies the HasEdge predicate on the "parent" edge with a given conditions (other predicates).
+func HasParentWith(preds ...predicate.ScheduleItem) predicate.ScheduleItem {
+	return predicate.ScheduleItem(func(s *sql.Selector) {
+		step := newParentStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasShifts applies the HasEdge predicate on the "shifts" edge.
+func HasShifts() predicate.ScheduleItem {
+	return predicate.ScheduleItem(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ShiftsTable, ShiftsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasShiftsWith applies the HasEdge predicate on the "shifts" edge with a given conditions (other predicates).
+func HasShiftsWith(preds ...predicate.ScheduleItem) predicate.ScheduleItem {
+	return predicate.ScheduleItem(func(s *sql.Selector) {
+		step := newShiftsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -8,6 +8,7 @@ export interface ImageListParams {
   userId?: string;
   search?: string;
   tagId?: string[]; // repeated, AND-combined server-side
+  personRef?: string; // implicit person filter (AI face clustering handle)
   orientation?: "portrait" | "landscape";
   limit?: number;
   offset?: number;

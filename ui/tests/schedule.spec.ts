@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { assignLanes, calendarDays, dayPosition, isAssigned, itemsOnDay, occupancyStatus, startOfDay, ScheduleItemLike } from "src/util/schedule";
+import {
+  assignLanes,
+  blockStatus,
+  calendarDays,
+  dayPosition,
+  isAssigned,
+  isAssignedInBlock,
+  itemsOnDay,
+  nextShiftWindow,
+  occupancyStatus,
+  pctToTime,
+  startOfDay,
+  ScheduleItemLike,
+} from "src/util/schedule";
 
 function item(id: string, start: string, end: string, cardinality = 1, assignees: string[] = []): ScheduleItemLike {
   return { id, start, end, cardinality, assignees: assignees.map((a) => ({ id: a })) };
@@ -102,5 +115,60 @@ describe("isAssigned", () => {
     expect(isAssigned(a, "u1")).toBe(true);
     expect(isAssigned(a, "u2")).toBe(false);
     expect(isAssigned(a, undefined)).toBe(false);
+  });
+});
+
+describe("blockStatus", () => {
+  const block = (shifts: (ScheduleItemLike & { kind?: string })[]) => ({
+    ...item("b", "2026-08-11T08:00:00", "2026-08-11T18:00:00"),
+    shifts,
+  });
+  it("falls back to own occupancy without shifts", () => {
+    expect(blockStatus(item("a", "2026-08-11T08:00:00", "2026-08-11T10:00:00", 1, ["u1"]))).toBe("full");
+  });
+  it("aggregates claimable shifts and ignores breaks", () => {
+    const s1 = item("s1", "2026-08-11T08:00:00", "2026-08-11T09:30:00", 1, ["u1"]);
+    const s2 = item("s2", "2026-08-11T11:00:00", "2026-08-11T12:30:00", 1, []);
+    const pause = { ...item("p", "2026-08-11T09:30:00", "2026-08-11T11:00:00"), kind: "break" };
+    expect(blockStatus(block([s1, s2, pause]))).toBe("partial");
+    expect(blockStatus(block([s1, pause]))).toBe("full");
+    expect(blockStatus(block([{ ...s2 }, pause]))).toBe("empty");
+    const over = item("s3", "2026-08-11T11:00:00", "2026-08-11T12:30:00", 1, ["u1", "u2"]);
+    expect(blockStatus(block([s1, over, pause]))).toBe("over");
+  });
+});
+
+describe("isAssignedInBlock", () => {
+  it("matches through a claimed shift", () => {
+    const b = { ...item("b", "2026-08-11T08:00:00", "2026-08-11T18:00:00"), shifts: [item("s", "2026-08-11T08:00:00", "2026-08-11T09:00:00", 1, ["u1"])] };
+    expect(isAssignedInBlock(b, "u1")).toBe(true);
+    expect(isAssignedInBlock(b, "u2")).toBe(false);
+  });
+});
+
+describe("nextShiftWindow", () => {
+  const block = (shifts: ScheduleItemLike[] = []) => ({ ...item("b", "2026-08-11T08:00:00", "2026-08-11T12:00:00"), shifts });
+  it("starts at the block start when empty", () => {
+    const w = nextShiftWindow(block(), 90)!;
+    expect(w.start).toEqual(new Date("2026-08-11T08:00:00"));
+    expect(w.end).toEqual(new Date("2026-08-11T09:30:00"));
+  });
+  it("appends after the last shift and clamps to the block end", () => {
+    const w = nextShiftWindow(block([item("s", "2026-08-11T08:00:00", "2026-08-11T11:00:00")]), 120)!;
+    expect(w.start).toEqual(new Date("2026-08-11T11:00:00"));
+    expect(w.end).toEqual(new Date("2026-08-11T12:00:00")); // clamped
+  });
+  it("returns null when the block is full", () => {
+    expect(nextShiftWindow(block([item("s", "2026-08-11T08:00:00", "2026-08-11T12:00:00")]), 60)).toBeNull();
+  });
+});
+
+describe("pctToTime", () => {
+  const day = new Date("2026-08-11T00:00:00");
+  it("maps percentages onto the 24h axis with 15min snapping", () => {
+    expect(pctToTime(day, 50)).toEqual(new Date("2026-08-11T12:00:00"));
+    expect(pctToTime(day, 34.9)).toEqual(new Date("2026-08-11T08:30:00"));
+    expect(pctToTime(day, -5)).toEqual(new Date("2026-08-11T00:00:00"));
+    expect(pctToTime(day, 105)).toEqual(new Date("2026-08-12T00:00:00"));
   });
 });

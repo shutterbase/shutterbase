@@ -3,6 +3,7 @@
 package scheduleitem
 
 import (
+	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -34,12 +35,20 @@ const (
 	FieldCardinality = "cardinality"
 	// FieldProjectID holds the string denoting the project_id field in the database.
 	FieldProjectID = "project_id"
+	// FieldParentID holds the string denoting the parent_id field in the database.
+	FieldParentID = "parent_id"
+	// FieldKind holds the string denoting the kind field in the database.
+	FieldKind = "kind"
 	// EdgeProject holds the string denoting the project edge name in mutations.
 	EdgeProject = "project"
 	// EdgeAssignees holds the string denoting the assignees edge name in mutations.
 	EdgeAssignees = "assignees"
 	// EdgeTags holds the string denoting the tags edge name in mutations.
 	EdgeTags = "tags"
+	// EdgeParent holds the string denoting the parent edge name in mutations.
+	EdgeParent = "parent"
+	// EdgeShifts holds the string denoting the shifts edge name in mutations.
+	EdgeShifts = "shifts"
 	// Table holds the table name of the scheduleitem in the database.
 	Table = "schedule_items"
 	// ProjectTable is the table that holds the project relation/edge.
@@ -61,6 +70,14 @@ const (
 	TagsInverseTable = "image_tags"
 	// TagsColumn is the table column denoting the tags relation/edge.
 	TagsColumn = "schedule_item_tags"
+	// ParentTable is the table that holds the parent relation/edge.
+	ParentTable = "schedule_items"
+	// ParentColumn is the table column denoting the parent relation/edge.
+	ParentColumn = "parent_id"
+	// ShiftsTable is the table that holds the shifts relation/edge.
+	ShiftsTable = "schedule_items"
+	// ShiftsColumn is the table column denoting the shifts relation/edge.
+	ShiftsColumn = "parent_id"
 )
 
 // Columns holds all SQL columns for scheduleitem fields.
@@ -76,6 +93,8 @@ var Columns = []string{
 	FieldEnd,
 	FieldCardinality,
 	FieldProjectID,
+	FieldParentID,
+	FieldKind,
 }
 
 var (
@@ -112,6 +131,32 @@ var (
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
 	IDValidator func(string) error
 )
+
+// Kind defines the type for the "kind" enum field.
+type Kind string
+
+// KindItem is the default value of the Kind enum.
+const DefaultKind = KindItem
+
+// Kind values.
+const (
+	KindItem  Kind = "item"
+	KindBreak Kind = "break"
+)
+
+func (k Kind) String() string {
+	return string(k)
+}
+
+// KindValidator is a validator for the "kind" field enum values. It is called by the builders before save.
+func KindValidator(k Kind) error {
+	switch k {
+	case KindItem, KindBreak:
+		return nil
+	default:
+		return fmt.Errorf("scheduleitem: invalid enum value for kind field: %q", k)
+	}
+}
 
 // OrderOption defines the ordering options for the ScheduleItem queries.
 type OrderOption func(*sql.Selector)
@@ -171,6 +216,16 @@ func ByProjectID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProjectID, opts...).ToFunc()
 }
 
+// ByParentID orders the results by the parent_id field.
+func ByParentID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldParentID, opts...).ToFunc()
+}
+
+// ByKind orders the results by the kind field.
+func ByKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKind, opts...).ToFunc()
+}
+
 // ByProjectField orders the results by project field.
 func ByProjectField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -205,6 +260,27 @@ func ByTags(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newTagsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByParentField orders the results by parent field.
+func ByParentField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newParentStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByShiftsCount orders the results by shifts count.
+func ByShiftsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newShiftsStep(), opts...)
+	}
+}
+
+// ByShifts orders the results by shifts terms.
+func ByShifts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newShiftsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newProjectStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -224,5 +300,19 @@ func newTagsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TagsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TagsTable, TagsColumn),
+	)
+}
+func newParentStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, ParentTable, ParentColumn),
+	)
+}
+func newShiftsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(Table, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ShiftsTable, ShiftsColumn),
 	)
 }

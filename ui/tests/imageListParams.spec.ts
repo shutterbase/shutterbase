@@ -40,6 +40,11 @@ describe("buildImageListParams (UI state -> §4.3 list params)", () => {
     expect(params.tagId).toBeUndefined();
   });
 
+  it("maps the implicit person filter and drops it when unset", () => {
+    expect(buildImageListParams({ projectId: "p1", personRef: "person-7" }).personRef).toBe("person-7");
+    expect(buildImageListParams({ projectId: "p1" }).personRef).toBeUndefined();
+  });
+
   it("maps the updated-sort orders to updatedAt", () => {
     expect(buildImageListParams({ projectId: "p", sortOrder: SORT_ORDER.MOST_RECENTLY_UPDATED })).toMatchObject({ sort: "updatedAt", order: "desc" });
     expect(buildImageListParams({ projectId: "p", sortOrder: SORT_ORDER.LEAST_RECENTLY_UPDATED })).toMatchObject({ sort: "updatedAt", order: "asc" });

@@ -13,6 +13,12 @@
         @rerun-ai="rerunSelection"
       />
       <div v-if="displayMode === DisplayMode.GRID">
+        <div v-if="personFilter" class="mt-6">
+          <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
+            photos of one person
+            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear person filter" @click="filterByPerson(null)">×</button>
+          </span>
+        </div>
         <div :class="['mt-8 select-none', gridClasses]">
           <ImageGridTile
             v-for="(image, index) in images"
@@ -54,7 +60,7 @@
                   face.personRef ? 'cursor-pointer hover:border-accent-200 hover:bg-accent-400/20' : '',
                 ]"
                 :title="face.personRef ? 'Show photos of this person' : ''"
-                @click="face.personRef && openPersonDialog(face.personRef)"
+                @click="face.personRef && showPersonInGrid(face.personRef)"
               ></div>
             </template>
           </div>
@@ -76,15 +82,7 @@
     @selected="addImageTag"
     :image="images[imageIndex]"
   />
-  <AiImageListDialog
-    :shown="aiDialogVisible"
-    :mode="aiDialogMode"
-    :project-id="activeProject.id"
-    :person-ref="aiDialogPersonRef"
-    :image-id="imageIndex !== -1 ? images[imageIndex]?.id : undefined"
-    @close="aiDialogVisible = false"
-    @select="selectFromAiDialog"
-  />
+  <AiImageListDialog :shown="aiDialogVisible" :image-id="imageIndex !== -1 ? images[imageIndex]?.id : undefined" @close="aiDialogVisible = false" @select="selectFromAiDialog" />
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 <script setup lang="ts">
@@ -109,7 +107,18 @@ import { faceBoxStyle } from "src/util/aiDetection";
 import * as websocket from "src/util/websocket";
 
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
-import { preferredImageSortOrder, searchText, updateSearchText, filterTags, updateFilterTags, aspectRatioFilter, updateAspectRatioFilter, filtered } from "./imageQueryLogic";
+import {
+  preferredImageSortOrder,
+  searchText,
+  updateSearchText,
+  filterTags,
+  updateFilterTags,
+  aspectRatioFilter,
+  updateAspectRatioFilter,
+  filtered,
+  personFilter,
+  filterByPerson,
+} from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading, activeProject } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
 import { showUnexpectedErrorMessage, unexpectedError } from "./imageQueryLogic";
@@ -195,6 +204,7 @@ function showDetail() {
 onMounted(clearFilterTags);
 function clearFilterTags() {
   filterTags.value = [];
+  personFilter.value = null; // module state survives navigation — fresh mount, fresh view
 }
 
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
@@ -303,8 +313,6 @@ function scrollToSelectedImage() {
 const faces = ref<AiFace[]>([]);
 const facesVisible = ref(false);
 const aiDialogVisible = ref(false);
-const aiDialogMode = ref<"person" | "similar">("similar");
-const aiDialogPersonRef = ref<string | undefined>(undefined);
 
 emitter.on("ai-toggle-faces", toggleFaces);
 emitter.on("ai-show-similar", showSimilarDialog);
@@ -338,14 +346,17 @@ watch(imageIndex, () => {
   if (facesVisible.value) loadFaces();
 });
 
-function openPersonDialog(personRef: string) {
-  aiDialogMode.value = "person";
-  aiDialogPersonRef.value = personRef;
-  aiDialogVisible.value = true;
+// Clicking a face filters the normal grid by that person — no result dialog.
+function showPersonInGrid(personRef: string) {
+  imageIndex.value = -1;
+  imageIndices.value = [];
+  multiselectStart.value = null;
+  multiselectEnd.value = null;
+  displayMode.value = DisplayMode.GRID;
+  filterByPerson(personRef);
 }
 
 function showSimilarDialog() {
-  aiDialogMode.value = "similar";
   aiDialogVisible.value = true;
 }
 

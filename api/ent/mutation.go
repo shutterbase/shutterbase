@@ -10118,6 +10118,7 @@ type ScheduleItemMutation struct {
 	end              *time.Time
 	cardinality      *int
 	addcardinality   *int
+	kind             *scheduleitem.Kind
 	clearedFields    map[string]struct{}
 	project          *string
 	clearedproject   bool
@@ -10127,6 +10128,11 @@ type ScheduleItemMutation struct {
 	tags             map[string]struct{}
 	removedtags      map[string]struct{}
 	clearedtags      bool
+	parent           *string
+	clearedparent    bool
+	shifts           map[string]struct{}
+	removedshifts    map[string]struct{}
+	clearedshifts    bool
 	done             bool
 	oldValue         func(context.Context) (*ScheduleItem, error)
 	predicates       []predicate.ScheduleItem
@@ -10655,6 +10661,91 @@ func (m *ScheduleItemMutation) ResetProjectID() {
 	m.project = nil
 }
 
+// SetParentID sets the "parent_id" field.
+func (m *ScheduleItemMutation) SetParentID(s string) {
+	m.parent = &s
+}
+
+// ParentID returns the value of the "parent_id" field in the mutation.
+func (m *ScheduleItemMutation) ParentID() (r string, exists bool) {
+	v := m.parent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParentID returns the old "parent_id" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldParentID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParentID: %w", err)
+	}
+	return oldValue.ParentID, nil
+}
+
+// ClearParentID clears the value of the "parent_id" field.
+func (m *ScheduleItemMutation) ClearParentID() {
+	m.parent = nil
+	m.clearedFields[scheduleitem.FieldParentID] = struct{}{}
+}
+
+// ParentIDCleared returns if the "parent_id" field was cleared in this mutation.
+func (m *ScheduleItemMutation) ParentIDCleared() bool {
+	_, ok := m.clearedFields[scheduleitem.FieldParentID]
+	return ok
+}
+
+// ResetParentID resets all changes to the "parent_id" field.
+func (m *ScheduleItemMutation) ResetParentID() {
+	m.parent = nil
+	delete(m.clearedFields, scheduleitem.FieldParentID)
+}
+
+// SetKind sets the "kind" field.
+func (m *ScheduleItemMutation) SetKind(s scheduleitem.Kind) {
+	m.kind = &s
+}
+
+// Kind returns the value of the "kind" field in the mutation.
+func (m *ScheduleItemMutation) Kind() (r scheduleitem.Kind, exists bool) {
+	v := m.kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKind returns the old "kind" field's value of the ScheduleItem entity.
+// If the ScheduleItem object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ScheduleItemMutation) OldKind(ctx context.Context) (v scheduleitem.Kind, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKind: %w", err)
+	}
+	return oldValue.Kind, nil
+}
+
+// ResetKind resets all changes to the "kind" field.
+func (m *ScheduleItemMutation) ResetKind() {
+	m.kind = nil
+}
+
 // ClearProject clears the "project" edge to the Project entity.
 func (m *ScheduleItemMutation) ClearProject() {
 	m.clearedproject = true
@@ -10790,6 +10881,87 @@ func (m *ScheduleItemMutation) ResetTags() {
 	m.removedtags = nil
 }
 
+// ClearParent clears the "parent" edge to the ScheduleItem entity.
+func (m *ScheduleItemMutation) ClearParent() {
+	m.clearedparent = true
+	m.clearedFields[scheduleitem.FieldParentID] = struct{}{}
+}
+
+// ParentCleared reports if the "parent" edge to the ScheduleItem entity was cleared.
+func (m *ScheduleItemMutation) ParentCleared() bool {
+	return m.ParentIDCleared() || m.clearedparent
+}
+
+// ParentIDs returns the "parent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ParentID instead. It exists only for internal usage by the builders.
+func (m *ScheduleItemMutation) ParentIDs() (ids []string) {
+	if id := m.parent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetParent resets all changes to the "parent" edge.
+func (m *ScheduleItemMutation) ResetParent() {
+	m.parent = nil
+	m.clearedparent = false
+}
+
+// AddShiftIDs adds the "shifts" edge to the ScheduleItem entity by ids.
+func (m *ScheduleItemMutation) AddShiftIDs(ids ...string) {
+	if m.shifts == nil {
+		m.shifts = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.shifts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearShifts clears the "shifts" edge to the ScheduleItem entity.
+func (m *ScheduleItemMutation) ClearShifts() {
+	m.clearedshifts = true
+}
+
+// ShiftsCleared reports if the "shifts" edge to the ScheduleItem entity was cleared.
+func (m *ScheduleItemMutation) ShiftsCleared() bool {
+	return m.clearedshifts
+}
+
+// RemoveShiftIDs removes the "shifts" edge to the ScheduleItem entity by IDs.
+func (m *ScheduleItemMutation) RemoveShiftIDs(ids ...string) {
+	if m.removedshifts == nil {
+		m.removedshifts = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.shifts, ids[i])
+		m.removedshifts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedShifts returns the removed IDs of the "shifts" edge to the ScheduleItem entity.
+func (m *ScheduleItemMutation) RemovedShiftsIDs() (ids []string) {
+	for id := range m.removedshifts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ShiftsIDs returns the "shifts" edge IDs in the mutation.
+func (m *ScheduleItemMutation) ShiftsIDs() (ids []string) {
+	for id := range m.shifts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetShifts resets all changes to the "shifts" edge.
+func (m *ScheduleItemMutation) ResetShifts() {
+	m.shifts = nil
+	m.clearedshifts = false
+	m.removedshifts = nil
+}
+
 // Where appends a list predicates to the ScheduleItemMutation builder.
 func (m *ScheduleItemMutation) Where(ps ...predicate.ScheduleItem) {
 	m.predicates = append(m.predicates, ps...)
@@ -10824,7 +10996,7 @@ func (m *ScheduleItemMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ScheduleItemMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 12)
 	if m.createdAt != nil {
 		fields = append(fields, scheduleitem.FieldCreatedAt)
 	}
@@ -10855,6 +11027,12 @@ func (m *ScheduleItemMutation) Fields() []string {
 	if m.project != nil {
 		fields = append(fields, scheduleitem.FieldProjectID)
 	}
+	if m.parent != nil {
+		fields = append(fields, scheduleitem.FieldParentID)
+	}
+	if m.kind != nil {
+		fields = append(fields, scheduleitem.FieldKind)
+	}
 	return fields
 }
 
@@ -10883,6 +11061,10 @@ func (m *ScheduleItemMutation) Field(name string) (ent.Value, bool) {
 		return m.Cardinality()
 	case scheduleitem.FieldProjectID:
 		return m.ProjectID()
+	case scheduleitem.FieldParentID:
+		return m.ParentID()
+	case scheduleitem.FieldKind:
+		return m.Kind()
 	}
 	return nil, false
 }
@@ -10912,6 +11094,10 @@ func (m *ScheduleItemMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldCardinality(ctx)
 	case scheduleitem.FieldProjectID:
 		return m.OldProjectID(ctx)
+	case scheduleitem.FieldParentID:
+		return m.OldParentID(ctx)
+	case scheduleitem.FieldKind:
+		return m.OldKind(ctx)
 	}
 	return nil, fmt.Errorf("unknown ScheduleItem field %s", name)
 }
@@ -10991,6 +11177,20 @@ func (m *ScheduleItemMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetProjectID(v)
 		return nil
+	case scheduleitem.FieldParentID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParentID(v)
+		return nil
+	case scheduleitem.FieldKind:
+		v, ok := value.(scheduleitem.Kind)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKind(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ScheduleItem field %s", name)
 }
@@ -11045,6 +11245,9 @@ func (m *ScheduleItemMutation) ClearedFields() []string {
 	if m.FieldCleared(scheduleitem.FieldDescription) {
 		fields = append(fields, scheduleitem.FieldDescription)
 	}
+	if m.FieldCleared(scheduleitem.FieldParentID) {
+		fields = append(fields, scheduleitem.FieldParentID)
+	}
 	return fields
 }
 
@@ -11067,6 +11270,9 @@ func (m *ScheduleItemMutation) ClearField(name string) error {
 		return nil
 	case scheduleitem.FieldDescription:
 		m.ClearDescription()
+		return nil
+	case scheduleitem.FieldParentID:
+		m.ClearParentID()
 		return nil
 	}
 	return fmt.Errorf("unknown ScheduleItem nullable field %s", name)
@@ -11106,13 +11312,19 @@ func (m *ScheduleItemMutation) ResetField(name string) error {
 	case scheduleitem.FieldProjectID:
 		m.ResetProjectID()
 		return nil
+	case scheduleitem.FieldParentID:
+		m.ResetParentID()
+		return nil
+	case scheduleitem.FieldKind:
+		m.ResetKind()
+		return nil
 	}
 	return fmt.Errorf("unknown ScheduleItem field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ScheduleItemMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.project != nil {
 		edges = append(edges, scheduleitem.EdgeProject)
 	}
@@ -11121,6 +11333,12 @@ func (m *ScheduleItemMutation) AddedEdges() []string {
 	}
 	if m.tags != nil {
 		edges = append(edges, scheduleitem.EdgeTags)
+	}
+	if m.parent != nil {
+		edges = append(edges, scheduleitem.EdgeParent)
+	}
+	if m.shifts != nil {
+		edges = append(edges, scheduleitem.EdgeShifts)
 	}
 	return edges
 }
@@ -11145,18 +11363,31 @@ func (m *ScheduleItemMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case scheduleitem.EdgeParent:
+		if id := m.parent; id != nil {
+			return []ent.Value{*id}
+		}
+	case scheduleitem.EdgeShifts:
+		ids := make([]ent.Value, 0, len(m.shifts))
+		for id := range m.shifts {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ScheduleItemMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.removedassignees != nil {
 		edges = append(edges, scheduleitem.EdgeAssignees)
 	}
 	if m.removedtags != nil {
 		edges = append(edges, scheduleitem.EdgeTags)
+	}
+	if m.removedshifts != nil {
+		edges = append(edges, scheduleitem.EdgeShifts)
 	}
 	return edges
 }
@@ -11177,13 +11408,19 @@ func (m *ScheduleItemMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case scheduleitem.EdgeShifts:
+		ids := make([]ent.Value, 0, len(m.removedshifts))
+		for id := range m.removedshifts {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ScheduleItemMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 5)
 	if m.clearedproject {
 		edges = append(edges, scheduleitem.EdgeProject)
 	}
@@ -11192,6 +11429,12 @@ func (m *ScheduleItemMutation) ClearedEdges() []string {
 	}
 	if m.clearedtags {
 		edges = append(edges, scheduleitem.EdgeTags)
+	}
+	if m.clearedparent {
+		edges = append(edges, scheduleitem.EdgeParent)
+	}
+	if m.clearedshifts {
+		edges = append(edges, scheduleitem.EdgeShifts)
 	}
 	return edges
 }
@@ -11206,6 +11449,10 @@ func (m *ScheduleItemMutation) EdgeCleared(name string) bool {
 		return m.clearedassignees
 	case scheduleitem.EdgeTags:
 		return m.clearedtags
+	case scheduleitem.EdgeParent:
+		return m.clearedparent
+	case scheduleitem.EdgeShifts:
+		return m.clearedshifts
 	}
 	return false
 }
@@ -11216,6 +11463,9 @@ func (m *ScheduleItemMutation) ClearEdge(name string) error {
 	switch name {
 	case scheduleitem.EdgeProject:
 		m.ClearProject()
+		return nil
+	case scheduleitem.EdgeParent:
+		m.ClearParent()
 		return nil
 	}
 	return fmt.Errorf("unknown ScheduleItem unique edge %s", name)
@@ -11233,6 +11483,12 @@ func (m *ScheduleItemMutation) ResetEdge(name string) error {
 		return nil
 	case scheduleitem.EdgeTags:
 		m.ResetTags()
+		return nil
+	case scheduleitem.EdgeParent:
+		m.ResetParent()
+		return nil
+	case scheduleitem.EdgeShifts:
+		m.ResetShifts()
 		return nil
 	}
 	return fmt.Errorf("unknown ScheduleItem edge %s", name)

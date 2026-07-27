@@ -20,6 +20,8 @@ export interface ScheduleItemCreate {
   cardinality?: number;
   projectId: string;
   tagIds?: string[];
+  parentId?: string; // set -> shift/break inside that block
+  kind?: "item" | "break";
 }
 
 export interface ScheduleItemUpdate {

@@ -53,6 +53,10 @@
             <UserGroupIcon class="h-4 w-4" />
             Assign
           </button>
+          <button v-if="canManage" type="button" class="pop-btn-secondary" @click="emit('openShifts')">
+            <Squares2X2Icon class="h-4 w-4" />
+            Shifts
+          </button>
         </div>
       </div>
     </div>
@@ -60,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { UserGroupIcon, UserMinusIcon, UserPlusIcon, XMarkIcon } from "@heroicons/vue/24/outline";
+import { Squares2X2Icon, UserGroupIcon, UserMinusIcon, UserPlusIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import { DateTime } from "luxon";
 import { computed, onBeforeUnmount, onMounted } from "vue";
 import UserBubble from "src/components/schedule/UserBubble.vue";
@@ -81,6 +85,7 @@ const emit = defineEmits<{
   drop: [];
   unassign: [string];
   openAssign: [];
+  openShifts: [];
 }>();
 
 const status = computed(() => occupancyStatus(props.item?.assignees.length ?? 0, props.item?.cardinality ?? 1));

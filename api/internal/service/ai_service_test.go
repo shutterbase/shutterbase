@@ -7,6 +7,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -246,6 +247,59 @@ func TestBackoffAndDeadLetter(t *testing.T) {
 	svc.Enqueue(img)
 	assert.Equal(t, "pending", aiStatus(t, svc, img))
 	assert.Equal(t, 0, svc.repo.Client.Image.GetX(ctx, img).AiAttempts)
+}
+
+// deadlineInference times out for one image id and succeeds for the rest.
+type deadlineInference struct {
+	failFor string
+	seen    []string
+}
+
+func (d *deadlineInference) Infer(_ context.Context, req InferenceRequest) ([]InferredTag, error) {
+	d.seen = append(d.seen, req.ImageID)
+	if req.ImageID == d.failFor {
+		return nil, fmt.Errorf("infer: %w", context.DeadlineExceeded)
+	}
+	return []InferredTag{}, nil
+}
+
+// A deadline-exceeded inference retries at the BACK of the FIFO without arming
+// the global backoff, and still dead-letters once attempts are exhausted.
+func TestDeadlineRetryRequeuesAtBack(t *testing.T) {
+	t.Setenv("SESSION_SECRET_KEY", "x")
+	require.NoError(t, util.InitConfig())
+	inf := &deadlineInference{}
+	svc, m := newSvc(t, inf)
+	ctx := context.Background()
+	slow, fast := m.Images[0], m.Images[1]
+	inf.failFor = slow
+
+	base := time.Now().Add(-time.Minute)
+	svc.Enqueue(slow)
+	svc.repo.Client.Image.UpdateOneID(slow).SetAiQueuedAt(base).SaveX(ctx)
+	svc.Enqueue(fast)
+	svc.repo.Client.Image.UpdateOneID(fast).SetAiQueuedAt(base.Add(time.Second)).SaveX(ctx)
+
+	// 1st claim: the slow image times out -> pending again, requeued behind
+	// the fast one, no global backoff.
+	require.True(t, svc.step(ctx))
+	assert.Equal(t, []string{slow}, inf.seen)
+	assert.Equal(t, "pending", aiStatus(t, svc, slow))
+	assert.True(t, svc.backoffUntil.IsZero(), "deadline errors must not arm the global backoff")
+	row := svc.repo.Client.Image.GetX(ctx, slow)
+	assert.Equal(t, 1, row.AiAttempts)
+	assert.True(t, row.AiQueuedAt.After(base.Add(time.Second)), "timed-out image must move to the back of the queue")
+
+	// 2nd claim: the fast image goes first now.
+	require.True(t, svc.step(ctx))
+	assert.Equal(t, fast, inf.seen[1])
+	assert.Equal(t, "done", aiStatus(t, svc, fast))
+
+	// remaining attempts drain into the dead-letter cap.
+	for svc.step(ctx) {
+	}
+	assert.Equal(t, "error", aiStatus(t, svc, slow), "attempts exhausted -> dead-letter")
+	assert.Equal(t, maxAIAttempts, svc.repo.Client.Image.GetX(ctx, slow).AiAttempts)
 }
 
 // Boot recovery: STALE processing rows are re-queued by Start; fresh ones are

@@ -423,7 +423,9 @@ var (
 		{Name: "start", Type: field.TypeTime},
 		{Name: "end", Type: field.TypeTime},
 		{Name: "cardinality", Type: field.TypeInt, Default: 1},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"item", "break"}, Default: "item"},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
+		{Name: "parent_id", Type: field.TypeString, Nullable: true, Size: 15},
 	}
 	// ScheduleItemsTable holds the schema information for the "schedule_items" table.
 	ScheduleItemsTable = &schema.Table{
@@ -433,8 +435,14 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "schedule_items_projects_scheduleItems",
-				Columns:    []*schema.Column{ScheduleItemsColumns[10]},
+				Columns:    []*schema.Column{ScheduleItemsColumns[11]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "schedule_items_schedule_items_shifts",
+				Columns:    []*schema.Column{ScheduleItemsColumns[12]},
+				RefColumns: []*schema.Column{ScheduleItemsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 		},
@@ -442,12 +450,17 @@ var (
 			{
 				Name:    "scheduleitem_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{ScheduleItemsColumns[10]},
+				Columns: []*schema.Column{ScheduleItemsColumns[11]},
 			},
 			{
 				Name:    "scheduleitem_project_id_start",
 				Unique:  false,
-				Columns: []*schema.Column{ScheduleItemsColumns[10], ScheduleItemsColumns[7]},
+				Columns: []*schema.Column{ScheduleItemsColumns[11], ScheduleItemsColumns[7]},
+			},
+			{
+				Name:    "scheduleitem_parent_id",
+				Unique:  false,
+				Columns: []*schema.Column{ScheduleItemsColumns[12]},
 			},
 		},
 	}
@@ -659,6 +672,7 @@ func init() {
 	ProjectAssignmentsTable.ForeignKeys[1].RefTable = RolesTable
 	ProjectAssignmentsTable.ForeignKeys[2].RefTable = UsersTable
 	ScheduleItemsTable.ForeignKeys[0].RefTable = ProjectsTable
+	ScheduleItemsTable.ForeignKeys[1].RefTable = ScheduleItemsTable
 	TimeOffsetsTable.ForeignKeys[0].RefTable = CamerasTable
 	UploadsTable.ForeignKeys[0].RefTable = CamerasTable
 	UploadsTable.ForeignKeys[1].RefTable = ProjectsTable

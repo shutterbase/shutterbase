@@ -285,6 +285,23 @@ func TestAIPersonImagesDropsUnknownRefs(t *testing.T) {
 	assert.Equal(t, 1, body.Total)
 }
 
+// The gallery person filter: an unknown/stale personRef yields an empty 200
+// page, not an error (the grid just shows nothing).
+func TestListImagesUnknownPersonFilter(t *testing.T) {
+	s, m := newAITestServer(t)
+	s.aiRemote = &fakeRemote{personTotals: map[string]int{}} // every ref -> 404
+	c, rec := aiCtx(t, adminUser(), http.MethodGet, "/api/v1/images?projectId="+m.Project+"&personRef=stale", "")
+	s.listImages(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Total int   `json:"total"`
+		Items []any `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Zero(t, body.Total)
+	assert.Empty(t, body.Items)
+}
+
 // crossProject=true fans out over the user's viewable projects (all of them
 // for admins, assigned ones otherwise) and sums the totals; without the flag
 // only the requested project is queried.

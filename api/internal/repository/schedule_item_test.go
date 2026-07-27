@@ -133,6 +133,56 @@ func TestScheduleItemAssignIdempotentAndOverbooking(t *testing.T) {
 	assert.Len(t, got.Edges.Assignees, 1)
 }
 
+// Shifts: nested on the block, hidden from the top-level list, "mine" matches
+// via a claimed shift, and deleting the block cascades to its shifts.
+func TestScheduleItemShifts(t *testing.T) {
+	ctx := context.Background()
+	repo, m := seededRepo(t)
+	t0 := m.ReferenceNow
+
+	block, err := repo.CreateScheduleItem(ctx, &repository.CreateScheduleItemParameters{
+		Title: "Endurance", Start: t0, End: t0.Add(10 * time.Hour), ProjectID: m.Project,
+	})
+	require.NoError(t, err)
+	shift1, err := repo.CreateScheduleItem(ctx, &repository.CreateScheduleItemParameters{
+		Title: "Shift 1", Start: t0, End: t0.Add(90 * time.Minute), ProjectID: m.Project, ParentID: block.ID,
+	})
+	require.NoError(t, err)
+	pause, err := repo.CreateScheduleItem(ctx, &repository.CreateScheduleItemParameters{
+		Title: "Break", Start: t0.Add(90 * time.Minute), End: t0.Add(150 * time.Minute),
+		ProjectID: m.Project, ParentID: block.ID, Kind: "break",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "break", string(pause.Kind))
+
+	// top-level list hides the shifts and nests them on the block, start-ordered.
+	items, total, err := repo.GetScheduleItems(ctx, &repository.GetScheduleItemsParameters{
+		ProjectID: m.Project, PaginationParameters: &repository.PaginationParameters{},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, items, 1)
+	require.Len(t, items[0].Edges.Shifts, 2)
+	assert.Equal(t, shift1.ID, items[0].Edges.Shifts[0].ID)
+
+	// "mine" finds the block through a claimed shift.
+	editor := m.Users["projectEditor"]
+	_, err = repo.AssignScheduleItemUser(ctx, shift1.ID, editor)
+	require.NoError(t, err)
+	items, total, err = repo.GetScheduleItems(ctx, &repository.GetScheduleItemsParameters{
+		ProjectID: m.Project, AssigneeID: &editor, PaginationParameters: &repository.PaginationParameters{},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	require.Len(t, items, 1)
+	assert.Equal(t, block.ID, items[0].ID)
+
+	// deleting the block cascades to the shifts.
+	require.NoError(t, repo.DeleteScheduleItem(ctx, block.ID))
+	_, err = repo.GetScheduleItem(ctx, shift1.ID)
+	assert.Error(t, err, "shift must be gone with its block")
+}
+
 func TestScheduleItemTagProjectMismatch(t *testing.T) {
 	ctx := context.Background()
 	repo, m := seededRepo(t)

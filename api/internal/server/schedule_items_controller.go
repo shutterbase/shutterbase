@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/event"
 	"github.com/shutterbase/shutterbase/internal/repository"
@@ -36,19 +37,31 @@ func (s *Server) scheduleItemResponse(ctx context.Context, it *ent.ScheduleItem)
 	for _, t := range it.Edges.Tags {
 		tags = append(tags, gin.H{"id": t.ID, "name": t.Name, "type": t.Type})
 	}
-	return gin.H{
+	resp := gin.H{
 		"id":          it.ID,
 		"title":       it.Title,
 		"description": it.Description,
 		"start":       it.Start,
 		"end":         it.End,
 		"cardinality": it.Cardinality,
+		"kind":        it.Kind,
+		"parentId":    it.ParentID,
 		"assignees":   assignees,
 		"tags":        tags,
 		"project":     projectRefByID(ctx, s.Repository, it.ProjectID),
 		"createdAt":   it.CreatedAt,
 		"updatedAt":   it.UpdatedAt,
 	}
+	// Shifts arrive nested on their block (one level deep; children carry no
+	// shifts edge of their own).
+	if it.ParentID == "" {
+		shifts := make([]gin.H, 0, len(it.Edges.Shifts))
+		for _, sh := range it.Edges.Shifts {
+			shifts = append(shifts, s.scheduleItemResponse(ctx, sh))
+		}
+		resp["shifts"] = shifts
+	}
+	return resp
 }
 
 func (s *Server) registerScheduleItemRoutes(api *gin.RouterGroup) {
@@ -124,6 +137,44 @@ type createScheduleItemPayload struct {
 	Cardinality int       `json:"cardinality"`
 	ProjectID   string    `json:"projectId" binding:"required"`
 	TagIDs      []string  `json:"tagIds"`
+	ParentID    string    `json:"parentId"` // set -> shift/break inside that block
+	Kind        string    `json:"kind"`     // "item" (default) | "break"
+}
+
+// validateShiftPlacement guards the shift rules on create: the parent must
+// exist in the same project, must itself be top-level (one nesting level), and
+// the shift window must lie inside the parent's. Breaks only exist inside a
+// block. Returns the parent (nil for top-level items) so the caller skips a
+// second lookup.
+func (s *Server) validateShiftPlacement(c *gin.Context, payload *createScheduleItemPayload) bool {
+	if payload.Kind != "" && payload.Kind != "item" && payload.Kind != "break" {
+		apiError(c, http.StatusBadRequest, "invalid_kind", "kind must be 'item' or 'break'")
+		return false
+	}
+	if payload.ParentID == "" {
+		if payload.Kind == "break" {
+			apiError(c, http.StatusBadRequest, "break_needs_block", "a break only exists inside a block")
+			return false
+		}
+		return true
+	}
+	parent, err := s.Repository.GetScheduleItem(c.Request.Context(), payload.ParentID)
+	if abortGetError(c, err) {
+		return false
+	}
+	if parent.ProjectID != payload.ProjectID {
+		apiError(c, http.StatusBadRequest, "parent_project_mismatch", "the block belongs to another project")
+		return false
+	}
+	if parent.ParentID != "" {
+		apiError(c, http.StatusBadRequest, "nested_shift", "shifts cannot be nested inside shifts")
+		return false
+	}
+	if payload.Start.Before(parent.Start) || payload.End.After(parent.End) {
+		apiError(c, http.StatusBadRequest, "shift_outside_block", "the shift must lie within the block's window")
+		return false
+	}
+	return true
 }
 
 // validateItemWindow guards start < end and a sane cardinality.
@@ -164,6 +215,9 @@ func (s *Server) createScheduleItem(c *gin.Context) {
 	if !validateItemWindow(c, payload.Start, payload.End, payload.Cardinality) {
 		return
 	}
+	if !s.validateShiftPlacement(c, &payload) {
+		return
+	}
 	item, err := s.Repository.CreateScheduleItem(c.Request.Context(), &repository.CreateScheduleItemParameters{
 		Title:       payload.Title,
 		Description: payload.Description,
@@ -172,6 +226,8 @@ func (s *Server) createScheduleItem(c *gin.Context) {
 		Cardinality: payload.Cardinality,
 		ProjectID:   payload.ProjectID,
 		TagIDs:      payload.TagIDs,
+		ParentID:    payload.ParentID,
+		Kind:        payload.Kind,
 	})
 	if abortScheduleMutationError(c, err) {
 		return
@@ -216,6 +272,25 @@ func (s *Server) updateScheduleItem(c *gin.Context) {
 	}
 	if !validateItemWindow(c, start, end, cardinality) {
 		return
+	}
+	if existing.ParentID != "" {
+		// a shift stays inside its block
+		parent, err := s.Repository.GetScheduleItem(c.Request.Context(), existing.ParentID)
+		if abortGetError(c, err) {
+			return
+		}
+		if start.Before(parent.Start) || end.After(parent.End) {
+			apiError(c, http.StatusBadRequest, "shift_outside_block", "the shift must lie within the block's window")
+			return
+		}
+	} else {
+		// a block cannot shrink away from its shifts
+		for _, sh := range existing.Edges.Shifts {
+			if sh.Start.Before(start) || sh.End.After(end) {
+				apiError(c, http.StatusBadRequest, "shifts_outside_block", "adjust or remove the shifts outside the new window first")
+				return
+			}
+		}
 	}
 	item, err := s.Repository.UpdateScheduleItem(c.Request.Context(), id, &repository.UpdateScheduleItemParameters{
 		Title:       payload.Title,
@@ -277,6 +352,17 @@ func (s *Server) assigneeParams(c *gin.Context) (item *ent.ScheduleItem, target 
 func (s *Server) assignScheduleItem(c *gin.Context) {
 	item, target, ok := s.assigneeParams(c)
 	if !ok {
+		return
+	}
+	// Claim guards: breaks are never claimable, and a subdivided block is
+	// claimed via its shifts. Unassign stays unguarded — dropping a stale
+	// claim must always work.
+	if item.Kind == scheduleitem.KindBreak {
+		apiError(c, http.StatusBadRequest, "not_claimable", "breaks cannot be claimed")
+		return
+	}
+	if len(item.Edges.Shifts) > 0 {
+		apiError(c, http.StatusBadRequest, "claim_shift_instead", "this block is subdivided — claim one of its shifts")
 		return
 	}
 	// An assignee must be a member of the item's project — an admin must not be

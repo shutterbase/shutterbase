@@ -2045,6 +2045,38 @@ func (c *ScheduleItemClient) QueryTags(_m *ScheduleItem) *ImageTagQuery {
 	return query
 }
 
+// QueryParent queries the parent edge of a ScheduleItem.
+func (c *ScheduleItemClient) QueryParent(_m *ScheduleItem) *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, id),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, scheduleitem.ParentTable, scheduleitem.ParentColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryShifts queries the shifts edge of a ScheduleItem.
+func (c *ScheduleItemClient) QueryShifts(_m *ScheduleItem) *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, id),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, scheduleitem.ShiftsTable, scheduleitem.ShiftsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *ScheduleItemClient) Hooks() []Hook {
 	return c.hooks.ScheduleItem

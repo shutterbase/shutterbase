@@ -32,7 +32,9 @@
               <!-- header -->
               <div class="flex items-start justify-between gap-4 border-b border-primary-100 px-6 py-5 dark:border-primary-800">
                 <div class="flex items-start gap-3">
-                  <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400">
+                  <span
+                    class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400"
+                  >
                     <CalendarDaysIcon class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
@@ -155,9 +157,11 @@ interface Props {
   create: boolean;
   item?: ScheduleItem | null;
   projectTags: ImageTag[];
+  // create mode: pre-filled window (ISO), e.g. from a drag on the calendar
+  prefill?: { start: string; end: string } | null;
 }
 
-const props = withDefaults(defineProps<Props>(), { item: null });
+const props = withDefaults(defineProps<Props>(), { item: null, prefill: null });
 
 const emit = defineEmits<{
   closed: [];
@@ -184,6 +188,8 @@ watch(
         cardinality: props.item.cardinality,
         tagIds: props.item.tags.map((t) => t.id),
       };
+    } else if (props.prefill) {
+      draft.value = { title: "", description: "", start: toLocal(props.prefill.start), end: toLocal(props.prefill.end), cardinality: 1, tagIds: [] };
     } else {
       const start = DateTime.now().startOf("hour").plus({ hours: 1 });
       draft.value = {
