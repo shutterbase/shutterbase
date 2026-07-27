@@ -7,6 +7,7 @@ export function buildImageListParams(input: {
   projectId: string;
   search?: string;
   tags?: { id: string }[];
+  personRef?: string;
   orientation?: string;
   sortOrder?: SORT_ORDER;
   limit?: number;
@@ -19,6 +20,9 @@ export function buildImageListParams(input: {
   }
   if (input.tags && input.tags.length > 0) {
     params.tagId = input.tags.map((t) => t.id); // repeated -> AND
+  }
+  if (input.personRef) {
+    params.personRef = input.personRef;
   }
   if (input.orientation && input.orientation !== "neutral") {
     params.orientation = input.orientation as "portrait" | "landscape";

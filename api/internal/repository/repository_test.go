@@ -164,6 +164,20 @@ func TestPaginationLimitOffset(t *testing.T) {
 	assert.Len(t, items, 2)
 }
 
+// IDs restricts the gallery query to the given ids (person filter).
+func TestGetImagesIDsFilter(t *testing.T) {
+	ctx := context.Background()
+	repo, m := seededRepo(t)
+	items, total, err := repo.GetImages(ctx, &repository.GetImageParameters{
+		ProjectID:            m.Project,
+		IDs:                  []string{m.Images[0], m.Images[1]},
+		PaginationParameters: &repository.PaginationParameters{Limit: 10},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, total)
+	assert.Len(t, items, 2)
+}
+
 // SetImageTags rebuilds the denormalized list; idempotent assignment.
 func TestAssignmentIdempotentAndDenormalization(t *testing.T) {
 	ctx := context.Background()

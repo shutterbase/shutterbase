@@ -25,6 +25,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import("pages/schedule/Schedule.vue"),
       },
       {
+        name: "schedule-item",
+        path: "/schedule/items/:id",
+        component: () => import("pages/schedule/ScheduleItemDetail.vue"),
+      },
+      {
         name: "sandbox",
         path: "/sandbox",
         component: () => import("pages/Sandbox.vue"),

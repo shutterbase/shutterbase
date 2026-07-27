@@ -31,6 +31,8 @@ type ScheduleItemQuery struct {
 	withProject   *ProjectQuery
 	withAssignees *UserQuery
 	withTags      *ImageTagQuery
+	withParent    *ScheduleItemQuery
+	withShifts    *ScheduleItemQuery
 	modifiers     []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -127,6 +129,50 @@ func (_q *ScheduleItemQuery) QueryTags() *ImageTagQuery {
 			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, selector),
 			sqlgraph.To(imagetag.Table, imagetag.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, scheduleitem.TagsTable, scheduleitem.TagsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryParent chains the current query on the "parent" edge.
+func (_q *ScheduleItemQuery) QueryParent() *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, selector),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, scheduleitem.ParentTable, scheduleitem.ParentColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryShifts chains the current query on the "shifts" edge.
+func (_q *ScheduleItemQuery) QueryShifts() *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, selector),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, scheduleitem.ShiftsTable, scheduleitem.ShiftsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -329,6 +375,8 @@ func (_q *ScheduleItemQuery) Clone() *ScheduleItemQuery {
 		withProject:   _q.withProject.Clone(),
 		withAssignees: _q.withAssignees.Clone(),
 		withTags:      _q.withTags.Clone(),
+		withParent:    _q.withParent.Clone(),
+		withShifts:    _q.withShifts.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -365,6 +413,28 @@ func (_q *ScheduleItemQuery) WithTags(opts ...func(*ImageTagQuery)) *ScheduleIte
 		opt(query)
 	}
 	_q.withTags = query
+	return _q
+}
+
+// WithParent tells the query-builder to eager-load the nodes that are connected to
+// the "parent" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ScheduleItemQuery) WithParent(opts ...func(*ScheduleItemQuery)) *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withParent = query
+	return _q
+}
+
+// WithShifts tells the query-builder to eager-load the nodes that are connected to
+// the "shifts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ScheduleItemQuery) WithShifts(opts ...func(*ScheduleItemQuery)) *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withShifts = query
 	return _q
 }
 
@@ -446,10 +516,12 @@ func (_q *ScheduleItemQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*ScheduleItem{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [5]bool{
 			_q.withProject != nil,
 			_q.withAssignees != nil,
 			_q.withTags != nil,
+			_q.withParent != nil,
+			_q.withShifts != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -490,6 +562,19 @@ func (_q *ScheduleItemQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 		if err := _q.loadTags(ctx, query, nodes,
 			func(n *ScheduleItem) { n.Edges.Tags = []*ImageTag{} },
 			func(n *ScheduleItem, e *ImageTag) { n.Edges.Tags = append(n.Edges.Tags, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withParent; query != nil {
+		if err := _q.loadParent(ctx, query, nodes, nil,
+			func(n *ScheduleItem, e *ScheduleItem) { n.Edges.Parent = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withShifts; query != nil {
+		if err := _q.loadShifts(ctx, query, nodes,
+			func(n *ScheduleItem) { n.Edges.Shifts = []*ScheduleItem{} },
+			func(n *ScheduleItem, e *ScheduleItem) { n.Edges.Shifts = append(n.Edges.Shifts, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -617,6 +702,65 @@ func (_q *ScheduleItemQuery) loadTags(ctx context.Context, query *ImageTagQuery,
 	}
 	return nil
 }
+func (_q *ScheduleItemQuery) loadParent(ctx context.Context, query *ScheduleItemQuery, nodes []*ScheduleItem, init func(*ScheduleItem), assign func(*ScheduleItem, *ScheduleItem)) error {
+	ids := make([]string, 0, len(nodes))
+	nodeids := make(map[string][]*ScheduleItem)
+	for i := range nodes {
+		fk := nodes[i].ParentID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(scheduleitem.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "parent_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *ScheduleItemQuery) loadShifts(ctx context.Context, query *ScheduleItemQuery, nodes []*ScheduleItem, init func(*ScheduleItem), assign func(*ScheduleItem, *ScheduleItem)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*ScheduleItem)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(scheduleitem.FieldParentID)
+	}
+	query.Where(predicate.ScheduleItem(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(scheduleitem.ShiftsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ParentID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "parent_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 
 func (_q *ScheduleItemQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
@@ -648,6 +792,9 @@ func (_q *ScheduleItemQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withProject != nil {
 			_spec.Node.AddColumnOnce(scheduleitem.FieldProjectID)
+		}
+		if _q.withParent != nil {
+			_spec.Node.AddColumnOnce(scheduleitem.FieldParentID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

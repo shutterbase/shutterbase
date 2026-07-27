@@ -63,6 +63,17 @@ func (s *Server) listImages(c *gin.Context) {
 		}
 		params.Orientation = &v
 	}
+	if v := c.Query("personRef"); v != "" {
+		ids, ok := s.personImageIDs(c, projectID, v)
+		if !ok {
+			return
+		}
+		if len(ids) == 0 {
+			c.JSON(http.StatusOK, ListResponse[*ImageResponse]{Limit: pagination.Limit, Offset: pagination.Offset, Total: 0, Items: []*ImageResponse{}})
+			return
+		}
+		params.IDs = ids
+	}
 
 	items, total, err := s.Repository.GetImages(c.Request.Context(), params)
 	if abortRepoListError(c, err) {

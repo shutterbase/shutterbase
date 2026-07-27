@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -66,7 +67,7 @@ type AIService struct {
 // injection keeps it unit-testable with StubInference). Use NewInference to build
 // the config-selected provider for production wiring.
 func NewAIService(repo *repository.Repository, s3Client *s3.S3Client, inference ImageInference) *AIService {
-	timeout := 60 * time.Second
+	timeout := 180 * time.Second
 	if d, err := time.ParseDuration(config.Get().String("AI_TIMEOUT")); err == nil && d > 0 {
 		timeout = d
 	}
@@ -246,9 +247,15 @@ func (s *AIService) handle(ctx context.Context, imageID string) {
 		return
 	}
 	update := img.Update().SetAiAttempts(img.AiAttempts + 1).SetAiError(err.Error())
-	if img.AiAttempts+1 >= maxAIAttempts {
+	switch {
+	case img.AiAttempts+1 >= maxAIAttempts:
 		update.SetAiStatus(entimage.AiStatusError)
-	} else {
+	case errors.Is(err, context.DeadlineExceeded):
+		// Inference deadline exceeded: this one image is slow (e.g. a cold GPU
+		// lane), not the provider — retry at the BACK of the FIFO so the rest
+		// of the queue keeps flowing, and arm no global backoff.
+		update.SetAiStatus(entimage.AiStatusPending).SetAiQueuedAt(time.Now())
+	default:
 		// keep aiQueuedAt: the retry stays at the front of the FIFO.
 		update.SetAiStatus(entimage.AiStatusPending)
 		s.lock.Lock()

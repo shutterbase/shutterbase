@@ -137,7 +137,9 @@ export interface Project {
 }
 
 // One coverable block of the event schedule (S15). cardinality is the TARGET
-// headcount, not a cap — overbooking is allowed (violett).
+// headcount, not a cap — overbooking is allowed (violett). A block may be
+// subdivided into shifts (nested, one level; kind=break marks an unclaimable
+// pause tile) — claiming then happens on the shifts.
 export interface ScheduleItem {
   id: string;
   title: string;
@@ -145,8 +147,11 @@ export interface ScheduleItem {
   start: string;
   end: string;
   cardinality: number;
+  kind: "item" | "break";
+  parentId: string; // "" for top-level blocks
   assignees: EmbeddedUser[];
   tags: EmbeddedTag[];
+  shifts?: ScheduleItem[]; // present on top-level items only, start-ordered
   project: EmbeddedProject;
   createdAt: string;
   updatedAt: string;

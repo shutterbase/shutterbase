@@ -1,7 +1,15 @@
 <template>
   <TransitionRoot as="template" :show="show">
     <Dialog as="div" class="relative z-50" @close="emit('closed')">
-      <TransitionChild as="template" enter="ease-out duration-200" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-150" leave-from="opacity-100" leave-to="opacity-0">
+      <TransitionChild
+        as="template"
+        enter="ease-out duration-200"
+        enter-from="opacity-0"
+        enter-to="opacity-100"
+        leave="ease-in duration-150"
+        leave-from="opacity-100"
+        leave-to="opacity-0"
+      >
         <div class="fixed inset-0 bg-primary-950/60 backdrop-blur-sm transition-opacity"></div>
       </TransitionChild>
 
@@ -16,7 +24,9 @@
             leave-from="opacity-100 scale-100"
             leave-to="opacity-0 scale-95"
           >
-            <DialogPanel class="w-full max-w-sm transform rounded-lg border border-primary-200 bg-surface p-5 text-left shadow-panel transition-all dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark">
+            <DialogPanel
+              class="w-full max-w-sm transform rounded-lg border border-primary-200 bg-surface p-5 text-left shadow-panel transition-all dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark"
+            >
               <DialogTitle as="h3" class="display text-lg text-primary-900 dark:text-white">Assign photographer</DialogTitle>
               <input
                 v-model="query"

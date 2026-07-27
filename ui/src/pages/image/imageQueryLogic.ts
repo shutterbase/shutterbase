@@ -54,6 +54,14 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
   aspectRatioFilter.value = aspectRatioState;
 }
 
+// Implicit person filter: set by clicking a face box in the detail view,
+// cleared via the chip above the grid. No picker UI — the face IS the picker.
+export const personFilter = ref<string | null>(null);
+export function filterByPerson(personRef: string | null) {
+  personFilter.value = personRef;
+  loadImages(true);
+}
+
 export async function triggerInfiniteScroll() {
   if (totalImageCount.value > 0 && images.value.length < totalImageCount.value) {
     loadImages(false);
@@ -74,12 +82,13 @@ export async function loadImages(reload: boolean) {
   try {
     if (reload) page.value = 1;
 
-    filtered.value = !!searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral";
+    filtered.value = !!searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral" || !!personFilter.value;
 
     const params = buildImageListParams({
       projectId: activeProject.value.id,
       search: searchText.value,
       tags: filterTags.value,
+      personRef: personFilter.value ?? undefined,
       orientation: aspectRatioFilter.value,
       sortOrder: preferredImageSortOrder.value,
       limit: PAGE_SIZE,

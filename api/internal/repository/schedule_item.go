@@ -29,9 +29,13 @@ var scheduleItemSortFields = map[string]string{
 }
 
 // scheduleItemQuery eager-loads what every serialization needs: assignees (for
-// the avatar bubbles) and the suggestion tags.
+// the avatar bubbles), the suggestion tags, and the shifts of a block (with
+// their assignees), ordered by start.
 func (r *Repository) scheduleItemQuery() *ent.ScheduleItemQuery {
-	return r.Client.ScheduleItem.Query().WithAssignees().WithTags()
+	return r.Client.ScheduleItem.Query().WithAssignees().WithTags().
+		WithShifts(func(q *ent.ScheduleItemQuery) {
+			q.WithAssignees().Order(ent.Asc(scheduleitem.FieldStart))
+		})
 }
 
 func (r *Repository) GetScheduleItem(ctx context.Context, id string) (*ent.ScheduleItem, error) {
@@ -51,7 +55,12 @@ type GetScheduleItemsParameters struct {
 }
 
 func (r *Repository) GetScheduleItems(ctx context.Context, parameters *GetScheduleItemsParameters) ([]*ent.ScheduleItem, int, error) {
-	predicates := []predicate.ScheduleItem{scheduleitem.ProjectID(parameters.ProjectID)}
+	// Only top-level items are listed — shifts arrive nested on their block
+	// (the calendar and the upload-timeline picker both want blocks).
+	predicates := []predicate.ScheduleItem{
+		scheduleitem.ProjectID(parameters.ProjectID),
+		scheduleitem.ParentIDIsNil(),
+	}
 	if parameters.From != nil {
 		predicates = append(predicates, scheduleitem.EndGT(*parameters.From))
 	}
@@ -59,7 +68,11 @@ func (r *Repository) GetScheduleItems(ctx context.Context, parameters *GetSchedu
 		predicates = append(predicates, scheduleitem.StartLT(*parameters.To))
 	}
 	if parameters.AssigneeID != nil {
-		predicates = append(predicates, scheduleitem.HasAssigneesWith(user.IDEQ(*parameters.AssigneeID)))
+		// "mine" covers both claim surfaces: the item itself or one of its shifts.
+		predicates = append(predicates, scheduleitem.Or(
+			scheduleitem.HasAssigneesWith(user.IDEQ(*parameters.AssigneeID)),
+			scheduleitem.HasShiftsWith(scheduleitem.HasAssigneesWith(user.IDEQ(*parameters.AssigneeID))),
+		))
 	}
 	where := scheduleitem.And(predicates...)
 
@@ -120,6 +133,8 @@ type CreateScheduleItemParameters struct {
 	Cardinality int
 	ProjectID   string
 	TagIDs      []string
+	ParentID    string // non-empty -> this is a shift/break inside that block
+	Kind        string // "item" (default) | "break"
 }
 
 func (r *Repository) CreateScheduleItem(ctx context.Context, parameters *CreateScheduleItemParameters) (*ent.ScheduleItem, error) {
@@ -137,6 +152,12 @@ func (r *Repository) CreateScheduleItem(ctx context.Context, parameters *CreateS
 		SetUpdatedBy(util.GetActorID(ctx))
 	if parameters.Cardinality > 0 {
 		create = create.SetCardinality(parameters.Cardinality)
+	}
+	if parameters.ParentID != "" {
+		create = create.SetParentID(parameters.ParentID)
+	}
+	if parameters.Kind != "" {
+		create = create.SetKind(scheduleitem.Kind(parameters.Kind))
 	}
 	item, err := create.Save(ctx)
 	if err != nil {

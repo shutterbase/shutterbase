@@ -61,11 +61,7 @@ function daySpan(from: Date, to: Date, cap: number): Date[] {
 // calendarDays: the day columns to render. Project period wins; without one
 // the span of the existing items; without items the current week (Mon–Sun).
 // Capped at 31 columns so a typo'd period cannot render a year.
-export function calendarDays(
-  project: { startAt?: string | null; endAt?: string | null },
-  items: ScheduleItemLike[],
-  now: Date = new Date(),
-): Date[] {
+export function calendarDays(project: { startAt?: string | null; endAt?: string | null }, items: ScheduleItemLike[], now: Date = new Date()): Date[] {
   const cap = 31;
   if (project.startAt && project.endAt) {
     const from = new Date(project.startAt);
@@ -148,4 +144,53 @@ export function assignLanes(items: ScheduleItemLike[]): Map<string, { lane: numb
 // isAssigned: whether the user covers this item.
 export function isAssigned(item: ScheduleItemLike, userId: string | undefined): boolean {
   return !!userId && item.assignees.some((a) => a.id === userId);
+}
+
+// --- blocks with shifts ------------------------------------------------------
+
+export interface BlockLike extends ScheduleItemLike {
+  kind?: string;
+  shifts?: (ScheduleItemLike & { kind?: string })[];
+}
+
+// claimableShifts: the shifts that count for coverage — breaks never do.
+export function claimableShifts(item: BlockLike): (ScheduleItemLike & { kind?: string })[] {
+  return (item.shifts ?? []).filter((s) => s.kind !== "break");
+}
+
+// blockStatus: occupancy of a calendar tile. A plain item scores itself; a
+// subdivided block aggregates its claimable shifts — full only when every
+// shift is covered, over when covered with at least one overbooked shift.
+export function blockStatus(item: BlockLike): OccupancyStatus {
+  const shifts = claimableShifts(item);
+  if (shifts.length === 0) return occupancyStatus(item.assignees.length, item.cardinality);
+  const statuses = shifts.map((s) => occupancyStatus(s.assignees.length, s.cardinality));
+  if (statuses.every((s) => s === "empty")) return "empty";
+  if (statuses.some((s) => s === "empty" || s === "partial")) return "partial";
+  return statuses.some((s) => s === "over") ? "over" : "full";
+}
+
+// isAssignedInBlock: the user covers the item itself or one of its shifts.
+export function isAssignedInBlock(item: BlockLike, userId: string | undefined): boolean {
+  return isAssigned(item, userId) || (item.shifts ?? []).some((s) => isAssigned(s, userId));
+}
+
+// nextShiftWindow: where a quick-added shift of the given length lands —
+// after the last existing shift (or at the block start), clamped to the block.
+// null when there is no room left.
+export function nextShiftWindow(block: BlockLike, minutes: number): { start: Date; end: Date } | null {
+  const blockStart = new Date(block.start).getTime();
+  const blockEnd = new Date(block.end).getTime();
+  const lastEnd = Math.max(blockStart, ...(block.shifts ?? []).map((s) => new Date(s.end).getTime()));
+  const end = Math.min(lastEnd + minutes * 60_000, blockEnd);
+  if (end <= lastEnd) return null;
+  return { start: new Date(lastEnd), end: new Date(end) };
+}
+
+// pctToTime: invert the calendar's percentage-of-24h mapping (drag-create),
+// snapped to 15-minute steps.
+export function pctToTime(day: Date, pct: number, snapMinutes = 15): Date {
+  const minutes = (Math.min(100, Math.max(0, pct)) / 100) * 24 * 60;
+  const snapped = Math.round(minutes / snapMinutes) * snapMinutes;
+  return new Date(startOfDay(day).getTime() + snapped * 60_000);
 }

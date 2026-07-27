@@ -32,22 +32,6 @@ export interface AiFace {
   personRef?: string;
 }
 
-export interface AiPersonImage {
-  image: Image;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export interface AiPersonImagesPage {
-  items: AiPersonImage[];
-  total: number; // crossProject: summed over all queried projects
-  page: number;
-  pageSize: number;
-  hasMore: boolean;
-}
-
 export interface AiSimilarImage {
   image: Image;
   similarity: number;
@@ -92,13 +76,6 @@ export async function rerunBatch(projectId: string, imageIds: string[]): Promise
 export async function faces(imageId: string): Promise<AiFace[]> {
   const { data } = await http.get<{ faces: AiFace[] }>(`/images/${imageId}/ai/faces`);
   return data.faces;
-}
-
-export async function personImages(projectId: string, personRef: string, page: number, pageSize = 20, crossProject = false): Promise<AiPersonImagesPage> {
-  const { data } = await http.get<AiPersonImagesPage>(`/projects/${projectId}/ai/persons/${encodeURIComponent(personRef)}/images`, {
-    params: { page, pageSize, ...(crossProject ? { crossProject: "true" } : {}) },
-  });
-  return data;
 }
 
 export async function similar(imageId: string, page: number, pageSize = 20): Promise<AiSimilarPage> {

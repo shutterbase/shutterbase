@@ -108,7 +108,7 @@ func InitConfig() error {
 		config.String("AI_PROVIDER").Default("stub"),
 		config.String("AI_MODEL").Default("gpt-4o"),
 		config.String("AI_API_KEY").Sensitive().Default(""),
-		config.String("AI_TIMEOUT").Default("60s"),
+		config.String("AI_TIMEOUT").Default("180s"),
 		config.String("OPENAI_API_KEY").Sensitive().Default(""),
 		// Base URL of an AI server speaking the pkg/aiserver contract
 		// (AI_PROVIDER=http), e.g. https://fsai.fsintra.net

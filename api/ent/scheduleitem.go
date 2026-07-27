@@ -39,6 +39,10 @@ type ScheduleItem struct {
 	Cardinality int `json:"cardinality"`
 	// ProjectID holds the value of the "project_id" field.
 	ProjectID string `json:"-"`
+	// ParentID holds the value of the "parent_id" field.
+	ParentID string `json:"-"`
+	// Kind holds the value of the "kind" field.
+	Kind scheduleitem.Kind `json:"kind"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ScheduleItemQuery when eager-loading is set.
 	Edges        ScheduleItemEdges `json:"edges"`
@@ -53,9 +57,13 @@ type ScheduleItemEdges struct {
 	Assignees []*User `json:"assignees,omitempty"`
 	// Tags holds the value of the tags edge.
 	Tags []*ImageTag `json:"tags,omitempty"`
+	// Parent holds the value of the parent edge.
+	Parent *ScheduleItem `json:"parent,omitempty"`
+	// Shifts holds the value of the shifts edge.
+	Shifts []*ScheduleItem `json:"shifts,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [5]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -87,6 +95,26 @@ func (e ScheduleItemEdges) TagsOrErr() ([]*ImageTag, error) {
 	return nil, &NotLoadedError{edge: "tags"}
 }
 
+// ParentOrErr returns the Parent value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e ScheduleItemEdges) ParentOrErr() (*ScheduleItem, error) {
+	if e.Parent != nil {
+		return e.Parent, nil
+	} else if e.loadedTypes[3] {
+		return nil, &NotFoundError{label: scheduleitem.Label}
+	}
+	return nil, &NotLoadedError{edge: "parent"}
+}
+
+// ShiftsOrErr returns the Shifts value or an error if the edge
+// was not loaded in eager-loading.
+func (e ScheduleItemEdges) ShiftsOrErr() ([]*ScheduleItem, error) {
+	if e.loadedTypes[4] {
+		return e.Shifts, nil
+	}
+	return nil, &NotLoadedError{edge: "shifts"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*ScheduleItem) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -96,7 +124,7 @@ func (*ScheduleItem) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case scheduleitem.FieldCardinality:
 			values[i] = new(sql.NullInt64)
-		case scheduleitem.FieldID, scheduleitem.FieldTitle, scheduleitem.FieldDescription, scheduleitem.FieldProjectID:
+		case scheduleitem.FieldID, scheduleitem.FieldTitle, scheduleitem.FieldDescription, scheduleitem.FieldProjectID, scheduleitem.FieldParentID, scheduleitem.FieldKind:
 			values[i] = new(sql.NullString)
 		case scheduleitem.FieldCreatedAt, scheduleitem.FieldUpdatedAt, scheduleitem.FieldStart, scheduleitem.FieldEnd:
 			values[i] = new(sql.NullTime)
@@ -183,6 +211,18 @@ func (_m *ScheduleItem) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ProjectID = value.String
 			}
+		case scheduleitem.FieldParentID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field parent_id", values[i])
+			} else if value.Valid {
+				_m.ParentID = value.String
+			}
+		case scheduleitem.FieldKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field kind", values[i])
+			} else if value.Valid {
+				_m.Kind = scheduleitem.Kind(value.String)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -209,6 +249,16 @@ func (_m *ScheduleItem) QueryAssignees() *UserQuery {
 // QueryTags queries the "tags" edge of the ScheduleItem entity.
 func (_m *ScheduleItem) QueryTags() *ImageTagQuery {
 	return NewScheduleItemClient(_m.config).QueryTags(_m)
+}
+
+// QueryParent queries the "parent" edge of the ScheduleItem entity.
+func (_m *ScheduleItem) QueryParent() *ScheduleItemQuery {
+	return NewScheduleItemClient(_m.config).QueryParent(_m)
+}
+
+// QueryShifts queries the "shifts" edge of the ScheduleItem entity.
+func (_m *ScheduleItem) QueryShifts() *ScheduleItemQuery {
+	return NewScheduleItemClient(_m.config).QueryShifts(_m)
 }
 
 // Update returns a builder for updating this ScheduleItem.
@@ -267,6 +317,12 @@ func (_m *ScheduleItem) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("project_id=")
 	builder.WriteString(_m.ProjectID)
+	builder.WriteString(", ")
+	builder.WriteString("parent_id=")
+	builder.WriteString(_m.ParentID)
+	builder.WriteString(", ")
+	builder.WriteString("kind=")
+	builder.WriteString(fmt.Sprintf("%v", _m.Kind))
 	builder.WriteByte(')')
 	return builder.String()
 }

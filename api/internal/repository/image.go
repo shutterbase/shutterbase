@@ -53,6 +53,7 @@ type GetImageParameters struct {
 	UserID               *uuid.UUID
 	Search               *string
 	TagIDs               []string // repeated -> AND-match via a single jsonb @> containment
+	IDs                  []string // restrict to these ids (person filter); nil = no restriction
 	Orientation          *string  // "portrait" (w<h) | "landscape" (w>h); null w/h excluded
 	PaginationParameters *PaginationParameters
 }
@@ -80,6 +81,9 @@ func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParamete
 			image.ComputedFileNameContainsFold(*parameters.Search),
 			image.FileNameContainsFold(*parameters.Search),
 		))
+	}
+	if parameters.IDs != nil {
+		predicates = append(predicates, image.IDIn(parameters.IDs...))
 	}
 	if len(parameters.TagIDs) > 0 {
 		// imageTags @> '["t1","t2",...]' — array containment => contains ALL ids (AND).

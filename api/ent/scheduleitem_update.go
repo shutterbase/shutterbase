@@ -155,6 +155,40 @@ func (_u *ScheduleItemUpdate) SetNillableProjectID(v *string) *ScheduleItemUpdat
 	return _u
 }
 
+// SetParentID sets the "parent_id" field.
+func (_u *ScheduleItemUpdate) SetParentID(v string) *ScheduleItemUpdate {
+	_u.mutation.SetParentID(v)
+	return _u
+}
+
+// SetNillableParentID sets the "parent_id" field if the given value is not nil.
+func (_u *ScheduleItemUpdate) SetNillableParentID(v *string) *ScheduleItemUpdate {
+	if v != nil {
+		_u.SetParentID(*v)
+	}
+	return _u
+}
+
+// ClearParentID clears the value of the "parent_id" field.
+func (_u *ScheduleItemUpdate) ClearParentID() *ScheduleItemUpdate {
+	_u.mutation.ClearParentID()
+	return _u
+}
+
+// SetKind sets the "kind" field.
+func (_u *ScheduleItemUpdate) SetKind(v scheduleitem.Kind) *ScheduleItemUpdate {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *ScheduleItemUpdate) SetNillableKind(v *scheduleitem.Kind) *ScheduleItemUpdate {
+	if v != nil {
+		_u.SetKind(*v)
+	}
+	return _u
+}
+
 // SetProject sets the "project" edge to the Project entity.
 func (_u *ScheduleItemUpdate) SetProject(v *Project) *ScheduleItemUpdate {
 	return _u.SetProjectID(v.ID)
@@ -188,6 +222,26 @@ func (_u *ScheduleItemUpdate) AddTags(v ...*ImageTag) *ScheduleItemUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.AddTagIDs(ids...)
+}
+
+// SetParent sets the "parent" edge to the ScheduleItem entity.
+func (_u *ScheduleItemUpdate) SetParent(v *ScheduleItem) *ScheduleItemUpdate {
+	return _u.SetParentID(v.ID)
+}
+
+// AddShiftIDs adds the "shifts" edge to the ScheduleItem entity by IDs.
+func (_u *ScheduleItemUpdate) AddShiftIDs(ids ...string) *ScheduleItemUpdate {
+	_u.mutation.AddShiftIDs(ids...)
+	return _u
+}
+
+// AddShifts adds the "shifts" edges to the ScheduleItem entity.
+func (_u *ScheduleItemUpdate) AddShifts(v ...*ScheduleItem) *ScheduleItemUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddShiftIDs(ids...)
 }
 
 // Mutation returns the ScheduleItemMutation object of the builder.
@@ -243,6 +297,33 @@ func (_u *ScheduleItemUpdate) RemoveTags(v ...*ImageTag) *ScheduleItemUpdate {
 	return _u.RemoveTagIDs(ids...)
 }
 
+// ClearParent clears the "parent" edge to the ScheduleItem entity.
+func (_u *ScheduleItemUpdate) ClearParent() *ScheduleItemUpdate {
+	_u.mutation.ClearParent()
+	return _u
+}
+
+// ClearShifts clears all "shifts" edges to the ScheduleItem entity.
+func (_u *ScheduleItemUpdate) ClearShifts() *ScheduleItemUpdate {
+	_u.mutation.ClearShifts()
+	return _u
+}
+
+// RemoveShiftIDs removes the "shifts" edge to ScheduleItem entities by IDs.
+func (_u *ScheduleItemUpdate) RemoveShiftIDs(ids ...string) *ScheduleItemUpdate {
+	_u.mutation.RemoveShiftIDs(ids...)
+	return _u
+}
+
+// RemoveShifts removes "shifts" edges to ScheduleItem entities.
+func (_u *ScheduleItemUpdate) RemoveShifts(v ...*ScheduleItem) *ScheduleItemUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveShiftIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *ScheduleItemUpdate) Save(ctx context.Context) (int, error) {
 	_u.defaults()
@@ -289,6 +370,11 @@ func (_u *ScheduleItemUpdate) check() error {
 	if v, ok := _u.mutation.Cardinality(); ok {
 		if err := scheduleitem.CardinalityValidator(v); err != nil {
 			return &ValidationError{Name: "cardinality", err: fmt.Errorf(`ent: validator failed for field "ScheduleItem.cardinality": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Kind(); ok {
+		if err := scheduleitem.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "ScheduleItem.kind": %w`, err)}
 		}
 	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
@@ -341,6 +427,9 @@ func (_u *ScheduleItemUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.AddedCardinality(); ok {
 		_spec.AddField(scheduleitem.FieldCardinality, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(scheduleitem.FieldKind, field.TypeEnum, value)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -454,6 +543,80 @@ func (_u *ScheduleItemUpdate) sqlSave(ctx context.Context) (_node int, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ParentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   scheduleitem.ParentTable,
+			Columns: []string{scheduleitem.ParentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ParentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   scheduleitem.ParentTable,
+			Columns: []string{scheduleitem.ParentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ShiftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   scheduleitem.ShiftsTable,
+			Columns: []string{scheduleitem.ShiftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedShiftsIDs(); len(nodes) > 0 && !_u.mutation.ShiftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   scheduleitem.ShiftsTable,
+			Columns: []string{scheduleitem.ShiftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ShiftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   scheduleitem.ShiftsTable,
+			Columns: []string{scheduleitem.ShiftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {
@@ -604,6 +767,40 @@ func (_u *ScheduleItemUpdateOne) SetNillableProjectID(v *string) *ScheduleItemUp
 	return _u
 }
 
+// SetParentID sets the "parent_id" field.
+func (_u *ScheduleItemUpdateOne) SetParentID(v string) *ScheduleItemUpdateOne {
+	_u.mutation.SetParentID(v)
+	return _u
+}
+
+// SetNillableParentID sets the "parent_id" field if the given value is not nil.
+func (_u *ScheduleItemUpdateOne) SetNillableParentID(v *string) *ScheduleItemUpdateOne {
+	if v != nil {
+		_u.SetParentID(*v)
+	}
+	return _u
+}
+
+// ClearParentID clears the value of the "parent_id" field.
+func (_u *ScheduleItemUpdateOne) ClearParentID() *ScheduleItemUpdateOne {
+	_u.mutation.ClearParentID()
+	return _u
+}
+
+// SetKind sets the "kind" field.
+func (_u *ScheduleItemUpdateOne) SetKind(v scheduleitem.Kind) *ScheduleItemUpdateOne {
+	_u.mutation.SetKind(v)
+	return _u
+}
+
+// SetNillableKind sets the "kind" field if the given value is not nil.
+func (_u *ScheduleItemUpdateOne) SetNillableKind(v *scheduleitem.Kind) *ScheduleItemUpdateOne {
+	if v != nil {
+		_u.SetKind(*v)
+	}
+	return _u
+}
+
 // SetProject sets the "project" edge to the Project entity.
 func (_u *ScheduleItemUpdateOne) SetProject(v *Project) *ScheduleItemUpdateOne {
 	return _u.SetProjectID(v.ID)
@@ -637,6 +834,26 @@ func (_u *ScheduleItemUpdateOne) AddTags(v ...*ImageTag) *ScheduleItemUpdateOne 
 		ids[i] = v[i].ID
 	}
 	return _u.AddTagIDs(ids...)
+}
+
+// SetParent sets the "parent" edge to the ScheduleItem entity.
+func (_u *ScheduleItemUpdateOne) SetParent(v *ScheduleItem) *ScheduleItemUpdateOne {
+	return _u.SetParentID(v.ID)
+}
+
+// AddShiftIDs adds the "shifts" edge to the ScheduleItem entity by IDs.
+func (_u *ScheduleItemUpdateOne) AddShiftIDs(ids ...string) *ScheduleItemUpdateOne {
+	_u.mutation.AddShiftIDs(ids...)
+	return _u
+}
+
+// AddShifts adds the "shifts" edges to the ScheduleItem entity.
+func (_u *ScheduleItemUpdateOne) AddShifts(v ...*ScheduleItem) *ScheduleItemUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddShiftIDs(ids...)
 }
 
 // Mutation returns the ScheduleItemMutation object of the builder.
@@ -690,6 +907,33 @@ func (_u *ScheduleItemUpdateOne) RemoveTags(v ...*ImageTag) *ScheduleItemUpdateO
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTagIDs(ids...)
+}
+
+// ClearParent clears the "parent" edge to the ScheduleItem entity.
+func (_u *ScheduleItemUpdateOne) ClearParent() *ScheduleItemUpdateOne {
+	_u.mutation.ClearParent()
+	return _u
+}
+
+// ClearShifts clears all "shifts" edges to the ScheduleItem entity.
+func (_u *ScheduleItemUpdateOne) ClearShifts() *ScheduleItemUpdateOne {
+	_u.mutation.ClearShifts()
+	return _u
+}
+
+// RemoveShiftIDs removes the "shifts" edge to ScheduleItem entities by IDs.
+func (_u *ScheduleItemUpdateOne) RemoveShiftIDs(ids ...string) *ScheduleItemUpdateOne {
+	_u.mutation.RemoveShiftIDs(ids...)
+	return _u
+}
+
+// RemoveShifts removes "shifts" edges to ScheduleItem entities.
+func (_u *ScheduleItemUpdateOne) RemoveShifts(v ...*ScheduleItem) *ScheduleItemUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveShiftIDs(ids...)
 }
 
 // Where appends a list predicates to the ScheduleItemUpdate builder.
@@ -751,6 +995,11 @@ func (_u *ScheduleItemUpdateOne) check() error {
 	if v, ok := _u.mutation.Cardinality(); ok {
 		if err := scheduleitem.CardinalityValidator(v); err != nil {
 			return &ValidationError{Name: "cardinality", err: fmt.Errorf(`ent: validator failed for field "ScheduleItem.cardinality": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.Kind(); ok {
+		if err := scheduleitem.KindValidator(v); err != nil {
+			return &ValidationError{Name: "kind", err: fmt.Errorf(`ent: validator failed for field "ScheduleItem.kind": %w`, err)}
 		}
 	}
 	if _u.mutation.ProjectCleared() && len(_u.mutation.ProjectIDs()) > 0 {
@@ -820,6 +1069,9 @@ func (_u *ScheduleItemUpdateOne) sqlSave(ctx context.Context) (_node *ScheduleIt
 	}
 	if value, ok := _u.mutation.AddedCardinality(); ok {
 		_spec.AddField(scheduleitem.FieldCardinality, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.Kind(); ok {
+		_spec.SetField(scheduleitem.FieldKind, field.TypeEnum, value)
 	}
 	if _u.mutation.ProjectCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -933,6 +1185,80 @@ func (_u *ScheduleItemUpdateOne) sqlSave(ctx context.Context) (_node *ScheduleIt
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ParentCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   scheduleitem.ParentTable,
+			Columns: []string{scheduleitem.ParentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ParentIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   scheduleitem.ParentTable,
+			Columns: []string{scheduleitem.ParentColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ShiftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   scheduleitem.ShiftsTable,
+			Columns: []string{scheduleitem.ShiftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedShiftsIDs(); len(nodes) > 0 && !_u.mutation.ShiftsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   scheduleitem.ShiftsTable,
+			Columns: []string{scheduleitem.ShiftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ShiftsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   scheduleitem.ShiftsTable,
+			Columns: []string{scheduleitem.ShiftsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

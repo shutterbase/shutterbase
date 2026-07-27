@@ -4,9 +4,7 @@
       <div class="flex flex-wrap items-end justify-between gap-4">
         <div class="min-w-0">
           <h1 class="display text-3xl text-primary-900 dark:text-white">Schedule</h1>
-          <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">
-            Pull items into your schedule — photos you upload from that window get the item's tags suggested.
-          </p>
+          <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">Pull items into your schedule — photos you upload from that window get the item's tags suggested.</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
@@ -75,7 +73,21 @@
             <div class="flex h-9 items-center justify-center border-b border-primary-100 text-sm font-medium text-primary-700 dark:border-primary-800 dark:text-primary-200">
               {{ formatDay(day) }}
             </div>
-            <div class="relative" :class="bodyHeightClass" :data-testid="`day-${dayKey(day)}`">
+            <div
+              class="relative"
+              :class="bodyHeightClass"
+              :data-testid="`day-${dayKey(day)}`"
+              @pointerdown="onColDown(day, $event)"
+              @pointermove="onColMove"
+              @pointerup="onColUp"
+              @pointercancel="dragState = null"
+            >
+              <!-- drag-create ghost -->
+              <div
+                v-if="dragState && dragState.dayKey === dayKey(day)"
+                class="pointer-events-none absolute inset-x-1 z-10 rounded-md border-2 border-dashed border-accent-500 bg-accent-500/10"
+                :style="ghostStyle"
+              ></div>
               <!-- hour grid lines -->
               <div
                 v-for="hour in hourMarks"
@@ -93,17 +105,20 @@
                 :ref="(el) => registerItemEl(entry.item.id, el as HTMLElement | null)"
                 role="button"
                 tabindex="0"
-                @click="openPopover(entry.item)"
-                @keydown.enter="openPopover(entry.item)"
+                @click="openItem(entry.item)"
+                @keydown.enter="openItem(entry.item)"
                 :class="[
                   'group absolute cursor-pointer overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500',
                   OCCUPANCY_CLASSES[entry.status],
-                  isAssigned(entry.item, userStore.user?.id) ? 'ring-1 ring-accent-500/60' : '',
+                  isAssignedInBlock(entry.item, userStore.user?.id) ? 'ring-1 ring-accent-500/60' : '',
                 ]"
                 :style="entry.style"
               >
                 <p class="truncate pr-5 font-semibold">{{ entry.item.title }}</p>
-                <p class="truncate tabular-nums opacity-75">{{ formatTime(entry.item.start) }}–{{ formatTime(entry.item.end) }}</p>
+                <p class="truncate tabular-nums opacity-75">
+                  {{ formatTime(entry.item.start) }}–{{ formatTime(entry.item.end)
+                  }}<span v-if="entry.item.shifts?.length"> · {{ entry.item.shifts.length }} shift{{ entry.item.shifts.length === 1 ? "" : "s" }}</span>
+                </p>
                 <div v-if="entry.item.assignees.length" class="mt-0.5 flex -space-x-1.5">
                   <UserBubble v-for="assignee in entry.item.assignees.slice(0, 3)" :key="assignee.id" :user="assignee" />
                   <span
@@ -144,6 +159,7 @@
       @drop="unassign(popoverItemId!, userStore.user!.id)"
       @unassign="(userId) => unassign(popoverItemId!, userId)"
       @open-assign="assignModalOpen = true"
+      @open-shifts="router.push({ name: 'schedule-item', params: { id: popoverItemId! } })"
     />
 
     <AssignPhotographerModal :show="assignModalOpen" :candidates="assignCandidates" @closed="assignModalOpen = false" @assign="assignFromModal" />
@@ -153,7 +169,8 @@
       :create="dialogCreate"
       :item="dialogItem"
       :project-tags="projectTags"
-      @closed="dialogOpen = false"
+      :prefill="dialogPrefill"
+      @closed="((dialogOpen = false), (dialogPrefill = null))"
       @save="saveItem"
       @deleted="deleteItem"
     />
@@ -185,14 +202,17 @@ import {
   OCCUPANCY_LABEL,
   OccupancyStatus,
   assignLanes,
+  blockStatus,
   calendarDays,
   dayPosition,
-  isAssigned,
+  isAssignedInBlock,
   itemsOnDay,
-  occupancyStatus,
+  pctToTime,
 } from "src/util/schedule";
 import * as websocket from "src/util/websocket";
+import { useRouter } from "vue-router";
 
+const router = useRouter();
 const userStore = useUserStore();
 const { activeProjectId } = storeToRefs(userStore);
 
@@ -250,7 +270,7 @@ function celebrate(next: ScheduleItem[]) {
   if (statusesPrimed) {
     for (const item of next) {
       const before = statusById.get(item.id);
-      const after = occupancyStatus(item.assignees.length, item.cardinality);
+      const after = blockStatus(item);
       if (before === after || before === undefined) continue;
       if (after === "full" && (before === "empty" || before === "partial")) {
         const origin = originOf(item.id);
@@ -262,7 +282,7 @@ function celebrate(next: ScheduleItem[]) {
     }
   }
   statusById.clear();
-  next.forEach((item) => statusById.set(item.id, occupancyStatus(item.assignees.length, item.cardinality)));
+  next.forEach((item) => statusById.set(item.id, blockStatus(item)));
   statusesPrimed = true;
 }
 
@@ -309,7 +329,7 @@ async function loadContext() {
 const bodyHeightClass = "h-[calc(100dvh-21rem)] min-h-[420px]";
 const hourMarks = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
 
-const visibleItems = computed(() => (scope.value === "mine" ? items.value.filter((i) => isAssigned(i, userStore.user?.id)) : items.value));
+const visibleItems = computed(() => (scope.value === "mine" ? items.value.filter((i) => isAssignedInBlock(i, userStore.user?.id)) : items.value));
 const days = computed(() => calendarDays(project.value ?? {}, visibleItems.value.length ? visibleItems.value : items.value));
 
 interface DayEntry {
@@ -327,7 +347,7 @@ function dayEntries(day: Date): DayEntry[] {
     const widthPct = 100 / lane.lanes;
     return {
       item,
-      status: occupancyStatus(item.assignees.length, item.cardinality),
+      status: blockStatus(item),
       style: {
         top: `${pos.topPct}%`,
         height: `${pos.heightPct}%`,
@@ -348,6 +368,16 @@ const popoverItemId = ref<string | null>(null);
 const popoverPosition = ref({ x: 0, y: 0 });
 const popoverItem = computed(() => items.value.find((i) => i.id === popoverItemId.value) ?? null);
 
+// A subdivided block opens its detail page (shifts are claimed there); a
+// plain item keeps the quick claim popover.
+function openItem(item: ScheduleItem) {
+  if (item.shifts?.length) {
+    router.push({ name: "schedule-item", params: { id: item.id } });
+    return;
+  }
+  openPopover(item);
+}
+
 function openPopover(item: ScheduleItem) {
   const el = itemEls.get(item.id);
   if (el) {
@@ -365,12 +395,55 @@ function openPopover(item: ScheduleItem) {
 const dialogOpen = ref(false);
 const dialogCreate = ref(false);
 const dialogItem: Ref<ScheduleItem | null> = ref(null);
+const dialogPrefill: Ref<{ start: string; end: string } | null> = ref(null);
 
-function openCreate() {
+function openCreate(prefill: { start: string; end: string } | null = null) {
+  dialogPrefill.value = prefill;
   dialogCreate.value = true;
   dialogItem.value = null;
   dialogOpen.value = true;
 }
+
+// --- drag-create: pull a time span open on a day column (admins) -------------
+
+const dragState = ref<{ dayKey: string; day: Date; fromPct: number; toPct: number } | null>(null);
+
+function colPct(e: PointerEvent): number {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  return Math.min(100, Math.max(0, ((e.clientY - rect.top) / rect.height) * 100));
+}
+
+function onColDown(day: Date, e: PointerEvent) {
+  if (!canManage.value) return;
+  if ((e.target as HTMLElement).closest("[data-testid^='schedule-item-']")) return; // item clicks stay item clicks
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  const pct = colPct(e);
+  dragState.value = { dayKey: dayKey(day), day, fromPct: pct, toPct: pct };
+}
+
+function onColMove(e: PointerEvent) {
+  if (!dragState.value) return;
+  dragState.value.toPct = colPct(e);
+}
+
+function onColUp() {
+  const d = dragState.value;
+  dragState.value = null;
+  if (!d) return;
+  const [a, b] = [Math.min(d.fromPct, d.toPct), Math.max(d.fromPct, d.toPct)];
+  if (b - a < 2) return; // a click, not a drag
+  const start = pctToTime(d.day, a);
+  const end = pctToTime(d.day, b);
+  if (end.getTime() <= start.getTime()) return;
+  openCreate({ start: start.toISOString(), end: end.toISOString() });
+}
+
+const ghostStyle = computed(() => {
+  const d = dragState.value;
+  if (!d) return {};
+  const top = Math.min(d.fromPct, d.toPct);
+  return { top: `${top}%`, height: `${Math.abs(d.toPct - d.fromPct)}%` };
+});
 
 function openEdit(item: ScheduleItem) {
   popoverItemId.value = null;
@@ -388,8 +461,15 @@ function syncOpenItem() {
 async function saveItem(payload: ScheduleItemCreate | ScheduleItemUpdate) {
   try {
     if (dialogCreate.value) {
-      await api.scheduleItems.create({ ...(payload as ScheduleItemCreate), projectId: activeProjectId.value });
+      const created = await api.scheduleItems.create({ ...(payload as ScheduleItemCreate), projectId: activeProjectId.value });
       showNotificationToast({ headline: "Schedule item added", type: "success" });
+      if (dialogPrefill.value) {
+        // drag-created blocks flow straight into the detail page to add shifts
+        dialogOpen.value = false;
+        dialogPrefill.value = null;
+        router.push({ name: "schedule-item", params: { id: created.id } });
+        return;
+      }
     } else if (dialogItem.value) {
       await api.scheduleItems.update(dialogItem.value.id, payload);
       showNotificationToast({ headline: "Schedule item saved", type: "success" });
