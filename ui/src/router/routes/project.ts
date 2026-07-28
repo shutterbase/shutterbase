@@ -35,6 +35,11 @@ export const projectRoutes = [
         component: () => import("pages/project/ProjectMembers.vue"),
       },
       {
+        name: "project-faces",
+        path: "faces",
+        component: () => import("pages/project/ProjectFaces.vue"),
+      },
+      {
         name: "project-danger-zone",
         path: "danger-zone",
         component: () => import("pages/project/ProjectDangerZone.vue"),

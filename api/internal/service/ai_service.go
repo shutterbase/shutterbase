@@ -108,6 +108,28 @@ func (s *AIService) Enqueue(imageID string) {
 	}
 }
 
+// EnqueueProject re-queues every image of the project in one statement — a
+// project can be tens of thousands of images, so per-row Enqueue would hammer
+// the DB and the websocket (no per-image publish here; the grid's queue-status
+// polling picks the change up).
+func (s *AIService) EnqueueProject(projectID string) (int, error) {
+	n, err := s.repo.Client.Image.Update().
+		Where(entimage.ProjectID(projectID)).
+		SetAiStatus(entimage.AiStatusPending).
+		SetAiQueuedAt(time.Now()).
+		SetAiAttempts(0).
+		ClearAiError().
+		Save(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+	return n, nil
+}
+
 // Start launches the dispatcher goroutine after flipping rows orphaned in
 // processing (crash mid-inference) back to pending. It returns immediately;
 // the goroutine runs until ctx is cancelled.

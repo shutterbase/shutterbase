@@ -13,10 +13,17 @@
     </button>
 
     <!-- Dropdown menu -->
-    <div id="multi-dropdown" class="z-10 hidden bg-surface divide-y divide-primary-100 rounded-lg shadow-panel border border-primary-200 w-44 dark:bg-surface-dark dark:divide-primary-800 dark:border-primary-800 dark:shadow-panel-dark">
+    <div
+      id="multi-dropdown"
+      class="z-10 hidden bg-surface divide-y divide-primary-100 rounded-lg shadow-panel border border-primary-200 w-44 dark:bg-surface-dark dark:divide-primary-800 dark:border-primary-800 dark:shadow-panel-dark"
+    >
       <ul class="py-2 text-sm text-primary-700 dark:text-primary-200" aria-labelledby="multiLevelDropdownButton">
         <li>
-          <a href="#" class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white">Dashboard</a>
+          <a
+            href="#"
+            class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white"
+            >Dashboard</a
+          >
         </li>
         <li>
           <button
@@ -30,28 +37,55 @@
               <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4" />
             </svg>
           </button>
-          <div id="doubleDropdown" class="z-10 hidden bg-surface divide-y divide-primary-100 rounded-lg shadow-panel border border-primary-200 w-44 dark:bg-surface-dark dark:divide-primary-800 dark:border-primary-800 dark:shadow-panel-dark">
+          <div
+            id="doubleDropdown"
+            class="z-10 hidden bg-surface divide-y divide-primary-100 rounded-lg shadow-panel border border-primary-200 w-44 dark:bg-surface-dark dark:divide-primary-800 dark:border-primary-800 dark:shadow-panel-dark"
+          >
             <ul class="py-2 text-sm text-primary-700 dark:text-primary-200" aria-labelledby="doubleDropdownButton">
               <li>
-                <a href="#" class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white">Overview</a>
+                <a
+                  href="#"
+                  class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white"
+                  >Overview</a
+                >
               </li>
               <li>
-                <a href="#" class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white">My downloads</a>
+                <a
+                  href="#"
+                  class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white"
+                  >My downloads</a
+                >
               </li>
               <li>
-                <a href="#" class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white">Billing</a>
+                <a
+                  href="#"
+                  class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white"
+                  >Billing</a
+                >
               </li>
               <li>
-                <a href="#" class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white">Rewards</a>
+                <a
+                  href="#"
+                  class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white"
+                  >Rewards</a
+                >
               </li>
             </ul>
           </div>
         </li>
         <li>
-          <a href="#" class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white">Earnings</a>
+          <a
+            href="#"
+            class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white"
+            >Earnings</a
+          >
         </li>
         <li>
-          <a href="#" class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white">Sign out</a>
+          <a
+            href="#"
+            class="block px-4 py-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 dark:text-primary-200 dark:hover:bg-primary-800 dark:hover:text-white"
+            >Sign out</a
+          >
         </li>
       </ul>
     </div>

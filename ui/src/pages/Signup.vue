@@ -31,7 +31,9 @@
           <img class="hidden h-9 dark:!block" src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" />
         </router-link>
 
-        <span class="flex h-11 w-11 items-center justify-center rounded-md border border-primary-200 bg-surface-muted text-accent-600 dark:border-primary-700 dark:bg-primary-900 dark:text-accent-300">
+        <span
+          class="flex h-11 w-11 items-center justify-center rounded-md border border-primary-200 bg-surface-muted text-accent-600 dark:border-primary-700 dark:bg-primary-900 dark:text-accent-300"
+        >
           <UserPlusIcon class="h-5 w-5" />
         </span>
 
@@ -59,9 +61,7 @@
         <template v-else>
           <p class="label-mono mt-6 text-accent-600 dark:text-accent-400">Accounts</p>
           <h1 class="display mt-2.5 text-3xl text-primary-900 dark:text-white">Create your account</h1>
-          <p class="mt-3 text-sm leading-relaxed text-primary-500 dark:text-primary-400">
-            An administrator activates new accounts before the first sign-in.
-          </p>
+          <p class="mt-3 text-sm leading-relaxed text-primary-500 dark:text-primary-400">An administrator activates new accounts before the first sign-in.</p>
 
           <form class="mt-8 space-y-4" @submit.prevent="submit">
             <div v-for="field in fields" :key="field.key">

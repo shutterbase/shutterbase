@@ -6,11 +6,7 @@
 <template>
   <ul v-if="alwaysVisible || password" class="mt-3 space-y-1.5">
     <li v-for="req in requirements" :key="req.key" class="flex items-center gap-2 text-xs">
-      <component
-        :is="req.met ? CheckCircleIcon : XCircleIcon"
-        class="h-4 w-4 flex-shrink-0"
-        :class="req.met ? 'text-emerald-500' : 'text-primary-300 dark:text-primary-600'"
-      />
+      <component :is="req.met ? CheckCircleIcon : XCircleIcon" class="h-4 w-4 flex-shrink-0" :class="req.met ? 'text-emerald-500' : 'text-primary-300 dark:text-primary-600'" />
       <span :class="req.met ? 'text-emerald-600 dark:text-emerald-400' : 'text-primary-500 dark:text-primary-400'">{{ req.label }}</span>
     </li>
   </ul>

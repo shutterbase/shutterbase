@@ -45,6 +45,12 @@ describe("buildImageListParams (UI state -> §4.3 list params)", () => {
     expect(buildImageListParams({ projectId: "p1" }).personRef).toBeUndefined();
   });
 
+  it("sends crossProject only together with a person filter", () => {
+    expect(buildImageListParams({ projectId: "p1", personRef: "person-7", crossProject: true }).crossProject).toBe("true");
+    expect(buildImageListParams({ projectId: "p1", personRef: "person-7" }).crossProject).toBeUndefined();
+    expect(buildImageListParams({ projectId: "p1", crossProject: true }).crossProject).toBeUndefined();
+  });
+
   it("maps the updated-sort orders to updatedAt", () => {
     expect(buildImageListParams({ projectId: "p", sortOrder: SORT_ORDER.MOST_RECENTLY_UPDATED })).toMatchObject({ sort: "updatedAt", order: "desc" });
     expect(buildImageListParams({ projectId: "p", sortOrder: SORT_ORDER.LEAST_RECENTLY_UPDATED })).toMatchObject({ sort: "updatedAt", order: "asc" });

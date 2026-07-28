@@ -64,11 +64,7 @@
         </div>
 
         <div class="border-t border-primary-200 px-6 py-4 dark:border-primary-800">
-          <a
-            href="#"
-            @click.prevent="goToSettings"
-            class="text-sm font-semibold text-accent-600 underline hover:text-accent-500 dark:text-accent-400"
-          >
+          <a href="#" @click.prevent="goToSettings" class="text-sm font-semibold text-accent-600 underline hover:text-accent-500 dark:text-accent-400">
             Customize hotkeys in your profile →
           </a>
         </div>
@@ -83,16 +79,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { emitter } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
-import {
-  CONTEXT_LABELS,
-  HOTKEY_ACTIONS,
-  HotkeyContext,
-  actionKeys,
-  effectiveTagBindings,
-  formatCombo,
-  pushHotkeyContext,
-  useHotkeyAction,
-} from "src/util/hotkeys";
+import { CONTEXT_LABELS, HOTKEY_ACTIONS, HotkeyContext, actionKeys, effectiveTagBindings, formatCombo, pushHotkeyContext, useHotkeyAction } from "src/util/hotkeys";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -139,9 +126,7 @@ const sections = computed(() => {
   })).filter((section) => section.entries.length > 0);
 });
 
-const tagEntries = computed(() =>
-  Object.entries(effectiveTagBindings(userStore.user?.hotkeys)).map(([combo, tagName]) => ({ combo, tagName })),
-);
+const tagEntries = computed(() => Object.entries(effectiveTagBindings(userStore.user?.hotkeys)).map(([combo, tagName]) => ({ combo, tagName })));
 
 function goToSettings() {
   open.value = false;

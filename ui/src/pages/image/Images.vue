@@ -13,11 +13,23 @@
         @rerun-ai="rerunSelection"
       />
       <div v-if="displayMode === DisplayMode.GRID">
-        <div v-if="personFilter" class="mt-6">
+        <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
           <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
             photos of one person
             <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear person filter" @click="clearPersonFilter()">×</button>
           </span>
+          <button
+            :class="[
+              'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
+              personCrossProject
+                ? 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300'
+                : 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200',
+            ]"
+            :title="personCrossProject ? 'Showing this person across all your projects — click to limit to this project' : 'Also search your other projects for this person'"
+            @click="togglePersonScope()"
+          >
+            all my projects
+          </button>
         </div>
         <div :class="['mt-8 select-none', gridClasses]">
           <ImageGridTile
@@ -27,6 +39,7 @@
             :density="density"
             :selected="index === imageIndex || imageIndices.includes(index)"
             :ai-position="aiPositions[image.id]"
+            :show-project="personCrossProject"
             @select="selectImage"
           />
         </div>
@@ -59,9 +72,15 @@
                   'absolute rounded-sm border-2 border-accent-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.4)] transition-colors',
                   face.personRef ? 'cursor-pointer hover:border-accent-200 hover:bg-accent-400/20' : '',
                 ]"
-                :title="face.personRef ? 'Show photos of this person' : ''"
+                :title="face.personRef ? (face.count ? `Detected ${face.count}× — show photos of this person` : 'Show photos of this person') : ''"
                 @click="face.personRef && showPersonInGrid(face.personRef)"
-              ></div>
+              >
+                <span
+                  v-if="face.count"
+                  class="absolute -left-1.5 -top-2.5 rounded-full bg-accent-400 px-1 font-data text-[10px] font-semibold leading-4 text-primary-950 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
+                  >{{ face.count }}</span
+                >
+              </div>
             </template>
           </div>
           <figcaption class="mt-3 flex items-baseline justify-center gap-4">
@@ -117,6 +136,7 @@ import {
   updateAspectRatioFilter,
   filtered,
   personFilter,
+  personCrossProject,
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
@@ -152,18 +172,29 @@ function pushQuery(mutate: (q: Record<string, any>) => void, replace = false) {
 
 const openDetail = (imageId: string) => pushQuery((q) => (q.image = imageId));
 const closeDetail = () => pushQuery((q) => delete q.image);
-const clearPersonFilter = () => pushQuery((q) => delete q.person);
+const clearPersonFilter = () =>
+  pushQuery((q) => {
+    delete q.person;
+    delete q.personScope;
+  });
+const togglePersonScope = () =>
+  pushQuery((q) => {
+    if (q.personScope === "all") delete q.personScope;
+    else q.personScope = "all";
+  });
 
 async function applyRoute(initial = false) {
   if (route.name !== "images") return;
   const person = (route.query.person as string) || null;
+  const crossProject = route.query.personScope === "all";
   const imageId = (route.query.image as string) || null;
 
-  if (initial || person !== personFilter.value) {
+  if (initial || person !== personFilter.value || crossProject !== personCrossProject.value) {
     if (person) {
       // entering a person filter from the unfiltered grid: remember where we were
       if (!initial && !personFilter.value) snapshotGrid();
       personFilter.value = person;
+      personCrossProject.value = crossProject;
       imageIndex.value = -1;
       imageIndices.value = [];
       multiselectStart.value = null;
@@ -171,6 +202,7 @@ async function applyRoute(initial = false) {
       await loadImages(true);
     } else {
       personFilter.value = null;
+      personCrossProject.value = false;
       const scrollY = initial ? null : restoreGridSnapshot();
       if (scrollY === null) {
         await loadImages(true);

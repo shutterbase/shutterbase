@@ -68,12 +68,14 @@
       <section>
         <h3 class="label-mono mb-1 text-primary-500 dark:text-primary-400">Tag hotkeys</h3>
         <p class="mb-3 text-sm text-primary-500 dark:text-primary-400">
-          A tag hotkey toggles the named tag on the current image — assigned when missing, removed when present. Tags are matched by name, so a binding works in every
-          project that has a tag of that name.
+          A tag hotkey toggles the named tag on the current image — assigned when missing, removed when present. Tags are matched by name, so a binding works in every project that
+          has a tag of that name.
         </p>
         <ul class="divide-y divide-primary-100 rounded-lg border border-primary-200 dark:divide-primary-800/60 dark:border-primary-800">
           <li v-for="entry in tagEntries" :key="entry.combo" class="flex flex-wrap items-center gap-3 px-4 py-3">
-            <kbd class="font-data rounded-lg border border-primary-200 bg-primary-100 px-2 py-1 text-xs font-semibold text-primary-700 dark:border-primary-700 dark:bg-primary-800 dark:text-primary-200">
+            <kbd
+              class="font-data rounded-lg border border-primary-200 bg-primary-100 px-2 py-1 text-xs font-semibold text-primary-700 dark:border-primary-700 dark:bg-primary-800 dark:text-primary-200"
+            >
               {{ formatCombo(entry.combo) }}
             </kbd>
             <span class="text-sm text-primary-500 dark:text-primary-400">toggles tag</span>

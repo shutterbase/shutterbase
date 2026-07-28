@@ -2,10 +2,11 @@
   <div class="bg-primary-50 dark:bg-primary-950 text-primary-900 dark:text-primary-100 min-h-screen flex flex-col">
     <div v-if="userStore.isImpersonating" class="bg-warning-400 text-warning-950 text-sm font-medium px-4 py-2 flex items-center justify-center gap-x-3 z-40">
       <span>
-        Impersonating <b>{{ userStore.user?.firstName }} {{ userStore.user?.lastName }}</b>
-        &mdash; signed in as {{ userStore.impersonating?.realUserName }}
+        Impersonating <b>{{ userStore.user?.firstName }} {{ userStore.user?.lastName }}</b> &mdash; signed in as {{ userStore.impersonating?.realUserName }}
       </span>
-      <button @click="stopImpersonate" class="rounded-md bg-warning-950 text-warning-50 px-3 py-1 text-xs font-semibold hover:bg-warning-900 transition-colors">Stop impersonating</button>
+      <button @click="stopImpersonate" class="rounded-md bg-warning-950 text-warning-50 px-3 py-1 text-xs font-semibold hover:bg-warning-900 transition-colors">
+        Stop impersonating
+      </button>
     </div>
     <Disclosure as="header" class="sticky top-0 z-30 border-b border-primary-200 dark:border-primary-800 bg-primary-50/90 dark:bg-primary-950/90 backdrop-blur" v-slot="{ open }">
       <div class="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8">
@@ -65,9 +66,7 @@
             href="#"
             @click="router.push(item.href)"
             :class="[
-              item.current
-                ? 'bg-accent-500/12 text-accent-700 dark:text-accent-200'
-                : 'text-primary-600 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-800',
+              item.current ? 'bg-accent-500/12 text-accent-700 dark:text-accent-200' : 'text-primary-600 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-800',
               'block rounded-md px-3 py-2 text-base font-medium',
             ]"
             :aria-current="item.current ? 'page' : undefined"

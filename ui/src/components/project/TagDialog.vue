@@ -30,7 +30,9 @@
               <!-- header -->
               <div class="flex items-start justify-between gap-4 border-b border-primary-100 px-6 py-5 dark:border-primary-800">
                 <div class="flex items-start gap-3">
-                  <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400">
+                  <span
+                    class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400"
+                  >
                     <TagIcon class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
@@ -113,7 +115,7 @@ watch(
   () => props.tag,
   (value) => {
     item.value = value ?? ({} as ImageTagsResponse);
-  }
+  },
 );
 
 const emit = defineEmits<{

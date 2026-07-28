@@ -60,6 +60,10 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
 // walks through filter states; Images.vue owns the sync.
 export const personFilter = ref<string | null>(null);
 
+// Cross-project scope for the person filter — the grid's ONE exception to the
+// hard project filter. Route-driven like the filter itself (?personScope=all).
+export const personCrossProject = ref(false);
+
 // --- grid snapshot -----------------------------------------------------------
 // Applying the person filter replaces the loaded (possibly deeply scrolled)
 // grid. A snapshot of that state lets "clear filter" / browser-back land on
@@ -130,6 +134,7 @@ export async function loadImages(reload: boolean) {
       search: searchText.value,
       tags: filterTags.value,
       personRef: personFilter.value ?? undefined,
+      crossProject: personCrossProject.value,
       orientation: aspectRatioFilter.value,
       sortOrder: preferredImageSortOrder.value,
       limit: PAGE_SIZE,

@@ -9,6 +9,7 @@ export interface ImageListParams {
   search?: string;
   tagId?: string[]; // repeated, AND-combined server-side
   personRef?: string; // implicit person filter (AI face clustering handle)
+  crossProject?: "true"; // person filter only: search every viewable project
   orientation?: "portrait" | "landscape";
   limit?: number;
   offset?: number;

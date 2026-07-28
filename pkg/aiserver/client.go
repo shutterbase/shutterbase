@@ -54,11 +54,39 @@ func (c *Client) Faces(ctx context.Context, projectID, imageRef string) (FacesRe
 	return resp, err
 }
 
-func (c *Client) PersonImages(ctx context.Context, projectID, personRef string, page, pageSize int) (PersonImagesResponse, error) {
+func (c *Client) PersonImages(ctx context.Context, projectID, personRef string, page, pageSize int, raw bool) (PersonImagesResponse, error) {
 	var resp PersonImagesResponse
 	path := fmt.Sprintf("%s/persons/%s/images?%s", c.projectPath(projectID), url.PathEscape(personRef), pageQuery(page, pageSize))
+	if raw {
+		path += "&raw=true"
+	}
 	err := c.do(ctx, http.MethodGet, path, nil, &resp)
 	return resp, err
+}
+
+func (c *Client) Merges(ctx context.Context, projectID string) (MergesResponse, error) {
+	var resp MergesResponse
+	err := c.do(ctx, http.MethodGet, c.projectPath(projectID)+"/merges", nil, &resp)
+	return resp, err
+}
+
+func (c *Client) DeleteMerge(ctx context.Context, projectID, personA, personB string) error {
+	path := fmt.Sprintf("%s/merges/%s/%s", c.projectPath(projectID), url.PathEscape(personA), url.PathEscape(personB))
+	return c.do(ctx, http.MethodDelete, path, nil, nil)
+}
+
+func (c *Client) Recluster(ctx context.Context, projectID string) error {
+	return c.do(ctx, http.MethodPost, c.projectPath(projectID)+"/recluster", nil, nil)
+}
+
+func (c *Client) MergeCandidates(ctx context.Context, projectID string, skip int) (MergeCandidatesResponse, error) {
+	var resp MergeCandidatesResponse
+	err := c.do(ctx, http.MethodGet, fmt.Sprintf("%s/merge-candidates?skip=%d", c.projectPath(projectID), skip), nil, &resp)
+	return resp, err
+}
+
+func (c *Client) DecideMerge(ctx context.Context, projectID string, d MergeDecision) error {
+	return c.do(ctx, http.MethodPost, c.projectPath(projectID)+"/merge-decisions", d, nil)
 }
 
 func (c *Client) Similar(ctx context.Context, projectID, imageRef string, page, pageSize int) (SimilarResponse, error) {

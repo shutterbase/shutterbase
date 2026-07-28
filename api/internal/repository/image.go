@@ -47,7 +47,11 @@ func (r *Repository) GetImage(ctx context.Context, id string) (*ent.Image, error
 }
 
 type GetImageParameters struct {
-	ProjectID            string // required
+	ProjectID string // required unless ProjectIDs is set
+	// ProjectIDs replaces the single-project filter — ONLY for the
+	// cross-project person search (the caller passes the user's viewable
+	// projects); every other gallery query keeps the hard ProjectID.
+	ProjectIDs           []string
 	UploadID             *string
 	CameraID             *string
 	UserID               *uuid.UUID
@@ -62,11 +66,15 @@ type GetImageParameters struct {
 // runs over the GIN(jsonb_path_ops) index via a single containment; orientation
 // excludes rows with null width/height. Edges are eager-loaded for serialization.
 func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParameters) ([]*ent.Image, int, error) {
-	if parameters.ProjectID == "" {
-		return nil, 0, ErrMissingProject
+	var predicates []predicate.Image
+	if len(parameters.ProjectIDs) > 0 {
+		predicates = []predicate.Image{image.ProjectIDIn(parameters.ProjectIDs...)}
+	} else {
+		if parameters.ProjectID == "" {
+			return nil, 0, ErrMissingProject
+		}
+		predicates = []predicate.Image{image.ProjectID(parameters.ProjectID)}
 	}
-
-	predicates := []predicate.Image{image.ProjectID(parameters.ProjectID)}
 	if parameters.UploadID != nil {
 		predicates = append(predicates, image.UploadID(*parameters.UploadID))
 	}

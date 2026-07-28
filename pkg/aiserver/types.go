@@ -76,6 +76,43 @@ type PersonImagesResponse struct {
 	PageSize int           `json:"pageSize"`
 }
 
+// MergeCandidate is one suggested pair of person clusters that may be the
+// same person (refs as in Face.PersonRef), Sim their centroid cosine.
+type MergeCandidate struct {
+	PersonA string  `json:"personA"`
+	PersonB string  `json:"personB"`
+	Sim     float64 `json:"sim"`
+}
+
+// MergeCandidatesResponse carries the next undecided pair (nil when the queue
+// is drained) plus how many undecided pairs remain for the project.
+type MergeCandidatesResponse struct {
+	Candidate *MergeCandidate `json:"candidate,omitempty"`
+	Remaining int             `json:"remaining"`
+}
+
+// MergeDecision resolves a candidate pair: "same" records a REVERSIBLE merge
+// entry — both persons keep existing, person queries present them as one
+// group until the entry is deleted again. "different" suppresses the pair
+// from future candidate responses.
+type MergeDecision struct {
+	PersonA string `json:"personA"`
+	PersonB string `json:"personB"`
+	Verdict string `json:"verdict"` // same | different
+}
+
+// Merge is one active merge entry. Deleting it (DeleteMerge) splits the two
+// clusters again and the pair returns to the candidate queue.
+type Merge struct {
+	PersonA   string    `json:"personA"`
+	PersonB   string    `json:"personB"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type MergesResponse struct {
+	Items []Merge `json:"items"`
+}
+
 type SimilarImage struct {
 	ImageRef   string  `json:"imageRef"`
 	Similarity float64 `json:"similarity"`
