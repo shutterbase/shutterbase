@@ -8,6 +8,7 @@ export function buildImageListParams(input: {
   search?: string;
   tags?: { id: string }[];
   personRef?: string;
+  crossProject?: boolean;
   orientation?: string;
   sortOrder?: SORT_ORDER;
   limit?: number;
@@ -23,6 +24,10 @@ export function buildImageListParams(input: {
   }
   if (input.personRef) {
     params.personRef = input.personRef;
+    // the one exception to the hard project filter — meaningless without a person
+    if (input.crossProject) {
+      params.crossProject = "true";
+    }
   }
   if (input.orientation && input.orientation !== "neutral") {
     params.orientation = input.orientation as "portrait" | "landscape";

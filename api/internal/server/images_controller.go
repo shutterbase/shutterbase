@@ -68,6 +68,21 @@ func (s *Server) listImages(c *gin.Context) {
 		if !ok {
 			return
 		}
+		// The ONE exception to the hard project filter: cross-project person
+		// search widens to every project the user may view. The requested
+		// project keeps its error semantics (above); the others are
+		// best-effort — same contract as aiPersonImages.
+		if c.Query("crossProject") == "true" {
+			others := s.otherViewableProjectIDs(c.Request.Context(), authUser(c), projectID)
+			for _, pid := range others {
+				more, err := s.personImageIDsRaw(c.Request.Context(), s.aiRemote, pid, v)
+				if err != nil {
+					continue
+				}
+				ids = append(ids, more...)
+			}
+			params.ProjectIDs = append([]string{projectID}, others...)
+		}
 		if len(ids) == 0 {
 			c.JSON(http.StatusOK, ListResponse[*ImageResponse]{Limit: pagination.Limit, Offset: pagination.Offset, Total: 0, Items: []*ImageResponse{}})
 			return

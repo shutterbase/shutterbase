@@ -36,7 +36,12 @@
         <label class="block text-primary-400">Time-offset</label>
         <input v-model="cameraId" placeholder="cameraId" class="w-full bg-primary-800 text-primary-100 placeholder:text-primary-500 border border-primary-700 rounded px-1 py-1" />
         <div class="flex gap-1 items-center">
-          <input v-model.number="driftSeconds" type="number" placeholder="drift s" class="flex-1 bg-primary-800 text-primary-100 placeholder:text-primary-500 border border-primary-700 rounded px-1 py-1" />
+          <input
+            v-model.number="driftSeconds"
+            type="number"
+            placeholder="drift s"
+            class="flex-1 bg-primary-800 text-primary-100 placeholder:text-primary-500 border border-primary-700 rounded px-1 py-1"
+          />
           <label class="flex items-center gap-1"><input v-model="stale" type="checkbox" />stale</label>
           <button class="btn" @click="run(() => dev.timeOffset({ cameraId, driftSeconds, stale }))">set</button>
         </div>
@@ -46,7 +51,11 @@
       <div class="space-y-1">
         <label class="block text-primary-400">Synthetic images</label>
         <div class="flex gap-1">
-          <input v-model="uploadId" placeholder="uploadId" class="flex-1 bg-primary-800 text-primary-100 placeholder:text-primary-500 border border-primary-700 rounded px-1 py-1" />
+          <input
+            v-model="uploadId"
+            placeholder="uploadId"
+            class="flex-1 bg-primary-800 text-primary-100 placeholder:text-primary-500 border border-primary-700 rounded px-1 py-1"
+          />
           <input v-model.number="imageCount" type="number" class="w-12 bg-primary-800 text-primary-100 placeholder:text-primary-500 border border-primary-700 rounded px-1 py-1" />
           <button class="btn" @click="run(() => dev.images({ uploadId, count: imageCount }))">add</button>
         </div>

@@ -30,7 +30,9 @@
               <!-- header -->
               <div class="flex items-start justify-between gap-4 border-b border-primary-100 px-6 py-5 dark:border-primary-800">
                 <div class="flex items-start gap-3">
-                  <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400">
+                  <span
+                    class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400"
+                  >
                     <UserGroupIcon class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
@@ -130,9 +132,7 @@ const emit = defineEmits<{
 const fieldClass =
   "mt-2 block h-11 w-full rounded-md border border-primary-200 bg-surface-muted px-3.5 text-sm text-primary-900 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 disabled:opacity-50 dark:border-primary-700 dark:bg-primary-900 dark:text-white dark:hover:border-primary-600";
 
-const userOptions = computed<SearchSelectOption[]>(() =>
-  props.availableUsers.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}`, hint: u.username })),
-);
+const userOptions = computed<SearchSelectOption[]>(() => props.availableUsers.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}`, hint: u.username })));
 
 const selectedUserId = ref("");
 const selectedRoleId = ref("");

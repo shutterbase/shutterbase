@@ -34,16 +34,35 @@
           :fields="aiFields"
           :item="item"
         />
-        <button
-          v-if="userStore.isProjectAdminOrHigher()"
-          type="button"
-          class="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
-          :disabled="rerunningFailed"
-          @click="rerunFailed"
-        >
-          <ArrowPathIcon class="h-4 w-4" />
-          Re-queue failed images
-        </button>
+        <div v-if="userStore.isProjectAdminOrHigher()" class="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
+            :disabled="rerunningFailed || rerunningAll"
+            @click="rerunFailed"
+          >
+            <ArrowPathIcon class="h-4 w-4" />
+            Re-queue failed images
+          </button>
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
+            :disabled="rerunningFailed || rerunningAll"
+            @click="showRecomputeConfirm = true"
+          >
+            <ArrowPathIcon class="h-4 w-4" />
+            Recompute all images
+          </button>
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
+            :disabled="rerunningFailed || rerunningAll"
+            @click="showReclusterConfirm = true"
+          >
+            <ArrowPathIcon class="h-4 w-4" />
+            Recluster faces
+          </button>
+        </div>
       </div>
       <DetailEditGroup
         :allow-edit="userStore.isProjectAdminOrHigher()"
@@ -55,6 +74,26 @@
       />
     </div>
   </main>
+  <ModalMessage
+    :show="showRecomputeConfirm"
+    :type="MessageType.CONFIRM_WARNING"
+    headline="Recompute all images?"
+    message="Every image of this project is re-queued for AI detection. Existing AI tags, descriptions and face data are replaced, and the full run costs AI credits."
+    confirmText="Recompute all"
+    cancelText="Cancel"
+    @confirmed="rerunAll"
+    @closed="showRecomputeConfirm = false"
+  />
+  <ModalMessage
+    :show="showReclusterConfirm"
+    :type="MessageType.CONFIRM_WARNING"
+    headline="Recluster faces?"
+    message="Person clusters are rebuilt from the existing face data — no AI credits are used. All cluster merges and merge decisions are discarded, and the review queue starts fresh. This affects every project, since face clusters are shared."
+    confirmText="Recluster"
+    cancelText="Cancel"
+    @confirmed="recluster"
+    @closed="showReclusterConfirm = false"
+  />
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 
@@ -63,6 +102,7 @@ import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ArrowPathIcon } from "@heroicons/vue/24/outline";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
+import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 import DetailEditGroup, { Field, FieldType, EditData } from "src/components/DetailEditGroup.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
 import { api } from "src/api";
@@ -135,6 +175,39 @@ async function rerunFailed() {
     showUnexpectedErrorMessage.value = true;
   } finally {
     rerunningFailed.value = false;
+  }
+}
+
+const rerunningAll = ref(false);
+const showRecomputeConfirm = ref(false);
+async function rerunAll() {
+  if (!item.value) return;
+  showRecomputeConfirm.value = false;
+  rerunningAll.value = true;
+  try {
+    const queued = await api.ai.rerunAll(item.value.id);
+    showNotificationToast({
+      headline: queued === 0 ? "No images to recompute" : `AI detection re-queued for ${queued} image${queued === 1 ? "" : "s"}`,
+      type: "success",
+    });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    rerunningAll.value = false;
+  }
+}
+
+const showReclusterConfirm = ref(false);
+async function recluster() {
+  if (!item.value) return;
+  showReclusterConfirm.value = false;
+  try {
+    await api.ai.recluster(item.value.id);
+    showNotificationToast({ headline: "Recluster started — clusters repopulate on the Faces page", type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
   }
 }
 

@@ -224,6 +224,62 @@ func TestAIRerunFailed(t *testing.T) {
 	assert.Equal(t, entimage.AiStatusDone, *done.AiStatus, "done images stay untouched")
 }
 
+// Recluster: projectAdmin-gated, fire-and-forget proxy — 202 immediately, the
+// AI server call happens on a detached goroutine.
+func TestAIRecluster(t *testing.T) {
+	s, m := newAITestServer(t)
+	remote := &fakeRemote{reclusterCalled: make(chan string, 1)}
+	s.aiRemote = remote
+
+	c, rec := aiCtx(t, plainUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/recluster", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiRecluster(c)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+
+	c, _ = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/recluster", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiRecluster(c)
+	require.Equal(t, http.StatusAccepted, c.Writer.Status())
+	select {
+	case got := <-remote.reclusterCalled:
+		assert.Equal(t, m.Project, got)
+	case <-time.After(2 * time.Second):
+		t.Fatal("recluster never reached the AI server")
+	}
+}
+
+// Recompute-all: projectAdmin-gated, one bulk statement re-queues every image
+// of the project regardless of current status.
+func TestAIRerunAll(t *testing.T) {
+	s, m := newAITestServer(t)
+	ctx := context.Background()
+	s.Repository.Client.Image.UpdateOneID(m.Images[0]).SetAiStatus(entimage.AiStatusError).SetAiAttempts(3).SaveX(ctx)
+	s.Repository.Client.Image.UpdateOneID(m.Images[1]).SetAiStatus(entimage.AiStatusDone).SaveX(ctx)
+
+	c, rec := aiCtx(t, plainUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/rerun-all", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiRerunAll(c)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/rerun-all", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiRerunAll(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Queued int `json:"queued"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	total := s.Repository.Client.Image.Query().Where(entimage.ProjectID(m.Project)).CountX(ctx)
+	assert.Equal(t, total, body.Queued, "every project image re-queued")
+
+	for _, id := range []string{m.Images[0], m.Images[1]} {
+		row := s.Repository.Client.Image.GetX(ctx, id)
+		require.NotNil(t, row.AiStatus)
+		assert.Equal(t, entimage.AiStatusPending, *row.AiStatus)
+		assert.Zero(t, row.AiAttempts, "re-queue resets the attempt counter")
+	}
+}
+
 // fakeRemote implements aiserver.Server for the proxy tests.
 type fakeRemote struct {
 	faces    aiserver.FacesResponse
@@ -232,6 +288,13 @@ type fakeRemote struct {
 	// personTotals (optional) serves a per-project Total, unknown ids -> 404.
 	personQueried []string
 	personTotals  map[string]int
+	personItems   map[string][]aiserver.PersonImage
+	lastDecision  aiserver.MergeDecision
+	lastRaw       bool
+	deletedMerge  string
+	// reclusterCalled receives the projectID of each Recluster call (the
+	// controller fires it from a goroutine, so the test must synchronize).
+	reclusterCalled chan string
 }
 
 func (f *fakeRemote) Prime(context.Context, string, aiserver.Project) error { return nil }
@@ -241,8 +304,20 @@ func (f *fakeRemote) Ingest(context.Context, string, aiserver.IngestRequest) (ai
 func (f *fakeRemote) Faces(context.Context, string, string) (aiserver.FacesResponse, error) {
 	return f.faces, f.facesErr
 }
-func (f *fakeRemote) PersonImages(_ context.Context, projectID string, _ string, page, pageSize int) (aiserver.PersonImagesResponse, error) {
+func (f *fakeRemote) PersonImages(_ context.Context, projectID string, _ string, page, pageSize int, raw bool) (aiserver.PersonImagesResponse, error) {
 	f.personQueried = append(f.personQueried, projectID)
+	f.lastRaw = raw
+	// personItems (optional) serves real per-project refs, unknown ids -> 404.
+	if f.personItems != nil {
+		items, ok := f.personItems[projectID]
+		if !ok {
+			return aiserver.PersonImagesResponse{}, aiserver.ErrNotFound
+		}
+		if page > 0 {
+			items = nil
+		}
+		return aiserver.PersonImagesResponse{Items: items, Total: len(items), Page: page, PageSize: pageSize}, nil
+	}
 	total := 1
 	if f.personTotals != nil {
 		var ok bool
@@ -256,6 +331,37 @@ func (f *fakeRemote) PersonImages(_ context.Context, projectID string, _ string,
 }
 func (f *fakeRemote) Similar(context.Context, string, string, int, int) (aiserver.SimilarResponse, error) {
 	return aiserver.SimilarResponse{}, nil
+}
+func (f *fakeRemote) MergeCandidates(_ context.Context, _ string, skip int) (aiserver.MergeCandidatesResponse, error) {
+	if skip > 0 {
+		return aiserver.MergeCandidatesResponse{Remaining: 1}, nil
+	}
+	return aiserver.MergeCandidatesResponse{
+		Candidate: &aiserver.MergeCandidate{PersonA: "p1", PersonB: "p2", Sim: 0.57},
+		Remaining: 1,
+	}, nil
+}
+func (f *fakeRemote) DecideMerge(_ context.Context, _ string, d aiserver.MergeDecision) error {
+	f.lastDecision = d
+	return nil
+}
+func (f *fakeRemote) Merges(context.Context, string) (aiserver.MergesResponse, error) {
+	return aiserver.MergesResponse{Items: []aiserver.Merge{
+		{PersonA: "p1", PersonB: "p2", CreatedAt: time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)},
+	}}, nil
+}
+func (f *fakeRemote) DeleteMerge(_ context.Context, _ string, personA, personB string) error {
+	if personA == "stale" {
+		return aiserver.ErrNotFound
+	}
+	f.deletedMerge = personA + "/" + personB
+	return nil
+}
+func (f *fakeRemote) Recluster(_ context.Context, projectID string) error {
+	if f.reclusterCalled != nil {
+		f.reclusterCalled <- projectID
+	}
+	return nil
 }
 func (f *fakeRemote) DeleteImage(context.Context, string, string) error { return nil }
 
@@ -283,18 +389,94 @@ func TestAIProxyGuardAndMapping(t *testing.T) {
 	assert.Equal(t, http.StatusBadGateway, rec.Code, "remote failure -> 502")
 
 	s.aiRemote = &fakeRemote{faces: aiserver.FacesResponse{
-		ImageRef: img, Faces: []aiserver.Face{{X: 0.1, Y: 0.2, W: 0.3, H: 0.4, PersonRef: "p1"}},
-	}}
+		ImageRef: img, Faces: []aiserver.Face{
+			{X: 0.1, Y: 0.2, W: 0.3, H: 0.4, PersonRef: "p1"},
+			{X: 0.5, Y: 0.5, W: 0.1, H: 0.1}, // no person -> no count
+		},
+	}, personTotals: map[string]int{m.Project: 7}}
 	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/images/"+img+"/ai/faces", "")
 	c.Params = gin.Params{{Key: "id", Value: img}}
 	s.aiImageFaces(c)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var body struct {
-		Faces []aiserver.Face `json:"faces"`
+		Faces []struct {
+			aiserver.Face
+			Count int `json:"count"`
+		} `json:"faces"`
 	}
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	require.Len(t, body.Faces, 1)
+	require.Len(t, body.Faces, 2)
 	assert.Equal(t, "p1", body.Faces[0].PersonRef)
+	assert.Equal(t, 7, body.Faces[0].Count, "count = person's appearance total")
+	assert.Zero(t, body.Faces[1].Count, "faces without a person carry no count")
+}
+
+// Merge review: plain users get 403; admins get the proxied candidate and can
+// decide; malformed verdicts are rejected before reaching the AI server.
+func TestAIMergeEndpoints(t *testing.T) {
+	s, m := newAITestServer(t)
+	remote := &fakeRemote{}
+	s.aiRemote = remote
+
+	c, rec := aiCtx(t, plainUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge/next", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeNext(c)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge/next", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeNext(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var next aiserver.MergeCandidatesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &next))
+	require.NotNil(t, next.Candidate)
+	assert.Equal(t, "p2", next.Candidate.PersonB)
+	assert.Equal(t, 1, next.Remaining)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/merge/decide",
+		`{"personA":"p1","personB":"p2","verdict":"maybe"}`)
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeDecide(c)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "bad verdict never reaches the AI server")
+	assert.Empty(t, remote.lastDecision.Verdict)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/merge/decide",
+		`{"personA":"p1","personB":"p2","verdict":"same"}`)
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeDecide(c)
+	require.Equal(t, http.StatusNoContent, c.Writer.Status())
+	assert.Equal(t, "same", remote.lastDecision.Verdict)
+	assert.Equal(t, "p2", remote.lastDecision.PersonB)
+
+	c, rec = aiCtx(t, plainUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeList(c)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeList(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var list aiserver.MergesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "p2", list.Items[0].PersonB)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/projects/"+m.Project+"/ai/merge?personA=p1&personB=p1", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeDelete(c)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "identical refs rejected")
+
+	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/projects/"+m.Project+"/ai/merge?personA=stale&personB=p2", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeDelete(c)
+	assert.Equal(t, http.StatusNotFound, rec.Code, "unknown entry -> 404")
+
+	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/projects/"+m.Project+"/ai/merge?personA=p1&personB=p2", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiMergeDelete(c)
+	require.Equal(t, http.StatusNoContent, c.Writer.Status())
+	assert.Equal(t, "p1/p2", remote.deletedMerge)
 }
 
 // Person images whose refs are unknown locally (deleted) are dropped, not 500s.
@@ -331,6 +513,78 @@ func TestListImagesUnknownPersonFilter(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Zero(t, body.Total)
 	assert.Empty(t, body.Items)
+}
+
+// The grid's ONE exception to the hard project filter: a cross-project person
+// search returns matches from every project the user may view; unassigned
+// projects stay invisible.
+func TestListImagesCrossProjectPersonFilter(t *testing.T) {
+	s, m := newAITestServer(t)
+	ctx := context.Background()
+	other := s.Repository.Client.Project.Create().
+		SetName("Other Event").
+		SetDescription("second project").
+		SetCopyright("Test Team").
+		SetCopyrightReference("https://example.test").
+		SetLocationName("Elsewhere").
+		SetLocationCode("ELS").
+		SetLocationCity("Elsewhere").
+		SaveX(ctx)
+	up := s.Repository.Client.Upload.Create().
+		SetName("other upload").
+		SetProjectID(other.ID).
+		SetUserID(m.Users["projectEditor"]).
+		SetCameraID(m.Cameras["fresh"]).
+		SaveX(ctx)
+	foreign := s.Repository.Client.Image.Create().
+		SetFileName("OTHER_0001.jpg").
+		SetStorageId("otherimg00000001").
+		SetSize(1024).
+		SetUserID(m.Users["projectEditor"]).
+		SetUploadID(up.ID).
+		SetProjectID(other.ID).
+		SetCameraID(m.Cameras["fresh"]).
+		SaveX(ctx)
+
+	s.aiRemote = &fakeRemote{personItems: map[string][]aiserver.PersonImage{
+		m.Project: {{ImageRef: m.Images[0]}},
+		other.ID:  {{ImageRef: foreign.ID}},
+	}}
+
+	list := func(u *ent.User, query string) (int, []string) {
+		t.Helper()
+		c, rec := aiCtx(t, u, http.MethodGet, "/api/v1/images?projectId="+m.Project+"&personRef=p1"+query, "")
+		s.listImages(c)
+		require.Equal(t, http.StatusOK, rec.Code)
+		var body struct {
+			Total int `json:"total"`
+			Items []struct {
+				ID string `json:"id"`
+			} `json:"items"`
+		}
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		ids := make([]string, 0, len(body.Items))
+		for _, item := range body.Items {
+			ids = append(ids, item.ID)
+		}
+		return body.Total, ids
+	}
+
+	total, ids := list(adminUser(), "")
+	assert.Equal(t, 1, total, "without the flag the project filter stays hard")
+	assert.NotContains(t, ids, foreign.ID)
+
+	total, ids = list(adminUser(), "&crossProject=true")
+	assert.Equal(t, 2, total, "cross-project search spans viewable projects")
+	assert.Contains(t, ids, foreign.ID)
+	assert.Contains(t, ids, m.Images[0])
+
+	// non-admin assigned only to the seed project: the foreign match stays out
+	viewer, err := s.Repository.GetEffectiveUser(ctx, m.Users["projectViewer"])
+	require.NoError(t, err)
+	total, ids = list(viewer, "&crossProject=true")
+	assert.Equal(t, 1, total)
+	assert.NotContains(t, ids, foreign.ID)
 }
 
 // crossProject=true fans out over the user's viewable projects (all of them

@@ -30,6 +30,7 @@ export interface AiFace {
   w: number;
   h: number;
   personRef?: string;
+  count?: number; // how often this face's person was detected in the project
 }
 
 export interface AiSimilarImage {
@@ -79,6 +80,19 @@ export async function rerunFailed(projectId: string): Promise<number> {
   return data.queued;
 }
 
+// Re-queues EVERY image of the project (full recompute) — confirm before calling.
+export async function rerunAll(projectId: string): Promise<number> {
+  const { data } = await http.post<{ queued: number }>(`/projects/${projectId}/ai/rerun-all`);
+  return data.queued;
+}
+
+// Rebuilds all person clusters from stored face embeddings (no inference, no
+// credits). Fire-and-forget on the server: 202 means started, not finished.
+// Discards all merge entries — confirm before calling.
+export async function recluster(projectId: string): Promise<void> {
+  await http.post(`/projects/${projectId}/ai/recluster`);
+}
+
 export async function faces(imageId: string): Promise<AiFace[]> {
   const { data } = await http.get<{ faces: AiFace[] }>(`/images/${imageId}/ai/faces`);
   return data.faces;
@@ -87,4 +101,66 @@ export async function faces(imageId: string): Promise<AiFace[]> {
 export async function similar(imageId: string, page: number, pageSize = 20): Promise<AiSimilarPage> {
   const { data } = await http.get<AiSimilarPage>(`/images/${imageId}/ai/similar`, { params: { page, pageSize } });
   return data;
+}
+
+export interface AiPersonImage {
+  image: Image;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface AiPersonImagesPage {
+  items: AiPersonImage[];
+  total: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+// raw=true skips merge-group resolution and returns one cluster's own faces.
+export async function personImages(projectId: string, personRef: string, page = 0, pageSize = 20, raw = false): Promise<AiPersonImagesPage> {
+  const { data } = await http.get<AiPersonImagesPage>(`/projects/${projectId}/ai/persons/${personRef}/images`, {
+    params: { page, pageSize, ...(raw ? { raw: "true" } : {}) },
+  });
+  return data;
+}
+
+// --- face cluster merge review (project settings, projectAdmin+) ---
+
+export interface AiMergeCandidate {
+  personA: string;
+  personB: string;
+  sim: number;
+}
+
+export interface AiMergeCandidates {
+  candidate?: AiMergeCandidate;
+  remaining: number;
+}
+
+export async function mergeNext(projectId: string, skip = 0): Promise<AiMergeCandidates> {
+  const { data } = await http.get<AiMergeCandidates>(`/projects/${projectId}/ai/merge/next`, { params: { skip } });
+  return data;
+}
+
+// verdict "same" records a reversible merge entry; deleteMerge splits it again.
+export async function mergeDecide(projectId: string, personA: string, personB: string, verdict: "same" | "different"): Promise<void> {
+  await http.post(`/projects/${projectId}/ai/merge/decide`, { personA, personB, verdict });
+}
+
+export interface AiMerge {
+  personA: string;
+  personB: string;
+  createdAt: string;
+}
+
+export async function merges(projectId: string): Promise<AiMerge[]> {
+  const { data } = await http.get<{ items: AiMerge[] }>(`/projects/${projectId}/ai/merge`);
+  return data.items;
+}
+
+export async function deleteMerge(projectId: string, personA: string, personB: string): Promise<void> {
+  await http.delete(`/projects/${projectId}/ai/merge`, { params: { personA, personB } });
 }

@@ -1,7 +1,9 @@
 <template>
   <Menu as="div" class="relative ml-3">
     <div>
-      <MenuButton class="relative flex rounded-full bg-primary-200 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface dark:bg-primary-800 dark:focus-visible:ring-offset-primary-950">
+      <MenuButton
+        class="relative flex rounded-full bg-primary-200 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface dark:bg-primary-800 dark:focus-visible:ring-offset-primary-950"
+      >
         <span class="absolute -inset-1.5" />
         <span class="sr-only">Open user menu</span>
         <img id="user-menu-avatar" ref="userMenuAvatar" class="h-8 w-8 rounded-full ring-1 ring-primary-300 dark:ring-primary-700" src="" alt="" />
@@ -47,7 +49,10 @@
             </router-link>
           </li>
           <li>
-            <a href="#" class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white">
+            <a
+              href="#"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
               <CloudArrowUpIcon class="mr-2 w-5 h-5 text-primary-400 dark:text-primary-500" />
               My Uploads
             </a>
@@ -64,12 +69,19 @@
         </ul>
         <ul class="py-1 text-primary-700 dark:text-primary-200">
           <li v-if="activeProjectId">
-            <router-link :to="`/projects/${activeProjectId}/general`" class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white">
+            <router-link
+              :to="`/projects/${activeProjectId}/general`"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
               Project: <span class="ml-2 font-semibold text-accent-600 dark:text-accent-400">{{ userStore.activeProject?.name }}</span>
             </router-link>
           </li>
           <li v-if="activeProjectId">
-            <a href="#" @click.prevent="clearProjectSelection" class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white">
+            <a
+              href="#"
+              @click.prevent="clearProjectSelection"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
               Clear project selection</a
             >
           </li>
@@ -107,7 +119,11 @@
         </ul>
         <ul class="py-1">
           <li>
-            <a href="/logout" class="block cursor-pointer py-2 px-4 text-sm font-medium text-error-700 transition-colors hover:bg-error-50 dark:text-error-300 dark:hover:bg-error-950/40">Sign out</a>
+            <a
+              href="/logout"
+              class="block cursor-pointer py-2 px-4 text-sm font-medium text-error-700 transition-colors hover:bg-error-50 dark:text-error-300 dark:hover:bg-error-950/40"
+              >Sign out</a
+            >
           </li>
         </ul>
         <!-- Deployed image tag (DEPLOYMENT_IMAGE_TAG). This is what /deploy-fsg

@@ -74,9 +74,7 @@ const newPasswordConfirm = ref("");
 const errorMessage = ref("");
 
 const pwReqs = ref<{ allMet: boolean } | null>(null);
-const canSubmit = computed(
-  () => !!currentPassword.value && !!newPassword.value && newPassword.value === newPasswordConfirm.value && (pwReqs.value?.allMet ?? false),
-);
+const canSubmit = computed(() => !!currentPassword.value && !!newPassword.value && newPassword.value === newPasswordConfirm.value && (pwReqs.value?.allMet ?? false));
 
 const CODE_MESSAGES: Record<string, string> = {
   passwords_do_not_match: "The new passwords do not match",

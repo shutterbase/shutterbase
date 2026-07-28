@@ -20,7 +20,7 @@ http.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 // WebSocket lives at /ws (not under /api/v1), cookie-authenticated.

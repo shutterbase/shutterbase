@@ -30,7 +30,9 @@
               <!-- header -->
               <div class="flex items-start justify-between gap-4 border-b border-primary-100 px-6 py-5 dark:border-primary-800">
                 <div class="flex items-start gap-3">
-                  <span class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400">
+                  <span
+                    class="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-accent-500/10 text-accent-600 dark:bg-accent-500/15 dark:text-accent-400"
+                  >
                     <TagIcon class="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
@@ -51,7 +53,9 @@
               <!-- body -->
               <div class="px-6 py-5">
                 <label for="bulk-tags" class="label-mono block text-primary-500 dark:text-primary-400">CSV input</label>
-                <p class="mt-1.5 text-sm text-primary-500 dark:text-primary-400">One tag per line as <span class="font-data text-primary-700 dark:text-primary-200">name,description,type</span>.</p>
+                <p class="mt-1.5 text-sm text-primary-500 dark:text-primary-400">
+                  One tag per line as <span class="font-data text-primary-700 dark:text-primary-200">name,description,type</span>.
+                </p>
                 <textarea
                   id="bulk-tags"
                   v-model="bulkText"
@@ -106,7 +110,7 @@ watch(
     if (show) {
       bulkText.value = "";
     }
-  }
+  },
 );
 
 const emit = defineEmits<{

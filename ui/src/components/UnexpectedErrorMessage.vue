@@ -24,7 +24,9 @@
             leave-from="opacity-100 translate-y-0 sm:scale-100"
             leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
           >
-            <DialogPanel class="relative transform overflow-hidden rounded-lg border border-primary-200 bg-surface text-left shadow-panel transition-all dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark sm:my-8 sm:w-full sm:max-w-3xl">
+            <DialogPanel
+              class="relative transform overflow-hidden rounded-lg border border-primary-200 bg-surface text-left shadow-panel transition-all dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark sm:my-8 sm:w-full sm:max-w-3xl"
+            >
               <button
                 type="button"
                 @click="emit('closed')"
@@ -51,7 +53,11 @@
                     <button v-if="showDetails" @click="copyError" class="font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 ml-4">{{ copyErrorText }}</button>
                   </div>
                 </div>
-                <pre v-if="showDetails" class="mt-3 rounded-md border border-primary-200 bg-surface-muted p-4 text-sm font-mono text-primary-700 dark:border-primary-800 dark:bg-surface-dark-muted dark:text-primary-300 text-wrap">{{ detailText }}</pre>
+                <pre
+                  v-if="showDetails"
+                  class="mt-3 rounded-md border border-primary-200 bg-surface-muted p-4 text-sm font-mono text-primary-700 dark:border-primary-800 dark:bg-surface-dark-muted dark:text-primary-300 text-wrap"
+                  >{{ detailText }}</pre
+                >
               </div>
 
               <div class="border-t border-primary-200 bg-surface-muted px-4 py-3 dark:border-primary-800 dark:bg-surface-dark-muted sm:flex sm:flex-row-reverse sm:px-6">

@@ -56,6 +56,10 @@ func (s *S3Client) GetSignedUploadUrl(ctx context.Context, objectName string) (s
 }
 
 func (s *S3Client) GetSignedDownloadUrl(ctx context.Context, objectName string) (string, error) {
+	if s == nil {
+		// tests run without an S3 client; the serializer logs and skips
+		return "", fmt.Errorf("no s3 client configured")
+	}
 	cachedUrl, ok := s.DownloadUrlCache.Get(objectName)
 	if ok {
 		return cachedUrl, nil

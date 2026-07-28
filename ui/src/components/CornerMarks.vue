@@ -1,10 +1,6 @@
 <template>
   <div class="pointer-events-none absolute inset-0" aria-hidden="true">
-    <span
-      v-for="c in corners"
-      :key="c"
-      :class="['absolute border-accent-500/70', sizeClass, c]"
-    />
+    <span v-for="c in corners" :key="c" :class="['absolute border-accent-500/70', sizeClass, c]" />
   </div>
 </template>
 

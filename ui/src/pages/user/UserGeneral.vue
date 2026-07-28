@@ -2,8 +2,13 @@
   <main class="py-8">
     <div class="mx-auto max-w-3xl space-y-10 lg:mx-0 lg:max-w-none">
       <!-- identity header: who am I looking at, and can they get in right now -->
-      <header v-if="item" class="flex flex-wrap items-start gap-5 rounded-lg border border-primary-200 bg-surface p-6 shadow-panel dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark">
-        <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-500/15 font-data text-lg font-semibold text-accent-700 dark:bg-accent-500/20 dark:text-accent-200">
+      <header
+        v-if="item"
+        class="flex flex-wrap items-start gap-5 rounded-lg border border-primary-200 bg-surface p-6 shadow-panel dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark"
+      >
+        <span
+          class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent-500/15 font-data text-lg font-semibold text-accent-700 dark:bg-accent-500/20 dark:text-accent-200"
+        >
           {{ initials }}
         </span>
         <div class="min-w-0 flex-1">
@@ -81,9 +86,7 @@
               </div>
               <p class="mt-2 max-w-prose text-xs text-primary-500 dark:text-primary-400">
                 {{
-                  isSelf && item.active
-                    ? "You cannot deactivate your own account."
-                    : "An inactive account cannot sign in, and its sessions and API keys stop working immediately."
+                  isSelf && item.active ? "You cannot deactivate your own account." : "An inactive account cannot sign in, and its sessions and API keys stop working immediately."
                 }}
               </p>
             </dd>
@@ -138,7 +141,11 @@
             <input id="confirm-password" v-model="newPasswordConfirm" type="password" autocomplete="new-password" :class="inputClasses" class="mt-2" />
           </div>
           <label class="inline-flex cursor-pointer items-center gap-2">
-            <input v-model="requireChange" type="checkbox" class="h-4 w-4 rounded border-primary-300 bg-surface text-accent-600 focus:ring-2 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark" />
+            <input
+              v-model="requireChange"
+              type="checkbox"
+              class="h-4 w-4 rounded border-primary-300 bg-surface text-accent-600 focus:ring-2 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark"
+            />
             <span class="text-sm text-primary-700 dark:text-primary-200">Require a change on next sign-in</span>
           </label>
           <p v-if="passwordError" class="text-sm font-medium text-error-600 dark:text-error-400">{{ passwordError }}</p>

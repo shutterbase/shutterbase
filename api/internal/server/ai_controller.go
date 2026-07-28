@@ -34,7 +34,13 @@ func (s *Server) registerAIRoutes(api *gin.RouterGroup) {
 	api.GET("/projects/:id/ai/status", s.aiQueueStatus)
 	api.POST("/projects/:id/ai/rerun", s.aiRerunBatch)
 	api.POST("/projects/:id/ai/rerun-failed", s.aiRerunFailed)
+	api.POST("/projects/:id/ai/rerun-all", s.aiRerunAll)
+	api.POST("/projects/:id/ai/recluster", s.aiRecluster)
 	api.GET("/projects/:id/ai/persons/:personRef/images", s.aiPersonImages)
+	api.GET("/projects/:id/ai/merge/next", s.aiMergeNext)
+	api.POST("/projects/:id/ai/merge/decide", s.aiMergeDecide)
+	api.GET("/projects/:id/ai/merge", s.aiMergeList)
+	api.DELETE("/projects/:id/ai/merge", s.aiMergeDelete)
 	api.GET("/uploads/:id/ai", s.aiUploadStatus)
 	api.POST("/uploads/:id/ai/rerun", s.aiRerunUpload)
 	api.POST("/images/:id/ai/rerun", s.aiRerunImage)
@@ -231,6 +237,26 @@ func (s *Server) aiRerunFailed(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"queued": len(ids)})
 }
 
+// aiRerunAll re-queues every image of the project (full recompute: tags,
+// embeddings, faces, person assignment). Settings-page action, projectAdmin+;
+// it replaces existing AI results and costs tokens, so the SPA confirms
+// before calling. One bulk statement — see AIService.EnqueueProject.
+func (s *Server) aiRerunAll(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	queued, err := s.ai.EnqueueProject(projectID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"queued": queued})
+}
+
 // aiRerunBatch re-queues an explicit id list (multi-select). Editor+ on the
 // project; ids outside the project are silently skipped (the where-clause is
 // the filter, not an error path).
@@ -297,7 +323,155 @@ func (s *Server) aiImageFaces(c *gin.Context) {
 	if abortAIError(c, err) {
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"faces": resp.Faces})
+	// Count is how often the face's person appears in the project (the person
+	// page total, fetched size-1). Best-effort: a failed lookup omits the count.
+	// ponytail: sequential lookups, one per distinct person — push the count
+	// into the FacesResponse contract if crowded group shots get slow.
+	counts := map[string]int{}
+	for _, f := range resp.Faces {
+		if _, seen := counts[f.PersonRef]; f.PersonRef == "" || seen {
+			continue
+		}
+		if p, err := remote.PersonImages(c.Request.Context(), img.ProjectID, f.PersonRef, 0, 1, false); err == nil {
+			counts[f.PersonRef] = p.Total
+		}
+	}
+	type countedFace struct {
+		aiserver.Face
+		Count int `json:"count,omitempty"`
+	}
+	faces := make([]countedFace, 0, len(resp.Faces))
+	for _, f := range resp.Faces {
+		faces = append(faces, countedFace{Face: f, Count: counts[f.PersonRef]})
+	}
+	c.JSON(http.StatusOK, gin.H{"faces": faces})
+}
+
+// aiMergeNext proxies the next similar-person merge candidate of the project.
+// Settings-page action, so projectAdmin+ (CanEditProject) like aiRerunFailed.
+func (s *Server) aiMergeNext(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	skip, _ := strconv.Atoi(c.Query("skip"))
+	if skip < 0 {
+		skip = 0
+	}
+	resp, err := remote.MergeCandidates(c.Request.Context(), projectID, skip)
+	if abortAIError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// aiMergeDecide records a same/different verdict for a candidate pair;
+// "same" merges the clusters on the AI server (global — the AI server's
+// person ids span projects, so a merge is visible everywhere).
+func (s *Server) aiMergeDecide(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	var d aiserver.MergeDecision
+	if !bindJSON(c, &d) {
+		return
+	}
+	if (d.Verdict != "same" && d.Verdict != "different") || d.PersonA == "" || d.PersonB == "" || d.PersonA == d.PersonB {
+		apiError(c, http.StatusBadRequest, "invalid_merge_decision", "personA, personB and verdict (same|different) required")
+		return
+	}
+	if abortAIError(c, remote.DecideMerge(c.Request.Context(), projectID, d)) {
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// aiRecluster asks the AI server to rebuild all person clusters from its
+// stored face embeddings — no inference re-runs, no credits. Discards every
+// merge entry (previous person generation), so the SPA confirms first.
+// Long-running on big corpora: fire-and-forget with a detached context (kept
+// under the aiserver client's 10-minute safety cap), 202 immediately; errors
+// only land in the log. The AI server rejects concurrent runs.
+func (s *Server) aiRecluster(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 9*time.Minute)
+		defer cancel()
+		if err := remote.Recluster(ctx, projectID); err != nil {
+			log.Error().Err(err).Str("project", projectID).Msg("AI recluster failed")
+		}
+	}()
+	c.Status(http.StatusAccepted)
+}
+
+// aiMergeList proxies the project's active merge entries (projectAdmin+).
+func (s *Server) aiMergeList(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	resp, err := remote.Merges(c.Request.Context(), projectID)
+	if abortAIError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// aiMergeDelete removes one merge entry (?personA=..&personB=..), splitting
+// the two clusters again. Like the merge itself, the split is global.
+func (s *Server) aiMergeDelete(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	personA, personB := c.Query("personA"), c.Query("personB")
+	if personA == "" || personB == "" || personA == personB {
+		apiError(c, http.StatusBadRequest, "invalid_merge_pair", "distinct personA and personB required")
+		return
+	}
+	if abortAIError(c, remote.DeleteMerge(c.Request.Context(), projectID, personA, personB)) {
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // aiPersonImages pages through a person's appearances. With crossProject=true
@@ -320,6 +494,9 @@ func (s *Server) aiPersonImages(c *gin.Context) {
 		return
 	}
 	page, pageSize := aiPageParams(c)
+	// raw=true skips merge-group resolution: the Faces settings page uses it
+	// to show one cluster's own appearances.
+	raw := c.Query("raw") == "true"
 	ctx := c.Request.Context()
 
 	projectIDs := []string{projectID}
@@ -331,7 +508,7 @@ func (s *Server) aiPersonImages(c *gin.Context) {
 	total := 0
 	hasMore := false
 	for i, pid := range projectIDs {
-		resp, err := remote.PersonImages(ctx, pid, c.Param("personRef"), page, pageSize)
+		resp, err := remote.PersonImages(ctx, pid, c.Param("personRef"), page, pageSize, raw)
 		if i == 0 && abortAIError(c, err) {
 			return // the requested project keeps its single-project error semantics
 		}
@@ -372,18 +549,28 @@ func (s *Server) personImageIDs(c *gin.Context, projectID, personRef string) ([]
 	if !ok {
 		return nil, false
 	}
+	ids, err := s.personImageIDsRaw(c.Request.Context(), remote, projectID, personRef)
+	if err != nil {
+		log.Error().Err(err).Msg("AI server request failed")
+		apiError(c, http.StatusBadGateway, "ai_server_error", "AI server request failed")
+		return nil, false
+	}
+	return ids, true
+}
+
+// personImageIDsRaw is the HTTP-free core: cross-project secondaries call it
+// best-effort without aborting the response. Unknown ref -> empty, no error.
+func (s *Server) personImageIDsRaw(ctx context.Context, remote aiserver.Server, projectID, personRef string) ([]string, error) {
 	ids := []string{}
 	// ponytail: person appearances are at most a few hundred; cap at 1000 ids
 	// (10 pages) instead of streaming — revisit if clustering ever exceeds that.
 	for page := 0; page < 10; page++ {
-		resp, err := remote.PersonImages(c.Request.Context(), projectID, personRef, page, aiserver.MaxPageSize)
+		resp, err := remote.PersonImages(ctx, projectID, personRef, page, aiserver.MaxPageSize, false)
 		if errors.Is(err, aiserver.ErrNotFound) {
-			return []string{}, true
+			return []string{}, nil
 		}
 		if err != nil {
-			log.Error().Err(err).Msg("AI server request failed")
-			apiError(c, http.StatusBadGateway, "ai_server_error", "AI server request failed")
-			return nil, false
+			return nil, err
 		}
 		for _, item := range resp.Items {
 			ids = append(ids, item.ImageRef)
@@ -392,7 +579,7 @@ func (s *Server) personImageIDs(c *gin.Context, projectID, personRef string) ([]
 			break
 		}
 	}
-	return ids, true
+	return ids, nil
 }
 
 // otherViewableProjectIDs lists the projects (minus exclude) the user may view:

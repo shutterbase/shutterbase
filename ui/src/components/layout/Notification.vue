@@ -4,7 +4,10 @@
       <div
         v-for="notification in notifications"
         :key="notification.id"
-        :class="[`pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border border-primary-200 bg-surface shadow-panel dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark`, notification.classes]"
+        :class="[
+          `pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border border-primary-200 bg-surface shadow-panel dark:border-primary-800 dark:bg-surface-dark dark:shadow-panel-dark`,
+          notification.classes,
+        ]"
       >
         <div class="p-4">
           <div class="flex items-start">
@@ -96,7 +99,7 @@ emitter.on("notification", (args: any) => {
   timeouts.push(
     setTimeout(() => {
       setNotificationClasses([animationEnterEndClasses]);
-    }, 100)
+    }, 100),
   );
   timeouts.push(setTimeout(closeNotification, TOTAL_ANIMATION_DURATION - 150));
 

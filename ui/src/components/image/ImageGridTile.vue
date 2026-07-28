@@ -38,11 +38,21 @@
     <figcaption v-if="density === 'gallery'" class="px-3 py-2.5">
       <p class="truncate text-sm font-medium text-primary-800 dark:text-primary-100">{{ image.computedFileName }}</p>
       <p class="label-mono-sm mt-1 truncate text-primary-500 dark:text-primary-400">{{ capturedAt }}</p>
+      <p v-if="showProject && image.project" class="label-mono-sm mt-0.5 truncate text-primary-500 dark:text-primary-400">{{ image.project.name }}</p>
     </figcaption>
     <figcaption v-else class="pointer-events-none absolute inset-x-0 bottom-0 bg-primary-950/80 px-2.5 py-2 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
       <p class="truncate text-xs font-medium text-white">{{ image.computedFileName }}</p>
       <p class="label-mono-sm mt-0.5 truncate text-accent-300">{{ capturedAt }}</p>
+      <p v-if="showProject && image.project" class="label-mono-sm mt-0.5 truncate text-primary-300">{{ image.project.name }}</p>
     </figcaption>
+
+    <!-- cross-project person search: name the foreign project on the tile -->
+    <div
+      v-if="showProject && image.project && density !== 'gallery'"
+      class="pointer-events-none absolute left-2 bottom-2 rounded-full bg-primary-950/70 px-2 py-0.5 group-hover:opacity-0 transition-opacity"
+    >
+      <span class="label-mono-sm text-primary-100">{{ image.project.name }}</span>
+    </div>
   </figure>
 </template>
 
@@ -62,11 +72,14 @@ interface Props {
   density?: Density;
   // global queue position for pending images (from api.ai.queueStatus)
   aiPosition?: number;
+  // cross-project person search: label the tile with its project name
+  showProject?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   selected: false,
   density: "comfortable",
   aiPosition: 0,
+  showProject: false,
 });
 
 const emit = defineEmits<{

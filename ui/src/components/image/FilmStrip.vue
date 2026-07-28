@@ -27,9 +27,7 @@
             @error="onThumbError(entry.image)"
             :class="[
               'h-16 w-[92px] rounded-sm bg-primary-100 object-cover transition-opacity duration-200 dark:bg-primary-900',
-              entry.index === currentIndex
-                ? 'ring-2 ring-accent-500 ring-offset-2 ring-offset-primary-50 dark:ring-offset-primary-950'
-                : 'opacity-50 hover:opacity-100',
+              entry.index === currentIndex ? 'ring-2 ring-accent-500 ring-offset-2 ring-offset-primary-50 dark:ring-offset-primary-950' : 'opacity-50 hover:opacity-100',
             ]"
           />
         </button>

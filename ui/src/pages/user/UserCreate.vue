@@ -10,20 +10,17 @@
       <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div v-for="field in textFields" :key="field.key">
           <label :for="field.key" class="label-mono block text-primary-500 dark:text-primary-400">{{ field.label }}</label>
-          <input
-            :id="field.key"
-            v-model="form[field.key]"
-            :type="field.type ?? 'text'"
-            :autocomplete="field.autocomplete"
-            :class="inputClasses"
-            class="mt-2"
-          />
+          <input :id="field.key" v-model="form[field.key]" :type="field.type ?? 'text'" :autocomplete="field.autocomplete" :class="inputClasses" class="mt-2" />
           <PasswordRequirements v-if="field.key === 'password'" ref="pwReqs" :password="form.password" always-visible />
         </div>
       </div>
 
       <label class="inline-flex cursor-pointer items-center gap-2">
-        <input v-model="form.active" type="checkbox" class="h-4 w-4 rounded border-primary-300 bg-surface text-accent-600 focus:ring-2 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark" />
+        <input
+          v-model="form.active"
+          type="checkbox"
+          class="h-4 w-4 rounded border-primary-300 bg-surface text-accent-600 focus:ring-2 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark"
+        />
         <span class="text-sm text-primary-700 dark:text-primary-200">Active — the user can sign in right away</span>
       </label>
 

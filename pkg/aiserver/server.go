@@ -22,10 +22,28 @@ type Server interface {
 	Ingest(ctx context.Context, projectID string, req IngestRequest) (IngestResponse, error)
 	// Faces returns the detected faces of a previously ingested image.
 	Faces(ctx context.Context, projectID, imageRef string) (FacesResponse, error)
-	// PersonImages pages through the project's images containing the person.
-	PersonImages(ctx context.Context, projectID, personRef string, page, pageSize int) (PersonImagesResponse, error)
+	// PersonImages pages through the project's images containing the person —
+	// including persons merged with it, unless raw is true (raw serves the
+	// merge UI: one cluster's own faces only).
+	PersonImages(ctx context.Context, projectID, personRef string, page, pageSize int, raw bool) (PersonImagesResponse, error)
 	// Similar pages through the project's images most similar to imageRef.
 	Similar(ctx context.Context, projectID, imageRef string, page, pageSize int) (SimilarResponse, error)
+	// MergeCandidates returns the project's next undecided similar-person
+	// pair, skipping the first skip pairs (the client's "skip" depth).
+	MergeCandidates(ctx context.Context, projectID string, skip int) (MergeCandidatesResponse, error)
+	// DecideMerge records a verdict for a pair; "same" creates a reversible
+	// merge entry. Unknown person refs yield ErrNotFound.
+	DecideMerge(ctx context.Context, projectID string, d MergeDecision) error
+	// Merges lists the project's active merge entries, newest first.
+	Merges(ctx context.Context, projectID string) (MergesResponse, error)
+	// DeleteMerge removes a merge entry, splitting the pair's clusters again;
+	// ErrNotFound when no such entry exists.
+	DeleteMerge(ctx context.Context, projectID, personA, personB string) error
+	// Recluster rebuilds all person clusters from the stored face embeddings —
+	// no inference re-runs. Person refs, merge candidates and merge DECISIONS
+	// of the previous generation are all discarded. Synchronous and possibly
+	// long-running; callers should detach it from any interactive request.
+	Recluster(ctx context.Context, projectID string) error
 	// DeleteImage removes an ingested image's analysis (idempotent).
 	DeleteImage(ctx context.Context, projectID, imageRef string) error
 }
@@ -75,8 +93,43 @@ func NewHandler(s Server, apiKey string) http.Handler {
 
 	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/persons/{personRef}/images", func(w http.ResponseWriter, r *http.Request) {
 		page, pageSize := pageParams(r)
-		resp, err := s.PersonImages(r.Context(), r.PathValue("projectId"), r.PathValue("personRef"), page, pageSize)
+		raw := r.URL.Query().Get("raw") == "true"
+		resp, err := s.PersonImages(r.Context(), r.PathValue("projectId"), r.PathValue("personRef"), page, pageSize, raw)
 		respond(w, resp, err)
+	})
+
+	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/merges", func(w http.ResponseWriter, r *http.Request) {
+		resp, err := s.Merges(r.Context(), r.PathValue("projectId"))
+		respond(w, resp, err)
+	})
+
+	mux.HandleFunc("DELETE "+basePath+"/projects/{projectId}/merges/{personA}/{personB}", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, nil, s.DeleteMerge(r.Context(), r.PathValue("projectId"), r.PathValue("personA"), r.PathValue("personB")))
+	})
+
+	mux.HandleFunc("POST "+basePath+"/projects/{projectId}/recluster", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, nil, s.Recluster(r.Context(), r.PathValue("projectId")))
+	})
+
+	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/merge-candidates", func(w http.ResponseWriter, r *http.Request) {
+		skip, _ := strconv.Atoi(r.URL.Query().Get("skip"))
+		if skip < 0 {
+			skip = 0
+		}
+		resp, err := s.MergeCandidates(r.Context(), r.PathValue("projectId"), skip)
+		respond(w, resp, err)
+	})
+
+	mux.HandleFunc("POST "+basePath+"/projects/{projectId}/merge-decisions", func(w http.ResponseWriter, r *http.Request) {
+		var d MergeDecision
+		if !decode(w, r, &d) {
+			return
+		}
+		if (d.Verdict != "same" && d.Verdict != "different") || d.PersonA == "" || d.PersonB == "" || d.PersonA == d.PersonB {
+			writeError(w, http.StatusBadRequest, "personA, personB and verdict (same|different) required")
+			return
+		}
+		respond(w, nil, s.DecideMerge(r.Context(), r.PathValue("projectId"), d))
 	})
 
 	mux.HandleFunc("DELETE "+basePath+"/projects/{projectId}/images/{imageRef}", func(w http.ResponseWriter, r *http.Request) {
