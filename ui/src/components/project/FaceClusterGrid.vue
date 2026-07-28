@@ -1,5 +1,5 @@
 <template>
-  <div :class="['grid gap-2', cols === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2']">
+  <div :class="['grid gap-2', cols === 4 ? 'grid-cols-2 sm:grid-cols-4' : cols === 1 ? 'grid-cols-1' : 'grid-cols-2']">
     <div v-for="(item, i) in items" :key="i" class="relative overflow-hidden rounded-sm bg-primary-100 dark:bg-primary-900">
       <img :src="item.image.downloadUrls?.['512']" :alt="item.image.computedFileName" loading="lazy" class="aspect-square w-full object-cover" />
       <div :style="coverBoxStyle(item, item.image)" class="absolute rounded-sm border-2 border-accent-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"></div>
@@ -13,7 +13,7 @@ import { AiPersonImage } from "src/api/ai";
 import { Image } from "src/types/api";
 import { faceBoxStyle } from "src/util/aiDetection";
 
-withDefaults(defineProps<{ items: AiPersonImage[]; cols?: 2 | 4 }>(), { cols: 2 });
+withDefaults(defineProps<{ items: AiPersonImage[]; cols?: 1 | 2 | 4 }>(), { cols: 2 });
 
 // The tiles are square (object-cover), so the relative bbox needs the
 // cover-crop correction before faceBoxStyle's percentage mapping.

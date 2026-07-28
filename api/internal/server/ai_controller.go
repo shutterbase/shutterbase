@@ -37,10 +37,14 @@ func (s *Server) registerAIRoutes(api *gin.RouterGroup) {
 	api.POST("/projects/:id/ai/rerun-all", s.aiRerunAll)
 	api.POST("/projects/:id/ai/recluster", s.aiRecluster)
 	api.GET("/projects/:id/ai/persons/:personRef/images", s.aiPersonImages)
-	api.GET("/projects/:id/ai/merge/next", s.aiMergeNext)
-	api.POST("/projects/:id/ai/merge/decide", s.aiMergeDecide)
-	api.GET("/projects/:id/ai/merge", s.aiMergeList)
-	api.DELETE("/projects/:id/ai/merge", s.aiMergeDelete)
+	// People overview + merge review are global (persons span projects):
+	// scoped to the user's viewable / administered projects, not to one id.
+	api.GET("/ai/persons", s.aiPersonsRanked)
+	api.GET("/ai/persons/:personRef/images", s.aiPersonImagesGlobal)
+	api.GET("/ai/merge/next", s.aiMergeNext)
+	api.POST("/ai/merge/decide", s.aiMergeDecide)
+	api.GET("/ai/merge", s.aiMergeList)
+	api.DELETE("/ai/merge", s.aiMergeDelete)
 	api.GET("/uploads/:id/ai", s.aiUploadStatus)
 	api.POST("/uploads/:id/ai/rerun", s.aiRerunUpload)
 	api.POST("/images/:id/ai/rerun", s.aiRerunImage)
@@ -347,25 +351,137 @@ func (s *Server) aiImageFaces(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"faces": faces})
 }
 
-// aiMergeNext proxies the next similar-person merge candidate of the project.
-// Settings-page action, so projectAdmin+ (CanEditProject) like aiRerunFailed.
-func (s *Server) aiMergeNext(c *gin.Context) {
-	projectID, ok := getIdParam(c)
-	if !ok {
-		return
+// mergeScope returns the projects whose persons the caller may merge-review:
+// every project for global admins, their projectAdmin projects otherwise.
+// Reports ok=false (and writes 403) when the caller administers nothing.
+func (s *Server) mergeScope(c *gin.Context) ([]string, bool) {
+	u := authUser(c)
+	var ids []string
+	if authorization.IsAdminUser(u) {
+		var err error
+		ids, err = s.Repository.Client.Project.Query().IDs(c.Request.Context())
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return nil, false
+		}
+	} else {
+		ids = authorization.AdminProjectIDs(u)
 	}
+	if len(ids) == 0 {
+		apiError(c, http.StatusForbidden, "forbidden", "merge review needs projectAdmin on at least one project")
+		return nil, false
+	}
+	sort.Strings(ids)
+	return ids, true
+}
+
+// viewableProjectIDs lists every project the user may view, sorted.
+func (s *Server) viewableProjectIDs(ctx context.Context, u *ent.User) []string {
+	return s.otherViewableProjectIDs(ctx, u, "")
+}
+
+// aiPersonsRanked serves the People overview: person clusters ranked by
+// appearance count across every project the user may view, one sample
+// appearance each (resolved to an owned image DTO).
+func (s *Server) aiPersonsRanked(c *gin.Context) {
 	remote, ok := s.remote(c)
 	if !ok {
 		return
 	}
-	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+	page, pageSize := aiPageParams(c)
+	ctx := c.Request.Context()
+	projectIDs := s.viewableProjectIDs(ctx, authUser(c))
+	if len(projectIDs) == 0 {
+		c.JSON(http.StatusOK, gin.H{"items": []gin.H{}, "total": 0, "page": page, "pageSize": pageSize})
+		return
+	}
+	resp, err := remote.Persons(ctx, projectIDs, page, pageSize)
+	if abortAIError(c, err) {
+		return
+	}
+	refs := make([]string, 0, len(resp.Items))
+	for _, it := range resp.Items {
+		if it.Sample.ImageRef != "" {
+			refs = append(refs, it.Sample.ImageRef)
+		}
+	}
+	images := s.resolveImageRefsIn(ctx, projectIDs, refs)
+	items := make([]gin.H, 0, len(resp.Items))
+	for _, it := range resp.Items {
+		entry := gin.H{"personRef": it.PersonRef, "count": it.Count}
+		if img, ok := images[it.Sample.ImageRef]; ok {
+			entry["sample"] = gin.H{
+				"image": ToImageResponse(ctx, img, s.s3Client, s.thumbnailSizes),
+				"x":     it.Sample.X, "y": it.Sample.Y, "w": it.Sample.W, "h": it.Sample.H,
+			}
+		}
+		items = append(items, entry)
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "total": resp.Total, "page": resp.Page, "pageSize": resp.PageSize})
+}
+
+// aiPersonImagesGlobal pages a person's appearances across every viewable
+// project — the People page's cluster samples. All projects are best-effort
+// (person unknown there, or upstream hiccup), mirroring the crossProject
+// fan-out of aiPersonImages.
+func (s *Server) aiPersonImagesGlobal(c *gin.Context) {
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	page, pageSize := aiPageParams(c)
+	raw := c.Query("raw") == "true"
+	ctx := c.Request.Context()
+
+	items := make([]gin.H, 0)
+	total := 0
+	hasMore := false
+	for _, pid := range s.viewableProjectIDs(ctx, authUser(c)) {
+		resp, err := remote.PersonImages(ctx, pid, c.Param("personRef"), page, pageSize, raw)
+		if err != nil {
+			continue
+		}
+		total += resp.Total
+		if (page+1)*pageSize < resp.Total {
+			hasMore = true
+		}
+		refs := make([]string, 0, len(resp.Items))
+		for _, item := range resp.Items {
+			refs = append(refs, item.ImageRef)
+		}
+		images := s.resolveImageRefsIn(ctx, []string{pid}, refs)
+		for _, item := range resp.Items {
+			img, ok := images[item.ImageRef]
+			if !ok {
+				continue
+			}
+			items = append(items, gin.H{
+				"image": ToImageResponse(ctx, img, s.s3Client, s.thumbnailSizes),
+				"x":     item.X, "y": item.Y, "w": item.W, "h": item.H,
+			})
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"items": items, "total": total, "page": page, "pageSize": pageSize, "hasMore": hasMore,
+	})
+}
+
+// aiMergeNext proxies the next similar-person merge candidate within the
+// caller's administered projects.
+func (s *Server) aiMergeNext(c *gin.Context) {
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	scope, ok := s.mergeScope(c)
+	if !ok {
 		return
 	}
 	skip, _ := strconv.Atoi(c.Query("skip"))
 	if skip < 0 {
 		skip = 0
 	}
-	resp, err := remote.MergeCandidates(c.Request.Context(), projectID, skip)
+	resp, err := remote.MergeCandidates(c.Request.Context(), scope, skip)
 	if abortAIError(c, err) {
 		return
 	}
@@ -376,15 +492,11 @@ func (s *Server) aiMergeNext(c *gin.Context) {
 // "same" merges the clusters on the AI server (global — the AI server's
 // person ids span projects, so a merge is visible everywhere).
 func (s *Server) aiMergeDecide(c *gin.Context) {
-	projectID, ok := getIdParam(c)
-	if !ok {
-		return
-	}
 	remote, ok := s.remote(c)
 	if !ok {
 		return
 	}
-	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+	if _, ok := s.mergeScope(c); !ok {
 		return
 	}
 	var d aiserver.MergeDecision
@@ -395,7 +507,7 @@ func (s *Server) aiMergeDecide(c *gin.Context) {
 		apiError(c, http.StatusBadRequest, "invalid_merge_decision", "personA, personB and verdict (same|different) required")
 		return
 	}
-	if abortAIError(c, remote.DecideMerge(c.Request.Context(), projectID, d)) {
+	if abortAIError(c, remote.DecideMerge(c.Request.Context(), d)) {
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -429,20 +541,18 @@ func (s *Server) aiRecluster(c *gin.Context) {
 	c.Status(http.StatusAccepted)
 }
 
-// aiMergeList proxies the project's active merge entries (projectAdmin+).
+// aiMergeList proxies the active merge entries within the caller's
+// administered projects.
 func (s *Server) aiMergeList(c *gin.Context) {
-	projectID, ok := getIdParam(c)
-	if !ok {
-		return
-	}
 	remote, ok := s.remote(c)
 	if !ok {
 		return
 	}
-	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+	scope, ok := s.mergeScope(c)
+	if !ok {
 		return
 	}
-	resp, err := remote.Merges(c.Request.Context(), projectID)
+	resp, err := remote.Merges(c.Request.Context(), scope)
 	if abortAIError(c, err) {
 		return
 	}
@@ -452,15 +562,11 @@ func (s *Server) aiMergeList(c *gin.Context) {
 // aiMergeDelete removes one merge entry (?personA=..&personB=..), splitting
 // the two clusters again. Like the merge itself, the split is global.
 func (s *Server) aiMergeDelete(c *gin.Context) {
-	projectID, ok := getIdParam(c)
-	if !ok {
-		return
-	}
 	remote, ok := s.remote(c)
 	if !ok {
 		return
 	}
-	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+	if _, ok := s.mergeScope(c); !ok {
 		return
 	}
 	personA, personB := c.Query("personA"), c.Query("personB")
@@ -468,7 +574,7 @@ func (s *Server) aiMergeDelete(c *gin.Context) {
 		apiError(c, http.StatusBadRequest, "invalid_merge_pair", "distinct personA and personB required")
 		return
 	}
-	if abortAIError(c, remote.DeleteMerge(c.Request.Context(), projectID, personA, personB)) {
+	if abortAIError(c, remote.DeleteMerge(c.Request.Context(), personA, personB)) {
 		return
 	}
 	c.Status(http.StatusNoContent)
@@ -654,12 +760,19 @@ func (s *Server) aiImageSimilar(c *gin.Context) {
 // the DTO needs, keyed by id. Unknown refs are simply absent — callers drop
 // them (the AI server may lag behind deletions).
 func (s *Server) resolveImageRefs(ctx context.Context, projectID string, refs []string) map[string]*ent.Image {
+	return s.resolveImageRefsIn(ctx, []string{projectID}, refs)
+}
+
+// resolveImageRefsIn is the multi-project variant: the project list acts as
+// the visibility guard, so a stray AI-server ref can never leak a foreign
+// image.
+func (s *Server) resolveImageRefsIn(ctx context.Context, projectIDs, refs []string) map[string]*ent.Image {
 	out := make(map[string]*ent.Image, len(refs))
-	if len(refs) == 0 {
+	if len(refs) == 0 || len(projectIDs) == 0 {
 		return out
 	}
 	rows, err := s.Repository.Client.Image.Query().
-		Where(entimage.IDIn(refs...), entimage.ProjectID(projectID)).
+		Where(entimage.IDIn(refs...), entimage.ProjectIDIn(projectIDs...)).
 		WithUser().WithCamera().WithProject().WithUpload().
 		WithImageTagAssignments(func(q *ent.ImageTagAssignmentQuery) { q.WithImageTag() }).
 		All(ctx)

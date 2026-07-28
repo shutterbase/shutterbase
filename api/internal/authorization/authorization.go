@@ -196,6 +196,27 @@ func IsAdminUser(u *ent.User) bool { return isAdmin(u) }
 // IsSelf reports whether the active user has the given id.
 func IsSelf(u *ent.User, id uuid.UUID) bool { return isActive(u) && u.ID == id }
 
+// AdminProjectIDs lists the projects the user is a projectAdmin of — the
+// scope of cross-project operations like the face merge review.
+func AdminProjectIDs(u *ent.User) []string {
+	if !isActive(u) {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, pa := range u.Edges.ProjectAssignments {
+		if pa.Edges.Role == nil || pa.Edges.Role.Key != RoleProjectAdmin {
+			continue
+		}
+		if _, ok := seen[pa.ProjectID]; ok {
+			continue
+		}
+		seen[pa.ProjectID] = struct{}{}
+		out = append(out, pa.ProjectID)
+	}
+	return out
+}
+
 // HasAnyProjectAdmin reports whether the user is a projectAdmin of any project.
 // Used to widen the user list for pickers (§4.12).
 func HasAnyProjectAdmin(u *ent.User) bool {

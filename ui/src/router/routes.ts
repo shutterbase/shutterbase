@@ -20,6 +20,11 @@ const routes: RouteRecordRaw[] = [
       ...uploadRoutes,
       ...imageRoutes,
       {
+        name: "people",
+        path: "/people",
+        component: () => import("pages/people/People.vue"),
+      },
+      {
         name: "schedule",
         path: "/schedule",
         component: () => import("pages/schedule/Schedule.vue"),

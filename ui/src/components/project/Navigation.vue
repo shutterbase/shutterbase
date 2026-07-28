@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { ExclamationTriangleIcon, FaceSmileIcon, PresentationChartLineIcon, RectangleStackIcon, TagIcon, UserGroupIcon } from "@heroicons/vue/24/outline";
+import { ExclamationTriangleIcon, PresentationChartLineIcon, RectangleStackIcon, TagIcon, UserGroupIcon } from "@heroicons/vue/24/outline";
 import { useUserStore } from "src/stores/user-store";
 import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -56,7 +56,6 @@ function updateNavigationItems() {
 
   if (userStore.isProjectAdminOrHigher()) {
     items.push({ name: "Members", icon: UserGroupIcon, href: `${BASE_URL}/${itemId}/members`, current: false });
-    items.push({ name: "Faces", icon: FaceSmileIcon, href: `${BASE_URL}/${itemId}/faces`, current: false });
   }
 
   if (userStore.isAdmin()) {
