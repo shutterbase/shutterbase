@@ -19,7 +19,9 @@ export default route(function (/* { store, ssrContext } */) {
   const createHistory = process.env.SERVER ? createMemoryHistory : process.env.VUE_ROUTER_MODE === "history" ? createWebHistory : createWebHashHistory;
 
   const Router = createRouter({
-    scrollBehavior: () => ({ left: 0, top: 0 }),
+    // Query-only navigation (e.g. the image grid's view/filter state) must not
+    // touch the scroll position; real page changes start at the top.
+    scrollBehavior: (to, from) => (to.path === from.path ? false : { left: 0, top: 0 }),
     routes,
 
     // Leave this as is and make changes in quasar.conf.js instead!

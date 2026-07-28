@@ -73,6 +73,12 @@ export async function rerunBatch(projectId: string, imageIds: string[]): Promise
   return data.queued;
 }
 
+// Re-queues every dead-lettered (aiStatus=error) image of the project.
+export async function rerunFailed(projectId: string): Promise<number> {
+  const { data } = await http.post<{ queued: number }>(`/projects/${projectId}/ai/rerun-failed`);
+  return data.queued;
+}
+
 export async function faces(imageId: string): Promise<AiFace[]> {
   const { data } = await http.get<{ faces: AiFace[] }>(`/images/${imageId}/ai/faces`);
   return data.faces;

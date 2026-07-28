@@ -81,6 +81,35 @@ export function calendarDays(project: { startAt?: string | null; endAt?: string 
   return daySpan(monday, addDays(monday, 6), 7);
 }
 
+// --- calendar view ranges ----------------------------------------------------
+
+export type CalendarView = "day" | "3day" | "week" | "all";
+
+export function mondayOf(d: Date): Date {
+  return addDays(startOfDay(d), -((d.getDay() + 6) % 7));
+}
+
+// viewDays: the day columns for the selected view. day/3day start at the
+// anchor, week is the anchor's Monday-based week, all is the project-wide
+// span (calendarDays).
+export function viewDays(view: CalendarView, anchor: Date, project: { startAt?: string | null; endAt?: string | null }, items: ScheduleItemLike[], now: Date = new Date()): Date[] {
+  switch (view) {
+    case "day":
+      return [startOfDay(anchor)];
+    case "3day":
+      return [0, 1, 2].map((i) => addDays(startOfDay(anchor), i));
+    case "week": {
+      const monday = mondayOf(anchor);
+      return [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(monday, i));
+    }
+    default:
+      return calendarDays(project, items, now);
+  }
+}
+
+// viewStepDays: how far prev/next moves the anchor in each view.
+export const VIEW_STEP_DAYS: Record<CalendarView, number> = { day: 1, "3day": 3, week: 7, all: 0 };
+
 // itemsOnDay: items whose [start, end) window intersects the given day.
 export function itemsOnDay<T extends ScheduleItemLike>(items: T[], day: Date): T[] {
   const dayStart = startOfDay(day).getTime();
@@ -106,7 +135,9 @@ export function dayPosition(item: ScheduleItemLike, day: Date): { topPct: number
 // (interval partitioning, greedy by start). Returns per-item lane index and
 // the total lane count of its overlap cluster.
 export function assignLanes(items: ScheduleItemLike[]): Map<string, { lane: number; lanes: number }> {
-  const sorted = [...items].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  // id tie-break: equal starts must place deterministically regardless of the
+  // input order, or parallel items swap lanes on unrelated refetches.
+  const sorted = [...items].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime() || a.id.localeCompare(b.id));
   const laneEnds: number[] = [];
   const laneOf = new Map<string, number>();
   // cluster = maximal run of transitively overlapping items; lanes reset per cluster

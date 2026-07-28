@@ -17,9 +17,16 @@ import (
 type Client struct {
 	BaseURL string
 	APIKey  string
-	// HTTP defaults to a 120s-timeout client (Ingest waits on real inference).
+	// HTTP defaults to a client whose Timeout is only a hang safety net — the
+	// per-request ctx is the real deadline (e.g. shutterbase's AI_TIMEOUT).
+	// The net must stay far above any sane ctx deadline, or it silently caps
+	// it: a 120s Client.Timeout once ate a 180s AI_TIMEOUT.
 	HTTP *http.Client
 }
+
+// clientSafetyTimeout bounds requests whose ctx carries no deadline (proxy
+// calls run on plain request contexts) so a hung server can't leak forever.
+const clientSafetyTimeout = 10 * time.Minute
 
 var _ Server = (*Client)(nil)
 
@@ -27,7 +34,7 @@ func NewClient(baseURL, apiKey string) *Client {
 	return &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		APIKey:  apiKey,
-		HTTP:    &http.Client{Timeout: 120 * time.Second},
+		HTTP:    &http.Client{Timeout: clientSafetyTimeout},
 	}
 }
 
@@ -97,7 +104,7 @@ func (c *Client) do(ctx context.Context, method, path string, in, out any) error
 	}
 	httpClient := c.HTTP
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 120 * time.Second}
+		httpClient = &http.Client{Timeout: clientSafetyTimeout}
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {

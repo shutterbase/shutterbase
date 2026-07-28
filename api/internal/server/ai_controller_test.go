@@ -193,6 +193,37 @@ func TestAIRerunBatchScopesToProject(t *testing.T) {
 	assert.Equal(t, 2, body.Queued)
 }
 
+// rerun-failed re-queues exactly the dead-lettered images of the project;
+// non-admins without projectAdmin are refused.
+func TestAIRerunFailed(t *testing.T) {
+	s, m := newAITestServer(t)
+	ctx := context.Background()
+	s.Repository.Client.Image.UpdateOneID(m.Images[0]).SetAiStatus(entimage.AiStatusError).SetAiAttempts(3).SaveX(ctx)
+	s.Repository.Client.Image.UpdateOneID(m.Images[1]).SetAiStatus(entimage.AiStatusDone).SaveX(ctx)
+
+	c, rec := aiCtx(t, plainUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/rerun-failed", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiRerunFailed(c)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/rerun-failed", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiRerunFailed(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Queued int `json:"queued"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, 1, body.Queued)
+
+	row := s.Repository.Client.Image.GetX(ctx, m.Images[0])
+	require.NotNil(t, row.AiStatus)
+	assert.Equal(t, entimage.AiStatusPending, *row.AiStatus)
+	assert.Zero(t, row.AiAttempts, "re-enqueue resets the attempt counter")
+	done := s.Repository.Client.Image.GetX(ctx, m.Images[1])
+	assert.Equal(t, entimage.AiStatusDone, *done.AiStatus, "done images stay untouched")
+}
+
 // fakeRemote implements aiserver.Server for the proxy tests.
 type fakeRemote struct {
 	faces    aiserver.FacesResponse

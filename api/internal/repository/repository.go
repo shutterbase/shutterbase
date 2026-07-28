@@ -92,10 +92,13 @@ func (p *PaginationParameters) build(allow map[string]string, defaultKey string)
 	if !ok {
 		return 0, 0, nil, ErrInvalidSort
 	}
+	// Secondary sort by id: equal primary keys otherwise come back in the DB's
+	// physical row order, which changes whenever ANY row is updated — the
+	// calendar's parallel lanes visibly reshuffled on unrelated claims.
 	if p.Order == "asc" {
-		return limit, offset, ent.Asc(col), nil
+		return limit, offset, func(s *sql.Selector) { ent.Asc(col)(s); ent.Asc("id")(s) }, nil
 	}
-	return limit, offset, ent.Desc(col), nil
+	return limit, offset, func(s *sql.Selector) { ent.Desc(col)(s); ent.Asc("id")(s) }, nil
 }
 
 // modelUpdateStatus tracks field-level changes during an Update so a no-op

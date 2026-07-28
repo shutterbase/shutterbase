@@ -16,7 +16,7 @@
         <div v-if="personFilter" class="mt-6">
           <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
             photos of one person
-            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear person filter" @click="filterByPerson(null)">×</button>
+            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear person filter" @click="clearPersonFilter()">×</button>
           </span>
         </div>
         <div :class="['mt-8 select-none', gridClasses]">
@@ -97,7 +97,7 @@ import FilmStrip from "src/components/image/FilmStrip.vue";
 import { devPlaceholder } from "src/util/devPlaceholder";
 import { ImageWithTagsType } from "src/types/custom";
 import { onMounted, onUnmounted, reactive, ref, computed, watch, nextTick } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useDebounceFn, useStorage } from "@vueuse/core";
 
 import AiImageListDialog from "src/components/image/AiImageListDialog.vue";
@@ -117,7 +117,9 @@ import {
   updateAspectRatioFilter,
   filtered,
   personFilter,
-  filterByPerson,
+  snapshotGrid,
+  restoreGridSnapshot,
+  invalidateGridSnapshot,
 } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading, activeProject } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
@@ -129,8 +131,91 @@ import { emitter, showNotificationToast } from "src/boot/mitt";
 import { debug } from "src/util/logger";
 
 const router = useRouter();
+const route = useRoute();
 
 const displayMode = ref(DisplayMode.GRID);
+
+// --- history-backed view state ----------------------------------------------
+// The visible view is encoded in the route query — ?person=<ref> for the
+// implicit person filter, ?image=<id> for the detail view — so the browser
+// back button walks grid ⇄ detail ⇄ filter states. UI events only push/replace
+// the query; applyRoute() is the single place state actually changes.
+
+function pushQuery(mutate: (q: Record<string, any>) => void, replace = false) {
+  const q: Record<string, any> = { ...route.query };
+  mutate(q);
+  if (JSON.stringify(q) === JSON.stringify(route.query)) return;
+  const target = { query: q };
+  if (replace) router.replace(target);
+  else router.push(target);
+}
+
+const openDetail = (imageId: string) => pushQuery((q) => (q.image = imageId));
+const closeDetail = () => pushQuery((q) => delete q.image);
+const clearPersonFilter = () => pushQuery((q) => delete q.person);
+
+async function applyRoute(initial = false) {
+  if (route.name !== "images") return;
+  const person = (route.query.person as string) || null;
+  const imageId = (route.query.image as string) || null;
+
+  if (initial || person !== personFilter.value) {
+    if (person) {
+      // entering a person filter from the unfiltered grid: remember where we were
+      if (!initial && !personFilter.value) snapshotGrid();
+      personFilter.value = person;
+      imageIndex.value = -1;
+      imageIndices.value = [];
+      multiselectStart.value = null;
+      multiselectEnd.value = null;
+      await loadImages(true);
+    } else {
+      personFilter.value = null;
+      const scrollY = initial ? null : restoreGridSnapshot();
+      if (scrollY === null) {
+        await loadImages(true);
+      } else {
+        await nextTick();
+        window.scrollTo({ top: scrollY, behavior: "instant" as ScrollBehavior });
+      }
+    }
+  }
+
+  if (imageId) {
+    const index = images.value.findIndex((image) => image.id === imageId);
+    if (index === -1) {
+      // deep link beyond the loaded pages (or a deleted image) — stay in the grid
+      displayMode.value = DisplayMode.GRID;
+      return;
+    }
+    imageIndex.value = index;
+    if (displayMode.value !== DisplayMode.DETAIL) {
+      multiselectStart.value = null;
+      multiselectEnd.value = null;
+      imageIndices.value = [];
+      displayMode.value = DisplayMode.DETAIL;
+    }
+  } else if (displayMode.value !== DisplayMode.GRID) {
+    displayMode.value = DisplayMode.GRID;
+    nextTick(() => {
+      if (imageIndex.value !== -1) scrollToSelectedImage();
+      if (imagesHeader.value) imagesHeader.value.setFilteredTags(filterTags.value);
+    });
+  }
+}
+
+watch(
+  () => route.query,
+  () => applyRoute(),
+);
+
+// Stepping through images inside the detail view (hotkeys, film strip) keeps
+// the URL current without growing the history.
+watch(imageIndex, () => {
+  if (displayMode.value !== DisplayMode.DETAIL) return;
+  const id = images.value[imageIndex.value]?.id;
+  if (id && route.query.image !== id) pushQuery((q) => (q.image = id), true);
+});
 
 // Grid density: relaxed fine-art masonry, comfortable grid, or Immich-dense.
 type Density = "gallery" | "comfortable" | "dense";
@@ -155,9 +240,16 @@ async function onScroll() {
 }
 window.addEventListener("scroll", onScroll);
 
-onMounted(() => loadImages(true));
-const reloadDebounced = useDebounceFn(() => loadImages(true), 500);
-watch(preferredImageSortOrder, () => loadImages(true));
+onMounted(() => applyRoute(true));
+// any other filter/sort change makes the saved unfiltered-grid position stale
+const reloadDebounced = useDebounceFn(() => {
+  invalidateGridSnapshot();
+  loadImages(true);
+}, 500);
+watch(preferredImageSortOrder, () => {
+  invalidateGridSnapshot();
+  loadImages(true);
+});
 watch(searchText, reloadDebounced);
 watch(filterTags, reloadDebounced);
 watch(aspectRatioFilter, reloadDebounced);
@@ -178,33 +270,16 @@ useTagHotkey(toggleTagByName);
 
 function toggleGridDetail() {
   if (displayMode.value === DisplayMode.GRID) {
-    showDetail();
-    displayMode.value = DisplayMode.DETAIL;
+    const id = images.value[imageIndex.value === -1 ? 0 : imageIndex.value]?.id;
+    if (id) openDetail(id);
   } else {
-    displayMode.value = DisplayMode.GRID;
-    nextTick(() => {
-      scrollToSelectedImage();
-      if (imagesHeader.value) {
-        imagesHeader.value.setFilteredTags(filterTags.value);
-      }
-    });
+    closeDetail();
   }
-}
-
-function showDetail() {
-  multiselectStart.value = null;
-  multiselectEnd.value = null;
-  imageIndices.value = [];
-  if (imageIndex.value === -1) {
-    imageIndex.value = 0;
-  }
-  displayMode.value = DisplayMode.DETAIL;
 }
 
 onMounted(clearFilterTags);
 function clearFilterTags() {
-  filterTags.value = [];
-  personFilter.value = null; // module state survives navigation — fresh mount, fresh view
+  filterTags.value = []; // person filter comes from the route query instead
 }
 
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
@@ -269,7 +344,7 @@ function selectImage(imageId: string, event: MouseEvent) {
     imageIndex.value = index;
   } else {
     imageIndex.value = index;
-    showDetail();
+    openDetail(imageId);
   }
 
   if (multiselectStart.value !== null && multiselectEnd.value !== null) {
@@ -347,13 +422,12 @@ watch(imageIndex, () => {
 });
 
 // Clicking a face filters the normal grid by that person — no result dialog.
+// A route push, so browser-back returns to the view the face was clicked in.
 function showPersonInGrid(personRef: string) {
-  imageIndex.value = -1;
-  imageIndices.value = [];
-  multiselectStart.value = null;
-  multiselectEnd.value = null;
-  displayMode.value = DisplayMode.GRID;
-  filterByPerson(personRef);
+  pushQuery((q) => {
+    q.person = personRef;
+    delete q.image;
+  });
 }
 
 function showSimilarDialog() {
@@ -368,7 +442,7 @@ function selectFromAiDialog(imageId: string) {
   }
   aiDialogVisible.value = false;
   imageIndex.value = index;
-  showDetail();
+  openDetail(imageId);
 }
 
 // selection rerun (button in the header, active when a selection exists)

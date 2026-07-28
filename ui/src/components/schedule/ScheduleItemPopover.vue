@@ -7,7 +7,10 @@
     <div v-if="item" class="fixed inset-0 z-30" @click="emit('closed')" @keydown.esc="emit('closed')">
       <div
         data-testid="schedule-popover"
-        class="fixed z-40 w-72 rounded-lg border border-primary-200 bg-surface p-4 shadow-panel dark:border-primary-700 dark:bg-surface-dark dark:shadow-panel-dark"
+        :class="[
+          'fixed z-40 rounded-lg border border-primary-200 bg-surface p-4 shadow-panel dark:border-primary-700 dark:bg-surface-dark dark:shadow-panel-dark',
+          hasShifts ? 'w-80' : 'w-72',
+        ]"
         :style="{ left: `${position.x}px`, top: `${position.y}px` }"
         @click.stop
       >
@@ -17,13 +20,54 @@
             <p class="text-xs tabular-nums text-primary-500 dark:text-primary-400">{{ window }}</p>
           </div>
           <span :class="['flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium', OCCUPANCY_CLASSES[status]]">
-            {{ item.assignees.length }}/{{ item.cardinality }}
+            {{ chipText }}
           </span>
         </div>
 
         <p :class="['mt-2 text-xs font-medium', statusTextClasses[status]]">{{ OCCUPANCY_LABEL[status] }}</p>
 
-        <ul class="mt-3 max-h-44 space-y-1.5 overflow-y-auto">
+        <!-- subdivided block: claim per shift, same pull principle -->
+        <ul v-if="hasShifts" class="mt-3 max-h-64 space-y-1.5 overflow-y-auto">
+          <li
+            v-for="shift in item.shifts"
+            :key="shift.id"
+            :data-testid="`popover-shift-${shift.id}`"
+            :class="[
+              'rounded-md border px-2 py-1.5',
+              shift.kind === 'break'
+                ? 'border-dashed border-primary-200 bg-primary-100/40 dark:border-primary-700 dark:bg-primary-900/40'
+                : 'border-primary-100 dark:border-primary-800',
+            ]"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs tabular-nums text-primary-700 dark:text-primary-200">{{ shiftWindow(shift) }}</span>
+              <span v-if="shift.kind === 'break'" class="label-mono-sm text-primary-400">Break</span>
+              <span v-else :class="['rounded-full border px-1.5 py-px text-[10px] font-medium', OCCUPANCY_CLASSES[shiftStatus(shift)]]">
+                {{ shift.assignees.length }}/{{ shift.cardinality }}
+              </span>
+            </div>
+            <div v-if="shift.kind !== 'break'" class="mt-1 flex items-center justify-between gap-2">
+              <div class="flex min-w-0 items-center -space-x-1.5">
+                <UserBubble v-for="assignee in shift.assignees.slice(0, 4)" :key="assignee.id" :user="assignee" />
+                <span v-if="shift.assignees.length > 4" class="pl-2.5 text-xs text-primary-400">+{{ shift.assignees.length - 4 }}</span>
+                <span v-if="!shift.assignees.length" class="text-xs text-primary-400">nobody yet</span>
+              </div>
+              <button
+                v-if="canJoin"
+                type="button"
+                :class="isAssigned(shift, currentUserId) ? 'pop-btn-secondary' : 'pop-btn-primary'"
+                @click="emit(isAssigned(shift, currentUserId) ? 'dropShift' : 'claimShift', shift.id)"
+              >
+                <UserMinusIcon v-if="isAssigned(shift, currentUserId)" class="h-3.5 w-3.5" />
+                <UserPlusIcon v-else class="h-3.5 w-3.5" />
+                {{ isAssigned(shift, currentUserId) ? "Leave" : "Take" }}
+              </button>
+            </div>
+          </li>
+        </ul>
+
+        <!-- plain item: claim the whole thing -->
+        <ul v-else class="mt-3 max-h-44 space-y-1.5 overflow-y-auto">
           <li v-for="assignee in item.assignees" :key="assignee.id" class="flex items-center justify-between gap-2">
             <span class="flex min-w-0 items-center gap-2 text-sm text-primary-700 dark:text-primary-200">
               <UserBubble :user="assignee" />
@@ -44,12 +88,12 @@
         </ul>
 
         <div class="mt-4 flex flex-wrap gap-2">
-          <button v-if="canJoin" type="button" :class="assigned ? 'pop-btn-secondary' : 'pop-btn-primary'" @click="emit(assigned ? 'drop' : 'claim')">
+          <button v-if="canJoin && !hasShifts" type="button" :class="assigned ? 'pop-btn-secondary' : 'pop-btn-primary'" @click="emit(assigned ? 'drop' : 'claim')">
             <UserMinusIcon v-if="assigned" class="h-4 w-4" />
             <UserPlusIcon v-else class="h-4 w-4" />
             {{ assigned ? "Leave" : "Add to my schedule" }}
           </button>
-          <button v-if="canManage" type="button" class="pop-btn-secondary" @click="emit('openAssign')">
+          <button v-if="canManage && !hasShifts" type="button" class="pop-btn-secondary" @click="emit('openAssign')">
             <UserGroupIcon class="h-4 w-4" />
             Assign
           </button>
@@ -69,7 +113,7 @@ import { DateTime } from "luxon";
 import { computed, onBeforeUnmount, onMounted } from "vue";
 import UserBubble from "src/components/schedule/UserBubble.vue";
 import { ScheduleItem } from "src/types/api";
-import { OCCUPANCY_CLASSES, OCCUPANCY_LABEL, OccupancyStatus, isAssigned, occupancyStatus } from "src/util/schedule";
+import { OCCUPANCY_CLASSES, OCCUPANCY_LABEL, OccupancyStatus, blockStatus, claimableShifts, isAssigned, occupancyStatus } from "src/util/schedule";
 
 const props = defineProps<{
   item: ScheduleItem | null;
@@ -83,13 +127,28 @@ const emit = defineEmits<{
   closed: [];
   claim: [];
   drop: [];
+  claimShift: [string];
+  dropShift: [string];
   unassign: [string];
   openAssign: [];
   openShifts: [];
 }>();
 
-const status = computed(() => occupancyStatus(props.item?.assignees.length ?? 0, props.item?.cardinality ?? 1));
+const hasShifts = computed(() => (props.item?.shifts?.length ?? 0) > 0);
+const status = computed(() => (props.item ? blockStatus(props.item) : "empty"));
 const assigned = computed(() => !!props.item && isAssigned(props.item, props.currentUserId));
+const shiftStatus = (shift: ScheduleItem) => occupancyStatus(shift.assignees.length, shift.cardinality);
+
+// header chip: people for a plain item, covered shifts for a block
+const chipText = computed(() => {
+  if (!props.item) return "";
+  if (!hasShifts.value) return `${props.item.assignees.length}/${props.item.cardinality}`;
+  const shifts = claimableShifts(props.item);
+  const covered = shifts.filter((s) => s.assignees.length >= s.cardinality).length;
+  return `${covered}/${shifts.length} shifts`;
+});
+
+const shiftWindow = (shift: ScheduleItem) => `${DateTime.fromISO(shift.start).toFormat("HH:mm")}–${DateTime.fromISO(shift.end).toFormat("HH:mm")}`;
 
 const statusTextClasses: Record<OccupancyStatus, string> = {
   empty: "text-blue-600 dark:text-blue-300",

@@ -33,6 +33,7 @@ const (
 func (s *Server) registerAIRoutes(api *gin.RouterGroup) {
 	api.GET("/projects/:id/ai/status", s.aiQueueStatus)
 	api.POST("/projects/:id/ai/rerun", s.aiRerunBatch)
+	api.POST("/projects/:id/ai/rerun-failed", s.aiRerunFailed)
 	api.GET("/projects/:id/ai/persons/:personRef/images", s.aiPersonImages)
 	api.GET("/uploads/:id/ai", s.aiUploadStatus)
 	api.POST("/uploads/:id/ai/rerun", s.aiRerunUpload)
@@ -197,6 +198,29 @@ func (s *Server) aiRerunUpload(c *gin.Context) {
 		q = q.Where(entimage.AiStatusEQ(entimage.AiStatusError))
 	}
 	ids, err := q.IDs(c.Request.Context())
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	for _, imageID := range ids {
+		s.ai.Enqueue(imageID)
+	}
+	c.JSON(http.StatusOK, gin.H{"queued": len(ids)})
+}
+
+// aiRerunFailed re-queues every dead-lettered (aiStatus=error) image of the
+// project. Settings-page action, so projectAdmin+ (CanEditProject).
+func (s *Server) aiRerunFailed(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	ids, err := s.Repository.Client.Image.Query().
+		Where(entimage.ProjectID(projectID), entimage.AiStatusEQ(entimage.AiStatusError)).
+		IDs(c.Request.Context())
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return

@@ -27,6 +27,45 @@
             </button>
           </div>
 
+          <!-- view range: day / 3 days / week / whole event -->
+          <div class="flex rounded-lg border border-primary-200 bg-surface p-0.5 dark:border-primary-700 dark:bg-surface-dark">
+            <button
+              v-for="option in viewOptions"
+              :key="option.value"
+              type="button"
+              @click="viewMode = option.value"
+              :class="[
+                'inline-flex h-8 cursor-pointer items-center rounded-md px-2.5 text-xs font-medium transition-colors',
+                viewMode === option.value
+                  ? 'bg-accent-500/15 text-accent-700 dark:bg-accent-500/20 dark:text-accent-200'
+                  : 'text-primary-500 hover:bg-primary-100 hover:text-primary-700 dark:text-primary-400 dark:hover:bg-primary-800 dark:hover:text-primary-200',
+              ]"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <div v-if="viewMode !== 'all'" class="flex items-center gap-1">
+            <button
+              type="button"
+              class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-700 disabled:cursor-default disabled:opacity-40 dark:hover:bg-primary-800 dark:hover:text-primary-200"
+              :disabled="!canPrev"
+              aria-label="Previous"
+              @click="shiftAnchor(-1)"
+            >
+              <ChevronLeftIcon class="h-4 w-4" />
+            </button>
+            <span class="min-w-28 text-center text-xs tabular-nums text-primary-600 dark:text-primary-300">{{ rangeLabel }}</span>
+            <button
+              type="button"
+              class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-primary-500 transition-colors hover:bg-primary-100 hover:text-primary-700 disabled:cursor-default disabled:opacity-40 dark:hover:bg-primary-800 dark:hover:text-primary-200"
+              :disabled="!canNext"
+              aria-label="Next"
+              @click="shiftAnchor(1)"
+            >
+              <ChevronRightIcon class="h-4 w-4" />
+            </button>
+          </div>
+
           <button
             v-if="canManage"
             type="button"
@@ -52,7 +91,7 @@
          scrolls vertically, only the day columns scroll horizontally. -->
     <div class="mt-4 px-4 pb-6 sm:px-6 lg:px-8">
       <div class="overflow-x-auto rounded-lg border border-primary-200 bg-surface dark:border-primary-800 dark:bg-surface-dark">
-        <div class="flex min-w-max">
+        <div :class="['flex', viewMode === 'all' ? 'min-w-max' : 'w-full']">
           <!-- hour gutter -->
           <div class="sticky left-0 z-[5] w-14 flex-shrink-0 border-r border-primary-100 bg-surface dark:border-primary-800 dark:bg-surface-dark">
             <div class="h-9 border-b border-primary-100 dark:border-primary-800"></div>
@@ -69,7 +108,11 @@
           </div>
 
           <!-- day columns -->
-          <div v-for="day in days" :key="day.getTime()" class="w-48 flex-shrink-0 border-r border-primary-100 last:border-r-0 dark:border-primary-800">
+          <div
+            v-for="day in days"
+            :key="day.getTime()"
+            :class="[viewMode === 'all' ? 'w-48 flex-shrink-0' : 'min-w-40 flex-1', 'border-r border-primary-100 last:border-r-0 dark:border-primary-800']"
+          >
             <div class="flex h-9 items-center justify-center border-b border-primary-100 text-sm font-medium text-primary-700 dark:border-primary-800 dark:text-primary-200">
               {{ formatDay(day) }}
             </div>
@@ -119,13 +162,13 @@
                   {{ formatTime(entry.item.start) }}–{{ formatTime(entry.item.end)
                   }}<span v-if="entry.item.shifts?.length"> · {{ entry.item.shifts.length }} shift{{ entry.item.shifts.length === 1 ? "" : "s" }}</span>
                 </p>
-                <div v-if="entry.item.assignees.length" class="mt-0.5 flex -space-x-1.5">
-                  <UserBubble v-for="assignee in entry.item.assignees.slice(0, 3)" :key="assignee.id" :user="assignee" />
+                <div v-if="tileAssignees(entry.item).length" class="mt-0.5 flex -space-x-1.5">
+                  <UserBubble v-for="assignee in tileAssignees(entry.item).slice(0, 3)" :key="assignee.id" :user="assignee" />
                   <span
-                    v-if="entry.item.assignees.length > 3"
+                    v-if="tileAssignees(entry.item).length > 3"
                     class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-200 text-[10px] font-medium text-primary-700 ring-2 ring-surface dark:bg-primary-700 dark:text-primary-200 dark:ring-surface-dark"
                   >
-                    +{{ entry.item.assignees.length - 3 }}
+                    +{{ tileAssignees(entry.item).length - 3 }}
                   </span>
                 </div>
 
@@ -157,6 +200,8 @@
       @closed="popoverItemId = null"
       @claim="assign(popoverItemId!, userStore.user!.id)"
       @drop="unassign(popoverItemId!, userStore.user!.id)"
+      @claim-shift="(shiftId) => assign(shiftId, userStore.user!.id)"
+      @drop-shift="(shiftId) => unassign(shiftId, userStore.user!.id)"
       @unassign="(userId) => unassign(popoverItemId!, userId)"
       @open-assign="assignModalOpen = true"
       @open-shifts="router.push({ name: 'schedule-item', params: { id: popoverItemId! } })"
@@ -181,7 +226,7 @@
 
 <script setup lang="ts">
 import confetti from "canvas-confetti";
-import { CalendarDaysIcon, PencilIcon, PlusIcon, UserIcon } from "@heroicons/vue/24/outline";
+import { CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, PlusIcon, UserIcon } from "@heroicons/vue/24/outline";
 import { DateTime } from "luxon";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeUnmount, onMounted, ref, Ref } from "vue";
@@ -198,9 +243,12 @@ import { showNotificationToast } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
 import { EmbeddedUser, ImageTag, Project, ScheduleItem } from "src/types/api";
 import {
+  CalendarView,
   OCCUPANCY_CLASSES,
   OCCUPANCY_LABEL,
   OccupancyStatus,
+  VIEW_STEP_DAYS,
+  addDays,
   assignLanes,
   blockStatus,
   calendarDays,
@@ -208,6 +256,8 @@ import {
   isAssignedInBlock,
   itemsOnDay,
   pctToTime,
+  startOfDay,
+  viewDays,
 } from "src/util/schedule";
 import * as websocket from "src/util/websocket";
 import { useRouter } from "vue-router";
@@ -330,7 +380,43 @@ const bodyHeightClass = "h-[calc(100dvh-21rem)] min-h-[420px]";
 const hourMarks = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
 
 const visibleItems = computed(() => (scope.value === "mine" ? items.value.filter((i) => isAssignedInBlock(i, userStore.user?.id)) : items.value));
-const days = computed(() => calendarDays(project.value ?? {}, visibleItems.value.length ? visibleItems.value : items.value));
+
+// --- view range (day / 3day / week / all) ------------------------------------
+
+const viewMode = useStorage<CalendarView>("schedule-view", "all");
+const viewOptions: { value: CalendarView; label: string }[] = [
+  { value: "day", label: "Day" },
+  { value: "3day", label: "3 days" },
+  { value: "week", label: "Week" },
+  { value: "all", label: "Event" },
+];
+
+// the project-wide span bounds the anchor so prev/next cannot wander into
+// empty months; anchor defaults to today (clamped into the span)
+const allDays = computed(() => calendarDays(project.value ?? {}, visibleItems.value.length ? visibleItems.value : items.value));
+const anchorOverride = ref<Date | null>(null);
+const anchor = computed(() => {
+  const bounds = allDays.value;
+  const t = startOfDay(anchorOverride.value ?? new Date()).getTime();
+  const first = bounds[0].getTime();
+  const last = bounds[bounds.length - 1].getTime();
+  return new Date(Math.min(Math.max(t, first), last));
+});
+
+const days = computed(() => (viewMode.value === "all" ? allDays.value : viewDays(viewMode.value, anchor.value, project.value ?? {}, visibleItems.value)));
+
+const canPrev = computed(() => days.value[0].getTime() > allDays.value[0].getTime());
+const canNext = computed(() => days.value[days.value.length - 1].getTime() < allDays.value[allDays.value.length - 1].getTime());
+
+function shiftAnchor(direction: 1 | -1) {
+  anchorOverride.value = addDays(anchor.value, direction * VIEW_STEP_DAYS[viewMode.value]);
+}
+
+const rangeLabel = computed(() => {
+  const first = days.value[0];
+  const last = days.value[days.value.length - 1];
+  return days.value.length === 1 ? formatDay(first) : `${formatDay(first)} – ${formatDay(last)}`;
+});
 
 interface DayEntry {
   item: ScheduleItem;
@@ -358,6 +444,16 @@ function dayEntries(day: Date): DayEntry[] {
   });
 }
 
+// tile bubbles: a subdivided block's people live on its shifts — show the
+// distinct union of both claim surfaces.
+function tileAssignees(item: ScheduleItem): EmbeddedUser[] {
+  if (!item.shifts?.length) return item.assignees;
+  const seen = new Map<string, EmbeddedUser>();
+  item.assignees.forEach((a) => seen.set(a.id, a));
+  item.shifts.forEach((s) => s.assignees.forEach((a) => seen.set(a.id, a)));
+  return [...seen.values()];
+}
+
 const formatDay = (day: Date) => DateTime.fromJSDate(day).toFormat("ccc dd.LL.");
 const formatTime = (iso: string) => DateTime.fromISO(iso).toFormat("HH:mm");
 const dayKey = (day: Date) => DateTime.fromJSDate(day).toFormat("yyyy-LL-dd");
@@ -368,13 +464,10 @@ const popoverItemId = ref<string | null>(null);
 const popoverPosition = ref({ x: 0, y: 0 });
 const popoverItem = computed(() => items.value.find((i) => i.id === popoverItemId.value) ?? null);
 
-// A subdivided block opens its detail page (shifts are claimed there); a
-// plain item keeps the quick claim popover.
+// Every item opens the claim popover — subdivided blocks list their shifts
+// there (claim per shift, same pull principle); the detail page stays the
+// admin surface for editing shifts.
 function openItem(item: ScheduleItem) {
-  if (item.shifts?.length) {
-    router.push({ name: "schedule-item", params: { id: item.id } });
-    return;
-  }
   openPopover(item);
 }
 
@@ -383,7 +476,8 @@ function openPopover(item: ScheduleItem) {
   if (el) {
     const rect = el.getBoundingClientRect();
     popoverPosition.value = {
-      x: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 296)),
+      // 344 = widest popover (w-80 for blocks) + margin
+      x: Math.max(8, Math.min(rect.right + 8, window.innerWidth - 344)),
       y: Math.max(8, Math.min(rect.top, window.innerHeight - 360)),
     };
   }

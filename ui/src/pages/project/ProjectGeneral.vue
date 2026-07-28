@@ -25,7 +25,26 @@
         :fields="copyrightFields"
         :item="item"
       />
-      <DetailEditGroup :allow-edit="userStore.isProjectAdminOrHigher()" @edit-save="saveItem" headline="AI Options" subtitle="Options for AI image tagging" :fields="aiFields" :item="item" />
+      <div>
+        <DetailEditGroup
+          :allow-edit="userStore.isProjectAdminOrHigher()"
+          @edit-save="saveItem"
+          headline="AI Options"
+          subtitle="Options for AI image tagging"
+          :fields="aiFields"
+          :item="item"
+        />
+        <button
+          v-if="userStore.isProjectAdminOrHigher()"
+          type="button"
+          class="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
+          :disabled="rerunningFailed"
+          @click="rerunFailed"
+        >
+          <ArrowPathIcon class="h-4 w-4" />
+          Re-queue failed images
+        </button>
+      </div>
       <DetailEditGroup
         :allow-edit="userStore.isProjectAdminOrHigher()"
         @edit-save="saveItem"
@@ -42,6 +61,7 @@
 <script setup lang="ts">
 import { Ref, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
+import { ArrowPathIcon } from "@heroicons/vue/24/outline";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import DetailEditGroup, { Field, FieldType, EditData } from "src/components/DetailEditGroup.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
@@ -100,6 +120,24 @@ async function saveItem(editData: EditData<ITEM_TYPE>) {
   }
 }
 
+const rerunningFailed = ref(false);
+async function rerunFailed() {
+  if (!item.value) return;
+  rerunningFailed.value = true;
+  try {
+    const queued = await api.ai.rerunFailed(item.value.id);
+    showNotificationToast({
+      headline: queued === 0 ? "No failed images to re-queue" : `AI detection re-queued for ${queued} image${queued === 1 ? "" : "s"}`,
+      type: "success",
+    });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    rerunningFailed.value = false;
+  }
+}
+
 const informationFields: Field<ITEM_TYPE>[] = [
   { key: "name", label: "Name", type: FieldType.TEXT },
   { key: "description", label: "Description", type: FieldType.TEXT },
@@ -112,9 +150,7 @@ const periodFields: Field<ITEM_TYPE>[] = [
   { key: "endAt", label: "Ends", type: FieldType.DATETIME },
 ];
 
-const reviewFields: Field<ITEM_TYPE>[] = [
-  { key: "uploadReviewEnabled", label: "Upload reviews", type: FieldType.BOOLEAN, hint: "Enable the open / ready / reviewed flow" },
-];
+const reviewFields: Field<ITEM_TYPE>[] = [{ key: "uploadReviewEnabled", label: "Upload reviews", type: FieldType.BOOLEAN, hint: "Enable the open / ready / reviewed flow" }];
 
 const copyrightFields: Field<ITEM_TYPE>[] = [
   { key: "copyright", label: "Copyright", type: FieldType.TEXT },

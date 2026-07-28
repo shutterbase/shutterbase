@@ -21,10 +21,7 @@
 
           <!-- progress overlay while the pipeline runs (transcript 19:22:
                "sieht auf dem Image Preview, dass der grad hochgeladen wird") -->
-          <div
-            v-if="image.status !== ImageStatus.DONE"
-            class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-950/60 backdrop-blur-[1px]"
-          >
+          <div v-if="image.status !== ImageStatus.DONE" class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-950/60 backdrop-blur-[1px]">
             <ExclamationTriangleIcon v-if="image.status === ImageStatus.ERROR" class="h-6 w-6 text-error-400" />
             <template v-else>
               <span class="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
@@ -32,7 +29,10 @@
                 <div class="h-full rounded-full bg-white transition-all" :style="{ width: `${image.progress}%` }"></div>
               </div>
             </template>
-            <span class="text-[10px] font-medium uppercase tracking-wide text-white/90">{{ image.status }}</span>
+            <span v-if="image.status === ImageStatus.ERROR && image.errorMessage" class="px-2 text-center text-[10px] font-medium leading-tight text-white/90">
+              {{ image.errorMessage }}
+            </span>
+            <span v-else class="text-[10px] font-medium uppercase tracking-wide text-white/90">{{ image.status }}</span>
           </div>
 
           <!-- remove, on hover, only once persisted -->
