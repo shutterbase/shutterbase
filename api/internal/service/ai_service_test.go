@@ -302,6 +302,39 @@ func TestDeadlineRetryRequeuesAtBack(t *testing.T) {
 	assert.Equal(t, maxAIAttempts, svc.repo.Client.Image.GetX(ctx, slow).AiAttempts)
 }
 
+// netTimeoutErr mimics http.Client.Timeout's error shape: a net.Error with
+// Timeout()=true that does NOT wrap context.DeadlineExceeded.
+type netTimeoutErr struct{}
+
+func (netTimeoutErr) Error() string   { return "Client.Timeout exceeded while awaiting headers" }
+func (netTimeoutErr) Timeout() bool   { return true }
+func (netTimeoutErr) Temporary() bool { return true }
+
+type netTimeoutInference struct{}
+
+func (netTimeoutInference) Infer(_ context.Context, _ InferenceRequest) ([]InferredTag, error) {
+	return nil, fmt.Errorf("infer: %w", netTimeoutErr{})
+}
+
+// An http-client-level timeout (net.Error, not DeadlineExceeded) classifies as
+// a timeout too: back of the queue, no global backoff.
+func TestClientTimeoutClassifiesAsTimeout(t *testing.T) {
+	t.Setenv("SESSION_SECRET_KEY", "x")
+	require.NoError(t, util.InitConfig())
+	svc, m := newSvc(t, netTimeoutInference{})
+	ctx := context.Background()
+	img := m.Images[0]
+	base := time.Now().Add(-time.Minute)
+	svc.Enqueue(img)
+	svc.repo.Client.Image.UpdateOneID(img).SetAiQueuedAt(base).SaveX(ctx)
+
+	require.True(t, svc.step(ctx))
+	assert.Equal(t, "pending", aiStatus(t, svc, img))
+	assert.True(t, svc.backoffUntil.IsZero(), "client timeouts must not arm the global backoff")
+	row := svc.repo.Client.Image.GetX(ctx, img)
+	assert.True(t, row.AiQueuedAt.After(base), "timed-out image must move to the back of the queue")
+}
+
 // Boot recovery: STALE processing rows are re-queued by Start; fresh ones are
 // left alone (they belong to another replica mid-flight during a rolling deploy).
 func TestBootRecovery(t *testing.T) {

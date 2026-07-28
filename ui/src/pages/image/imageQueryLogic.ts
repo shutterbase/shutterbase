@@ -56,10 +56,51 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
 
 // Implicit person filter: set by clicking a face box in the detail view,
 // cleared via the chip above the grid. No picker UI — the face IS the picker.
+// The value is driven by the route query (?person=) so the browser history
+// walks through filter states; Images.vue owns the sync.
 export const personFilter = ref<string | null>(null);
-export function filterByPerson(personRef: string | null) {
-  personFilter.value = personRef;
-  loadImages(true);
+
+// --- grid snapshot -----------------------------------------------------------
+// Applying the person filter replaces the loaded (possibly deeply scrolled)
+// grid. A snapshot of that state lets "clear filter" / browser-back land on
+// the exact position instead of page 1.
+// ponytail: single snapshot — any other filter/sort change invalidates it.
+
+interface GridSnapshot {
+  images: ImageWithTagsType[];
+  page: number;
+  total: number;
+  imageIndex: number;
+  scrollY: number;
+}
+
+let gridSnapshot: GridSnapshot | null = null;
+
+export function snapshotGrid() {
+  gridSnapshot = {
+    images: images.value,
+    page: page.value,
+    total: totalImageCount.value,
+    imageIndex: imageIndex.value,
+    scrollY: window.scrollY,
+  };
+}
+
+export function invalidateGridSnapshot() {
+  gridSnapshot = null;
+}
+
+// restoreGridSnapshot puts the saved grid back and returns the scroll offset
+// to restore, or null when there is nothing to restore.
+export function restoreGridSnapshot(): number | null {
+  if (!gridSnapshot) return null;
+  const snap = gridSnapshot;
+  gridSnapshot = null;
+  images.value = snap.images;
+  page.value = snap.page;
+  totalImageCount.value = snap.total;
+  imageIndex.value = snap.imageIndex;
+  return snap.scrollY;
 }
 
 export async function triggerInfiniteScroll() {

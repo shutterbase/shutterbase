@@ -66,12 +66,15 @@ fn closest_offset(
 
 /// Parse the camera's capture time from EXIF `DateTimeOriginal` (+ `OffsetTimeOriginal`,
 /// falling back to the local zone when the camera didn't record one).
+///
+/// A valid capture time is a hard upload requirement (standing rule) — an
+/// image without one is rejected, but with a message naming the actual
+/// problem instead of a confusing parse error on the bare offset string.
 pub fn camera_time(metadata: &ImageMetadata) -> Result<DateTime<Utc>> {
-    let date_time = metadata
-        .tags
-        .get("DateTimeOriginal")
-        .map(String::as_str)
-        .unwrap_or("");
+    let date_time = match metadata.tags.get("DateTimeOriginal") {
+        Some(value) if !value.trim().is_empty() => value.as_str(),
+        _ => return Err(Error::msg("image has no EXIF capture time (DateTimeOriginal) — images without a valid timestamp cannot be uploaded")),
+    };
 
     let local_offset = Local::now().offset().to_string();
     let zone = metadata
@@ -110,6 +113,19 @@ mod tests {
         let meta = metadata_with("2026-06-27 12:00:00", "+00:00");
         let time = camera_time(&meta).unwrap();
         assert_eq!(time.timestamp(), 1782561600);
+    }
+
+    // Standing rule: no valid capture time -> no upload. The rejection must
+    // name the missing tag, not stumble over the bare offset string.
+    #[test]
+    fn missing_capture_time_is_a_clear_error() {
+        let mut meta = metadata_with("", "+02:00");
+        let err = camera_time(&meta).unwrap_err().to_string();
+        assert!(err.contains("no EXIF capture time"), "got: {err}");
+        meta.tags.remove("DateTimeOriginal");
+        assert!(camera_time(&meta).is_err(), "absent DateTimeOriginal -> error");
+        assert!(corrected_camera_time(&meta, &[]).is_err());
+        assert!(from_qr(&meta, "1782561610").is_err(), "QR sync also needs a camera time");
     }
 
     #[test]

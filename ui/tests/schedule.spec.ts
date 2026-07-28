@@ -11,6 +11,7 @@ import {
   occupancyStatus,
   pctToTime,
   startOfDay,
+  viewDays,
   ScheduleItemLike,
 } from "src/util/schedule";
 
@@ -99,6 +100,15 @@ describe("assignLanes", () => {
     expect(lanes.get("c")).toEqual({ lane: 0, lanes: 1 }); // separate cluster: full width
   });
 
+  it("places equal-start items deterministically regardless of input order", () => {
+    const a = item("a", "2026-08-11T09:00:00", "2026-08-11T12:00:00");
+    const b = item("b", "2026-08-11T09:00:00", "2026-08-11T11:00:00");
+    const forward = assignLanes([a, b]);
+    const backward = assignLanes([b, a]);
+    expect(forward.get("a")).toEqual(backward.get("a"));
+    expect(forward.get("b")).toEqual(backward.get("b"));
+  });
+
   it("reuses a freed lane (boundary touch does not overlap)", () => {
     const a = item("a", "2026-08-11T09:00:00", "2026-08-11T10:00:00");
     const b = item("b", "2026-08-11T09:30:00", "2026-08-11T11:00:00");
@@ -115,6 +125,29 @@ describe("isAssigned", () => {
     expect(isAssigned(a, "u1")).toBe(true);
     expect(isAssigned(a, "u2")).toBe(false);
     expect(isAssigned(a, undefined)).toBe(false);
+  });
+});
+
+describe("viewDays", () => {
+  const anchor = new Date("2026-08-12T15:30:00"); // a Wednesday
+  it("day view is exactly the anchor's day", () => {
+    expect(viewDays("day", anchor, {}, [])).toEqual([new Date("2026-08-12T00:00:00")]);
+  });
+  it("3day view starts at the anchor", () => {
+    const days = viewDays("3day", anchor, {}, []);
+    expect(days).toHaveLength(3);
+    expect(days[0]).toEqual(new Date("2026-08-12T00:00:00"));
+    expect(days[2]).toEqual(new Date("2026-08-14T00:00:00"));
+  });
+  it("week view is the anchor's Monday-based week", () => {
+    const days = viewDays("week", anchor, {}, []);
+    expect(days).toHaveLength(7);
+    expect(days[0]).toEqual(new Date("2026-08-10T00:00:00")); // Monday
+    expect(days[6]).toEqual(new Date("2026-08-16T00:00:00")); // Sunday
+  });
+  it("all view falls through to the project-wide span", () => {
+    const project = { startAt: "2026-08-11T00:00:00", endAt: "2026-08-13T00:00:00" };
+    expect(viewDays("all", anchor, project, [])).toEqual(calendarDays(project, []));
   });
 });
 

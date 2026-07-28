@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -250,10 +251,10 @@ func (s *AIService) handle(ctx context.Context, imageID string) {
 	switch {
 	case img.AiAttempts+1 >= maxAIAttempts:
 		update.SetAiStatus(entimage.AiStatusError)
-	case errors.Is(err, context.DeadlineExceeded):
-		// Inference deadline exceeded: this one image is slow (e.g. a cold GPU
-		// lane), not the provider — retry at the BACK of the FIFO so the rest
-		// of the queue keeps flowing, and arm no global backoff.
+	case isTimeoutErr(err):
+		// Inference timed out: this one image is slow (e.g. a cold GPU lane),
+		// not the provider — retry at the BACK of the FIFO so the rest of the
+		// queue keeps flowing, and arm no global backoff.
 		update.SetAiStatus(entimage.AiStatusPending).SetAiQueuedAt(time.Now())
 	default:
 		// keep aiQueuedAt: the retry stays at the front of the FIFO.
@@ -265,6 +266,17 @@ func (s *AIService) handle(ctx context.Context, imageID string) {
 	if img, err := update.Save(ctx); err == nil {
 		s.publish(ctx, img)
 	}
+}
+
+// isTimeoutErr matches every timeout shape an inference call can produce: the
+// ctx deadline (AI_TIMEOUT) and net/http-level timeouts (http.Client.Timeout,
+// dial/TLS timeouts), which surface as net.Error rather than DeadlineExceeded.
+func isTimeoutErr(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
 }
 
 // InferNow runs inference synchronously for a single image using an explicit

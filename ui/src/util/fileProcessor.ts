@@ -6,6 +6,7 @@ import { API_BASE } from "src/boot/axios";
 import { api } from "src/api";
 import { useUserStore } from "src/stores/user-store";
 import { getLogLevelString, debug, info, error } from "./logger";
+import { showNotificationToast } from "src/boot/mitt";
 import { Upload, Image as BackendImage } from "src/types/api";
 import { parseBackendTime } from "src/util/dateTimeUtil";
 
@@ -46,6 +47,7 @@ export type Image = {
   cameraTime?: DateTime;
   correctedTime?: DateTime;
   data: ArrayBuffer | null;
+  errorMessage?: string; // human-readable reason when status === ERROR
   thumbnail?: string;
   downloadUrls?: { [key: string]: string };
   size: number;
@@ -225,6 +227,11 @@ export class FileProcessor {
 
         resolve();
       } catch (err: any) {
+        // surface the reason to the human, not just the console — e.g. the
+        // hard timestamp rule: "image has no EXIF capture time"
+        const reason = String(err?.message ?? err).replace(/^Error:\s*/, "");
+        image.errorMessage = reason;
+        showNotificationToast({ headline: `${image.originalFileName}: ${reason}`, type: "error" });
         error(`Failed to process image: ${err}`);
         reject();
         return;
