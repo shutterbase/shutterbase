@@ -113,6 +113,24 @@ type MergesResponse struct {
 	Items []Merge `json:"items"`
 }
 
+// PersonEntry is one ranked person cluster: PersonRef is the merge-group
+// representative when clusters are merged, Count the appearance total within
+// the queried projects, Sample one appearance for rendering a face crop.
+type PersonEntry struct {
+	PersonRef string      `json:"personRef"`
+	Count     int         `json:"count"`
+	Sample    PersonImage `json:"sample"`
+}
+
+// PersonsResponse pages the ranked person list; Total counts distinct
+// persons (merge groups) appearing in the queried projects.
+type PersonsResponse struct {
+	Items    []PersonEntry `json:"items"`
+	Total    int           `json:"total"`
+	Page     int           `json:"page"`
+	PageSize int           `json:"pageSize"`
+}
+
 type SimilarImage struct {
 	ImageRef   string  `json:"imageRef"`
 	Similarity float64 `json:"similarity"`

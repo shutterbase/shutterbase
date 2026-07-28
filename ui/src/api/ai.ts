@@ -127,7 +127,35 @@ export async function personImages(projectId: string, personRef: string, page = 
   return data;
 }
 
-// --- face cluster merge review (project settings, projectAdmin+) ---
+// --- People overview + merge review (GLOBAL — persons span projects) ---
+// The server scopes everything to the caller's viewable projects; merge
+// mutations additionally require projectAdmin on at least one project (403).
+
+export interface AiRankedPerson {
+  personRef: string;
+  count: number;
+  sample?: AiPersonImage;
+}
+
+export interface AiRankedPersonsPage {
+  items: AiRankedPerson[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function rankedPersons(page = 0, pageSize = 24): Promise<AiRankedPersonsPage> {
+  const { data } = await http.get<AiRankedPersonsPage>(`/ai/persons`, { params: { page, pageSize } });
+  return data;
+}
+
+// A person's appearances across every viewable project (People page samples).
+export async function personImagesGlobal(personRef: string, page = 0, pageSize = 20, raw = false): Promise<AiPersonImagesPage> {
+  const { data } = await http.get<AiPersonImagesPage>(`/ai/persons/${personRef}/images`, {
+    params: { page, pageSize, ...(raw ? { raw: "true" } : {}) },
+  });
+  return data;
+}
 
 export interface AiMergeCandidate {
   personA: string;
@@ -140,14 +168,14 @@ export interface AiMergeCandidates {
   remaining: number;
 }
 
-export async function mergeNext(projectId: string, skip = 0): Promise<AiMergeCandidates> {
-  const { data } = await http.get<AiMergeCandidates>(`/projects/${projectId}/ai/merge/next`, { params: { skip } });
+export async function mergeNext(skip = 0): Promise<AiMergeCandidates> {
+  const { data } = await http.get<AiMergeCandidates>(`/ai/merge/next`, { params: { skip } });
   return data;
 }
 
 // verdict "same" records a reversible merge entry; deleteMerge splits it again.
-export async function mergeDecide(projectId: string, personA: string, personB: string, verdict: "same" | "different"): Promise<void> {
-  await http.post(`/projects/${projectId}/ai/merge/decide`, { personA, personB, verdict });
+export async function mergeDecide(personA: string, personB: string, verdict: "same" | "different"): Promise<void> {
+  await http.post(`/ai/merge/decide`, { personA, personB, verdict });
 }
 
 export interface AiMerge {
@@ -156,11 +184,11 @@ export interface AiMerge {
   createdAt: string;
 }
 
-export async function merges(projectId: string): Promise<AiMerge[]> {
-  const { data } = await http.get<{ items: AiMerge[] }>(`/projects/${projectId}/ai/merge`);
+export async function merges(): Promise<AiMerge[]> {
+  const { data } = await http.get<{ items: AiMerge[] }>(`/ai/merge`);
   return data.items;
 }
 
-export async function deleteMerge(projectId: string, personA: string, personB: string): Promise<void> {
-  await http.delete(`/projects/${projectId}/ai/merge`, { params: { personA, personB } });
+export async function deleteMerge(personA: string, personB: string): Promise<void> {
+  await http.delete(`/ai/merge`, { params: { personA, personB } });
 }

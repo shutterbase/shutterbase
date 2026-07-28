@@ -64,14 +64,14 @@ func (c *Client) PersonImages(ctx context.Context, projectID, personRef string, 
 	return resp, err
 }
 
-func (c *Client) Merges(ctx context.Context, projectID string) (MergesResponse, error) {
+func (c *Client) Merges(ctx context.Context, projectIDs []string) (MergesResponse, error) {
 	var resp MergesResponse
-	err := c.do(ctx, http.MethodGet, c.projectPath(projectID)+"/merges", nil, &resp)
+	err := c.do(ctx, http.MethodGet, basePath+"/merges?"+projectQuery(projectIDs), nil, &resp)
 	return resp, err
 }
 
-func (c *Client) DeleteMerge(ctx context.Context, projectID, personA, personB string) error {
-	path := fmt.Sprintf("%s/merges/%s/%s", c.projectPath(projectID), url.PathEscape(personA), url.PathEscape(personB))
+func (c *Client) DeleteMerge(ctx context.Context, personA, personB string) error {
+	path := fmt.Sprintf("%s/merges/%s/%s", basePath, url.PathEscape(personA), url.PathEscape(personB))
 	return c.do(ctx, http.MethodDelete, path, nil, nil)
 }
 
@@ -79,14 +79,31 @@ func (c *Client) Recluster(ctx context.Context, projectID string) error {
 	return c.do(ctx, http.MethodPost, c.projectPath(projectID)+"/recluster", nil, nil)
 }
 
-func (c *Client) MergeCandidates(ctx context.Context, projectID string, skip int) (MergeCandidatesResponse, error) {
-	var resp MergeCandidatesResponse
-	err := c.do(ctx, http.MethodGet, fmt.Sprintf("%s/merge-candidates?skip=%d", c.projectPath(projectID), skip), nil, &resp)
+// projectQuery encodes repeated projectId params for the multi-project routes.
+func projectQuery(projectIDs []string) string {
+	q := url.Values{}
+	for _, id := range projectIDs {
+		q.Add("projectId", id)
+	}
+	return q.Encode()
+}
+
+func (c *Client) Persons(ctx context.Context, projectIDs []string, page, pageSize int) (PersonsResponse, error) {
+	var resp PersonsResponse
+	err := c.do(ctx, http.MethodGet,
+		basePath+"/persons?"+pageQuery(page, pageSize)+"&"+projectQuery(projectIDs), nil, &resp)
 	return resp, err
 }
 
-func (c *Client) DecideMerge(ctx context.Context, projectID string, d MergeDecision) error {
-	return c.do(ctx, http.MethodPost, c.projectPath(projectID)+"/merge-decisions", d, nil)
+func (c *Client) MergeCandidates(ctx context.Context, projectIDs []string, skip int) (MergeCandidatesResponse, error) {
+	var resp MergeCandidatesResponse
+	err := c.do(ctx, http.MethodGet,
+		fmt.Sprintf("%s/merge-candidates?skip=%d&%s", basePath, skip, projectQuery(projectIDs)), nil, &resp)
+	return resp, err
+}
+
+func (c *Client) DecideMerge(ctx context.Context, d MergeDecision) error {
+	return c.do(ctx, http.MethodPost, basePath+"/merge-decisions", d, nil)
 }
 
 func (c *Client) Similar(ctx context.Context, projectID, imageRef string, page, pageSize int) (SimilarResponse, error) {

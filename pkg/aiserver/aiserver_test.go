@@ -19,6 +19,7 @@ type fakeServer struct {
 	lastRaw       bool
 	deletedMerges []string
 	reclustered   []string
+	lastProjects  []string
 }
 
 func (f *fakeServer) Prime(_ context.Context, projectID string, p Project) error {
@@ -47,11 +48,12 @@ func (f *fakeServer) PersonImages(_ context.Context, projectID, personRef string
 	return PersonImagesResponse{Items: []PersonImage{{ImageRef: "img1", X: 0.5}}, Total: 1, Page: page, PageSize: pageSize}, nil
 }
 
-func (f *fakeServer) Merges(context.Context, string) (MergesResponse, error) {
+func (f *fakeServer) Merges(_ context.Context, projectIDs []string) (MergesResponse, error) {
+	f.lastProjects = projectIDs
 	return MergesResponse{Items: []Merge{{PersonA: "p1", PersonB: "p2", CreatedAt: time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)}}}, nil
 }
 
-func (f *fakeServer) DeleteMerge(_ context.Context, _ string, personA, personB string) error {
+func (f *fakeServer) DeleteMerge(_ context.Context, personA, personB string) error {
 	if personA == "missing" {
 		return ErrNotFound
 	}
@@ -64,8 +66,19 @@ func (f *fakeServer) Similar(_ context.Context, projectID, imageRef string, page
 	return SimilarResponse{Items: []SimilarImage{{ImageRef: "img2", Similarity: 0.87}}, Page: page, PageSize: pageSize, HasMore: true}, nil
 }
 
-func (f *fakeServer) MergeCandidates(_ context.Context, projectID string, skip int) (MergeCandidatesResponse, error) {
+func (f *fakeServer) Persons(_ context.Context, projectIDs []string, page, pageSize int) (PersonsResponse, error) {
+	f.lastProjects = projectIDs
+	return PersonsResponse{
+		Items:    []PersonEntry{{PersonRef: "p1", Count: 42, Sample: PersonImage{ImageRef: "img1", X: 0.1, Y: 0.2, W: 0.1, H: 0.1}}},
+		Total:    1,
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
+}
+
+func (f *fakeServer) MergeCandidates(_ context.Context, projectIDs []string, skip int) (MergeCandidatesResponse, error) {
 	f.lastSkip = skip
+	f.lastProjects = projectIDs
 	if skip > 0 {
 		return MergeCandidatesResponse{Remaining: 0}, nil
 	}
@@ -75,7 +88,7 @@ func (f *fakeServer) MergeCandidates(_ context.Context, projectID string, skip i
 	}, nil
 }
 
-func (f *fakeServer) DecideMerge(_ context.Context, projectID string, d MergeDecision) error {
+func (f *fakeServer) DecideMerge(_ context.Context, d MergeDecision) error {
 	if d.PersonA == "missing" {
 		return ErrNotFound
 	}
@@ -140,34 +153,46 @@ func TestClientHandlerRoundtrip(t *testing.T) {
 		t.Fatalf("similar: %v %+v", err, similar)
 	}
 
-	cands, err := client.MergeCandidates(ctx, "proj1", 0)
+	scope := []string{"proj1", "proj2"}
+	ranked, err := client.Persons(ctx, scope, 0, 20)
+	if err != nil || ranked.Total != 1 || len(ranked.Items) != 1 || ranked.Items[0].Count != 42 || ranked.Items[0].Sample.ImageRef != "img1" {
+		t.Fatalf("persons: %v %+v", err, ranked)
+	}
+	if len(fake.lastProjects) != 2 || fake.lastProjects[1] != "proj2" {
+		t.Fatalf("persons project scope mangled: %v", fake.lastProjects)
+	}
+
+	cands, err := client.MergeCandidates(ctx, scope, 0)
 	if err != nil || cands.Remaining != 3 || cands.Candidate == nil || cands.Candidate.PersonB != "p2" {
 		t.Fatalf("mergeCandidates: %v %+v", err, cands)
 	}
-	if cands, err = client.MergeCandidates(ctx, "proj1", 5); err != nil || cands.Candidate != nil || fake.lastSkip != 5 {
+	if len(fake.lastProjects) != 2 {
+		t.Fatalf("mergeCandidates project scope mangled: %v", fake.lastProjects)
+	}
+	if cands, err = client.MergeCandidates(ctx, scope, 5); err != nil || cands.Candidate != nil || fake.lastSkip != 5 {
 		t.Fatalf("mergeCandidates skip mangled: %v %+v skip=%d", err, cands, fake.lastSkip)
 	}
-	if err := client.DecideMerge(ctx, "proj1", MergeDecision{PersonA: "p1", PersonB: "p2", Verdict: "same"}); err != nil {
+	if err := client.DecideMerge(ctx, MergeDecision{PersonA: "p1", PersonB: "p2", Verdict: "same"}); err != nil {
 		t.Fatalf("decideMerge: %v", err)
 	}
 	if fake.lastDecision.Verdict != "same" || fake.lastDecision.PersonB != "p2" {
 		t.Fatalf("decision mangled: %+v", fake.lastDecision)
 	}
-	if err := client.DecideMerge(ctx, "proj1", MergeDecision{PersonA: "p1", PersonB: "p2", Verdict: "maybe"}); err == nil {
+	if err := client.DecideMerge(ctx, MergeDecision{PersonA: "p1", PersonB: "p2", Verdict: "maybe"}); err == nil {
 		t.Fatal("want handler validation error for bad verdict, got nil")
 	}
-	if err := client.DecideMerge(ctx, "proj1", MergeDecision{PersonA: "missing", PersonB: "p2", Verdict: "same"}); !errors.Is(err, ErrNotFound) {
+	if err := client.DecideMerge(ctx, MergeDecision{PersonA: "missing", PersonB: "p2", Verdict: "same"}); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("want ErrNotFound, got %v", err)
 	}
 
-	merges, err := client.Merges(ctx, "proj1")
+	merges, err := client.Merges(ctx, scope)
 	if err != nil || len(merges.Items) != 1 || merges.Items[0].PersonB != "p2" || merges.Items[0].CreatedAt.IsZero() {
 		t.Fatalf("merges: %v %+v", err, merges)
 	}
-	if err := client.DeleteMerge(ctx, "proj1", "p1", "p2"); err != nil || len(fake.deletedMerges) != 1 || fake.deletedMerges[0] != "p1/p2" {
+	if err := client.DeleteMerge(ctx, "p1", "p2"); err != nil || len(fake.deletedMerges) != 1 || fake.deletedMerges[0] != "p1/p2" {
 		t.Fatalf("deleteMerge: %v %v", err, fake.deletedMerges)
 	}
-	if err := client.DeleteMerge(ctx, "proj1", "missing", "p2"); !errors.Is(err, ErrNotFound) {
+	if err := client.DeleteMerge(ctx, "missing", "p2"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleteMerge missing: want ErrNotFound, got %v", err)
 	}
 	if err := client.Recluster(ctx, "proj1"); err != nil || len(fake.reclustered) != 1 || fake.reclustered[0] != "proj1" {

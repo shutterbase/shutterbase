@@ -28,17 +28,23 @@ type Server interface {
 	PersonImages(ctx context.Context, projectID, personRef string, page, pageSize int, raw bool) (PersonImagesResponse, error)
 	// Similar pages through the project's images most similar to imageRef.
 	Similar(ctx context.Context, projectID, imageRef string, page, pageSize int) (SimilarResponse, error)
-	// MergeCandidates returns the project's next undecided similar-person
-	// pair, skipping the first skip pairs (the client's "skip" depth).
-	MergeCandidates(ctx context.Context, projectID string, skip int) (MergeCandidatesResponse, error)
+	// Persons pages through person clusters ranked by appearance count
+	// across the given projects, most-seen first. Merge groups fold into one
+	// entry under the representative ref.
+	Persons(ctx context.Context, projectIDs []string, page, pageSize int) (PersonsResponse, error)
+	// MergeCandidates returns the next undecided similar-person pair whose
+	// persons both appear in any of the given projects, skipping the first
+	// skip pairs (the client's "skip" depth).
+	MergeCandidates(ctx context.Context, projectIDs []string, skip int) (MergeCandidatesResponse, error)
 	// DecideMerge records a verdict for a pair; "same" creates a reversible
-	// merge entry. Unknown person refs yield ErrNotFound.
-	DecideMerge(ctx context.Context, projectID string, d MergeDecision) error
-	// Merges lists the project's active merge entries, newest first.
-	Merges(ctx context.Context, projectID string) (MergesResponse, error)
+	// merge entry. Merges are global — persons span projects.
+	DecideMerge(ctx context.Context, d MergeDecision) error
+	// Merges lists the active merge entries visible in the given projects,
+	// newest first.
+	Merges(ctx context.Context, projectIDs []string) (MergesResponse, error)
 	// DeleteMerge removes a merge entry, splitting the pair's clusters again;
 	// ErrNotFound when no such entry exists.
-	DeleteMerge(ctx context.Context, projectID, personA, personB string) error
+	DeleteMerge(ctx context.Context, personA, personB string) error
 	// Recluster rebuilds all person clusters from the stored face embeddings —
 	// no inference re-runs. Person refs, merge candidates and merge DECISIONS
 	// of the previous generation are all discarded. Synchronous and possibly
@@ -98,29 +104,37 @@ func NewHandler(s Server, apiKey string) http.Handler {
 		respond(w, resp, err)
 	})
 
-	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/merges", func(w http.ResponseWriter, r *http.Request) {
-		resp, err := s.Merges(r.Context(), r.PathValue("projectId"))
+	// Person ranking and merge review are multi-project (persons are global);
+	// projectId repeats as a query param instead of living in the path.
+	mux.HandleFunc("GET "+basePath+"/persons", func(w http.ResponseWriter, r *http.Request) {
+		page, pageSize := pageParams(r)
+		resp, err := s.Persons(r.Context(), r.URL.Query()["projectId"], page, pageSize)
 		respond(w, resp, err)
 	})
 
-	mux.HandleFunc("DELETE "+basePath+"/projects/{projectId}/merges/{personA}/{personB}", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, nil, s.DeleteMerge(r.Context(), r.PathValue("projectId"), r.PathValue("personA"), r.PathValue("personB")))
+	mux.HandleFunc("GET "+basePath+"/merges", func(w http.ResponseWriter, r *http.Request) {
+		resp, err := s.Merges(r.Context(), r.URL.Query()["projectId"])
+		respond(w, resp, err)
+	})
+
+	mux.HandleFunc("DELETE "+basePath+"/merges/{personA}/{personB}", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, nil, s.DeleteMerge(r.Context(), r.PathValue("personA"), r.PathValue("personB")))
 	})
 
 	mux.HandleFunc("POST "+basePath+"/projects/{projectId}/recluster", func(w http.ResponseWriter, r *http.Request) {
 		respond(w, nil, s.Recluster(r.Context(), r.PathValue("projectId")))
 	})
 
-	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/merge-candidates", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET "+basePath+"/merge-candidates", func(w http.ResponseWriter, r *http.Request) {
 		skip, _ := strconv.Atoi(r.URL.Query().Get("skip"))
 		if skip < 0 {
 			skip = 0
 		}
-		resp, err := s.MergeCandidates(r.Context(), r.PathValue("projectId"), skip)
+		resp, err := s.MergeCandidates(r.Context(), r.URL.Query()["projectId"], skip)
 		respond(w, resp, err)
 	})
 
-	mux.HandleFunc("POST "+basePath+"/projects/{projectId}/merge-decisions", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST "+basePath+"/merge-decisions", func(w http.ResponseWriter, r *http.Request) {
 		var d MergeDecision
 		if !decode(w, r, &d) {
 			return
@@ -129,7 +143,7 @@ func NewHandler(s Server, apiKey string) http.Handler {
 			writeError(w, http.StatusBadRequest, "personA, personB and verdict (same|different) required")
 			return
 		}
-		respond(w, nil, s.DecideMerge(r.Context(), r.PathValue("projectId"), d))
+		respond(w, nil, s.DecideMerge(r.Context(), d))
 	})
 
 	mux.HandleFunc("DELETE "+basePath+"/projects/{projectId}/images/{imageRef}", func(w http.ResponseWriter, r *http.Request) {

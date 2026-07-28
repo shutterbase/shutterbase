@@ -295,6 +295,9 @@ type fakeRemote struct {
 	// reclusterCalled receives the projectID of each Recluster call (the
 	// controller fires it from a goroutine, so the test must synchronize).
 	reclusterCalled chan string
+	personsScope    []string
+	rankedSampleRef string
+	mergeScopeSeen  []string
 }
 
 func (f *fakeRemote) Prime(context.Context, string, aiserver.Project) error { return nil }
@@ -332,7 +335,8 @@ func (f *fakeRemote) PersonImages(_ context.Context, projectID string, _ string,
 func (f *fakeRemote) Similar(context.Context, string, string, int, int) (aiserver.SimilarResponse, error) {
 	return aiserver.SimilarResponse{}, nil
 }
-func (f *fakeRemote) MergeCandidates(_ context.Context, _ string, skip int) (aiserver.MergeCandidatesResponse, error) {
+func (f *fakeRemote) MergeCandidates(_ context.Context, projects []string, skip int) (aiserver.MergeCandidatesResponse, error) {
+	f.mergeScopeSeen = projects
 	if skip > 0 {
 		return aiserver.MergeCandidatesResponse{Remaining: 1}, nil
 	}
@@ -341,16 +345,16 @@ func (f *fakeRemote) MergeCandidates(_ context.Context, _ string, skip int) (ais
 		Remaining: 1,
 	}, nil
 }
-func (f *fakeRemote) DecideMerge(_ context.Context, _ string, d aiserver.MergeDecision) error {
+func (f *fakeRemote) DecideMerge(_ context.Context, d aiserver.MergeDecision) error {
 	f.lastDecision = d
 	return nil
 }
-func (f *fakeRemote) Merges(context.Context, string) (aiserver.MergesResponse, error) {
+func (f *fakeRemote) Merges(context.Context, []string) (aiserver.MergesResponse, error) {
 	return aiserver.MergesResponse{Items: []aiserver.Merge{
 		{PersonA: "p1", PersonB: "p2", CreatedAt: time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)},
 	}}, nil
 }
-func (f *fakeRemote) DeleteMerge(_ context.Context, _ string, personA, personB string) error {
+func (f *fakeRemote) DeleteMerge(_ context.Context, personA, personB string) error {
 	if personA == "stale" {
 		return aiserver.ErrNotFound
 	}
@@ -362,6 +366,17 @@ func (f *fakeRemote) Recluster(_ context.Context, projectID string) error {
 		f.reclusterCalled <- projectID
 	}
 	return nil
+}
+func (f *fakeRemote) Persons(_ context.Context, projectIDs []string, page, pageSize int) (aiserver.PersonsResponse, error) {
+	f.personsScope = projectIDs
+	items := []aiserver.PersonEntry{}
+	if f.rankedSampleRef != "" {
+		items = append(items, aiserver.PersonEntry{
+			PersonRef: "p1", Count: 7,
+			Sample: aiserver.PersonImage{ImageRef: f.rankedSampleRef, X: 0.1, Y: 0.1, W: 0.2, H: 0.2},
+		})
+	}
+	return aiserver.PersonsResponse{Items: items, Total: len(items), Page: page, PageSize: pageSize}, nil
 }
 func (f *fakeRemote) DeleteImage(context.Context, string, string) error { return nil }
 
@@ -411,6 +426,48 @@ func TestAIProxyGuardAndMapping(t *testing.T) {
 	assert.Zero(t, body.Faces[1].Count, "faces without a person carry no count")
 }
 
+// People overview: ranked persons scoped to the caller's viewable projects,
+// sample refs resolved to owned image DTOs (unresolvable samples dropped).
+func TestAIPersonsRanked(t *testing.T) {
+	s, m := newAITestServer(t)
+	remote := &fakeRemote{rankedSampleRef: m.Images[0]}
+	s.aiRemote = remote
+
+	c, rec := aiCtx(t, adminUser(), http.MethodGet, "/api/v1/ai/persons", "")
+	s.aiPersonsRanked(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Total int `json:"total"`
+		Items []struct {
+			PersonRef string `json:"personRef"`
+			Count     int    `json:"count"`
+			Sample    *struct {
+				Image struct {
+					ID string `json:"id"`
+				} `json:"image"`
+				W float64 `json:"w"`
+			} `json:"sample"`
+		} `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Len(t, body.Items, 1)
+	assert.Equal(t, 1, body.Total)
+	assert.Equal(t, "p1", body.Items[0].PersonRef)
+	assert.Equal(t, 7, body.Items[0].Count)
+	require.NotNil(t, body.Items[0].Sample, "sample must resolve to an image DTO")
+	assert.Equal(t, m.Images[0], body.Items[0].Sample.Image.ID)
+	assert.InDelta(t, 0.2, body.Items[0].Sample.W, 0.001)
+	assert.Contains(t, remote.personsScope, m.Project)
+
+	// viewer scope: only assigned projects are queried
+	viewer, err := s.Repository.GetEffectiveUser(context.Background(), m.Users["projectViewer"])
+	require.NoError(t, err)
+	c, rec = aiCtx(t, viewer, http.MethodGet, "/api/v1/ai/persons", "")
+	s.aiPersonsRanked(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, []string{m.Project}, remote.personsScope)
+}
+
 // Merge review: plain users get 403; admins get the proxied candidate and can
 // decide; malformed verdicts are rejected before reaching the AI server.
 func TestAIMergeEndpoints(t *testing.T) {
@@ -418,13 +475,11 @@ func TestAIMergeEndpoints(t *testing.T) {
 	remote := &fakeRemote{}
 	s.aiRemote = remote
 
-	c, rec := aiCtx(t, plainUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge/next", "")
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	c, rec := aiCtx(t, plainUser(), http.MethodGet, "/api/v1/ai/merge/next", "")
 	s.aiMergeNext(c)
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 
-	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge/next", "")
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/ai/merge/next", "")
 	s.aiMergeNext(c)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var next aiserver.MergeCandidatesResponse
@@ -432,29 +487,35 @@ func TestAIMergeEndpoints(t *testing.T) {
 	require.NotNil(t, next.Candidate)
 	assert.Equal(t, "p2", next.Candidate.PersonB)
 	assert.Equal(t, 1, next.Remaining)
+	assert.Contains(t, remote.mergeScopeSeen, m.Project, "admin scope spans all projects")
 
-	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/merge/decide",
+	// a projectAdmin's scope is exactly their administered projects
+	ctx := context.Background()
+	pAdmin, err := s.Repository.GetEffectiveUser(ctx, m.Users["projectAdmin"])
+	require.NoError(t, err)
+	c, rec = aiCtx(t, pAdmin, http.MethodGet, "/api/v1/ai/merge/next", "")
+	s.aiMergeNext(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, []string{m.Project}, remote.mergeScopeSeen, "projectAdmin scope = own projects only")
+
+	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/ai/merge/decide",
 		`{"personA":"p1","personB":"p2","verdict":"maybe"}`)
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
 	s.aiMergeDecide(c)
 	assert.Equal(t, http.StatusBadRequest, rec.Code, "bad verdict never reaches the AI server")
 	assert.Empty(t, remote.lastDecision.Verdict)
 
-	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/merge/decide",
+	c, rec = aiCtx(t, adminUser(), http.MethodPost, "/api/v1/ai/merge/decide",
 		`{"personA":"p1","personB":"p2","verdict":"same"}`)
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
 	s.aiMergeDecide(c)
 	require.Equal(t, http.StatusNoContent, c.Writer.Status())
 	assert.Equal(t, "same", remote.lastDecision.Verdict)
 	assert.Equal(t, "p2", remote.lastDecision.PersonB)
 
-	c, rec = aiCtx(t, plainUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge", "")
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	c, rec = aiCtx(t, plainUser(), http.MethodGet, "/api/v1/ai/merge", "")
 	s.aiMergeList(c)
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 
-	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/merge", "")
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/ai/merge", "")
 	s.aiMergeList(c)
 	require.Equal(t, http.StatusOK, rec.Code)
 	var list aiserver.MergesResponse
@@ -462,18 +523,15 @@ func TestAIMergeEndpoints(t *testing.T) {
 	require.Len(t, list.Items, 1)
 	assert.Equal(t, "p2", list.Items[0].PersonB)
 
-	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/projects/"+m.Project+"/ai/merge?personA=p1&personB=p1", "")
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/ai/merge?personA=p1&personB=p1", "")
 	s.aiMergeDelete(c)
 	assert.Equal(t, http.StatusBadRequest, rec.Code, "identical refs rejected")
 
-	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/projects/"+m.Project+"/ai/merge?personA=stale&personB=p2", "")
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/ai/merge?personA=stale&personB=p2", "")
 	s.aiMergeDelete(c)
 	assert.Equal(t, http.StatusNotFound, rec.Code, "unknown entry -> 404")
 
-	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/projects/"+m.Project+"/ai/merge?personA=p1&personB=p2", "")
-	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	c, rec = aiCtx(t, adminUser(), http.MethodDelete, "/api/v1/ai/merge?personA=p1&personB=p2", "")
 	s.aiMergeDelete(c)
 	require.Equal(t, http.StatusNoContent, c.Writer.Status())
 	assert.Equal(t, "p1/p2", remote.deletedMerge)
