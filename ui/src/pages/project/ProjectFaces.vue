@@ -7,13 +7,29 @@
           The AI server suggests pairs of face clusters that might be the same person. Confirming a pair merges them into one — reversibly, see below.
         </p>
       </div>
-      <span v-if="remaining > 0" class="label-mono-sm shrink-0 text-primary-500 dark:text-primary-400">{{ remaining }} pair{{ remaining === 1 ? "" : "s" }} left</span>
+      <div class="flex shrink-0 items-baseline gap-3">
+        <span v-if="remaining > 0" class="label-mono-sm text-primary-500 dark:text-primary-400">{{ remaining }} pair{{ remaining === 1 ? "" : "s" }} left</span>
+        <button
+          v-if="skippedCount > 0"
+          @click="resetSkipped"
+          class="label-mono-sm cursor-pointer text-primary-500 underline transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-200"
+          title="Skipped pairs are hidden across reloads — show them again"
+        >
+          {{ skippedCount }} skipped — show again
+        </button>
+      </div>
     </div>
 
     <div v-if="noAiServer" class="mt-10 text-center text-sm text-primary-500 dark:text-primary-400">No AI server is configured for this instance.</div>
     <div v-else-if="loading" class="mt-10 text-center text-sm text-primary-500 dark:text-primary-400">Loading…</div>
     <div v-else-if="!candidate" class="mt-10 text-center text-sm text-primary-500 dark:text-primary-400">
-      {{ reviewed > 0 ? "All caught up — no more similar clusters to review." : "No similar clusters to review." }}
+      {{
+        skippedCount > 0
+          ? "Only skipped pairs remain — use “show again” above to review them."
+          : reviewed > 0
+            ? "All caught up — no more similar clusters to review."
+            : "No similar clusters to review."
+      }}
     </div>
 
     <template v-else>
@@ -103,6 +119,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useStorage } from "@vueuse/core";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import FaceClusterGrid from "src/components/project/FaceClusterGrid.vue";
 import { api } from "src/api";
@@ -118,7 +135,11 @@ const busy = ref(false);
 const noAiServer = ref(false);
 const remaining = ref(0);
 const reviewed = ref(0);
-const skip = ref(0);
+// Skipped pairs survive reloads (localStorage, keyed by project). Keys from
+// an older clustering generation never match and are dropped via the reset
+// link. ponytail: capped at 300 keys per project.
+const skippedStore = useStorage<Record<string, string[]>>("shutterbase-face-merge-skipped", {});
+const skippedCount = computed(() => (skippedStore.value[projectId.value] ?? []).length);
 const candidate = ref<AiMergeCandidate | null>(null);
 const samplesA = ref<{ items: AiPersonImage[]; total: number }>({ items: [], total: 0 });
 const samplesB = ref<{ items: AiPersonImage[]; total: number }>({ items: [], total: 0 });
@@ -151,11 +172,24 @@ function fail(error: any) {
   }
 }
 
+function pairKey(c: AiMergeCandidate) {
+  return `${c.personA}/${c.personB}`;
+}
+
 async function load() {
   loading.value = true;
   candidate.value = null;
   try {
-    const next = await api.ai.mergeNext(projectId.value, skip.value);
+    // step past locally skipped pairs — the server has no skip state.
+    // ponytail: sequential refetch, capped; batch endpoint if anyone ever
+    // skips hundreds in one generation.
+    const skipped = new Set(skippedStore.value[projectId.value] ?? []);
+    let offset = 0;
+    let next = await api.ai.mergeNext(projectId.value, offset);
+    while (next.candidate && skipped.has(pairKey(next.candidate)) && offset < 200) {
+      offset++;
+      next = await api.ai.mergeNext(projectId.value, offset);
+    }
     remaining.value = next.remaining;
     if (next.candidate) {
       const [a, b] = await Promise.all([api.ai.personImages(projectId.value, next.candidate.personA, 0, 4), api.ai.personImages(projectId.value, next.candidate.personB, 0, 4)]);
@@ -225,7 +259,14 @@ async function unmerge(m: AiMerge) {
 }
 
 async function skipPair() {
-  skip.value++;
+  if (!candidate.value) return;
+  const list = skippedStore.value[projectId.value] ?? [];
+  skippedStore.value = { ...skippedStore.value, [projectId.value]: [...list, pairKey(candidate.value)].slice(-300) };
+  await load();
+}
+
+async function resetSkipped() {
+  skippedStore.value = { ...skippedStore.value, [projectId.value]: [] };
   await load();
 }
 
