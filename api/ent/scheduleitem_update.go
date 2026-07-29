@@ -507,10 +507,10 @@ func (_u *ScheduleItemUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
+			Rel:     sqlgraph.M2M,
 			Inverse: false,
 			Table:   scheduleitem.TagsTable,
-			Columns: []string{scheduleitem.TagsColumn},
+			Columns: scheduleitem.TagsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
@@ -520,10 +520,10 @@ func (_u *ScheduleItemUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if nodes := _u.mutation.RemovedTagsIDs(); len(nodes) > 0 && !_u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
+			Rel:     sqlgraph.M2M,
 			Inverse: false,
 			Table:   scheduleitem.TagsTable,
-			Columns: []string{scheduleitem.TagsColumn},
+			Columns: scheduleitem.TagsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
@@ -536,10 +536,10 @@ func (_u *ScheduleItemUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if nodes := _u.mutation.TagsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
+			Rel:     sqlgraph.M2M,
 			Inverse: false,
 			Table:   scheduleitem.TagsTable,
-			Columns: []string{scheduleitem.TagsColumn},
+			Columns: scheduleitem.TagsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
@@ -1149,10 +1149,10 @@ func (_u *ScheduleItemUpdateOne) sqlSave(ctx context.Context) (_node *ScheduleIt
 	}
 	if _u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
+			Rel:     sqlgraph.M2M,
 			Inverse: false,
 			Table:   scheduleitem.TagsTable,
-			Columns: []string{scheduleitem.TagsColumn},
+			Columns: scheduleitem.TagsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
@@ -1162,10 +1162,10 @@ func (_u *ScheduleItemUpdateOne) sqlSave(ctx context.Context) (_node *ScheduleIt
 	}
 	if nodes := _u.mutation.RemovedTagsIDs(); len(nodes) > 0 && !_u.mutation.TagsCleared() {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
+			Rel:     sqlgraph.M2M,
 			Inverse: false,
 			Table:   scheduleitem.TagsTable,
-			Columns: []string{scheduleitem.TagsColumn},
+			Columns: scheduleitem.TagsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),
@@ -1178,10 +1178,10 @@ func (_u *ScheduleItemUpdateOne) sqlSave(ctx context.Context) (_node *ScheduleIt
 	}
 	if nodes := _u.mutation.TagsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
+			Rel:     sqlgraph.M2M,
 			Inverse: false,
 			Table:   scheduleitem.TagsTable,
-			Columns: []string{scheduleitem.TagsColumn},
+			Columns: scheduleitem.TagsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),

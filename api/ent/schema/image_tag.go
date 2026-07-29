@@ -27,6 +27,9 @@ func (ImageTag) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.From("project", Project.Type).Ref("imageTags").Field("project_id").Unique().Required(),
 		edge.To("tagAssignments", ImageTagAssignment.Type),
+		// Non-unique inverse makes tags a real M2M (join table), so one tag can
+		// be suggested on many schedule items — mirrors User.scheduleItems.
+		edge.From("scheduleItems", ScheduleItem.Type).Ref("tags"),
 	}
 }
 

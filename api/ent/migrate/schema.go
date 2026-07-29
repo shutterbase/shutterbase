@@ -234,7 +234,6 @@ var (
 		{Name: "is_album", Type: field.TypeBool, Default: false},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"template", "default", "manual", "custom"}},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
-		{Name: "schedule_item_tags", Type: field.TypeString, Nullable: true, Size: 15},
 	}
 	// ImageTagsTable holds the schema information for the "image_tags" table.
 	ImageTagsTable = &schema.Table{
@@ -247,12 +246,6 @@ var (
 				Columns:    []*schema.Column{ImageTagsColumns[9]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
-			},
-			{
-				Symbol:     "image_tags_schedule_items_tags",
-				Columns:    []*schema.Column{ImageTagsColumns[10]},
-				RefColumns: []*schema.Column{ScheduleItemsColumns[0]},
-				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
@@ -638,6 +631,31 @@ var (
 			},
 		},
 	}
+	// ScheduleItemTagsColumns holds the columns for the "schedule_item_tags" table.
+	ScheduleItemTagsColumns = []*schema.Column{
+		{Name: "schedule_item_id", Type: field.TypeString, Size: 15},
+		{Name: "image_tag_id", Type: field.TypeString, Size: 15},
+	}
+	// ScheduleItemTagsTable holds the schema information for the "schedule_item_tags" table.
+	ScheduleItemTagsTable = &schema.Table{
+		Name:       "schedule_item_tags",
+		Columns:    ScheduleItemTagsColumns,
+		PrimaryKey: []*schema.Column{ScheduleItemTagsColumns[0], ScheduleItemTagsColumns[1]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "schedule_item_tags_schedule_item_id",
+				Columns:    []*schema.Column{ScheduleItemTagsColumns[0]},
+				RefColumns: []*schema.Column{ScheduleItemsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "schedule_item_tags_image_tag_id",
+				Columns:    []*schema.Column{ScheduleItemTagsColumns[1]},
+				RefColumns: []*schema.Column{ImageTagsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
 		APIKeysTable,
@@ -654,6 +672,7 @@ var (
 		UploadsTable,
 		UsersTable,
 		ScheduleItemAssigneesTable,
+		ScheduleItemTagsTable,
 	}
 )
 
@@ -665,7 +684,6 @@ func init() {
 	ImagesTable.ForeignKeys[2].RefTable = UploadsTable
 	ImagesTable.ForeignKeys[3].RefTable = UsersTable
 	ImageTagsTable.ForeignKeys[0].RefTable = ProjectsTable
-	ImageTagsTable.ForeignKeys[1].RefTable = ScheduleItemsTable
 	ImageTagAssignmentsTable.ForeignKeys[0].RefTable = ImagesTable
 	ImageTagAssignmentsTable.ForeignKeys[1].RefTable = ImageTagsTable
 	ProjectAssignmentsTable.ForeignKeys[0].RefTable = ProjectsTable
@@ -680,4 +698,6 @@ func init() {
 	UsersTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduleItemAssigneesTable.ForeignKeys[0].RefTable = ScheduleItemsTable
 	ScheduleItemAssigneesTable.ForeignKeys[1].RefTable = UsersTable
+	ScheduleItemTagsTable.ForeignKeys[0].RefTable = ScheduleItemsTable
+	ScheduleItemTagsTable.ForeignKeys[1].RefTable = ImageTagsTable
 }

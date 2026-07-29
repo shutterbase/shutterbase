@@ -63,13 +63,11 @@ const (
 	// AssigneesInverseTable is the table name for the User entity.
 	// It exists in this package in order to avoid circular dependency with the "user" package.
 	AssigneesInverseTable = "users"
-	// TagsTable is the table that holds the tags relation/edge.
-	TagsTable = "image_tags"
+	// TagsTable is the table that holds the tags relation/edge. The primary key declared below.
+	TagsTable = "schedule_item_tags"
 	// TagsInverseTable is the table name for the ImageTag entity.
 	// It exists in this package in order to avoid circular dependency with the "imagetag" package.
 	TagsInverseTable = "image_tags"
-	// TagsColumn is the table column denoting the tags relation/edge.
-	TagsColumn = "schedule_item_tags"
 	// ParentTable is the table that holds the parent relation/edge.
 	ParentTable = "schedule_items"
 	// ParentColumn is the table column denoting the parent relation/edge.
@@ -101,6 +99,9 @@ var (
 	// AssigneesPrimaryKey and AssigneesColumn2 are the table columns denoting the
 	// primary key for the assignees relation (M2M).
 	AssigneesPrimaryKey = []string{"schedule_item_id", "user_id"}
+	// TagsPrimaryKey and TagsColumn2 are the table columns denoting the
+	// primary key for the tags relation (M2M).
+	TagsPrimaryKey = []string{"schedule_item_id", "image_tag_id"}
 )
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -299,7 +300,7 @@ func newTagsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TagsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.O2M, false, TagsTable, TagsColumn),
+		sqlgraph.Edge(sqlgraph.M2M, false, TagsTable, TagsPrimaryKey...),
 	)
 }
 func newParentStep() *sqlgraph.Step {

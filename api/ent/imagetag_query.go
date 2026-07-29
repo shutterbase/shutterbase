@@ -17,6 +17,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 )
 
 // ImageTagQuery is the builder for querying ImageTag entities.
@@ -28,7 +29,7 @@ type ImageTagQuery struct {
 	predicates         []predicate.ImageTag
 	withProject        *ProjectQuery
 	withTagAssignments *ImageTagAssignmentQuery
-	withFKs            bool
+	withScheduleItems  *ScheduleItemQuery
 	modifiers          []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -103,6 +104,28 @@ func (_q *ImageTagQuery) QueryTagAssignments() *ImageTagAssignmentQuery {
 			sqlgraph.From(imagetag.Table, imagetag.FieldID, selector),
 			sqlgraph.To(imagetagassignment.Table, imagetagassignment.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, imagetag.TagAssignmentsTable, imagetag.TagAssignmentsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryScheduleItems chains the current query on the "scheduleItems" edge.
+func (_q *ImageTagQuery) QueryScheduleItems() *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(imagetag.Table, imagetag.FieldID, selector),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, imagetag.ScheduleItemsTable, imagetag.ScheduleItemsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -304,6 +327,7 @@ func (_q *ImageTagQuery) Clone() *ImageTagQuery {
 		predicates:         append([]predicate.ImageTag{}, _q.predicates...),
 		withProject:        _q.withProject.Clone(),
 		withTagAssignments: _q.withTagAssignments.Clone(),
+		withScheduleItems:  _q.withScheduleItems.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -329,6 +353,17 @@ func (_q *ImageTagQuery) WithTagAssignments(opts ...func(*ImageTagAssignmentQuer
 		opt(query)
 	}
 	_q.withTagAssignments = query
+	return _q
+}
+
+// WithScheduleItems tells the query-builder to eager-load the nodes that are connected to
+// the "scheduleItems" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ImageTagQuery) WithScheduleItems(opts ...func(*ScheduleItemQuery)) *ImageTagQuery {
+	query := (&ScheduleItemClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withScheduleItems = query
 	return _q
 }
 
@@ -409,16 +444,13 @@ func (_q *ImageTagQuery) prepareQuery(ctx context.Context) error {
 func (_q *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ImageTag, error) {
 	var (
 		nodes       = []*ImageTag{}
-		withFKs     = _q.withFKs
 		_spec       = _q.querySpec()
-		loadedTypes = [2]bool{
+		loadedTypes = [3]bool{
 			_q.withProject != nil,
 			_q.withTagAssignments != nil,
+			_q.withScheduleItems != nil,
 		}
 	)
-	if withFKs {
-		_spec.Node.Columns = append(_spec.Node.Columns, imagetag.ForeignKeys...)
-	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*ImageTag).scanValues(nil, columns)
 	}
@@ -450,6 +482,13 @@ func (_q *ImageTagQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Ima
 		if err := _q.loadTagAssignments(ctx, query, nodes,
 			func(n *ImageTag) { n.Edges.TagAssignments = []*ImageTagAssignment{} },
 			func(n *ImageTag, e *ImageTagAssignment) { n.Edges.TagAssignments = append(n.Edges.TagAssignments, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withScheduleItems; query != nil {
+		if err := _q.loadScheduleItems(ctx, query, nodes,
+			func(n *ImageTag) { n.Edges.ScheduleItems = []*ScheduleItem{} },
+			func(n *ImageTag, e *ScheduleItem) { n.Edges.ScheduleItems = append(n.Edges.ScheduleItems, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -512,6 +551,67 @@ func (_q *ImageTagQuery) loadTagAssignments(ctx context.Context, query *ImageTag
 			return fmt.Errorf(`unexpected referenced foreign-key "image_tag_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
+	}
+	return nil
+}
+func (_q *ImageTagQuery) loadScheduleItems(ctx context.Context, query *ScheduleItemQuery, nodes []*ImageTag, init func(*ImageTag), assign func(*ImageTag, *ScheduleItem)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[string]*ImageTag)
+	nids := make(map[string]map[*ImageTag]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(imagetag.ScheduleItemsTable)
+		s.Join(joinT).On(s.C(scheduleitem.FieldID), joinT.C(imagetag.ScheduleItemsPrimaryKey[0]))
+		s.Where(sql.InValues(joinT.C(imagetag.ScheduleItemsPrimaryKey[1]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(imagetag.ScheduleItemsPrimaryKey[1]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullString)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := values[0].(*sql.NullString).String
+				inValue := values[1].(*sql.NullString).String
+				if nids[inValue] == nil {
+					nids[inValue] = map[*ImageTag]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*ScheduleItem](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "scheduleItems" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }

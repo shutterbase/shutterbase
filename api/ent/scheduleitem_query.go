@@ -128,7 +128,7 @@ func (_q *ScheduleItemQuery) QueryTags() *ImageTagQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, selector),
 			sqlgraph.To(imagetag.Table, imagetag.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, scheduleitem.TagsTable, scheduleitem.TagsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, scheduleitem.TagsTable, scheduleitem.TagsPrimaryKey...),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -672,33 +672,63 @@ func (_q *ScheduleItemQuery) loadAssignees(ctx context.Context, query *UserQuery
 	return nil
 }
 func (_q *ScheduleItemQuery) loadTags(ctx context.Context, query *ImageTagQuery, nodes []*ScheduleItem, init func(*ScheduleItem), assign func(*ScheduleItem, *ImageTag)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[string]*ScheduleItem)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[string]*ScheduleItem)
+	nids := make(map[string]map[*ScheduleItem]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
 		if init != nil {
-			init(nodes[i])
+			init(node)
 		}
 	}
-	query.withFKs = true
-	query.Where(predicate.ImageTag(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(scheduleitem.TagsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(scheduleitem.TagsTable)
+		s.Join(joinT).On(s.C(imagetag.FieldID), joinT.C(scheduleitem.TagsPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(scheduleitem.TagsPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(scheduleitem.TagsPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullString)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := values[0].(*sql.NullString).String
+				inValue := values[1].(*sql.NullString).String
+				if nids[inValue] == nil {
+					nids[inValue] = map[*ScheduleItem]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*ImageTag](ctx, query, qr, query.inters)
 	if err != nil {
 		return err
 	}
 	for _, n := range neighbors {
-		fk := n.schedule_item_tags
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "schedule_item_tags" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
+		nodes, ok := nids[n.ID]
 		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "schedule_item_tags" returned %v for node %v`, *fk, n.ID)
+			return fmt.Errorf(`unexpected "tags" node returned %v`, n.ID)
 		}
-		assign(node, n)
+		for kn := range nodes {
+			assign(kn, n)
+		}
 	}
 	return nil
 }

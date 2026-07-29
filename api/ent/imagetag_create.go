@@ -14,6 +14,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 )
 
 // ImageTagCreate is the builder for creating a ImageTag entity.
@@ -149,6 +150,21 @@ func (_c *ImageTagCreate) AddTagAssignments(v ...*ImageTagAssignment) *ImageTagC
 		ids[i] = v[i].ID
 	}
 	return _c.AddTagAssignmentIDs(ids...)
+}
+
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_c *ImageTagCreate) AddScheduleItemIDs(ids ...string) *ImageTagCreate {
+	_c.mutation.AddScheduleItemIDs(ids...)
+	return _c
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_c *ImageTagCreate) AddScheduleItems(v ...*ScheduleItem) *ImageTagCreate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddScheduleItemIDs(ids...)
 }
 
 // Mutation returns the ImageTagMutation object of the builder.
@@ -343,6 +359,22 @@ func (_c *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   imagetag.ScheduleItemsTable,
+			Columns: imagetag.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

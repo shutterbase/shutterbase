@@ -37,6 +37,8 @@ const (
 	EdgeProject = "project"
 	// EdgeTagAssignments holds the string denoting the tagassignments edge name in mutations.
 	EdgeTagAssignments = "tagAssignments"
+	// EdgeScheduleItems holds the string denoting the scheduleitems edge name in mutations.
+	EdgeScheduleItems = "scheduleItems"
 	// Table holds the table name of the imagetag in the database.
 	Table = "image_tags"
 	// ProjectTable is the table that holds the project relation/edge.
@@ -53,6 +55,11 @@ const (
 	TagAssignmentsInverseTable = "image_tag_assignments"
 	// TagAssignmentsColumn is the table column denoting the tagAssignments relation/edge.
 	TagAssignmentsColumn = "image_tag_id"
+	// ScheduleItemsTable is the table that holds the scheduleItems relation/edge. The primary key declared below.
+	ScheduleItemsTable = "schedule_item_tags"
+	// ScheduleItemsInverseTable is the table name for the ScheduleItem entity.
+	// It exists in this package in order to avoid circular dependency with the "scheduleitem" package.
+	ScheduleItemsInverseTable = "schedule_items"
 )
 
 // Columns holds all SQL columns for imagetag fields.
@@ -69,21 +76,16 @@ var Columns = []string{
 	FieldProjectID,
 }
 
-// ForeignKeys holds the SQL foreign-keys that are owned by the "image_tags"
-// table and are not defined as standalone fields in the schema.
-var ForeignKeys = []string{
-	"schedule_item_tags",
-}
+var (
+	// ScheduleItemsPrimaryKey and ScheduleItemsColumn2 are the table columns denoting the
+	// primary key for the scheduleItems relation (M2M).
+	ScheduleItemsPrimaryKey = []string{"schedule_item_id", "image_tag_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
-			return true
-		}
-	}
-	for i := range ForeignKeys {
-		if column == ForeignKeys[i] {
 			return true
 		}
 	}
@@ -207,6 +209,20 @@ func ByTagAssignments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newTagAssignmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByScheduleItemsCount orders the results by scheduleItems count.
+func ByScheduleItemsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newScheduleItemsStep(), opts...)
+	}
+}
+
+// ByScheduleItems orders the results by scheduleItems terms.
+func ByScheduleItems(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newScheduleItemsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newProjectStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -219,5 +235,12 @@ func newTagAssignmentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(TagAssignmentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, TagAssignmentsTable, TagAssignmentsColumn),
+	)
+}
+func newScheduleItemsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ScheduleItemsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, ScheduleItemsTable, ScheduleItemsPrimaryKey...),
 	)
 }

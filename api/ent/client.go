@@ -1140,6 +1140,22 @@ func (c *ImageTagClient) QueryTagAssignments(_m *ImageTag) *ImageTagAssignmentQu
 	return query
 }
 
+// QueryScheduleItems queries the scheduleItems edge of a ImageTag.
+func (c *ImageTagClient) QueryScheduleItems(_m *ImageTag) *ScheduleItemQuery {
+	query := (&ScheduleItemClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(imagetag.Table, imagetag.FieldID, id),
+			sqlgraph.To(scheduleitem.Table, scheduleitem.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, imagetag.ScheduleItemsTable, imagetag.ScheduleItemsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *ImageTagClient) Hooks() []Hook {
 	return c.hooks.ImageTag
@@ -2037,7 +2053,7 @@ func (c *ScheduleItemClient) QueryTags(_m *ScheduleItem) *ImageTagQuery {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(scheduleitem.Table, scheduleitem.FieldID, id),
 			sqlgraph.To(imagetag.Table, imagetag.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, scheduleitem.TagsTable, scheduleitem.TagsColumn),
+			sqlgraph.Edge(sqlgraph.M2M, false, scheduleitem.TagsTable, scheduleitem.TagsPrimaryKey...),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
