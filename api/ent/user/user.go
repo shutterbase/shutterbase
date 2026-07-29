@@ -64,6 +64,8 @@ const (
 	EdgeActiveProject = "activeProject"
 	// EdgeApiKeys holds the string denoting the apikeys edge name in mutations.
 	EdgeApiKeys = "apiKeys"
+	// EdgeDownloadConfigs holds the string denoting the downloadconfigs edge name in mutations.
+	EdgeDownloadConfigs = "downloadConfigs"
 	// EdgeScheduleItems holds the string denoting the scheduleitems edge name in mutations.
 	EdgeScheduleItems = "scheduleItems"
 	// Table holds the table name of the user in the database.
@@ -110,6 +112,13 @@ const (
 	ApiKeysInverseTable = "api_keys"
 	// ApiKeysColumn is the table column denoting the apiKeys relation/edge.
 	ApiKeysColumn = "user_id"
+	// DownloadConfigsTable is the table that holds the downloadConfigs relation/edge.
+	DownloadConfigsTable = "download_configs"
+	// DownloadConfigsInverseTable is the table name for the DownloadConfig entity.
+	// It exists in this package in order to avoid circular dependency with the "downloadconfig" package.
+	DownloadConfigsInverseTable = "download_configs"
+	// DownloadConfigsColumn is the table column denoting the downloadConfigs relation/edge.
+	DownloadConfigsColumn = "user_id"
 	// ScheduleItemsTable is the table that holds the scheduleItems relation/edge. The primary key declared below.
 	ScheduleItemsTable = "schedule_item_assignees"
 	// ScheduleItemsInverseTable is the table name for the ScheduleItem entity.
@@ -400,6 +409,20 @@ func ByApiKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByDownloadConfigsCount orders the results by downloadConfigs count.
+func ByDownloadConfigsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDownloadConfigsStep(), opts...)
+	}
+}
+
+// ByDownloadConfigs orders the results by downloadConfigs terms.
+func ByDownloadConfigs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDownloadConfigsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByScheduleItemsCount orders the results by scheduleItems count.
 func ByScheduleItemsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -453,6 +476,13 @@ func newApiKeysStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ApiKeysInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ApiKeysTable, ApiKeysColumn),
+	)
+}
+func newDownloadConfigsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DownloadConfigsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DownloadConfigsTable, DownloadConfigsColumn),
 	)
 }
 func newScheduleItemsStep() *sqlgraph.Step {

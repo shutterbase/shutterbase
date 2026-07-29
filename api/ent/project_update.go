@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/predicate"
@@ -308,6 +309,21 @@ func (_u *ProjectUpdate) AddProjectAssignments(v ...*ProjectAssignment) *Project
 	return _u.AddProjectAssignmentIDs(ids...)
 }
 
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (_u *ProjectUpdate) AddDownloadConfigIDs(ids ...string) *ProjectUpdate {
+	_u.mutation.AddDownloadConfigIDs(ids...)
+	return _u
+}
+
+// AddDownloadConfigs adds the "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *ProjectUpdate) AddDownloadConfigs(v ...*DownloadConfig) *ProjectUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDownloadConfigIDs(ids...)
+}
+
 // AddActiveForUserIDs adds the "activeForUsers" edge to the User entity by IDs.
 func (_u *ProjectUpdate) AddActiveForUserIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddActiveForUserIDs(ids...)
@@ -431,6 +447,27 @@ func (_u *ProjectUpdate) RemoveProjectAssignments(v ...*ProjectAssignment) *Proj
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveProjectAssignmentIDs(ids...)
+}
+
+// ClearDownloadConfigs clears all "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *ProjectUpdate) ClearDownloadConfigs() *ProjectUpdate {
+	_u.mutation.ClearDownloadConfigs()
+	return _u
+}
+
+// RemoveDownloadConfigIDs removes the "downloadConfigs" edge to DownloadConfig entities by IDs.
+func (_u *ProjectUpdate) RemoveDownloadConfigIDs(ids ...string) *ProjectUpdate {
+	_u.mutation.RemoveDownloadConfigIDs(ids...)
+	return _u
+}
+
+// RemoveDownloadConfigs removes "downloadConfigs" edges to DownloadConfig entities.
+func (_u *ProjectUpdate) RemoveDownloadConfigs(v ...*DownloadConfig) *ProjectUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDownloadConfigIDs(ids...)
 }
 
 // ClearActiveForUsers clears all "activeForUsers" edges to the User entity.
@@ -821,6 +858,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DownloadConfigsTable,
+			Columns: []string{project.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDownloadConfigsIDs(); len(nodes) > 0 && !_u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DownloadConfigsTable,
+			Columns: []string{project.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DownloadConfigsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DownloadConfigsTable,
+			Columns: []string{project.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.ActiveForUsersCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1159,6 +1241,21 @@ func (_u *ProjectUpdateOne) AddProjectAssignments(v ...*ProjectAssignment) *Proj
 	return _u.AddProjectAssignmentIDs(ids...)
 }
 
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (_u *ProjectUpdateOne) AddDownloadConfigIDs(ids ...string) *ProjectUpdateOne {
+	_u.mutation.AddDownloadConfigIDs(ids...)
+	return _u
+}
+
+// AddDownloadConfigs adds the "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *ProjectUpdateOne) AddDownloadConfigs(v ...*DownloadConfig) *ProjectUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDownloadConfigIDs(ids...)
+}
+
 // AddActiveForUserIDs adds the "activeForUsers" edge to the User entity by IDs.
 func (_u *ProjectUpdateOne) AddActiveForUserIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddActiveForUserIDs(ids...)
@@ -1282,6 +1379,27 @@ func (_u *ProjectUpdateOne) RemoveProjectAssignments(v ...*ProjectAssignment) *P
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveProjectAssignmentIDs(ids...)
+}
+
+// ClearDownloadConfigs clears all "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *ProjectUpdateOne) ClearDownloadConfigs() *ProjectUpdateOne {
+	_u.mutation.ClearDownloadConfigs()
+	return _u
+}
+
+// RemoveDownloadConfigIDs removes the "downloadConfigs" edge to DownloadConfig entities by IDs.
+func (_u *ProjectUpdateOne) RemoveDownloadConfigIDs(ids ...string) *ProjectUpdateOne {
+	_u.mutation.RemoveDownloadConfigIDs(ids...)
+	return _u
+}
+
+// RemoveDownloadConfigs removes "downloadConfigs" edges to DownloadConfig entities.
+func (_u *ProjectUpdateOne) RemoveDownloadConfigs(v ...*DownloadConfig) *ProjectUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDownloadConfigIDs(ids...)
 }
 
 // ClearActiveForUsers clears all "activeForUsers" edges to the User entity.
@@ -1695,6 +1813,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectassignment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DownloadConfigsTable,
+			Columns: []string{project.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDownloadConfigsIDs(); len(nodes) > 0 && !_u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DownloadConfigsTable,
+			Columns: []string{project.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DownloadConfigsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DownloadConfigsTable,
+			Columns: []string{project.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

@@ -19,6 +19,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
@@ -44,6 +45,8 @@ type Client struct {
 	AuditLog *AuditLogClient
 	// Camera is the client for interacting with the Camera builders.
 	Camera *CameraClient
+	// DownloadConfig is the client for interacting with the DownloadConfig builders.
+	DownloadConfig *DownloadConfigClient
 	// Image is the client for interacting with the Image builders.
 	Image *ImageClient
 	// ImageTag is the client for interacting with the ImageTag builders.
@@ -78,6 +81,7 @@ func (c *Client) init() {
 	c.ApiKey = NewApiKeyClient(c.config)
 	c.AuditLog = NewAuditLogClient(c.config)
 	c.Camera = NewCameraClient(c.config)
+	c.DownloadConfig = NewDownloadConfigClient(c.config)
 	c.Image = NewImageClient(c.config)
 	c.ImageTag = NewImageTagClient(c.config)
 	c.ImageTagAssignment = NewImageTagAssignmentClient(c.config)
@@ -183,6 +187,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ApiKey:             NewApiKeyClient(cfg),
 		AuditLog:           NewAuditLogClient(cfg),
 		Camera:             NewCameraClient(cfg),
+		DownloadConfig:     NewDownloadConfigClient(cfg),
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
@@ -215,6 +220,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ApiKey:             NewApiKeyClient(cfg),
 		AuditLog:           NewAuditLogClient(cfg),
 		Camera:             NewCameraClient(cfg),
+		DownloadConfig:     NewDownloadConfigClient(cfg),
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
@@ -254,9 +260,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.ApiKey, c.AuditLog, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment,
-		c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem, c.TimeOffset, c.Upload,
-		c.User,
+		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
+		c.ImageTagAssignment, c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem,
+		c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -266,9 +272,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.ApiKey, c.AuditLog, c.Camera, c.Image, c.ImageTag, c.ImageTagAssignment,
-		c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem, c.TimeOffset, c.Upload,
-		c.User,
+		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
+		c.ImageTagAssignment, c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem,
+		c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -283,6 +289,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AuditLog.mutate(ctx, m)
 	case *CameraMutation:
 		return c.Camera.mutate(ctx, m)
+	case *DownloadConfigMutation:
+		return c.DownloadConfig.mutate(ctx, m)
 	case *ImageMutation:
 		return c.Image.mutate(ctx, m)
 	case *ImageTagMutation:
@@ -784,6 +792,171 @@ func (c *CameraClient) mutate(ctx context.Context, m *CameraMutation) (Value, er
 		return (&CameraDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Camera mutation op: %q", m.Op())
+	}
+}
+
+// DownloadConfigClient is a client for the DownloadConfig schema.
+type DownloadConfigClient struct {
+	config
+}
+
+// NewDownloadConfigClient returns a client for the DownloadConfig from the given config.
+func NewDownloadConfigClient(c config) *DownloadConfigClient {
+	return &DownloadConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `downloadconfig.Hooks(f(g(h())))`.
+func (c *DownloadConfigClient) Use(hooks ...Hook) {
+	c.hooks.DownloadConfig = append(c.hooks.DownloadConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `downloadconfig.Intercept(f(g(h())))`.
+func (c *DownloadConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DownloadConfig = append(c.inters.DownloadConfig, interceptors...)
+}
+
+// Create returns a builder for creating a DownloadConfig entity.
+func (c *DownloadConfigClient) Create() *DownloadConfigCreate {
+	mutation := newDownloadConfigMutation(c.config, OpCreate)
+	return &DownloadConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DownloadConfig entities.
+func (c *DownloadConfigClient) CreateBulk(builders ...*DownloadConfigCreate) *DownloadConfigCreateBulk {
+	return &DownloadConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *DownloadConfigClient) MapCreateBulk(slice any, setFunc func(*DownloadConfigCreate, int)) *DownloadConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &DownloadConfigCreateBulk{err: fmt.Errorf("calling to DownloadConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*DownloadConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &DownloadConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DownloadConfig.
+func (c *DownloadConfigClient) Update() *DownloadConfigUpdate {
+	mutation := newDownloadConfigMutation(c.config, OpUpdate)
+	return &DownloadConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DownloadConfigClient) UpdateOne(_m *DownloadConfig) *DownloadConfigUpdateOne {
+	mutation := newDownloadConfigMutation(c.config, OpUpdateOne, withDownloadConfig(_m))
+	return &DownloadConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DownloadConfigClient) UpdateOneID(id string) *DownloadConfigUpdateOne {
+	mutation := newDownloadConfigMutation(c.config, OpUpdateOne, withDownloadConfigID(id))
+	return &DownloadConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DownloadConfig.
+func (c *DownloadConfigClient) Delete() *DownloadConfigDelete {
+	mutation := newDownloadConfigMutation(c.config, OpDelete)
+	return &DownloadConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DownloadConfigClient) DeleteOne(_m *DownloadConfig) *DownloadConfigDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DownloadConfigClient) DeleteOneID(id string) *DownloadConfigDeleteOne {
+	builder := c.Delete().Where(downloadconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DownloadConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for DownloadConfig.
+func (c *DownloadConfigClient) Query() *DownloadConfigQuery {
+	return &DownloadConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDownloadConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DownloadConfig entity by its id.
+func (c *DownloadConfigClient) Get(ctx context.Context, id string) (*DownloadConfig, error) {
+	return c.Query().Where(downloadconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DownloadConfigClient) GetX(ctx context.Context, id string) *DownloadConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a DownloadConfig.
+func (c *DownloadConfigClient) QueryProject(_m *DownloadConfig) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(downloadconfig.Table, downloadconfig.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, downloadconfig.ProjectTable, downloadconfig.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a DownloadConfig.
+func (c *DownloadConfigClient) QueryUser(_m *DownloadConfig) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(downloadconfig.Table, downloadconfig.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, downloadconfig.UserTable, downloadconfig.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DownloadConfigClient) Hooks() []Hook {
+	return c.hooks.DownloadConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *DownloadConfigClient) Interceptors() []Interceptor {
+	return c.inters.DownloadConfig
+}
+
+func (c *DownloadConfigClient) mutate(ctx context.Context, m *DownloadConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DownloadConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DownloadConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DownloadConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DownloadConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DownloadConfig mutation op: %q", m.Op())
 	}
 }
 
@@ -1527,6 +1700,22 @@ func (c *ProjectClient) QueryProjectAssignments(_m *Project) *ProjectAssignmentQ
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(projectassignment.Table, projectassignment.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.ProjectAssignmentsTable, project.ProjectAssignmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryDownloadConfigs queries the downloadConfigs edge of a Project.
+func (c *ProjectClient) QueryDownloadConfigs(_m *Project) *DownloadConfigQuery {
+	query := (&DownloadConfigClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(downloadconfig.Table, downloadconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.DownloadConfigsTable, project.DownloadConfigsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2668,6 +2857,22 @@ func (c *UserClient) QueryApiKeys(_m *User) *ApiKeyQuery {
 	return query
 }
 
+// QueryDownloadConfigs queries the downloadConfigs edge of a User.
+func (c *UserClient) QueryDownloadConfigs(_m *User) *DownloadConfigQuery {
+	query := (&DownloadConfigClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(downloadconfig.Table, downloadconfig.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.DownloadConfigsTable, user.DownloadConfigsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryScheduleItems queries the scheduleItems edge of a User.
 func (c *UserClient) QueryScheduleItems(_m *User) *ScheduleItemQuery {
 	query := (&ScheduleItemClient{config: c.config}).Query()
@@ -2712,12 +2917,13 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		ApiKey, AuditLog, Camera, Image, ImageTag, ImageTagAssignment, Project,
-		ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload, User []ent.Hook
+		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
+		Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
+		User []ent.Hook
 	}
 	inters struct {
-		ApiKey, AuditLog, Camera, Image, ImageTag, ImageTagAssignment, Project,
-		ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
+		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
+		Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
 		User []ent.Interceptor
 	}
 )

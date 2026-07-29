@@ -45,6 +45,18 @@ func (f CameraFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CameraMutation", m)
 }
 
+// The DownloadConfigFunc type is an adapter to allow the use of ordinary
+// function as DownloadConfig mutator.
+type DownloadConfigFunc func(context.Context, *ent.DownloadConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DownloadConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DownloadConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DownloadConfigMutation", m)
+}
+
 // The ImageFunc type is an adapter to allow the use of ordinary
 // function as Image mutator.
 type ImageFunc func(context.Context, *ent.ImageMutation) (ent.Value, error)

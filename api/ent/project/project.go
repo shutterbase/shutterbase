@@ -54,6 +54,8 @@ const (
 	EdgeScheduleItems = "scheduleItems"
 	// EdgeProjectAssignments holds the string denoting the projectassignments edge name in mutations.
 	EdgeProjectAssignments = "projectAssignments"
+	// EdgeDownloadConfigs holds the string denoting the downloadconfigs edge name in mutations.
+	EdgeDownloadConfigs = "downloadConfigs"
 	// EdgeActiveForUsers holds the string denoting the activeforusers edge name in mutations.
 	EdgeActiveForUsers = "activeForUsers"
 	// Table holds the table name of the project in the database.
@@ -93,6 +95,13 @@ const (
 	ProjectAssignmentsInverseTable = "project_assignments"
 	// ProjectAssignmentsColumn is the table column denoting the projectAssignments relation/edge.
 	ProjectAssignmentsColumn = "project_id"
+	// DownloadConfigsTable is the table that holds the downloadConfigs relation/edge.
+	DownloadConfigsTable = "download_configs"
+	// DownloadConfigsInverseTable is the table name for the DownloadConfig entity.
+	// It exists in this package in order to avoid circular dependency with the "downloadconfig" package.
+	DownloadConfigsInverseTable = "download_configs"
+	// DownloadConfigsColumn is the table column denoting the downloadConfigs relation/edge.
+	DownloadConfigsColumn = "project_id"
 	// ActiveForUsersTable is the table that holds the activeForUsers relation/edge.
 	ActiveForUsersTable = "users"
 	// ActiveForUsersInverseTable is the table name for the User entity.
@@ -314,6 +323,20 @@ func ByProjectAssignments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 	}
 }
 
+// ByDownloadConfigsCount orders the results by downloadConfigs count.
+func ByDownloadConfigsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDownloadConfigsStep(), opts...)
+	}
+}
+
+// ByDownloadConfigs orders the results by downloadConfigs terms.
+func ByDownloadConfigs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDownloadConfigsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByActiveForUsersCount orders the results by activeForUsers count.
 func ByActiveForUsersCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -360,6 +383,13 @@ func newProjectAssignmentsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ProjectAssignmentsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, ProjectAssignmentsTable, ProjectAssignmentsColumn),
+	)
+}
+func newDownloadConfigsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DownloadConfigsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DownloadConfigsTable, DownloadConfigsColumn),
 	)
 }
 func newActiveForUsersStep() *sqlgraph.Step {

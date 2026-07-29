@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/camera"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
@@ -347,6 +348,21 @@ func (_u *UserUpdate) AddApiKeys(v ...*ApiKey) *UserUpdate {
 	return _u.AddApiKeyIDs(ids...)
 }
 
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (_u *UserUpdate) AddDownloadConfigIDs(ids ...string) *UserUpdate {
+	_u.mutation.AddDownloadConfigIDs(ids...)
+	return _u
+}
+
+// AddDownloadConfigs adds the "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *UserUpdate) AddDownloadConfigs(v ...*DownloadConfig) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDownloadConfigIDs(ids...)
+}
+
 // AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
 func (_u *UserUpdate) AddScheduleItemIDs(ids ...string) *UserUpdate {
 	_u.mutation.AddScheduleItemIDs(ids...)
@@ -476,6 +492,27 @@ func (_u *UserUpdate) RemoveApiKeys(v ...*ApiKey) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveApiKeyIDs(ids...)
+}
+
+// ClearDownloadConfigs clears all "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *UserUpdate) ClearDownloadConfigs() *UserUpdate {
+	_u.mutation.ClearDownloadConfigs()
+	return _u
+}
+
+// RemoveDownloadConfigIDs removes the "downloadConfigs" edge to DownloadConfig entities by IDs.
+func (_u *UserUpdate) RemoveDownloadConfigIDs(ids ...string) *UserUpdate {
+	_u.mutation.RemoveDownloadConfigIDs(ids...)
+	return _u
+}
+
+// RemoveDownloadConfigs removes "downloadConfigs" edges to DownloadConfig entities.
+func (_u *UserUpdate) RemoveDownloadConfigs(v ...*DownloadConfig) *UserUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDownloadConfigIDs(ids...)
 }
 
 // ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
@@ -894,6 +931,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DownloadConfigsTable,
+			Columns: []string{user.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDownloadConfigsIDs(); len(nodes) > 0 && !_u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DownloadConfigsTable,
+			Columns: []string{user.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DownloadConfigsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DownloadConfigsTable,
+			Columns: []string{user.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.ScheduleItemsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2M,
@@ -1269,6 +1351,21 @@ func (_u *UserUpdateOne) AddApiKeys(v ...*ApiKey) *UserUpdateOne {
 	return _u.AddApiKeyIDs(ids...)
 }
 
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (_u *UserUpdateOne) AddDownloadConfigIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.AddDownloadConfigIDs(ids...)
+	return _u
+}
+
+// AddDownloadConfigs adds the "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *UserUpdateOne) AddDownloadConfigs(v ...*DownloadConfig) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDownloadConfigIDs(ids...)
+}
+
 // AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
 func (_u *UserUpdateOne) AddScheduleItemIDs(ids ...string) *UserUpdateOne {
 	_u.mutation.AddScheduleItemIDs(ids...)
@@ -1398,6 +1495,27 @@ func (_u *UserUpdateOne) RemoveApiKeys(v ...*ApiKey) *UserUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveApiKeyIDs(ids...)
+}
+
+// ClearDownloadConfigs clears all "downloadConfigs" edges to the DownloadConfig entity.
+func (_u *UserUpdateOne) ClearDownloadConfigs() *UserUpdateOne {
+	_u.mutation.ClearDownloadConfigs()
+	return _u
+}
+
+// RemoveDownloadConfigIDs removes the "downloadConfigs" edge to DownloadConfig entities by IDs.
+func (_u *UserUpdateOne) RemoveDownloadConfigIDs(ids ...string) *UserUpdateOne {
+	_u.mutation.RemoveDownloadConfigIDs(ids...)
+	return _u
+}
+
+// RemoveDownloadConfigs removes "downloadConfigs" edges to DownloadConfig entities.
+func (_u *UserUpdateOne) RemoveDownloadConfigs(v ...*DownloadConfig) *UserUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDownloadConfigIDs(ids...)
 }
 
 // ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
@@ -1839,6 +1957,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DownloadConfigsTable,
+			Columns: []string{user.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDownloadConfigsIDs(); len(nodes) > 0 && !_u.mutation.DownloadConfigsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DownloadConfigsTable,
+			Columns: []string{user.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DownloadConfigsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DownloadConfigsTable,
+			Columns: []string{user.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

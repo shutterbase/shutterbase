@@ -14,6 +14,7 @@ import * as users from "./users";
 import * as auth from "./auth";
 import * as statistics from "./statistics";
 import * as apiKeys from "./apiKeys";
+import * as downloadConfigs from "./downloadConfigs";
 
 export const api = {
   ai,
@@ -31,6 +32,7 @@ export const api = {
   auth,
   statistics,
   apiKeys,
+  downloadConfigs,
 };
 
 export default api;
