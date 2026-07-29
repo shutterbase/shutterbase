@@ -43,6 +43,8 @@ const (
 	FieldAiStatus = "ai_status"
 	// FieldAiQueuedAt holds the string denoting the aiqueuedat field in the database.
 	FieldAiQueuedAt = "ai_queued_at"
+	// FieldAiScope holds the string denoting the aiscope field in the database.
+	FieldAiScope = "ai_scope"
 	// FieldAiAttempts holds the string denoting the aiattempts field in the database.
 	FieldAiAttempts = "ai_attempts"
 	// FieldAiError holds the string denoting the aierror field in the database.
@@ -127,6 +129,7 @@ var Columns = []string{
 	FieldInferredAt,
 	FieldAiStatus,
 	FieldAiQueuedAt,
+	FieldAiScope,
 	FieldAiAttempts,
 	FieldAiError,
 	FieldSize,
@@ -266,6 +269,11 @@ func ByAiStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByAiQueuedAt orders the results by the aiQueuedAt field.
 func ByAiQueuedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAiQueuedAt, opts...).ToFunc()
+}
+
+// ByAiScope orders the results by the aiScope field.
+func ByAiScope(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiScope, opts...).ToFunc()
 }
 
 // ByAiAttempts orders the results by the aiAttempts field.

@@ -35,6 +35,7 @@ func (s *Server) registerAIRoutes(api *gin.RouterGroup) {
 	api.POST("/projects/:id/ai/rerun", s.aiRerunBatch)
 	api.POST("/projects/:id/ai/rerun-failed", s.aiRerunFailed)
 	api.POST("/projects/:id/ai/rerun-all", s.aiRerunAll)
+	api.POST("/projects/:id/ai/rerun-numbers", s.aiRerunNumbers)
 	api.POST("/projects/:id/ai/recluster", s.aiRecluster)
 	api.GET("/projects/:id/ai/persons/:personRef/images", s.aiPersonImages)
 	// People overview + merge review are global (persons span projects):
@@ -253,7 +254,31 @@ func (s *Server) aiRerunAll(c *gin.Context) {
 	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
 		return
 	}
-	queued, err := s.ai.EnqueueProject(projectID)
+	queued, err := s.ai.EnqueueProject(projectID, "")
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"queued": queued})
+}
+
+// aiRerunNumbers re-queues every image for a vision-only car-number re-read
+// against the AI server's currently configured model. Stored embeddings, faces
+// and descriptions are kept, so it is far cheaper than rerun-all. Scoped runs
+// only exist in the aiserver contract, hence the remote guard. Settings-page
+// action, projectAdmin+.
+func (s *Server) aiRerunNumbers(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	if _, ok := s.remote(c); !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	queued, err := s.ai.EnqueueProject(projectID, aiserver.ScopeNumbers)
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return

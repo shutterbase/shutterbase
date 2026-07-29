@@ -239,6 +239,26 @@ func (_u *ImageUpdate) ClearAiQueuedAt() *ImageUpdate {
 	return _u
 }
 
+// SetAiScope sets the "aiScope" field.
+func (_u *ImageUpdate) SetAiScope(v string) *ImageUpdate {
+	_u.mutation.SetAiScope(v)
+	return _u
+}
+
+// SetNillableAiScope sets the "aiScope" field if the given value is not nil.
+func (_u *ImageUpdate) SetNillableAiScope(v *string) *ImageUpdate {
+	if v != nil {
+		_u.SetAiScope(*v)
+	}
+	return _u
+}
+
+// ClearAiScope clears the value of the "aiScope" field.
+func (_u *ImageUpdate) ClearAiScope() *ImageUpdate {
+	_u.mutation.ClearAiScope()
+	return _u
+}
+
 // SetAiAttempts sets the "aiAttempts" field.
 func (_u *ImageUpdate) SetAiAttempts(v int) *ImageUpdate {
 	_u.mutation.ResetAiAttempts()
@@ -662,6 +682,12 @@ func (_u *ImageUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if _u.mutation.AiQueuedAtCleared() {
 		_spec.ClearField(image.FieldAiQueuedAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.AiScope(); ok {
+		_spec.SetField(image.FieldAiScope, field.TypeString, value)
+	}
+	if _u.mutation.AiScopeCleared() {
+		_spec.ClearField(image.FieldAiScope, field.TypeString)
+	}
 	if value, ok := _u.mutation.AiAttempts(); ok {
 		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)
 	}
@@ -1080,6 +1106,26 @@ func (_u *ImageUpdateOne) SetNillableAiQueuedAt(v *time.Time) *ImageUpdateOne {
 // ClearAiQueuedAt clears the value of the "aiQueuedAt" field.
 func (_u *ImageUpdateOne) ClearAiQueuedAt() *ImageUpdateOne {
 	_u.mutation.ClearAiQueuedAt()
+	return _u
+}
+
+// SetAiScope sets the "aiScope" field.
+func (_u *ImageUpdateOne) SetAiScope(v string) *ImageUpdateOne {
+	_u.mutation.SetAiScope(v)
+	return _u
+}
+
+// SetNillableAiScope sets the "aiScope" field if the given value is not nil.
+func (_u *ImageUpdateOne) SetNillableAiScope(v *string) *ImageUpdateOne {
+	if v != nil {
+		_u.SetAiScope(*v)
+	}
+	return _u
+}
+
+// ClearAiScope clears the value of the "aiScope" field.
+func (_u *ImageUpdateOne) ClearAiScope() *ImageUpdateOne {
+	_u.mutation.ClearAiScope()
 	return _u
 }
 
@@ -1535,6 +1581,12 @@ func (_u *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error)
 	}
 	if _u.mutation.AiQueuedAtCleared() {
 		_spec.ClearField(image.FieldAiQueuedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.AiScope(); ok {
+		_spec.SetField(image.FieldAiScope, field.TypeString, value)
+	}
+	if _u.mutation.AiScopeCleared() {
+		_spec.ClearField(image.FieldAiScope, field.TypeString)
 	}
 	if value, ok := _u.mutation.AiAttempts(); ok {
 		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)

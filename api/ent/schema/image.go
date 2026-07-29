@@ -30,6 +30,10 @@ func (Image) Fields() []ent.Field {
 		// aiQueuedAt — so it survives restarts.
 		field.Enum("aiStatus").Values("pending", "processing", "done", "error").Optional().Nillable().StructTag(`json:"aiStatus,omitempty"`),
 		field.Time("aiQueuedAt").Optional().Nillable().StructTag(`json:"-"`),
+		// Scope of the queued (re)run: "" = full analysis, "numbers" = vision-only
+		// car-number re-read (aiserver.ScopeNumbers). Persisted so a restart
+		// doesn't silently upgrade a cheap numbers backlog into full reruns.
+		field.String("aiScope").Optional().StructTag(`json:"-"`),
 		field.Int("aiAttempts").Default(0).StructTag(`json:"-"`),
 		field.String("aiError").Optional().StructTag(`json:"aiError,omitempty"`),
 		field.Int("size").NonNegative().StructTag(`json:"size"`),

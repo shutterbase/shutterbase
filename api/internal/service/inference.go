@@ -25,6 +25,9 @@ type InferenceRequest struct {
 	AvailableTags []string
 	CapturedAt    *time.Time
 	Author        string
+	// Scope narrows a rerun (aiserver.ScopeNumbers = vision-only car-number
+	// re-read). Only the http provider forwards it; the others run full.
+	Scope string
 }
 
 // InferredTag is one tag with the provider's confidence (1.0 when the provider
@@ -148,6 +151,7 @@ func (h *HTTPInference) Infer(ctx context.Context, req InferenceRequest) ([]Infe
 		ImageURL:   req.ImageURL,
 		CapturedAt: req.CapturedAt,
 		Author:     req.Author,
+		Scope:      req.Scope,
 	})
 	if err != nil {
 		return nil, err

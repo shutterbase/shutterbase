@@ -38,7 +38,7 @@
           <button
             type="button"
             class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
-            :disabled="rerunningFailed || rerunningAll"
+            :disabled="rerunningFailed || rerunningAll || rerunningNumbers"
             @click="rerunFailed"
           >
             <ArrowPathIcon class="h-4 w-4" />
@@ -47,7 +47,7 @@
           <button
             type="button"
             class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
-            :disabled="rerunningFailed || rerunningAll"
+            :disabled="rerunningFailed || rerunningAll || rerunningNumbers"
             @click="showRecomputeConfirm = true"
           >
             <ArrowPathIcon class="h-4 w-4" />
@@ -56,7 +56,16 @@
           <button
             type="button"
             class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
-            :disabled="rerunningFailed || rerunningAll"
+            :disabled="rerunningFailed || rerunningAll || rerunningNumbers"
+            @click="showRerunNumbersConfirm = true"
+          >
+            <ArrowPathIcon class="h-4 w-4" />
+            Re-read car numbers
+          </button>
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
+            :disabled="rerunningFailed || rerunningAll || rerunningNumbers"
             @click="showReclusterConfirm = true"
           >
             <ArrowPathIcon class="h-4 w-4" />
@@ -83,6 +92,16 @@
     cancelText="Cancel"
     @confirmed="rerunAll"
     @closed="showRecomputeConfirm = false"
+  />
+  <ModalMessage
+    :show="showRerunNumbersConfirm"
+    :type="MessageType.CONFIRM_WARNING"
+    headline="Re-read car numbers?"
+    message="Every image of this project is re-queued for a car-number re-read with the currently configured AI model. Number and scene tags are recomputed; faces, similarity data and descriptions are kept. Cheaper than a full recompute, but the run still costs AI credits."
+    confirmText="Re-read numbers"
+    cancelText="Cancel"
+    @confirmed="rerunNumbers"
+    @closed="showRerunNumbersConfirm = false"
   />
   <ModalMessage
     :show="showReclusterConfirm"
@@ -195,6 +214,26 @@ async function rerunAll() {
     showUnexpectedErrorMessage.value = true;
   } finally {
     rerunningAll.value = false;
+  }
+}
+
+const rerunningNumbers = ref(false);
+const showRerunNumbersConfirm = ref(false);
+async function rerunNumbers() {
+  if (!item.value) return;
+  showRerunNumbersConfirm.value = false;
+  rerunningNumbers.value = true;
+  try {
+    const queued = await api.ai.rerunNumbers(item.value.id);
+    showNotificationToast({
+      headline: queued === 0 ? "No images to re-read" : `Car-number re-read queued for ${queued} image${queued === 1 ? "" : "s"}`,
+      type: "success",
+    });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    rerunningNumbers.value = false;
   }
 }
 

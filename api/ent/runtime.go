@@ -193,19 +193,19 @@ func init() {
 	// image.DefaultImageTags holds the default value on creation for the imageTags field.
 	image.DefaultImageTags = imageDescImageTags.Default.([]string)
 	// imageDescAiAttempts is the schema descriptor for aiAttempts field.
-	imageDescAiAttempts := imageFields[10].Descriptor()
+	imageDescAiAttempts := imageFields[11].Descriptor()
 	// image.DefaultAiAttempts holds the default value on creation for the aiAttempts field.
 	image.DefaultAiAttempts = imageDescAiAttempts.Default.(int)
 	// imageDescSize is the schema descriptor for size field.
-	imageDescSize := imageFields[12].Descriptor()
+	imageDescSize := imageFields[13].Descriptor()
 	// image.SizeValidator is a validator for the "size" field. It is called by the builders before save.
 	image.SizeValidator = imageDescSize.Validators[0].(func(int) error)
 	// imageDescWidth is the schema descriptor for width field.
-	imageDescWidth := imageFields[13].Descriptor()
+	imageDescWidth := imageFields[14].Descriptor()
 	// image.WidthValidator is a validator for the "width" field. It is called by the builders before save.
 	image.WidthValidator = imageDescWidth.Validators[0].(func(int) error)
 	// imageDescHeight is the schema descriptor for height field.
-	imageDescHeight := imageFields[14].Descriptor()
+	imageDescHeight := imageFields[15].Descriptor()
 	// image.HeightValidator is a validator for the "height" field. It is called by the builders before save.
 	image.HeightValidator = imageDescHeight.Validators[0].(func(int) error)
 	// imageDescID is the schema descriptor for id field.
