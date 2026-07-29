@@ -222,10 +222,13 @@ watch(
   { immediate: true },
 );
 
-// Any tag type is a valid download filter (albums, custom "error", internal…).
+// Any concrete tag type is a valid download filter (albums, custom "error",
+// internal…). Template tags ($DATE, $WEEKDAY…) are resolved at upload time —
+// no image ever carries the template itself, so offering them here would
+// silently match nothing.
 function tagOptions(exclude: string[]): SearchSelectOption[] {
   return props.projectTags
-    .filter((t) => !exclude.includes(t.id))
+    .filter((t) => t.type !== "template" && !exclude.includes(t.id))
     .map((t) => ({ value: t.id, label: t.name, hint: t.type }))
     .sort((a, b) => a.label.localeCompare(b.label));
 }

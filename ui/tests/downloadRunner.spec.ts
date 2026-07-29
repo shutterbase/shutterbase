@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { isExcluded, needsDownload, targetSegments, downloadFileName, DELTA_SAFETY_MARGIN_MS } from "src/util/downloadRunner";
+import { classifyImage, planDownload, isExcluded, targetSegments, downloadFileName, DELTA_SAFETY_MARGIN_MS } from "src/util/downloadRunner";
+import { DownloadConfig, Image } from "src/types/api";
 
 const config = {
   blacklistTagIds: ["internal"],
@@ -7,9 +8,14 @@ const config = {
   lastDownloadAt: "2026-07-28T12:00:00Z",
   deltaSubfolder: false,
   groupByDate: false,
-};
+} as unknown as DownloadConfig;
 
-const image = { id: "img000000000001", computedFileName: "FSG26_001_max", imageTags: ["podium"], updatedAt: "2026-07-28T09:00:00Z" };
+const image = {
+  id: "img000000000001",
+  computedFileName: "FSG26_001_max",
+  imageTags: ["podium"],
+  updatedAt: "2026-07-28T09:00:00Z",
+} as unknown as Image;
 
 describe("downloadFileName", () => {
   it("appends .jpg to the computed name", () => {
@@ -35,26 +41,55 @@ describe("isExcluded", () => {
   });
 });
 
-describe("needsDownload", () => {
+describe("classifyImage", () => {
   const existing = new Set(["FSG26_001_max.jpg"]);
 
-  it("downloads everything on a full run", () => {
-    expect(needsDownload(image, config, existing, { delta: false })).toBe(true);
+  it("marks missing files as new", () => {
+    expect(classifyImage(image, config, new Set())).toBe("new");
   });
-  it("downloads missing files on a delta run", () => {
-    expect(needsDownload(image, config, new Set(), { delta: true })).toBe(true);
+  it("marks existing untouched files as present", () => {
+    expect(classifyImage(image, config, existing)).toBe("present");
   });
-  it("skips existing files older than the delta window", () => {
-    expect(needsDownload(image, config, existing, { delta: true })).toBe(false);
+  it("marks files updated after lastDownloadAt minus the safety margin as changed", () => {
+    expect(classifyImage({ ...image, updatedAt: "2026-07-28T12:30:00Z" }, config, existing)).toBe("changed");
+    const margin = new Date(new Date(config.lastDownloadAt!).getTime() - DELTA_SAFETY_MARGIN_MS / 2).toISOString();
+    expect(classifyImage({ ...image, updatedAt: margin }, config, existing)).toBe("changed");
   });
-  it("re-downloads files updated after lastDownloadAt minus the safety margin", () => {
-    const updated = { ...image, updatedAt: "2026-07-28T12:30:00Z" };
-    expect(needsDownload(updated, config, existing, { delta: true })).toBe(true);
-    const margin = new Date(new Date(config.lastDownloadAt).getTime() - DELTA_SAFETY_MARGIN_MS / 2).toISOString();
-    expect(needsDownload({ ...image, updatedAt: margin }, config, existing, { delta: true })).toBe(true);
+  it("marks blacklisted images as excluded before anything else", () => {
+    expect(classifyImage({ ...image, imageTags: ["internal"] }, config, new Set())).toBe("excluded");
   });
-  it("skips existing files when the config never completed a run", () => {
-    expect(needsDownload(image, { lastDownloadAt: null }, existing, { delta: true })).toBe(false);
+  it("treats existing files as present when the config never completed a run", () => {
+    expect(classifyImage(image, { ...config, lastDownloadAt: null }, existing)).toBe("present");
+  });
+});
+
+describe("planDownload", () => {
+  const images = [
+    image, // present
+    { ...image, id: "img2", computedFileName: "FSG26_002_max" }, // new
+    { ...image, id: "img3", updatedAt: "2026-07-28T13:00:00Z" }, // changed (same file name as img1 — use distinct name)
+    { ...image, id: "img4", computedFileName: "FSG26_004_max", imageTags: ["internal"] }, // excluded
+  ] as Image[];
+  // distinct file for the changed case
+  images[2] = { ...images[2], computedFileName: "FSG26_003_max" } as Image;
+  const existing = new Set(["FSG26_001_max.jpg", "FSG26_003_max.jpg"]);
+
+  it("counts all four statuses", () => {
+    const plan = planDownload(images, config, existing, { delta: true });
+    expect(plan.counts).toEqual({ present: 1, new: 1, changed: 1, excluded: 1 });
+  });
+  it("delta wants only new + changed", () => {
+    const plan = planDownload(images, config, existing, { delta: true });
+    expect(plan.wanted.map((i) => i.id)).toEqual(["img2", "img3"]);
+  });
+  it("full wants everything except excluded", () => {
+    const plan = planDownload(images, config, existing, { delta: false });
+    expect(plan.wanted.map((i) => i.id)).toEqual([image.id, "img2", "img3"]);
+  });
+  it("statuses map is keyed by image id", () => {
+    const plan = planDownload(images, config, existing, { delta: true });
+    expect(plan.statuses.get("img4")).toBe("excluded");
+    expect(plan.statuses.get("img2")).toBe("new");
   });
 });
 

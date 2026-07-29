@@ -33,20 +33,51 @@ export function isExcluded(image: Pick<Image, "id" | "computedFileName" | "image
   return config.blacklistTagIds.some((tagId) => (image.imageTags ?? []).includes(tagId));
 }
 
-// needsDownload: CLI delta semantics. existingFiles holds basenames found
-// anywhere under the target directory (recursive), so files from earlier
-// full runs, date folders or delta subfolders all count as present.
-export function needsDownload(
-  image: Pick<Image, "computedFileName" | "updatedAt">,
-  config: Pick<DownloadConfig, "lastDownloadAt">,
+// ImageStatus drives both the preview grid and the run plan:
+//   excluded — blacklist tag or blocklist entry
+//   new      — no local file yet, will be downloaded
+//   changed  — local file exists but the image was updated after the delta
+//              window start, will be re-downloaded
+//   present  — local file exists and is up to date
+export type ImageStatus = "excluded" | "new" | "changed" | "present";
+
+export function classifyImage(
+  image: Pick<Image, "id" | "computedFileName" | "imageTags" | "updatedAt">,
+  config: Pick<DownloadConfig, "blacklistTagIds" | "blockedImageIds" | "lastDownloadAt">,
   existingFiles: Set<string>,
-  options: Pick<RunOptions, "delta">,
-): boolean {
-  if (!options.delta) return true;
-  if (!existingFiles.has(downloadFileName(image))) return true;
-  if (!config.lastDownloadAt) return false;
-  const windowStart = new Date(config.lastDownloadAt).getTime() - DELTA_SAFETY_MARGIN_MS;
-  return new Date(image.updatedAt).getTime() > windowStart;
+): ImageStatus {
+  if (isExcluded(image, config)) return "excluded";
+  if (!existingFiles.has(downloadFileName(image))) return "new";
+  if (config.lastDownloadAt) {
+    const windowStart = new Date(config.lastDownloadAt).getTime() - DELTA_SAFETY_MARGIN_MS;
+    if (new Date(image.updatedAt).getTime() > windowStart) return "changed";
+  }
+  return "present";
+}
+
+export interface DownloadPlan {
+  statuses: Map<string, ImageStatus>; // by image id
+  counts: Record<ImageStatus, number>;
+  // download order for the given mode: full = everything not excluded,
+  // delta = new + changed only
+  wanted: Image[];
+}
+
+// planDownload is the single source of truth shared by the preview panel and
+// the actual run — what the preview shows is exactly what a run would do.
+export function planDownload(images: Image[], config: DownloadConfig, existingFiles: Set<string>, options: Pick<RunOptions, "delta">): DownloadPlan {
+  const statuses = new Map<string, ImageStatus>();
+  const counts: Record<ImageStatus, number> = { excluded: 0, new: 0, changed: 0, present: 0 };
+  const wanted: Image[] = [];
+  for (const image of images) {
+    const status = classifyImage(image, config, existingFiles);
+    statuses.set(image.id, status);
+    counts[status]++;
+    if (status === "new" || status === "changed" || (!options.delta && status === "present")) {
+      wanted.push(image);
+    }
+  }
+  return { statuses, counts, wanted };
 }
 
 // targetSegments: folder path (without the file name) inside the picked
@@ -72,11 +103,18 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+export interface FileProgress {
+  fileName: string;
+  received: number;
+  total: number; // 0 when the server sends no content-length
+}
+
 export interface RunProgress {
   total: number;
   done: number;
   failed: string[]; // computedFileNames that exhausted retries
-  skipped: number; // images filtered out (delta up-to-date, blacklist, blocked)
+  skipped: number; // images not part of this run (excluded / already present)
+  workers: (FileProgress | null)[]; // per-parallel-slot file progress
 }
 
 // ---- File System Access API glue (Chromium desktop only) ----
@@ -115,9 +153,9 @@ async function ensureDirectory(root: FileSystemDirectoryHandle, segments: string
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // downloadImageToDirectory streams one original into the target folder,
-// retrying on failure. The writable is aborted on error, so a broken stream
-// never leaves a partial file behind.
-export async function downloadImageToDirectory(image: Image, root: FileSystemDirectoryHandle, segments: string[]): Promise<void> {
+// retrying on failure and reporting byte progress. The writable is aborted on
+// error, so a broken stream never leaves a partial file behind.
+export async function downloadImageToDirectory(image: Image, root: FileSystemDirectoryHandle, segments: string[], onProgress?: (p: FileProgress) => void): Promise<void> {
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= RETRY_COUNT; attempt++) {
     if (attempt > 0) await sleep(RETRY_WAIT_MS);
@@ -126,11 +164,21 @@ export async function downloadImageToDirectory(image: Image, root: FileSystemDir
       if (!response.ok || !response.body) {
         throw new Error(`download of ${image.computedFileName} failed: status ${response.status}`);
       }
+      const total = Number(response.headers.get("content-length") ?? 0);
       const dir = await ensureDirectory(root, segments);
       const fileHandle = await dir.getFileHandle(downloadFileName(image), { create: true });
       const writable = await fileHandle.createWritable();
+      const reader = response.body.getReader();
+      let received = 0;
       try {
-        await response.body.pipeTo(writable);
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          await writable.write(value);
+          received += value.byteLength;
+          onProgress?.({ fileName: image.computedFileName, received, total });
+        }
+        await writable.close();
       } catch (streamError) {
         await writable.abort().catch(() => undefined);
         throw streamError;
@@ -143,35 +191,51 @@ export async function downloadImageToDirectory(image: Image, root: FileSystemDir
   throw lastError;
 }
 
-// runDownload executes the plan with a small worker pool. Returns the final
-// progress; the caller persists lastDownloadAt only when nothing failed.
+// runDownload executes a precomputed plan with a small worker pool. Returns
+// the final progress; the caller persists lastDownloadAt only when the run
+// completed (not aborted).
 export async function runDownload(
-  images: Image[],
+  plan: DownloadPlan,
   config: DownloadConfig,
   root: FileSystemDirectoryHandle,
   options: RunOptions,
   onProgress: (p: RunProgress) => void,
   shouldAbort: () => boolean,
 ): Promise<RunProgress> {
-  const existing = await collectExistingFiles(root);
-  const wanted = images.filter((img) => !isExcluded(img, config) && needsDownload(img, config, existing, options));
-  const progress: RunProgress = { total: wanted.length, done: 0, failed: [], skipped: images.length - wanted.length };
-  onProgress({ ...progress });
+  const progress: RunProgress = {
+    total: plan.wanted.length,
+    done: 0,
+    failed: [],
+    skipped: plan.statuses.size - plan.wanted.length,
+    workers: Array.from({ length: PARALLELISM }, () => null),
+  };
+  onProgress({ ...progress, workers: [...progress.workers] });
+  const emit = () => onProgress({ ...progress, workers: [...progress.workers] });
 
-  const queue = [...wanted];
-  const worker = async (): Promise<void> => {
+  const queue = [...plan.wanted];
+  const worker = async (slot: number): Promise<void> => {
     for (;;) {
       const image = queue.shift();
-      if (!image || shouldAbort()) return;
+      if (!image || shouldAbort()) {
+        progress.workers[slot] = null;
+        emit();
+        return;
+      }
+      progress.workers[slot] = { fileName: image.computedFileName, received: 0, total: 0 };
+      emit();
       try {
-        await downloadImageToDirectory(image, root, targetSegments(image, config, options));
+        await downloadImageToDirectory(image, root, targetSegments(image, config, options), (p) => {
+          progress.workers[slot] = p;
+          emit();
+        });
       } catch {
         progress.failed.push(image.computedFileName);
       }
       progress.done++;
-      onProgress({ ...progress });
+      progress.workers[slot] = null;
+      emit();
     }
   };
-  await Promise.all(Array.from({ length: PARALLELISM }, () => worker()));
+  await Promise.all(Array.from({ length: PARALLELISM }, (_, slot) => worker(slot)));
   return progress;
 }
