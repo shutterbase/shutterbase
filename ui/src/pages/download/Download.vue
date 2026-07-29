@@ -25,7 +25,9 @@
           <div class="min-w-0">
             <p class="text-sm font-semibold text-primary-900 dark:text-white">{{ run.configName }} — {{ run.delta ? "delta" : "full" }} download</p>
             <p class="mt-0.5 text-xs tabular-nums text-primary-500 dark:text-primary-400">
-              {{ run.progress.done }} / {{ run.progress.total }} downloaded
+              {{ run.progress.done }} / {{ run.progress.total }} images
+              <span v-if="run.progress.bytesTotal"> · {{ formatBytes(overallBytes) }} / {{ formatBytes(run.progress.bytesTotal) }}</span>
+              <span v-if="etaSeconds !== null" class="font-semibold text-primary-700 dark:text-primary-200"> · ~{{ formatDuration(etaSeconds) }} remaining</span>
               <span v-if="run.progress.skipped"> · {{ run.progress.skipped }} skipped</span>
               <span v-if="run.progress.failed.length" class="text-red-600 dark:text-red-400"> · {{ run.progress.failed.length }} failed</span>
             </p>
@@ -34,10 +36,7 @@
           <button v-else type="button" class="btn-secondary" @click="run = null">Dismiss</button>
         </div>
         <div class="mt-3 h-2 overflow-hidden rounded-full bg-primary-100 dark:bg-primary-800">
-          <div
-            class="h-full rounded-full bg-accent-500 transition-all"
-            :style="{ width: run.progress.total ? `${(run.progress.done / run.progress.total) * 100}%` : '100%' }"
-          ></div>
+          <div class="h-full rounded-full bg-accent-500 transition-all" :style="{ width: `${overallPercent}%` }"></div>
         </div>
         <div v-if="!run.finished" class="mt-3 space-y-2">
           <div v-for="(worker, slot) in run.progress.workers" :key="slot" class="flex items-center gap-3">
@@ -49,11 +48,13 @@
                 v-if="worker"
                 class="h-full rounded-full bg-accent-400 transition-all"
                 :class="{ 'animate-pulse': !worker.total }"
-                :style="{ width: worker.total ? `${(worker.received / worker.total) * 100}%` : '100%' }"
+                :style="{ width: worker.total ? `${Math.min(100, (worker.received / worker.total) * 100)}%` : '100%' }"
               ></div>
             </div>
-            <span class="w-20 text-right font-mono text-[11px] tabular-nums text-primary-400">
-              {{ worker ? formatBytes(worker.received) : "" }}
+            <span class="w-32 text-right font-mono text-[11px] tabular-nums text-primary-400">
+              <template v-if="worker"
+                >{{ formatBytes(worker.received) }}<template v-if="worker.total"> / {{ formatBytes(worker.total) }}</template></template
+              >
             </span>
           </div>
         </div>
@@ -215,6 +216,9 @@ import { ensurePermission, getStoredDirHandle, storeDirHandle } from "src/util/d
 import {
   collectExistingFiles,
   DownloadPlan,
+  estimateEtaSeconds,
+  formatBytes,
+  formatDuration,
   ImageStatus,
   isDirectoryPickerSupported,
   pickDirectory,
@@ -284,7 +288,24 @@ function tagName(id: string): string {
   return projectTags.value.find((t) => t.id === id)?.name ?? id;
 }
 const formatDateTime = (iso: string) => DateTime.fromISO(iso).toLocaleString(DateTime.DATETIME_SHORT);
-const formatBytes = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.round(n / 1024)} kB`);
+// Overall data progress = completed files + everything the workers have
+// streamed so far, so the bar moves smoothly instead of jumping per file.
+const overallBytes = computed(() => {
+  const p = run.value?.progress;
+  if (!p) return 0;
+  return p.bytesDone + p.workers.reduce((sum, w) => sum + (w?.received ?? 0), 0);
+});
+const overallPercent = computed(() => {
+  const p = run.value?.progress;
+  if (!p) return 0;
+  if (p.bytesTotal) return Math.min(100, (overallBytes.value / p.bytesTotal) * 100);
+  return p.total ? (p.done / p.total) * 100 : 0;
+});
+const etaSeconds = computed(() => {
+  const p = run.value?.progress;
+  if (!p || run.value?.finished) return null;
+  return estimateEtaSeconds(overallBytes.value, p.bytesTotal, Date.now() - p.startedAt);
+});
 
 const statusLabel = (s?: ImageStatus) => ({ new: "new", changed: "changed", present: "present", excluded: "excluded" })[s ?? "present"];
 function statusBadgeClass(s?: ImageStatus): string {
@@ -425,14 +446,17 @@ async function startRun(config: DownloadConfig, delta: boolean) {
   const directory = preview.value?.config.id === config.id ? preview.value.directory : await getDirectory(config);
   if (!directory) return;
   const runStart = new Date();
-  const state: RunState = {
+  run.value = {
     configName: config.name,
     delta,
-    progress: { total: 0, done: 0, failed: [], skipped: 0, workers: [] },
+    progress: { total: 0, done: 0, failed: [], skipped: 0, bytesTotal: 0, bytesDone: 0, startedAt: Date.now(), workers: [] },
     finished: false,
     aborted: false,
   };
-  run.value = state;
+  // Work through the ref's reactive proxy — mutating the raw object the ref
+  // was created from bypasses Vue's tracking and freezes the panel at 0/0
+  // (the original bug this rewrite fixes).
+  const state = run.value;
   preview.value = null; // the run invalidates the preview's counts
   try {
     // Re-plan at run time — the preview may be minutes old.
