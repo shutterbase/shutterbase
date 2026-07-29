@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { classifyImage, planDownload, isExcluded, targetSegments, downloadFileName, DELTA_SAFETY_MARGIN_MS } from "src/util/downloadRunner";
+import {
+  classifyImage,
+  planDownload,
+  isExcluded,
+  targetSegments,
+  downloadFileName,
+  estimateEtaSeconds,
+  formatBytes,
+  formatDuration,
+  DELTA_SAFETY_MARGIN_MS,
+} from "src/util/downloadRunner";
 import { DownloadConfig, Image } from "src/types/api";
 
 const config = {
@@ -90,6 +100,32 @@ describe("planDownload", () => {
     const plan = planDownload(images, config, existing, { delta: true });
     expect(plan.statuses.get("img4")).toBe("excluded");
     expect(plan.statuses.get("img2")).toBe("new");
+  });
+});
+
+describe("estimateEtaSeconds", () => {
+  it("computes remaining seconds from the average rate", () => {
+    // 100 MB done in 10s -> 10 MB/s; 300 MB remaining -> 30s
+    expect(estimateEtaSeconds(100e6, 400e6, 10_000)).toBe(30);
+  });
+  it("returns null until there is signal", () => {
+    expect(estimateEtaSeconds(0, 400e6, 10_000)).toBeNull(); // nothing moved
+    expect(estimateEtaSeconds(1e6, 400e6, 1000)).toBeNull(); // too early
+    expect(estimateEtaSeconds(400e6, 400e6, 10_000)).toBeNull(); // finished
+    expect(estimateEtaSeconds(1e6, 0, 10_000)).toBeNull(); // unknown total
+  });
+});
+
+describe("formatters", () => {
+  it("formatBytes picks a sensible unit", () => {
+    expect(formatBytes(512_000)).toBe("500 kB");
+    expect(formatBytes(8_400_000)).toBe("8.0 MB");
+    expect(formatBytes(2_500_000_000)).toBe("2.33 GB");
+  });
+  it("formatDuration scales from seconds to hours", () => {
+    expect(formatDuration(42)).toBe("42s");
+    expect(formatDuration(130)).toBe("2m 10s");
+    expect(formatDuration(3790)).toBe("1h 3m");
   });
 });
 
