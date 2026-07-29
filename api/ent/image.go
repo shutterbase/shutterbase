@@ -53,6 +53,8 @@ type Image struct {
 	AiQueuedAt *time.Time `json:"-"`
 	// AiScope holds the value of the "aiScope" field.
 	AiScope string `json:"-"`
+	// AiRawResult holds the value of the "aiRawResult" field.
+	AiRawResult json.RawMessage `json:"-"`
 	// AiAttempts holds the value of the "aiAttempts" field.
 	AiAttempts int `json:"-"`
 	// AiError holds the value of the "aiError" field.
@@ -154,7 +156,7 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case image.FieldCreatedBy, image.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case image.FieldExifData, image.FieldImageTags:
+		case image.FieldExifData, image.FieldImageTags, image.FieldAiRawResult:
 			values[i] = new([]byte)
 		case image.FieldAiAttempts, image.FieldSize, image.FieldWidth, image.FieldHeight:
 			values[i] = new(sql.NullInt64)
@@ -285,6 +287,14 @@ func (_m *Image) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field aiScope", values[i])
 			} else if value.Valid {
 				_m.AiScope = value.String
+			}
+		case image.FieldAiRawResult:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field aiRawResult", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.AiRawResult); err != nil {
+					return fmt.Errorf("unmarshal field aiRawResult: %w", err)
+				}
 			}
 		case image.FieldAiAttempts:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -461,6 +471,9 @@ func (_m *Image) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("aiScope=")
 	builder.WriteString(_m.AiScope)
+	builder.WriteString(", ")
+	builder.WriteString("aiRawResult=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AiRawResult))
 	builder.WriteString(", ")
 	builder.WriteString("aiAttempts=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AiAttempts))

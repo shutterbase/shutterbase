@@ -49,6 +49,7 @@ func (s *Server) registerAIRoutes(api *gin.RouterGroup) {
 	api.GET("/uploads/:id/ai", s.aiUploadStatus)
 	api.POST("/uploads/:id/ai/rerun", s.aiRerunUpload)
 	api.POST("/images/:id/ai/rerun", s.aiRerunImage)
+	api.GET("/images/:id/ai/result", s.aiImageResult)
 	api.GET("/images/:id/ai/faces", s.aiImageFaces)
 	api.GET("/images/:id/ai/similar", s.aiImageSimilar)
 }
@@ -318,6 +319,29 @@ func (s *Server) aiRerunBatch(c *gin.Context) {
 		s.ai.Enqueue(imageID)
 	}
 	c.JSON(http.StatusOK, gin.H{"queued": len(ids)})
+}
+
+// aiImageResult serves the stored raw detection payload of the image's last
+// AI run — the AI server's full detail (model reads, evidence axes, notes),
+// stored verbatim at inference time for the SPA's inspection dialog. No AI
+// server round trip; 404 when no run stored a payload yet.
+func (s *Server) aiImageResult(c *gin.Context) {
+	id, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	img, err := s.Repository.GetImage(c.Request.Context(), id)
+	if abortGetError(c, err) {
+		return
+	}
+	if !allow(c, authorization.CanViewImage(authUser(c), img)) {
+		return
+	}
+	if len(img.AiRawResult) == 0 {
+		apiError(c, http.StatusNotFound, "no_ai_result", "no stored AI detection result for this image")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"raw": img.AiRawResult, "inferredAt": img.InferredAt})
 }
 
 // --- AI server proxies ---

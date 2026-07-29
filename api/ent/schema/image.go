@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"encoding/json"
+
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
@@ -34,6 +36,10 @@ func (Image) Fields() []ent.Field {
 		// car-number re-read (aiserver.ScopeNumbers). Persisted so a restart
 		// doesn't silently upgrade a cheap numbers backlog into full reruns.
 		field.String("aiScope").Optional().StructTag(`json:"-"`),
+		// Raw detection payload of the last AI run (aiserver IngestResponse.Raw),
+		// stored verbatim for the SPA's inspection dialog; excluded from image
+		// DTOs (served by GET /images/:id/ai/result only).
+		field.JSON("aiRawResult", json.RawMessage{}).Optional().StructTag(`json:"-"`),
 		field.Int("aiAttempts").Default(0).StructTag(`json:"-"`),
 		field.String("aiError").Optional().StructTag(`json:"aiError,omitempty"`),
 		field.Int("size").NonNegative().StructTag(`json:"size"`),

@@ -45,6 +45,8 @@ const (
 	FieldAiQueuedAt = "ai_queued_at"
 	// FieldAiScope holds the string denoting the aiscope field in the database.
 	FieldAiScope = "ai_scope"
+	// FieldAiRawResult holds the string denoting the airawresult field in the database.
+	FieldAiRawResult = "ai_raw_result"
 	// FieldAiAttempts holds the string denoting the aiattempts field in the database.
 	FieldAiAttempts = "ai_attempts"
 	// FieldAiError holds the string denoting the aierror field in the database.
@@ -130,6 +132,7 @@ var Columns = []string{
 	FieldAiStatus,
 	FieldAiQueuedAt,
 	FieldAiScope,
+	FieldAiRawResult,
 	FieldAiAttempts,
 	FieldAiError,
 	FieldSize,

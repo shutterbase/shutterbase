@@ -365,7 +365,7 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 
 	inferCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
-	inferred, err := inference.Infer(inferCtx, req)
+	result, err := inference.Infer(inferCtx, req)
 	if err != nil {
 		return err
 	}
@@ -378,7 +378,7 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 		return err
 	}
 
-	for _, t := range inferred {
+	for _, t := range result.Tags {
 		name := strings.TrimSpace(t.Name)
 		if name == "" || name == "none" {
 			continue
@@ -404,12 +404,19 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 		return err
 	}
 
-	updated, err := image.Update().
+	done := image.Update().
 		SetAiStatus(entimage.AiStatusDone).
 		SetInferredAt(time.Now()).
 		ClearAiScope().
-		ClearAiError().
-		Save(ctx)
+		ClearAiError()
+	// keep the provider's raw payload for the SPA's inspection dialog; a
+	// provider without one clears any stale payload from an earlier run.
+	if len(result.Raw) > 0 {
+		done.SetAiRawResult(result.Raw)
+	} else {
+		done.ClearAiRawResult()
+	}
+	updated, err := done.Save(ctx)
 	if err != nil {
 		return err
 	}

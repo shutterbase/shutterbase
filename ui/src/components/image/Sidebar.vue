@@ -88,6 +88,7 @@
           <p @click="() => emitter.emit('ai-show-similar')" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
             similar images
           </p>
+          <p @click="showDetectionResult" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">detection result</p>
           <p
             v-if="userStore.isProjectEditorOrHigher()"
             @click="rerunAi"
@@ -161,6 +162,15 @@
         </div>
       </div>
     </div>
+    <div v-if="showAiResult" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" @click.self="showAiResult = false">
+      <div class="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-lg border border-primary-200 bg-surface shadow-xl dark:border-primary-700 dark:bg-surface-dark">
+        <div class="flex items-center justify-between border-b border-primary-200 px-4 py-3 dark:border-primary-800">
+          <h3 class="label-mono text-primary-500 dark:text-primary-400">AI Detection Result</h3>
+          <button type="button" class="cursor-pointer text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400" @click="showAiResult = false">close</button>
+        </div>
+        <pre class="overflow-auto whitespace-pre-wrap break-all px-4 py-3 font-data text-xs leading-relaxed text-primary-800 dark:text-primary-100">{{ aiResultText }}</pre>
+      </div>
+    </div>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
     <ModalMessage
       :show="showDeleteDialog"
@@ -226,6 +236,24 @@ const aiStatusText = computed(() => {
       return "not run";
   }
 });
+
+const showAiResult = ref(false);
+const aiResultText = ref("");
+async function showDetectionResult() {
+  if (!props.item) return;
+  try {
+    const res = await api.ai.result(props.item.id);
+    aiResultText.value = JSON.stringify(res.raw, null, 2);
+    showAiResult.value = true;
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      showNotificationToast({ headline: "No detection result stored for this image", type: "info" });
+      return;
+    }
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
 
 async function rerunAi() {
   if (!props.item) return;

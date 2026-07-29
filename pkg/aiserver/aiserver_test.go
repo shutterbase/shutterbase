@@ -1,6 +1,7 @@
 package aiserver
 
 import (
+	"encoding/json"
 	"context"
 	"errors"
 	"net/http/httptest"
@@ -32,7 +33,8 @@ func (f *fakeServer) Prime(_ context.Context, projectID string, p Project) error
 
 func (f *fakeServer) Ingest(_ context.Context, projectID string, req IngestRequest) (IngestResponse, error) {
 	f.lastIn = req
-	return IngestResponse{ImageRef: req.ImageRef, Tags: []Tag{{Name: "alpha", Confidence: 0.91}}}, nil
+	return IngestResponse{ImageRef: req.ImageRef, Tags: []Tag{{Name: "alpha", Confidence: 0.91}},
+		Raw: json.RawMessage(`{"carNumber":"E7"}`)}, nil
 }
 
 func (f *fakeServer) Faces(_ context.Context, projectID, imageRef string) (FacesResponse, error) {
@@ -130,6 +132,9 @@ func TestClientHandlerRoundtrip(t *testing.T) {
 	}
 	if ingest.ImageRef != "img1" || len(ingest.Tags) != 1 || ingest.Tags[0].Name != "alpha" {
 		t.Fatalf("ingest response mangled: %+v", ingest)
+	}
+	if string(ingest.Raw) != `{"carNumber":"E7"}` {
+		t.Fatalf("raw payload mangled: %s", ingest.Raw)
 	}
 	if fake.lastIn.Author != "MP" || !fake.lastIn.CapturedAt.Equal(captured) {
 		t.Fatalf("ingest request mangled: %+v", fake.lastIn)

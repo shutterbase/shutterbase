@@ -6,7 +6,10 @@
 // tags from that vocabulary — nothing else about the domain leaks through.
 package aiserver
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Project is the priming payload: everything the AI server needs to know about
 // a shutterbase project. It is sent both via Prime and inline with every
@@ -49,6 +52,10 @@ type Tag struct {
 type IngestResponse struct {
 	ImageRef string `json:"imageRef"`
 	Tags     []Tag  `json:"tags"`
+	// Raw is the server's full detection detail (model reads, evidence axes,
+	// notes …) as an opaque JSON document for human inspection. The caller
+	// stores and displays it verbatim — no semantics leak into the contract.
+	Raw json.RawMessage `json:"raw,omitempty"`
 }
 
 // Face is a detected face. Coordinates are relative (0..1) to the image, so

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -256,6 +257,24 @@ func (_u *ImageUpdate) SetNillableAiScope(v *string) *ImageUpdate {
 // ClearAiScope clears the value of the "aiScope" field.
 func (_u *ImageUpdate) ClearAiScope() *ImageUpdate {
 	_u.mutation.ClearAiScope()
+	return _u
+}
+
+// SetAiRawResult sets the "aiRawResult" field.
+func (_u *ImageUpdate) SetAiRawResult(v json.RawMessage) *ImageUpdate {
+	_u.mutation.SetAiRawResult(v)
+	return _u
+}
+
+// AppendAiRawResult appends value to the "aiRawResult" field.
+func (_u *ImageUpdate) AppendAiRawResult(v json.RawMessage) *ImageUpdate {
+	_u.mutation.AppendAiRawResult(v)
+	return _u
+}
+
+// ClearAiRawResult clears the value of the "aiRawResult" field.
+func (_u *ImageUpdate) ClearAiRawResult() *ImageUpdate {
+	_u.mutation.ClearAiRawResult()
 	return _u
 }
 
@@ -687,6 +706,17 @@ func (_u *ImageUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AiScopeCleared() {
 		_spec.ClearField(image.FieldAiScope, field.TypeString)
+	}
+	if value, ok := _u.mutation.AiRawResult(); ok {
+		_spec.SetField(image.FieldAiRawResult, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedAiRawResult(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, image.FieldAiRawResult, value)
+		})
+	}
+	if _u.mutation.AiRawResultCleared() {
+		_spec.ClearField(image.FieldAiRawResult, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.AiAttempts(); ok {
 		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)
@@ -1126,6 +1156,24 @@ func (_u *ImageUpdateOne) SetNillableAiScope(v *string) *ImageUpdateOne {
 // ClearAiScope clears the value of the "aiScope" field.
 func (_u *ImageUpdateOne) ClearAiScope() *ImageUpdateOne {
 	_u.mutation.ClearAiScope()
+	return _u
+}
+
+// SetAiRawResult sets the "aiRawResult" field.
+func (_u *ImageUpdateOne) SetAiRawResult(v json.RawMessage) *ImageUpdateOne {
+	_u.mutation.SetAiRawResult(v)
+	return _u
+}
+
+// AppendAiRawResult appends value to the "aiRawResult" field.
+func (_u *ImageUpdateOne) AppendAiRawResult(v json.RawMessage) *ImageUpdateOne {
+	_u.mutation.AppendAiRawResult(v)
+	return _u
+}
+
+// ClearAiRawResult clears the value of the "aiRawResult" field.
+func (_u *ImageUpdateOne) ClearAiRawResult() *ImageUpdateOne {
+	_u.mutation.ClearAiRawResult()
 	return _u
 }
 
@@ -1587,6 +1635,17 @@ func (_u *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error)
 	}
 	if _u.mutation.AiScopeCleared() {
 		_spec.ClearField(image.FieldAiScope, field.TypeString)
+	}
+	if value, ok := _u.mutation.AiRawResult(); ok {
+		_spec.SetField(image.FieldAiRawResult, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedAiRawResult(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, image.FieldAiRawResult, value)
+		})
+	}
+	if _u.mutation.AiRawResultCleared() {
+		_spec.ClearField(image.FieldAiRawResult, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.AiAttempts(); ok {
 		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)
