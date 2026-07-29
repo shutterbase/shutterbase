@@ -190,6 +190,20 @@ func (_c *ImageCreate) SetNillableAiQueuedAt(v *time.Time) *ImageCreate {
 	return _c
 }
 
+// SetAiScope sets the "aiScope" field.
+func (_c *ImageCreate) SetAiScope(v string) *ImageCreate {
+	_c.mutation.SetAiScope(v)
+	return _c
+}
+
+// SetNillableAiScope sets the "aiScope" field if the given value is not nil.
+func (_c *ImageCreate) SetNillableAiScope(v *string) *ImageCreate {
+	if v != nil {
+		_c.SetAiScope(*v)
+	}
+	return _c
+}
+
 // SetAiAttempts sets the "aiAttempts" field.
 func (_c *ImageCreate) SetAiAttempts(v int) *ImageCreate {
 	_c.mutation.SetAiAttempts(v)
@@ -551,6 +565,10 @@ func (_c *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AiQueuedAt(); ok {
 		_spec.SetField(image.FieldAiQueuedAt, field.TypeTime, value)
 		_node.AiQueuedAt = &value
+	}
+	if value, ok := _c.mutation.AiScope(); ok {
+		_spec.SetField(image.FieldAiScope, field.TypeString, value)
+		_node.AiScope = value
 	}
 	if value, ok := _c.mutation.AiAttempts(); ok {
 		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)

@@ -121,6 +121,11 @@ func AiQueuedAt(v time.Time) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldAiQueuedAt, v))
 }
 
+// AiScope applies equality check predicate on the "aiScope" field. It's identical to AiScopeEQ.
+func AiScope(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiScope, v))
+}
+
 // AiAttempts applies equality check predicate on the "aiAttempts" field. It's identical to AiAttemptsEQ.
 func AiAttempts(v int) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldAiAttempts, v))
@@ -799,6 +804,81 @@ func AiQueuedAtIsNil() predicate.Image {
 // AiQueuedAtNotNil applies the NotNil predicate on the "aiQueuedAt" field.
 func AiQueuedAtNotNil() predicate.Image {
 	return predicate.Image(sql.FieldNotNull(FieldAiQueuedAt))
+}
+
+// AiScopeEQ applies the EQ predicate on the "aiScope" field.
+func AiScopeEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiScope, v))
+}
+
+// AiScopeNEQ applies the NEQ predicate on the "aiScope" field.
+func AiScopeNEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldAiScope, v))
+}
+
+// AiScopeIn applies the In predicate on the "aiScope" field.
+func AiScopeIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldAiScope, vs...))
+}
+
+// AiScopeNotIn applies the NotIn predicate on the "aiScope" field.
+func AiScopeNotIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldAiScope, vs...))
+}
+
+// AiScopeGT applies the GT predicate on the "aiScope" field.
+func AiScopeGT(v string) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldAiScope, v))
+}
+
+// AiScopeGTE applies the GTE predicate on the "aiScope" field.
+func AiScopeGTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldAiScope, v))
+}
+
+// AiScopeLT applies the LT predicate on the "aiScope" field.
+func AiScopeLT(v string) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldAiScope, v))
+}
+
+// AiScopeLTE applies the LTE predicate on the "aiScope" field.
+func AiScopeLTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldAiScope, v))
+}
+
+// AiScopeContains applies the Contains predicate on the "aiScope" field.
+func AiScopeContains(v string) predicate.Image {
+	return predicate.Image(sql.FieldContains(FieldAiScope, v))
+}
+
+// AiScopeHasPrefix applies the HasPrefix predicate on the "aiScope" field.
+func AiScopeHasPrefix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasPrefix(FieldAiScope, v))
+}
+
+// AiScopeHasSuffix applies the HasSuffix predicate on the "aiScope" field.
+func AiScopeHasSuffix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasSuffix(FieldAiScope, v))
+}
+
+// AiScopeIsNil applies the IsNil predicate on the "aiScope" field.
+func AiScopeIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldAiScope))
+}
+
+// AiScopeNotNil applies the NotNil predicate on the "aiScope" field.
+func AiScopeNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldAiScope))
+}
+
+// AiScopeEqualFold applies the EqualFold predicate on the "aiScope" field.
+func AiScopeEqualFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldEqualFold(FieldAiScope, v))
+}
+
+// AiScopeContainsFold applies the ContainsFold predicate on the "aiScope" field.
+func AiScopeContainsFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldContainsFold(FieldAiScope, v))
 }
 
 // AiAttemptsEQ applies the EQ predicate on the "aiAttempts" field.

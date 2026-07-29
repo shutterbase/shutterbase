@@ -51,6 +51,8 @@ type Image struct {
 	AiStatus *image.AiStatus `json:"aiStatus,omitempty"`
 	// AiQueuedAt holds the value of the "aiQueuedAt" field.
 	AiQueuedAt *time.Time `json:"-"`
+	// AiScope holds the value of the "aiScope" field.
+	AiScope string `json:"-"`
 	// AiAttempts holds the value of the "aiAttempts" field.
 	AiAttempts int `json:"-"`
 	// AiError holds the value of the "aiError" field.
@@ -156,7 +158,7 @@ func (*Image) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case image.FieldAiAttempts, image.FieldSize, image.FieldWidth, image.FieldHeight:
 			values[i] = new(sql.NullInt64)
-		case image.FieldID, image.FieldFileName, image.FieldComputedFileName, image.FieldStorageId, image.FieldAiStatus, image.FieldAiError, image.FieldUploadID, image.FieldProjectID, image.FieldCameraID:
+		case image.FieldID, image.FieldFileName, image.FieldComputedFileName, image.FieldStorageId, image.FieldAiStatus, image.FieldAiScope, image.FieldAiError, image.FieldUploadID, image.FieldProjectID, image.FieldCameraID:
 			values[i] = new(sql.NullString)
 		case image.FieldCreatedAt, image.FieldUpdatedAt, image.FieldCapturedAt, image.FieldCapturedAtCorrected, image.FieldInferredAt, image.FieldAiQueuedAt:
 			values[i] = new(sql.NullTime)
@@ -277,6 +279,12 @@ func (_m *Image) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.AiQueuedAt = new(time.Time)
 				*_m.AiQueuedAt = value.Time
+			}
+		case image.FieldAiScope:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field aiScope", values[i])
+			} else if value.Valid {
+				_m.AiScope = value.String
 			}
 		case image.FieldAiAttempts:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -450,6 +458,9 @@ func (_m *Image) String() string {
 		builder.WriteString("aiQueuedAt=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("aiScope=")
+	builder.WriteString(_m.AiScope)
 	builder.WriteString(", ")
 	builder.WriteString("aiAttempts=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AiAttempts))

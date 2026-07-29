@@ -86,6 +86,14 @@ export async function rerunAll(projectId: string): Promise<number> {
   return data.queued;
 }
 
+// Re-queues EVERY image for a vision-only car-number re-read against the AI
+// server's currently configured model. Faces, similarity and descriptions are
+// kept — much cheaper than rerunAll. Confirm before calling.
+export async function rerunNumbers(projectId: string): Promise<number> {
+  const { data } = await http.post<{ queued: number }>(`/projects/${projectId}/ai/rerun-numbers`);
+  return data.queued;
+}
+
 // Rebuilds all person clusters from stored face embeddings (no inference, no
 // credits). Fire-and-forget on the server: 202 means started, not finished.
 // Discards all merge entries — confirm before calling.

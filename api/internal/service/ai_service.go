@@ -87,14 +87,17 @@ func NewAIService(repo *repository.Repository, s3Client *s3.S3Client, inference 
 // built later in the server bootstrap than the AI service).
 func (s *AIService) SetBus(bus *event.Bus) { s.bus = bus }
 
-// Enqueue marks an image pending. The DB is the queue, so this is just a
-// status write; the dispatcher picks it up FIFO by aiQueuedAt.
+// Enqueue marks an image pending for a FULL analysis (aiScope cleared — a
+// manual single-image rerun always recomputes everything). The DB is the
+// queue, so this is just a status write; the dispatcher picks it up FIFO by
+// aiQueuedAt.
 func (s *AIService) Enqueue(imageID string) {
 	ctx := context.Background()
 	img, err := s.repo.Client.Image.UpdateOneID(imageID).
 		SetAiStatus(entimage.AiStatusPending).
 		SetAiQueuedAt(time.Now()).
 		SetAiAttempts(0).
+		ClearAiScope().
 		ClearAiError().
 		Save(ctx)
 	if err != nil {
@@ -111,15 +114,22 @@ func (s *AIService) Enqueue(imageID string) {
 // EnqueueProject re-queues every image of the project in one statement — a
 // project can be tens of thousands of images, so per-row Enqueue would hammer
 // the DB and the websocket (no per-image publish here; the grid's queue-status
-// polling picks the change up).
-func (s *AIService) EnqueueProject(projectID string) (int, error) {
-	n, err := s.repo.Client.Image.Update().
+// polling picks the change up). scope "" = full analysis; a non-empty scope
+// (aiserver.ScopeNumbers) is persisted per image and forwarded to the AI
+// server on inference.
+func (s *AIService) EnqueueProject(projectID, scope string) (int, error) {
+	upd := s.repo.Client.Image.Update().
 		Where(entimage.ProjectID(projectID)).
 		SetAiStatus(entimage.AiStatusPending).
 		SetAiQueuedAt(time.Now()).
 		SetAiAttempts(0).
-		ClearAiError().
-		Save(context.Background())
+		ClearAiError()
+	if scope == "" {
+		upd.ClearAiScope()
+	} else {
+		upd.SetAiScope(scope)
+	}
+	n, err := upd.Save(context.Background())
 	if err != nil {
 		return 0, err
 	}
@@ -344,6 +354,7 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 		Prompt:        project.AiSystemMessage,
 		AvailableTags: s.availableTags(ctx, project.ID),
 		CapturedAt:    image.CapturedAtCorrected,
+		Scope:         image.AiScope,
 	}
 	if req.CapturedAt == nil {
 		req.CapturedAt = image.CapturedAt
@@ -396,6 +407,7 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 	updated, err := image.Update().
 		SetAiStatus(entimage.AiStatusDone).
 		SetInferredAt(time.Now()).
+		ClearAiScope().
 		ClearAiError().
 		Save(ctx)
 	if err != nil {

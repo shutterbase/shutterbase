@@ -335,6 +335,40 @@ func TestClientTimeoutClassifiesAsTimeout(t *testing.T) {
 	assert.True(t, row.AiQueuedAt.After(base), "timed-out image must move to the back of the queue")
 }
 
+// scopeInference records the Scope of each request it serves.
+type scopeInference struct{ scopes []string }
+
+func (s *scopeInference) Infer(_ context.Context, req InferenceRequest) ([]InferredTag, error) {
+	s.scopes = append(s.scopes, req.Scope)
+	return []InferredTag{}, nil
+}
+
+// A scoped project rerun persists aiScope, forwards it to the inference
+// request, and clears it on done; a subsequent single-image Enqueue is a full
+// run again (scope cleared).
+func TestScopedRerunThreadsScope(t *testing.T) {
+	inf := &scopeInference{}
+	svc, m := newSvc(t, inf)
+	ctx := context.Background()
+
+	n, err := svc.EnqueueProject(m.Project, "numbers")
+	require.NoError(t, err)
+	require.Equal(t, len(m.Images), n)
+	assert.Equal(t, "numbers", svc.repo.Client.Image.GetX(ctx, m.Images[0]).AiScope)
+
+	for svc.step(ctx) {
+	}
+	require.Len(t, inf.scopes, len(m.Images))
+	for _, scope := range inf.scopes {
+		assert.Equal(t, "numbers", scope)
+	}
+	assert.Empty(t, svc.repo.Client.Image.GetX(ctx, m.Images[0]).AiScope, "done must clear aiScope")
+
+	svc.Enqueue(m.Images[0])
+	require.True(t, svc.step(ctx))
+	assert.Equal(t, "", inf.scopes[len(inf.scopes)-1], "single-image rerun must be a full run")
+}
+
 // Boot recovery: STALE processing rows are re-queued by Start; fresh ones are
 // left alone (they belong to another replica mid-flight during a rolling deploy).
 func TestBootRecovery(t *testing.T) {

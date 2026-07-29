@@ -20,6 +20,12 @@ type Project struct {
 	Tags []string `json:"tags"`
 }
 
+// ScopeNumbers narrows a re-ingest to the vision pass (car-number read) using
+// the server's currently configured model. Stored embeddings, faces and
+// descriptions are kept; a server without a stored analysis for the ref runs
+// a full ingest instead.
+const ScopeNumbers = "numbers"
+
 // IngestRequest submits one image for analysis. ImageRef is the caller's
 // stable image id and the idempotency key: re-ingesting the same ref replaces
 // the previous analysis.
@@ -29,6 +35,9 @@ type IngestRequest struct {
 	ImageURL   string     `json:"imageUrl"`
 	CapturedAt *time.Time `json:"capturedAt,omitempty"`
 	Author     string     `json:"author,omitempty"`
+	// Scope narrows the analysis: "" = full, ScopeNumbers = vision-only rerun.
+	// Servers ignore scopes they don't know and run a full ingest.
+	Scope string `json:"scope,omitempty"`
 }
 
 // Tag is one inferred tag; Name is always an element of Project.Tags.
