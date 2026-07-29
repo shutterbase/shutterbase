@@ -259,13 +259,32 @@ func (s *Server) registerSPA() {
 			return
 		}
 		// Serve the requested asset if it exists; otherwise fall back to the SPA
-		// shell so the client router can handle the route.
+		// shell so the client router can handle the route. A missing FILE (path
+		// with an extension — e.g. a hashed chunk from a previous deploy) must
+		// 404 instead: serving the HTML shell for it breaks dynamic imports with
+		// an opaque "failed to fetch module" and hides the real cause from the
+		// client's stale-chunk recovery.
 		clean := strings.TrimPrefix(path.Clean(reqPath), "/")
 		if clean == "" {
 			clean = "index.html"
 		}
 		if _, statErr := fs.Stat(sub, clean); statErr != nil {
+			if path.Ext(clean) != "" {
+				c.Header("Cache-Control", "no-store")
+				c.AbortWithStatus(http.StatusNotFound)
+				return
+			}
+			clean = "index.html"
 			c.Request.URL.Path = "/"
+		}
+		// Vite content-hashes everything under assets/ — cache those forever.
+		// index.html (and any other unhashed file) must revalidate on every
+		// load, or a plain reload keeps the stale shell and only a hard reload
+		// recovers after a deploy.
+		if strings.HasPrefix(clean, "assets/") {
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			c.Header("Cache-Control", "no-cache")
 		}
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
