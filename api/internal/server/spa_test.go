@@ -35,6 +35,29 @@ func TestSPA_ServesIndexAtRoot(t *testing.T) {
 	assert.True(t, strings.Contains(w.Header().Get("Content-Type"), "text/html"))
 }
 
+// Regression: a hashed chunk from a previous deploy must 404 (no-store), not
+// serve the HTML shell — the shell response broke dynamic imports opaquely and
+// defeated client-side stale-chunk recovery after rolling updates.
+func TestSPA_MissingAssetIs404NotShell(t *testing.T) {
+	w := httptest.NewRecorder()
+	spaServer().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/assets/index-OLDHASH.js", nil))
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+	assert.NotContains(t, w.Body.String(), "<html")
+}
+
+// index.html (root and deep-link fallback) must revalidate on every load —
+// heuristic caching of the shell was why only a HARD reload picked up a new
+// deploy.
+func TestSPA_ShellIsNoCache(t *testing.T) {
+	for _, target := range []string{"/", "/projects/abc"} {
+		w := httptest.NewRecorder()
+		spaServer().ServeHTTP(w, httptest.NewRequest(http.MethodGet, target, nil))
+		assert.Equal(t, http.StatusOK, w.Code, target)
+		assert.Equal(t, "no-cache", w.Header().Get("Cache-Control"), target)
+	}
+}
+
 func TestSPA_UnknownAPIRouteIs404JSON(t *testing.T) {
 	w := httptest.NewRecorder()
 	spaServer().ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/nope", nil))
