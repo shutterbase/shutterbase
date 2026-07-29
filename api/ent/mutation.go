@@ -15,6 +15,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
@@ -41,6 +42,7 @@ const (
 	TypeApiKey             = "ApiKey"
 	TypeAuditLog           = "AuditLog"
 	TypeCamera             = "Camera"
+	TypeDownloadConfig     = "DownloadConfig"
 	TypeImage              = "Image"
 	TypeImageTag           = "ImageTag"
 	TypeImageTagAssignment = "ImageTagAssignment"
@@ -2885,6 +2887,1254 @@ func (m *CameraMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Camera edge %s", name)
+}
+
+// DownloadConfigMutation represents an operation that mutates the DownloadConfig nodes in the graph.
+type DownloadConfigMutation struct {
+	config
+	op                    Op
+	typ                   string
+	id                    *string
+	createdAt             *time.Time
+	updatedAt             *time.Time
+	createdBy             *uuid.UUID
+	updatedBy             *uuid.UUID
+	name                  *string
+	whitelistTagIds       *[]string
+	appendwhitelistTagIds []string
+	blacklistTagIds       *[]string
+	appendblacklistTagIds []string
+	blockedImageIds       *[]string
+	appendblockedImageIds []string
+	deltaSubfolder        *bool
+	groupByDate           *bool
+	lastDownloadAt        *time.Time
+	clearedFields         map[string]struct{}
+	project               *string
+	clearedproject        bool
+	user                  *uuid.UUID
+	cleareduser           bool
+	done                  bool
+	oldValue              func(context.Context) (*DownloadConfig, error)
+	predicates            []predicate.DownloadConfig
+}
+
+var _ ent.Mutation = (*DownloadConfigMutation)(nil)
+
+// downloadconfigOption allows management of the mutation configuration using functional options.
+type downloadconfigOption func(*DownloadConfigMutation)
+
+// newDownloadConfigMutation creates new mutation for the DownloadConfig entity.
+func newDownloadConfigMutation(c config, op Op, opts ...downloadconfigOption) *DownloadConfigMutation {
+	m := &DownloadConfigMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeDownloadConfig,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withDownloadConfigID sets the ID field of the mutation.
+func withDownloadConfigID(id string) downloadconfigOption {
+	return func(m *DownloadConfigMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *DownloadConfig
+		)
+		m.oldValue = func(ctx context.Context) (*DownloadConfig, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().DownloadConfig.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withDownloadConfig sets the old DownloadConfig of the mutation.
+func withDownloadConfig(node *DownloadConfig) downloadconfigOption {
+	return func(m *DownloadConfigMutation) {
+		m.oldValue = func(context.Context) (*DownloadConfig, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m DownloadConfigMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m DownloadConfigMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of DownloadConfig entities.
+func (m *DownloadConfigMutation) SetID(id string) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *DownloadConfigMutation) ID() (id string, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *DownloadConfigMutation) IDs(ctx context.Context) ([]string, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []string{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().DownloadConfig.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "createdAt" field.
+func (m *DownloadConfigMutation) SetCreatedAt(t time.Time) {
+	m.createdAt = &t
+}
+
+// CreatedAt returns the value of the "createdAt" field in the mutation.
+func (m *DownloadConfigMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.createdAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "createdAt" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "createdAt" field.
+func (m *DownloadConfigMutation) ResetCreatedAt() {
+	m.createdAt = nil
+}
+
+// SetUpdatedAt sets the "updatedAt" field.
+func (m *DownloadConfigMutation) SetUpdatedAt(t time.Time) {
+	m.updatedAt = &t
+}
+
+// UpdatedAt returns the value of the "updatedAt" field in the mutation.
+func (m *DownloadConfigMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updatedAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updatedAt" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updatedAt" field.
+func (m *DownloadConfigMutation) ResetUpdatedAt() {
+	m.updatedAt = nil
+}
+
+// SetCreatedBy sets the "createdBy" field.
+func (m *DownloadConfigMutation) SetCreatedBy(u uuid.UUID) {
+	m.createdBy = &u
+}
+
+// CreatedBy returns the value of the "createdBy" field in the mutation.
+func (m *DownloadConfigMutation) CreatedBy() (r uuid.UUID, exists bool) {
+	v := m.createdBy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "createdBy" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldCreatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ClearCreatedBy clears the value of the "createdBy" field.
+func (m *DownloadConfigMutation) ClearCreatedBy() {
+	m.createdBy = nil
+	m.clearedFields[downloadconfig.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "createdBy" field was cleared in this mutation.
+func (m *DownloadConfigMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[downloadconfig.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "createdBy" field.
+func (m *DownloadConfigMutation) ResetCreatedBy() {
+	m.createdBy = nil
+	delete(m.clearedFields, downloadconfig.FieldCreatedBy)
+}
+
+// SetUpdatedBy sets the "updatedBy" field.
+func (m *DownloadConfigMutation) SetUpdatedBy(u uuid.UUID) {
+	m.updatedBy = &u
+}
+
+// UpdatedBy returns the value of the "updatedBy" field in the mutation.
+func (m *DownloadConfigMutation) UpdatedBy() (r uuid.UUID, exists bool) {
+	v := m.updatedBy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedBy returns the old "updatedBy" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldUpdatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedBy: %w", err)
+	}
+	return oldValue.UpdatedBy, nil
+}
+
+// ClearUpdatedBy clears the value of the "updatedBy" field.
+func (m *DownloadConfigMutation) ClearUpdatedBy() {
+	m.updatedBy = nil
+	m.clearedFields[downloadconfig.FieldUpdatedBy] = struct{}{}
+}
+
+// UpdatedByCleared returns if the "updatedBy" field was cleared in this mutation.
+func (m *DownloadConfigMutation) UpdatedByCleared() bool {
+	_, ok := m.clearedFields[downloadconfig.FieldUpdatedBy]
+	return ok
+}
+
+// ResetUpdatedBy resets all changes to the "updatedBy" field.
+func (m *DownloadConfigMutation) ResetUpdatedBy() {
+	m.updatedBy = nil
+	delete(m.clearedFields, downloadconfig.FieldUpdatedBy)
+}
+
+// SetName sets the "name" field.
+func (m *DownloadConfigMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *DownloadConfigMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *DownloadConfigMutation) ResetName() {
+	m.name = nil
+}
+
+// SetWhitelistTagIds sets the "whitelistTagIds" field.
+func (m *DownloadConfigMutation) SetWhitelistTagIds(s []string) {
+	m.whitelistTagIds = &s
+	m.appendwhitelistTagIds = nil
+}
+
+// WhitelistTagIds returns the value of the "whitelistTagIds" field in the mutation.
+func (m *DownloadConfigMutation) WhitelistTagIds() (r []string, exists bool) {
+	v := m.whitelistTagIds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWhitelistTagIds returns the old "whitelistTagIds" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldWhitelistTagIds(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWhitelistTagIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWhitelistTagIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWhitelistTagIds: %w", err)
+	}
+	return oldValue.WhitelistTagIds, nil
+}
+
+// AppendWhitelistTagIds adds s to the "whitelistTagIds" field.
+func (m *DownloadConfigMutation) AppendWhitelistTagIds(s []string) {
+	m.appendwhitelistTagIds = append(m.appendwhitelistTagIds, s...)
+}
+
+// AppendedWhitelistTagIds returns the list of values that were appended to the "whitelistTagIds" field in this mutation.
+func (m *DownloadConfigMutation) AppendedWhitelistTagIds() ([]string, bool) {
+	if len(m.appendwhitelistTagIds) == 0 {
+		return nil, false
+	}
+	return m.appendwhitelistTagIds, true
+}
+
+// ClearWhitelistTagIds clears the value of the "whitelistTagIds" field.
+func (m *DownloadConfigMutation) ClearWhitelistTagIds() {
+	m.whitelistTagIds = nil
+	m.appendwhitelistTagIds = nil
+	m.clearedFields[downloadconfig.FieldWhitelistTagIds] = struct{}{}
+}
+
+// WhitelistTagIdsCleared returns if the "whitelistTagIds" field was cleared in this mutation.
+func (m *DownloadConfigMutation) WhitelistTagIdsCleared() bool {
+	_, ok := m.clearedFields[downloadconfig.FieldWhitelistTagIds]
+	return ok
+}
+
+// ResetWhitelistTagIds resets all changes to the "whitelistTagIds" field.
+func (m *DownloadConfigMutation) ResetWhitelistTagIds() {
+	m.whitelistTagIds = nil
+	m.appendwhitelistTagIds = nil
+	delete(m.clearedFields, downloadconfig.FieldWhitelistTagIds)
+}
+
+// SetBlacklistTagIds sets the "blacklistTagIds" field.
+func (m *DownloadConfigMutation) SetBlacklistTagIds(s []string) {
+	m.blacklistTagIds = &s
+	m.appendblacklistTagIds = nil
+}
+
+// BlacklistTagIds returns the value of the "blacklistTagIds" field in the mutation.
+func (m *DownloadConfigMutation) BlacklistTagIds() (r []string, exists bool) {
+	v := m.blacklistTagIds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBlacklistTagIds returns the old "blacklistTagIds" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldBlacklistTagIds(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBlacklistTagIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBlacklistTagIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBlacklistTagIds: %w", err)
+	}
+	return oldValue.BlacklistTagIds, nil
+}
+
+// AppendBlacklistTagIds adds s to the "blacklistTagIds" field.
+func (m *DownloadConfigMutation) AppendBlacklistTagIds(s []string) {
+	m.appendblacklistTagIds = append(m.appendblacklistTagIds, s...)
+}
+
+// AppendedBlacklistTagIds returns the list of values that were appended to the "blacklistTagIds" field in this mutation.
+func (m *DownloadConfigMutation) AppendedBlacklistTagIds() ([]string, bool) {
+	if len(m.appendblacklistTagIds) == 0 {
+		return nil, false
+	}
+	return m.appendblacklistTagIds, true
+}
+
+// ClearBlacklistTagIds clears the value of the "blacklistTagIds" field.
+func (m *DownloadConfigMutation) ClearBlacklistTagIds() {
+	m.blacklistTagIds = nil
+	m.appendblacklistTagIds = nil
+	m.clearedFields[downloadconfig.FieldBlacklistTagIds] = struct{}{}
+}
+
+// BlacklistTagIdsCleared returns if the "blacklistTagIds" field was cleared in this mutation.
+func (m *DownloadConfigMutation) BlacklistTagIdsCleared() bool {
+	_, ok := m.clearedFields[downloadconfig.FieldBlacklistTagIds]
+	return ok
+}
+
+// ResetBlacklistTagIds resets all changes to the "blacklistTagIds" field.
+func (m *DownloadConfigMutation) ResetBlacklistTagIds() {
+	m.blacklistTagIds = nil
+	m.appendblacklistTagIds = nil
+	delete(m.clearedFields, downloadconfig.FieldBlacklistTagIds)
+}
+
+// SetBlockedImageIds sets the "blockedImageIds" field.
+func (m *DownloadConfigMutation) SetBlockedImageIds(s []string) {
+	m.blockedImageIds = &s
+	m.appendblockedImageIds = nil
+}
+
+// BlockedImageIds returns the value of the "blockedImageIds" field in the mutation.
+func (m *DownloadConfigMutation) BlockedImageIds() (r []string, exists bool) {
+	v := m.blockedImageIds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBlockedImageIds returns the old "blockedImageIds" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldBlockedImageIds(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBlockedImageIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBlockedImageIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBlockedImageIds: %w", err)
+	}
+	return oldValue.BlockedImageIds, nil
+}
+
+// AppendBlockedImageIds adds s to the "blockedImageIds" field.
+func (m *DownloadConfigMutation) AppendBlockedImageIds(s []string) {
+	m.appendblockedImageIds = append(m.appendblockedImageIds, s...)
+}
+
+// AppendedBlockedImageIds returns the list of values that were appended to the "blockedImageIds" field in this mutation.
+func (m *DownloadConfigMutation) AppendedBlockedImageIds() ([]string, bool) {
+	if len(m.appendblockedImageIds) == 0 {
+		return nil, false
+	}
+	return m.appendblockedImageIds, true
+}
+
+// ClearBlockedImageIds clears the value of the "blockedImageIds" field.
+func (m *DownloadConfigMutation) ClearBlockedImageIds() {
+	m.blockedImageIds = nil
+	m.appendblockedImageIds = nil
+	m.clearedFields[downloadconfig.FieldBlockedImageIds] = struct{}{}
+}
+
+// BlockedImageIdsCleared returns if the "blockedImageIds" field was cleared in this mutation.
+func (m *DownloadConfigMutation) BlockedImageIdsCleared() bool {
+	_, ok := m.clearedFields[downloadconfig.FieldBlockedImageIds]
+	return ok
+}
+
+// ResetBlockedImageIds resets all changes to the "blockedImageIds" field.
+func (m *DownloadConfigMutation) ResetBlockedImageIds() {
+	m.blockedImageIds = nil
+	m.appendblockedImageIds = nil
+	delete(m.clearedFields, downloadconfig.FieldBlockedImageIds)
+}
+
+// SetDeltaSubfolder sets the "deltaSubfolder" field.
+func (m *DownloadConfigMutation) SetDeltaSubfolder(b bool) {
+	m.deltaSubfolder = &b
+}
+
+// DeltaSubfolder returns the value of the "deltaSubfolder" field in the mutation.
+func (m *DownloadConfigMutation) DeltaSubfolder() (r bool, exists bool) {
+	v := m.deltaSubfolder
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeltaSubfolder returns the old "deltaSubfolder" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldDeltaSubfolder(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeltaSubfolder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeltaSubfolder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeltaSubfolder: %w", err)
+	}
+	return oldValue.DeltaSubfolder, nil
+}
+
+// ResetDeltaSubfolder resets all changes to the "deltaSubfolder" field.
+func (m *DownloadConfigMutation) ResetDeltaSubfolder() {
+	m.deltaSubfolder = nil
+}
+
+// SetGroupByDate sets the "groupByDate" field.
+func (m *DownloadConfigMutation) SetGroupByDate(b bool) {
+	m.groupByDate = &b
+}
+
+// GroupByDate returns the value of the "groupByDate" field in the mutation.
+func (m *DownloadConfigMutation) GroupByDate() (r bool, exists bool) {
+	v := m.groupByDate
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupByDate returns the old "groupByDate" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldGroupByDate(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupByDate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupByDate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupByDate: %w", err)
+	}
+	return oldValue.GroupByDate, nil
+}
+
+// ResetGroupByDate resets all changes to the "groupByDate" field.
+func (m *DownloadConfigMutation) ResetGroupByDate() {
+	m.groupByDate = nil
+}
+
+// SetLastDownloadAt sets the "lastDownloadAt" field.
+func (m *DownloadConfigMutation) SetLastDownloadAt(t time.Time) {
+	m.lastDownloadAt = &t
+}
+
+// LastDownloadAt returns the value of the "lastDownloadAt" field in the mutation.
+func (m *DownloadConfigMutation) LastDownloadAt() (r time.Time, exists bool) {
+	v := m.lastDownloadAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastDownloadAt returns the old "lastDownloadAt" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldLastDownloadAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastDownloadAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastDownloadAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastDownloadAt: %w", err)
+	}
+	return oldValue.LastDownloadAt, nil
+}
+
+// ClearLastDownloadAt clears the value of the "lastDownloadAt" field.
+func (m *DownloadConfigMutation) ClearLastDownloadAt() {
+	m.lastDownloadAt = nil
+	m.clearedFields[downloadconfig.FieldLastDownloadAt] = struct{}{}
+}
+
+// LastDownloadAtCleared returns if the "lastDownloadAt" field was cleared in this mutation.
+func (m *DownloadConfigMutation) LastDownloadAtCleared() bool {
+	_, ok := m.clearedFields[downloadconfig.FieldLastDownloadAt]
+	return ok
+}
+
+// ResetLastDownloadAt resets all changes to the "lastDownloadAt" field.
+func (m *DownloadConfigMutation) ResetLastDownloadAt() {
+	m.lastDownloadAt = nil
+	delete(m.clearedFields, downloadconfig.FieldLastDownloadAt)
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *DownloadConfigMutation) SetProjectID(s string) {
+	m.project = &s
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *DownloadConfigMutation) ProjectID() (r string, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldProjectID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *DownloadConfigMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *DownloadConfigMutation) SetUserID(u uuid.UUID) {
+	m.user = &u
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *DownloadConfigMutation) UserID() (r uuid.UUID, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldUserID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *DownloadConfigMutation) ResetUserID() {
+	m.user = nil
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *DownloadConfigMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[downloadconfig.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *DownloadConfigMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *DownloadConfigMutation) ProjectIDs() (ids []string) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *DownloadConfigMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *DownloadConfigMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[downloadconfig.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *DownloadConfigMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *DownloadConfigMutation) UserIDs() (ids []uuid.UUID) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *DownloadConfigMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the DownloadConfigMutation builder.
+func (m *DownloadConfigMutation) Where(ps ...predicate.DownloadConfig) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the DownloadConfigMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *DownloadConfigMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.DownloadConfig, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *DownloadConfigMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *DownloadConfigMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (DownloadConfig).
+func (m *DownloadConfigMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *DownloadConfigMutation) Fields() []string {
+	fields := make([]string, 0, 13)
+	if m.createdAt != nil {
+		fields = append(fields, downloadconfig.FieldCreatedAt)
+	}
+	if m.updatedAt != nil {
+		fields = append(fields, downloadconfig.FieldUpdatedAt)
+	}
+	if m.createdBy != nil {
+		fields = append(fields, downloadconfig.FieldCreatedBy)
+	}
+	if m.updatedBy != nil {
+		fields = append(fields, downloadconfig.FieldUpdatedBy)
+	}
+	if m.name != nil {
+		fields = append(fields, downloadconfig.FieldName)
+	}
+	if m.whitelistTagIds != nil {
+		fields = append(fields, downloadconfig.FieldWhitelistTagIds)
+	}
+	if m.blacklistTagIds != nil {
+		fields = append(fields, downloadconfig.FieldBlacklistTagIds)
+	}
+	if m.blockedImageIds != nil {
+		fields = append(fields, downloadconfig.FieldBlockedImageIds)
+	}
+	if m.deltaSubfolder != nil {
+		fields = append(fields, downloadconfig.FieldDeltaSubfolder)
+	}
+	if m.groupByDate != nil {
+		fields = append(fields, downloadconfig.FieldGroupByDate)
+	}
+	if m.lastDownloadAt != nil {
+		fields = append(fields, downloadconfig.FieldLastDownloadAt)
+	}
+	if m.project != nil {
+		fields = append(fields, downloadconfig.FieldProjectID)
+	}
+	if m.user != nil {
+		fields = append(fields, downloadconfig.FieldUserID)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *DownloadConfigMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case downloadconfig.FieldCreatedAt:
+		return m.CreatedAt()
+	case downloadconfig.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case downloadconfig.FieldCreatedBy:
+		return m.CreatedBy()
+	case downloadconfig.FieldUpdatedBy:
+		return m.UpdatedBy()
+	case downloadconfig.FieldName:
+		return m.Name()
+	case downloadconfig.FieldWhitelistTagIds:
+		return m.WhitelistTagIds()
+	case downloadconfig.FieldBlacklistTagIds:
+		return m.BlacklistTagIds()
+	case downloadconfig.FieldBlockedImageIds:
+		return m.BlockedImageIds()
+	case downloadconfig.FieldDeltaSubfolder:
+		return m.DeltaSubfolder()
+	case downloadconfig.FieldGroupByDate:
+		return m.GroupByDate()
+	case downloadconfig.FieldLastDownloadAt:
+		return m.LastDownloadAt()
+	case downloadconfig.FieldProjectID:
+		return m.ProjectID()
+	case downloadconfig.FieldUserID:
+		return m.UserID()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *DownloadConfigMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case downloadconfig.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case downloadconfig.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case downloadconfig.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case downloadconfig.FieldUpdatedBy:
+		return m.OldUpdatedBy(ctx)
+	case downloadconfig.FieldName:
+		return m.OldName(ctx)
+	case downloadconfig.FieldWhitelistTagIds:
+		return m.OldWhitelistTagIds(ctx)
+	case downloadconfig.FieldBlacklistTagIds:
+		return m.OldBlacklistTagIds(ctx)
+	case downloadconfig.FieldBlockedImageIds:
+		return m.OldBlockedImageIds(ctx)
+	case downloadconfig.FieldDeltaSubfolder:
+		return m.OldDeltaSubfolder(ctx)
+	case downloadconfig.FieldGroupByDate:
+		return m.OldGroupByDate(ctx)
+	case downloadconfig.FieldLastDownloadAt:
+		return m.OldLastDownloadAt(ctx)
+	case downloadconfig.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case downloadconfig.FieldUserID:
+		return m.OldUserID(ctx)
+	}
+	return nil, fmt.Errorf("unknown DownloadConfig field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DownloadConfigMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case downloadconfig.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case downloadconfig.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case downloadconfig.FieldCreatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case downloadconfig.FieldUpdatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedBy(v)
+		return nil
+	case downloadconfig.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case downloadconfig.FieldWhitelistTagIds:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWhitelistTagIds(v)
+		return nil
+	case downloadconfig.FieldBlacklistTagIds:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBlacklistTagIds(v)
+		return nil
+	case downloadconfig.FieldBlockedImageIds:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBlockedImageIds(v)
+		return nil
+	case downloadconfig.FieldDeltaSubfolder:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeltaSubfolder(v)
+		return nil
+	case downloadconfig.FieldGroupByDate:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupByDate(v)
+		return nil
+	case downloadconfig.FieldLastDownloadAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastDownloadAt(v)
+		return nil
+	case downloadconfig.FieldProjectID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case downloadconfig.FieldUserID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown DownloadConfig field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *DownloadConfigMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *DownloadConfigMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *DownloadConfigMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown DownloadConfig numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *DownloadConfigMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(downloadconfig.FieldCreatedBy) {
+		fields = append(fields, downloadconfig.FieldCreatedBy)
+	}
+	if m.FieldCleared(downloadconfig.FieldUpdatedBy) {
+		fields = append(fields, downloadconfig.FieldUpdatedBy)
+	}
+	if m.FieldCleared(downloadconfig.FieldWhitelistTagIds) {
+		fields = append(fields, downloadconfig.FieldWhitelistTagIds)
+	}
+	if m.FieldCleared(downloadconfig.FieldBlacklistTagIds) {
+		fields = append(fields, downloadconfig.FieldBlacklistTagIds)
+	}
+	if m.FieldCleared(downloadconfig.FieldBlockedImageIds) {
+		fields = append(fields, downloadconfig.FieldBlockedImageIds)
+	}
+	if m.FieldCleared(downloadconfig.FieldLastDownloadAt) {
+		fields = append(fields, downloadconfig.FieldLastDownloadAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *DownloadConfigMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *DownloadConfigMutation) ClearField(name string) error {
+	switch name {
+	case downloadconfig.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	case downloadconfig.FieldUpdatedBy:
+		m.ClearUpdatedBy()
+		return nil
+	case downloadconfig.FieldWhitelistTagIds:
+		m.ClearWhitelistTagIds()
+		return nil
+	case downloadconfig.FieldBlacklistTagIds:
+		m.ClearBlacklistTagIds()
+		return nil
+	case downloadconfig.FieldBlockedImageIds:
+		m.ClearBlockedImageIds()
+		return nil
+	case downloadconfig.FieldLastDownloadAt:
+		m.ClearLastDownloadAt()
+		return nil
+	}
+	return fmt.Errorf("unknown DownloadConfig nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *DownloadConfigMutation) ResetField(name string) error {
+	switch name {
+	case downloadconfig.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case downloadconfig.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case downloadconfig.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case downloadconfig.FieldUpdatedBy:
+		m.ResetUpdatedBy()
+		return nil
+	case downloadconfig.FieldName:
+		m.ResetName()
+		return nil
+	case downloadconfig.FieldWhitelistTagIds:
+		m.ResetWhitelistTagIds()
+		return nil
+	case downloadconfig.FieldBlacklistTagIds:
+		m.ResetBlacklistTagIds()
+		return nil
+	case downloadconfig.FieldBlockedImageIds:
+		m.ResetBlockedImageIds()
+		return nil
+	case downloadconfig.FieldDeltaSubfolder:
+		m.ResetDeltaSubfolder()
+		return nil
+	case downloadconfig.FieldGroupByDate:
+		m.ResetGroupByDate()
+		return nil
+	case downloadconfig.FieldLastDownloadAt:
+		m.ResetLastDownloadAt()
+		return nil
+	case downloadconfig.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case downloadconfig.FieldUserID:
+		m.ResetUserID()
+		return nil
+	}
+	return fmt.Errorf("unknown DownloadConfig field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *DownloadConfigMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.project != nil {
+		edges = append(edges, downloadconfig.EdgeProject)
+	}
+	if m.user != nil {
+		edges = append(edges, downloadconfig.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *DownloadConfigMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case downloadconfig.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case downloadconfig.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *DownloadConfigMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *DownloadConfigMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *DownloadConfigMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedproject {
+		edges = append(edges, downloadconfig.EdgeProject)
+	}
+	if m.cleareduser {
+		edges = append(edges, downloadconfig.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *DownloadConfigMutation) EdgeCleared(name string) bool {
+	switch name {
+	case downloadconfig.EdgeProject:
+		return m.clearedproject
+	case downloadconfig.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *DownloadConfigMutation) ClearEdge(name string) error {
+	switch name {
+	case downloadconfig.EdgeProject:
+		m.ClearProject()
+		return nil
+	case downloadconfig.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown DownloadConfig unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *DownloadConfigMutation) ResetEdge(name string) error {
+	switch name {
+	case downloadconfig.EdgeProject:
+		m.ResetProject()
+		return nil
+	case downloadconfig.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown DownloadConfig edge %s", name)
 }
 
 // ImageMutation represents an operation that mutates the Image nodes in the graph.
@@ -6949,6 +8199,9 @@ type ProjectMutation struct {
 	projectAssignments        map[string]struct{}
 	removedprojectAssignments map[string]struct{}
 	clearedprojectAssignments bool
+	downloadConfigs           map[string]struct{}
+	removeddownloadConfigs    map[string]struct{}
+	cleareddownloadConfigs    bool
 	activeForUsers            map[uuid.UUID]struct{}
 	removedactiveForUsers     map[uuid.UUID]struct{}
 	clearedactiveForUsers     bool
@@ -7936,6 +9189,60 @@ func (m *ProjectMutation) ResetProjectAssignments() {
 	m.removedprojectAssignments = nil
 }
 
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by ids.
+func (m *ProjectMutation) AddDownloadConfigIDs(ids ...string) {
+	if m.downloadConfigs == nil {
+		m.downloadConfigs = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.downloadConfigs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDownloadConfigs clears the "downloadConfigs" edge to the DownloadConfig entity.
+func (m *ProjectMutation) ClearDownloadConfigs() {
+	m.cleareddownloadConfigs = true
+}
+
+// DownloadConfigsCleared reports if the "downloadConfigs" edge to the DownloadConfig entity was cleared.
+func (m *ProjectMutation) DownloadConfigsCleared() bool {
+	return m.cleareddownloadConfigs
+}
+
+// RemoveDownloadConfigIDs removes the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (m *ProjectMutation) RemoveDownloadConfigIDs(ids ...string) {
+	if m.removeddownloadConfigs == nil {
+		m.removeddownloadConfigs = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.downloadConfigs, ids[i])
+		m.removeddownloadConfigs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDownloadConfigs returns the removed IDs of the "downloadConfigs" edge to the DownloadConfig entity.
+func (m *ProjectMutation) RemovedDownloadConfigsIDs() (ids []string) {
+	for id := range m.removeddownloadConfigs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DownloadConfigsIDs returns the "downloadConfigs" edge IDs in the mutation.
+func (m *ProjectMutation) DownloadConfigsIDs() (ids []string) {
+	for id := range m.downloadConfigs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDownloadConfigs resets all changes to the "downloadConfigs" edge.
+func (m *ProjectMutation) ResetDownloadConfigs() {
+	m.downloadConfigs = nil
+	m.cleareddownloadConfigs = false
+	m.removeddownloadConfigs = nil
+}
+
 // AddActiveForUserIDs adds the "activeForUsers" edge to the User entity by ids.
 func (m *ProjectMutation) AddActiveForUserIDs(ids ...uuid.UUID) {
 	if m.activeForUsers == nil {
@@ -8394,7 +9701,7 @@ func (m *ProjectMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.uploads != nil {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -8409,6 +9716,9 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.projectAssignments != nil {
 		edges = append(edges, project.EdgeProjectAssignments)
+	}
+	if m.downloadConfigs != nil {
+		edges = append(edges, project.EdgeDownloadConfigs)
 	}
 	if m.activeForUsers != nil {
 		edges = append(edges, project.EdgeActiveForUsers)
@@ -8450,6 +9760,12 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeDownloadConfigs:
+		ids := make([]ent.Value, 0, len(m.downloadConfigs))
+		for id := range m.downloadConfigs {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeActiveForUsers:
 		ids := make([]ent.Value, 0, len(m.activeForUsers))
 		for id := range m.activeForUsers {
@@ -8462,7 +9778,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removeduploads != nil {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -8477,6 +9793,9 @@ func (m *ProjectMutation) RemovedEdges() []string {
 	}
 	if m.removedprojectAssignments != nil {
 		edges = append(edges, project.EdgeProjectAssignments)
+	}
+	if m.removeddownloadConfigs != nil {
+		edges = append(edges, project.EdgeDownloadConfigs)
 	}
 	if m.removedactiveForUsers != nil {
 		edges = append(edges, project.EdgeActiveForUsers)
@@ -8518,6 +9837,12 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeDownloadConfigs:
+		ids := make([]ent.Value, 0, len(m.removeddownloadConfigs))
+		for id := range m.removeddownloadConfigs {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeActiveForUsers:
 		ids := make([]ent.Value, 0, len(m.removedactiveForUsers))
 		for id := range m.removedactiveForUsers {
@@ -8530,7 +9855,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.cleareduploads {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -8545,6 +9870,9 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	}
 	if m.clearedprojectAssignments {
 		edges = append(edges, project.EdgeProjectAssignments)
+	}
+	if m.cleareddownloadConfigs {
+		edges = append(edges, project.EdgeDownloadConfigs)
 	}
 	if m.clearedactiveForUsers {
 		edges = append(edges, project.EdgeActiveForUsers)
@@ -8566,6 +9894,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedscheduleItems
 	case project.EdgeProjectAssignments:
 		return m.clearedprojectAssignments
+	case project.EdgeDownloadConfigs:
+		return m.cleareddownloadConfigs
 	case project.EdgeActiveForUsers:
 		return m.clearedactiveForUsers
 	}
@@ -8598,6 +9928,9 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeProjectAssignments:
 		m.ResetProjectAssignments()
+		return nil
+	case project.EdgeDownloadConfigs:
+		m.ResetDownloadConfigs()
 		return nil
 	case project.EdgeActiveForUsers:
 		m.ResetActiveForUsers()
@@ -14105,6 +15438,9 @@ type UserMutation struct {
 	apiKeys                   map[string]struct{}
 	removedapiKeys            map[string]struct{}
 	clearedapiKeys            bool
+	downloadConfigs           map[string]struct{}
+	removeddownloadConfigs    map[string]struct{}
+	cleareddownloadConfigs    bool
 	scheduleItems             map[string]struct{}
 	removedscheduleItems      map[string]struct{}
 	clearedscheduleItems      bool
@@ -15266,6 +16602,60 @@ func (m *UserMutation) ResetApiKeys() {
 	m.removedapiKeys = nil
 }
 
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by ids.
+func (m *UserMutation) AddDownloadConfigIDs(ids ...string) {
+	if m.downloadConfigs == nil {
+		m.downloadConfigs = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.downloadConfigs[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDownloadConfigs clears the "downloadConfigs" edge to the DownloadConfig entity.
+func (m *UserMutation) ClearDownloadConfigs() {
+	m.cleareddownloadConfigs = true
+}
+
+// DownloadConfigsCleared reports if the "downloadConfigs" edge to the DownloadConfig entity was cleared.
+func (m *UserMutation) DownloadConfigsCleared() bool {
+	return m.cleareddownloadConfigs
+}
+
+// RemoveDownloadConfigIDs removes the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (m *UserMutation) RemoveDownloadConfigIDs(ids ...string) {
+	if m.removeddownloadConfigs == nil {
+		m.removeddownloadConfigs = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.downloadConfigs, ids[i])
+		m.removeddownloadConfigs[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDownloadConfigs returns the removed IDs of the "downloadConfigs" edge to the DownloadConfig entity.
+func (m *UserMutation) RemovedDownloadConfigsIDs() (ids []string) {
+	for id := range m.removeddownloadConfigs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DownloadConfigsIDs returns the "downloadConfigs" edge IDs in the mutation.
+func (m *UserMutation) DownloadConfigsIDs() (ids []string) {
+	for id := range m.downloadConfigs {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDownloadConfigs resets all changes to the "downloadConfigs" edge.
+func (m *UserMutation) ResetDownloadConfigs() {
+	m.downloadConfigs = nil
+	m.cleareddownloadConfigs = false
+	m.removeddownloadConfigs = nil
+}
+
 // AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by ids.
 func (m *UserMutation) AddScheduleItemIDs(ids ...string) {
 	if m.scheduleItems == nil {
@@ -15793,7 +17183,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.cameras != nil {
 		edges = append(edges, user.EdgeCameras)
 	}
@@ -15811,6 +17201,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.apiKeys != nil {
 		edges = append(edges, user.EdgeApiKeys)
+	}
+	if m.downloadConfigs != nil {
+		edges = append(edges, user.EdgeDownloadConfigs)
 	}
 	if m.scheduleItems != nil {
 		edges = append(edges, user.EdgeScheduleItems)
@@ -15856,6 +17249,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeDownloadConfigs:
+		ids := make([]ent.Value, 0, len(m.downloadConfigs))
+		for id := range m.downloadConfigs {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeScheduleItems:
 		ids := make([]ent.Value, 0, len(m.scheduleItems))
 		for id := range m.scheduleItems {
@@ -15868,7 +17267,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removedcameras != nil {
 		edges = append(edges, user.EdgeCameras)
 	}
@@ -15883,6 +17282,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedapiKeys != nil {
 		edges = append(edges, user.EdgeApiKeys)
+	}
+	if m.removeddownloadConfigs != nil {
+		edges = append(edges, user.EdgeDownloadConfigs)
 	}
 	if m.removedscheduleItems != nil {
 		edges = append(edges, user.EdgeScheduleItems)
@@ -15924,6 +17326,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeDownloadConfigs:
+		ids := make([]ent.Value, 0, len(m.removeddownloadConfigs))
+		for id := range m.removeddownloadConfigs {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeScheduleItems:
 		ids := make([]ent.Value, 0, len(m.removedscheduleItems))
 		for id := range m.removedscheduleItems {
@@ -15936,7 +17344,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedcameras {
 		edges = append(edges, user.EdgeCameras)
 	}
@@ -15954,6 +17362,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedapiKeys {
 		edges = append(edges, user.EdgeApiKeys)
+	}
+	if m.cleareddownloadConfigs {
+		edges = append(edges, user.EdgeDownloadConfigs)
 	}
 	if m.clearedscheduleItems {
 		edges = append(edges, user.EdgeScheduleItems)
@@ -15977,6 +17388,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedactiveProject
 	case user.EdgeApiKeys:
 		return m.clearedapiKeys
+	case user.EdgeDownloadConfigs:
+		return m.cleareddownloadConfigs
 	case user.EdgeScheduleItems:
 		return m.clearedscheduleItems
 	}
@@ -16015,6 +17428,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeApiKeys:
 		m.ResetApiKeys()
+		return nil
+	case user.EdgeDownloadConfigs:
+		m.ResetDownloadConfigs()
 		return nil
 	case user.EdgeScheduleItems:
 		m.ResetScheduleItems()

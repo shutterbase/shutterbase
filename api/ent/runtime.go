@@ -9,6 +9,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
@@ -115,6 +116,53 @@ func init() {
 	camera.DefaultID = cameraDescID.Default.(func() string)
 	// camera.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	camera.IDValidator = cameraDescID.Validators[0].(func(string) error)
+	downloadconfigMixin := schema.DownloadConfig{}.Mixin()
+	downloadconfigMixinFields0 := downloadconfigMixin[0].Fields()
+	_ = downloadconfigMixinFields0
+	downloadconfigMixinFields1 := downloadconfigMixin[1].Fields()
+	_ = downloadconfigMixinFields1
+	downloadconfigFields := schema.DownloadConfig{}.Fields()
+	_ = downloadconfigFields
+	// downloadconfigDescCreatedAt is the schema descriptor for createdAt field.
+	downloadconfigDescCreatedAt := downloadconfigMixinFields1[0].Descriptor()
+	// downloadconfig.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	downloadconfig.DefaultCreatedAt = downloadconfigDescCreatedAt.Default.(func() time.Time)
+	// downloadconfigDescUpdatedAt is the schema descriptor for updatedAt field.
+	downloadconfigDescUpdatedAt := downloadconfigMixinFields1[1].Descriptor()
+	// downloadconfig.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	downloadconfig.DefaultUpdatedAt = downloadconfigDescUpdatedAt.Default.(func() time.Time)
+	// downloadconfig.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	downloadconfig.UpdateDefaultUpdatedAt = downloadconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// downloadconfigDescName is the schema descriptor for name field.
+	downloadconfigDescName := downloadconfigFields[0].Descriptor()
+	// downloadconfig.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	downloadconfig.NameValidator = downloadconfigDescName.Validators[0].(func(string) error)
+	// downloadconfigDescWhitelistTagIds is the schema descriptor for whitelistTagIds field.
+	downloadconfigDescWhitelistTagIds := downloadconfigFields[1].Descriptor()
+	// downloadconfig.DefaultWhitelistTagIds holds the default value on creation for the whitelistTagIds field.
+	downloadconfig.DefaultWhitelistTagIds = downloadconfigDescWhitelistTagIds.Default.([]string)
+	// downloadconfigDescBlacklistTagIds is the schema descriptor for blacklistTagIds field.
+	downloadconfigDescBlacklistTagIds := downloadconfigFields[2].Descriptor()
+	// downloadconfig.DefaultBlacklistTagIds holds the default value on creation for the blacklistTagIds field.
+	downloadconfig.DefaultBlacklistTagIds = downloadconfigDescBlacklistTagIds.Default.([]string)
+	// downloadconfigDescBlockedImageIds is the schema descriptor for blockedImageIds field.
+	downloadconfigDescBlockedImageIds := downloadconfigFields[3].Descriptor()
+	// downloadconfig.DefaultBlockedImageIds holds the default value on creation for the blockedImageIds field.
+	downloadconfig.DefaultBlockedImageIds = downloadconfigDescBlockedImageIds.Default.([]string)
+	// downloadconfigDescDeltaSubfolder is the schema descriptor for deltaSubfolder field.
+	downloadconfigDescDeltaSubfolder := downloadconfigFields[4].Descriptor()
+	// downloadconfig.DefaultDeltaSubfolder holds the default value on creation for the deltaSubfolder field.
+	downloadconfig.DefaultDeltaSubfolder = downloadconfigDescDeltaSubfolder.Default.(bool)
+	// downloadconfigDescGroupByDate is the schema descriptor for groupByDate field.
+	downloadconfigDescGroupByDate := downloadconfigFields[5].Descriptor()
+	// downloadconfig.DefaultGroupByDate holds the default value on creation for the groupByDate field.
+	downloadconfig.DefaultGroupByDate = downloadconfigDescGroupByDate.Default.(bool)
+	// downloadconfigDescID is the schema descriptor for id field.
+	downloadconfigDescID := downloadconfigMixinFields0[0].Descriptor()
+	// downloadconfig.DefaultID holds the default value on creation for the id field.
+	downloadconfig.DefaultID = downloadconfigDescID.Default.(func() string)
+	// downloadconfig.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	downloadconfig.IDValidator = downloadconfigDescID.Validators[0].(func(string) error)
 	imageMixin := schema.Image{}.Mixin()
 	imageMixinFields0 := imageMixin[0].Fields()
 	_ = imageMixinFields0

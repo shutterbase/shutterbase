@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/camera"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
@@ -341,6 +342,21 @@ func (_c *UserCreate) AddApiKeys(v ...*ApiKey) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddApiKeyIDs(ids...)
+}
+
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (_c *UserCreate) AddDownloadConfigIDs(ids ...string) *UserCreate {
+	_c.mutation.AddDownloadConfigIDs(ids...)
+	return _c
+}
+
+// AddDownloadConfigs adds the "downloadConfigs" edges to the DownloadConfig entity.
+func (_c *UserCreate) AddDownloadConfigs(v ...*DownloadConfig) *UserCreate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDownloadConfigIDs(ids...)
 }
 
 // AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
@@ -677,6 +693,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DownloadConfigsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DownloadConfigsTable,
+			Columns: []string{user.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

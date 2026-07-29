@@ -157,6 +157,24 @@ export interface ScheduleItem {
   updatedAt: string;
 }
 
+// A personal per-project preset for the in-browser bulk download page.
+// whitelistTagIds are AND-applied server-side; blacklistTagIds and
+// blockedImageIds are excluded client-side by the runner. lastDownloadAt is
+// the start time of the last completed run — the delta window's anchor.
+export interface DownloadConfig {
+  id: string;
+  name: string;
+  whitelistTagIds: string[];
+  blacklistTagIds: string[];
+  blockedImageIds: string[];
+  deltaSubfolder: boolean;
+  groupByDate: boolean;
+  lastDownloadAt: string | null;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // One lane of the upload tagging timeline. Exactly one of scheduleItemId
 // (mutually exclusive with its siblings) or tagId (stacks freely) is set.
 export interface TimelineTrack {

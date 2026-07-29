@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/project"
@@ -268,6 +269,21 @@ func (_c *ProjectCreate) AddProjectAssignments(v ...*ProjectAssignment) *Project
 		ids[i] = v[i].ID
 	}
 	return _c.AddProjectAssignmentIDs(ids...)
+}
+
+// AddDownloadConfigIDs adds the "downloadConfigs" edge to the DownloadConfig entity by IDs.
+func (_c *ProjectCreate) AddDownloadConfigIDs(ids ...string) *ProjectCreate {
+	_c.mutation.AddDownloadConfigIDs(ids...)
+	return _c
+}
+
+// AddDownloadConfigs adds the "downloadConfigs" edges to the DownloadConfig entity.
+func (_c *ProjectCreate) AddDownloadConfigs(v ...*DownloadConfig) *ProjectCreate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddDownloadConfigIDs(ids...)
 }
 
 // AddActiveForUserIDs adds the "activeForUsers" edge to the User entity by IDs.
@@ -578,6 +594,22 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(projectassignment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.DownloadConfigsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DownloadConfigsTable,
+			Columns: []string{project.DownloadConfigsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

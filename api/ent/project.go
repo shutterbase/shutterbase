@@ -66,11 +66,13 @@ type ProjectEdges struct {
 	ScheduleItems []*ScheduleItem `json:"scheduleItems,omitempty"`
 	// ProjectAssignments holds the value of the projectAssignments edge.
 	ProjectAssignments []*ProjectAssignment `json:"projectAssignments,omitempty"`
+	// DownloadConfigs holds the value of the downloadConfigs edge.
+	DownloadConfigs []*DownloadConfig `json:"downloadConfigs,omitempty"`
 	// ActiveForUsers holds the value of the activeForUsers edge.
 	ActiveForUsers []*User `json:"activeForUsers,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [7]bool
 }
 
 // UploadsOrErr returns the Uploads value or an error if the edge
@@ -118,10 +120,19 @@ func (e ProjectEdges) ProjectAssignmentsOrErr() ([]*ProjectAssignment, error) {
 	return nil, &NotLoadedError{edge: "projectAssignments"}
 }
 
+// DownloadConfigsOrErr returns the DownloadConfigs value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) DownloadConfigsOrErr() ([]*DownloadConfig, error) {
+	if e.loadedTypes[5] {
+		return e.DownloadConfigs, nil
+	}
+	return nil, &NotLoadedError{edge: "downloadConfigs"}
+}
+
 // ActiveForUsersOrErr returns the ActiveForUsers value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ActiveForUsersOrErr() ([]*User, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.ActiveForUsers, nil
 	}
 	return nil, &NotLoadedError{edge: "activeForUsers"}
@@ -291,6 +302,11 @@ func (_m *Project) QueryScheduleItems() *ScheduleItemQuery {
 // QueryProjectAssignments queries the "projectAssignments" edge of the Project entity.
 func (_m *Project) QueryProjectAssignments() *ProjectAssignmentQuery {
 	return NewProjectClient(_m.config).QueryProjectAssignments(_m)
+}
+
+// QueryDownloadConfigs queries the "downloadConfigs" edge of the Project entity.
+func (_m *Project) QueryDownloadConfigs() *DownloadConfigQuery {
+	return NewProjectClient(_m.config).QueryDownloadConfigs(_m)
 }
 
 // QueryActiveForUsers queries the "activeForUsers" edge of the Project entity.

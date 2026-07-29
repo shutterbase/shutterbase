@@ -116,6 +116,7 @@ function calculateNavigationItems() {
     navigationItems.push({ name: "Images", href: "/images", current: false });
     navigationItems.push({ name: "Uploads", href: "/uploads", current: false });
     navigationItems.push({ name: "Schedule", href: "/schedule", current: false });
+    navigationItems.push({ name: "Download", href: "/download", current: false });
   }
   navigationItems.push({ name: "People", href: "/people", current: false });
   navigationItems.push({ name: "Projects", href: "/projects", current: false });

@@ -15,6 +15,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/apikey"
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
+	"github.com/shutterbase/shutterbase/ent/downloadconfig"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
@@ -88,6 +89,7 @@ func checkColumn(t, c string) error {
 			apikey.Table:             apikey.ValidColumn,
 			auditlog.Table:           auditlog.ValidColumn,
 			camera.Table:             camera.ValidColumn,
+			downloadconfig.Table:     downloadconfig.ValidColumn,
 			image.Table:              image.ValidColumn,
 			imagetag.Table:           imagetag.ValidColumn,
 			imagetagassignment.Table: imagetagassignment.ValidColumn,

@@ -117,6 +117,55 @@ var (
 			},
 		},
 	}
+	// DownloadConfigsColumns holds the columns for the "download_configs" table.
+	DownloadConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "name", Type: field.TypeString},
+		{Name: "whitelist_tag_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "blacklist_tag_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "blocked_image_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "delta_subfolder", Type: field.TypeBool, Default: false},
+		{Name: "group_by_date", Type: field.TypeBool, Default: false},
+		{Name: "last_download_at", Type: field.TypeTime, Nullable: true},
+		{Name: "project_id", Type: field.TypeString, Size: 15},
+		{Name: "user_id", Type: field.TypeUUID},
+	}
+	// DownloadConfigsTable holds the schema information for the "download_configs" table.
+	DownloadConfigsTable = &schema.Table{
+		Name:       "download_configs",
+		Columns:    DownloadConfigsColumns,
+		PrimaryKey: []*schema.Column{DownloadConfigsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "download_configs_projects_downloadConfigs",
+				Columns:    []*schema.Column{DownloadConfigsColumns[12]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+			{
+				Symbol:     "download_configs_users_downloadConfigs",
+				Columns:    []*schema.Column{DownloadConfigsColumns[13]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "downloadconfig_project_id",
+				Unique:  false,
+				Columns: []*schema.Column{DownloadConfigsColumns[12]},
+			},
+			{
+				Name:    "downloadconfig_user_id_project_id",
+				Unique:  false,
+				Columns: []*schema.Column{DownloadConfigsColumns[13], DownloadConfigsColumns[12]},
+			},
+		},
+	}
 	// ImagesColumns holds the columns for the "images" table.
 	ImagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -661,6 +710,7 @@ var (
 		APIKeysTable,
 		AuditLogsTable,
 		CamerasTable,
+		DownloadConfigsTable,
 		ImagesTable,
 		ImageTagsTable,
 		ImageTagAssignmentsTable,
@@ -679,6 +729,8 @@ var (
 func init() {
 	APIKeysTable.ForeignKeys[0].RefTable = UsersTable
 	CamerasTable.ForeignKeys[0].RefTable = UsersTable
+	DownloadConfigsTable.ForeignKeys[0].RefTable = ProjectsTable
+	DownloadConfigsTable.ForeignKeys[1].RefTable = UsersTable
 	ImagesTable.ForeignKeys[0].RefTable = CamerasTable
 	ImagesTable.ForeignKeys[1].RefTable = ProjectsTable
 	ImagesTable.ForeignKeys[2].RefTable = UploadsTable

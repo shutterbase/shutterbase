@@ -1099,6 +1099,29 @@ func HasApiKeysWith(preds ...predicate.ApiKey) predicate.User {
 	})
 }
 
+// HasDownloadConfigs applies the HasEdge predicate on the "downloadConfigs" edge.
+func HasDownloadConfigs() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DownloadConfigsTable, DownloadConfigsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDownloadConfigsWith applies the HasEdge predicate on the "downloadConfigs" edge with a given conditions (other predicates).
+func HasDownloadConfigsWith(preds ...predicate.DownloadConfig) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newDownloadConfigsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasScheduleItems applies the HasEdge predicate on the "scheduleItems" edge.
 func HasScheduleItems() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

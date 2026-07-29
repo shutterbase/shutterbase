@@ -20,6 +20,8 @@ type Tx struct {
 	AuditLog *AuditLogClient
 	// Camera is the client for interacting with the Camera builders.
 	Camera *CameraClient
+	// DownloadConfig is the client for interacting with the DownloadConfig builders.
+	DownloadConfig *DownloadConfigClient
 	// Image is the client for interacting with the Image builders.
 	Image *ImageClient
 	// ImageTag is the client for interacting with the ImageTag builders.
@@ -174,6 +176,7 @@ func (tx *Tx) init() {
 	tx.ApiKey = NewApiKeyClient(tx.config)
 	tx.AuditLog = NewAuditLogClient(tx.config)
 	tx.Camera = NewCameraClient(tx.config)
+	tx.DownloadConfig = NewDownloadConfigClient(tx.config)
 	tx.Image = NewImageClient(tx.config)
 	tx.ImageTag = NewImageTagClient(tx.config)
 	tx.ImageTagAssignment = NewImageTagAssignmentClient(tx.config)

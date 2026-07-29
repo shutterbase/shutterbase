@@ -21,6 +21,7 @@ func (s *Server) registerAPIRoutes() {
 	s.registerRoleRoutes(api)
 	s.registerUserRoutes(api)
 	s.registerApiKeyRoutes(api)
+	s.registerDownloadConfigRoutes(api)
 	s.registerCustomRoutes(api)
 
 	// DEV quick-actions are registered ONLY when DEV=true — the hard gate. The
