@@ -19,7 +19,7 @@
         Your browser cannot write into local folders. Bulk download needs the File System Access API — please use Chrome or Edge on desktop.
       </div>
 
-      <!-- active run -->
+      <!-- active run: one overall bar + one bar per parallel download -->
       <div v-if="run" class="mt-6 rounded-lg border border-primary-200 bg-surface p-4 dark:border-primary-800 dark:bg-surface-dark" data-testid="download-run">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="min-w-0">
@@ -39,9 +39,72 @@
             :style="{ width: run.progress.total ? `${(run.progress.done / run.progress.total) * 100}%` : '100%' }"
           ></div>
         </div>
+        <div v-if="!run.finished" class="mt-3 space-y-2">
+          <div v-for="(worker, slot) in run.progress.workers" :key="slot" class="flex items-center gap-3">
+            <span class="w-56 truncate font-mono text-[11px] text-primary-500 dark:text-primary-400">
+              {{ worker ? worker.fileName : "—" }}
+            </span>
+            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-primary-100 dark:bg-primary-800">
+              <div
+                v-if="worker"
+                class="h-full rounded-full bg-accent-400 transition-all"
+                :class="{ 'animate-pulse': !worker.total }"
+                :style="{ width: worker.total ? `${(worker.received / worker.total) * 100}%` : '100%' }"
+              ></div>
+            </div>
+            <span class="w-20 text-right font-mono text-[11px] tabular-nums text-primary-400">
+              {{ worker ? formatBytes(worker.received) : "" }}
+            </span>
+          </div>
+        </div>
         <div v-if="run.finished && run.progress.failed.length" class="mt-3 text-xs text-red-600 dark:text-red-400">
           <p class="font-medium">Failed after {{ RETRY_COUNT }} retries (a delta run will pick them up again):</p>
           <p class="mt-1 max-h-24 overflow-y-auto font-mono">{{ run.progress.failed.join(", ") }}</p>
+        </div>
+      </div>
+
+      <!-- preview: what a run would do, straight from the shared plan logic -->
+      <div v-if="preview" class="mt-6 rounded-lg border border-primary-200 bg-surface p-4 dark:border-primary-800 dark:bg-surface-dark" data-testid="download-preview">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-primary-900 dark:text-white">{{ preview.config.name }} — preview</p>
+            <p class="mt-0.5 text-xs tabular-nums text-primary-500 dark:text-primary-400">
+              {{ preview.images.length }} matching · {{ preview.plan.counts.present }} already in folder ·
+              <span class="font-semibold text-accent-600 dark:text-accent-400">{{ preview.plan.counts.new + preview.plan.counts.changed }} to download</span>
+              ({{ preview.plan.counts.new }} new, {{ preview.plan.counts.changed }} changed)
+              <span v-if="preview.plan.counts.excluded"> · {{ preview.plan.counts.excluded }} excluded</span>
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="btn-primary"
+              :disabled="!!activeRun || preview.plan.counts.new + preview.plan.counts.changed === 0"
+              @click="startRun(preview.config, true)"
+            >
+              <ArrowPathIcon class="h-4 w-4" />
+              Download new + changed ({{ preview.plan.counts.new + preview.plan.counts.changed }})
+            </button>
+            <button type="button" class="btn-secondary" :disabled="!!activeRun" @click="startRun(preview.config, false)">
+              <ArrowDownTrayIcon class="h-4 w-4" />
+              Full ({{ preview.images.length - preview.plan.counts.excluded }})
+            </button>
+            <button type="button" class="btn-secondary" @click="preview = null">Dismiss</button>
+          </div>
+        </div>
+        <div class="mt-4 grid max-h-[28rem] grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-1.5 overflow-y-auto">
+          <div v-for="image in preview.images" :key="image.id" class="group relative aspect-[3/2] overflow-hidden rounded-md bg-primary-100 dark:bg-primary-800">
+            <img
+              :src="image.downloadUrls?.['256']"
+              :alt="image.computedFileName"
+              loading="lazy"
+              class="h-full w-full object-cover"
+              :class="{ 'opacity-30': preview.plan.statuses.get(image.id) === 'excluded' }"
+            />
+            <span class="absolute bottom-1 left-1 rounded px-1 py-px text-[10px] font-semibold" :class="statusBadgeClass(preview.plan.statuses.get(image.id))">
+              {{ statusLabel(preview.plan.statuses.get(image.id)) }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -82,20 +145,40 @@
             <span v-if="!config.whitelistTagIds.length && !config.blacklistTagIds.length" class="text-primary-400">all photos</span>
           </div>
           <p class="mt-2 text-xs text-primary-500 dark:text-primary-400">
-            <span v-if="config.blockedImageIds.length">{{ config.blockedImageIds.length }} blocked · </span>
-            <span v-if="config.deltaSubfolder">delta subfolder · </span>
-            <span v-if="config.groupByDate">by date · </span>
+            <span class="font-semibold text-primary-700 dark:text-primary-200" data-testid="match-count">
+              {{ matchCounts[config.id] !== undefined ? `${matchCounts[config.id]} matching images` : "counting…" }}
+            </span>
+            <span v-if="config.blockedImageIds.length"> · {{ config.blockedImageIds.length }} blocked</span>
+            <span v-if="config.deltaSubfolder"> · delta subfolder</span>
+            <span v-if="config.groupByDate"> · by date</span>
+          </p>
+          <p class="mt-1 flex items-center gap-1 text-xs text-primary-500 dark:text-primary-400">
+            <FolderIcon class="h-3.5 w-3.5 flex-shrink-0" />
+            <span class="truncate">{{ folderNames[config.id] ?? "no folder picked yet" }}</span>
+            <button
+              type="button"
+              class="ml-auto flex-shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-[11px] font-medium text-accent-600 transition-colors hover:bg-accent-500/10 dark:text-accent-400"
+              @click="changeFolder(config)"
+            >
+              {{ folderNames[config.id] ? "change" : "pick" }}
+            </button>
+          </p>
+          <p class="mt-1 text-xs text-primary-500 dark:text-primary-400">
             <span v-if="config.lastDownloadAt">last download {{ formatDateTime(config.lastDownloadAt) }}</span>
             <span v-else>never downloaded</span>
           </p>
           <div class="mt-3 flex gap-2 border-t border-primary-100 pt-3 dark:border-primary-800">
-            <button type="button" class="btn-primary flex-1" :disabled="!supported || !!activeRun" @click="startRun(config, false)">
-              <ArrowDownTrayIcon class="h-4 w-4" />
-              Full
+            <button type="button" class="btn-primary flex-1" :disabled="!supported || !!activeRun || previewLoading" @click="openPreview(config)">
+              <EyeIcon class="h-4 w-4" />
+              {{ previewLoading === config.id ? "Scanning…" : "Preview" }}
             </button>
             <button type="button" class="btn-secondary flex-1" :disabled="!supported || !!activeRun" @click="startRun(config, true)">
               <ArrowPathIcon class="h-4 w-4" />
               Delta
+            </button>
+            <button type="button" class="btn-secondary flex-1" :disabled="!supported || !!activeRun" @click="startRun(config, false)">
+              <ArrowDownTrayIcon class="h-4 w-4" />
+              Full
             </button>
           </div>
         </div>
@@ -117,7 +200,7 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowDownTrayIcon, ArrowPathIcon, PencilIcon, PlusIcon } from "@heroicons/vue/24/outline";
+import { ArrowDownTrayIcon, ArrowPathIcon, EyeIcon, FolderIcon, PencilIcon, PlusIcon } from "@heroicons/vue/24/outline";
 import { DateTime } from "luxon";
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
@@ -128,7 +211,18 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { DownloadConfigCreate, DownloadConfigUpdate } from "src/api/downloadConfigs";
 import { useUserStore } from "src/stores/user-store";
 import { DownloadConfig, Image, ImageTag } from "src/types/api";
-import { isDirectoryPickerSupported, pickDirectory, runDownload, RunProgress, RETRY_COUNT } from "src/util/downloadRunner";
+import { ensurePermission, getStoredDirHandle, storeDirHandle } from "src/util/dirHandleStore";
+import {
+  collectExistingFiles,
+  DownloadPlan,
+  ImageStatus,
+  isDirectoryPickerSupported,
+  pickDirectory,
+  planDownload,
+  RETRY_COUNT,
+  RunProgress,
+  runDownload,
+} from "src/util/downloadRunner";
 
 const userStore = useUserStore();
 const { activeProjectId } = storeToRefs(userStore);
@@ -136,6 +230,8 @@ const { activeProjectId } = storeToRefs(userStore);
 const supported = isDirectoryPickerSupported();
 const configs = ref<DownloadConfig[]>([]);
 const projectTags = ref<ImageTag[]>([]);
+const matchCounts = ref<Record<string, number>>({});
+const folderNames = ref<Record<string, string>>({});
 const loaded = ref(false);
 
 const unexpectedError = ref<any>(null);
@@ -155,6 +251,7 @@ async function loadData() {
     configs.value = configList.items;
     projectTags.value = tagList.items;
     loaded.value = true;
+    void loadCardMeta(configList.items);
   } catch (error: any) {
     fail(error);
   }
@@ -162,10 +259,46 @@ async function loadData() {
 onMounted(loadData);
 watch(activeProjectId, loadData);
 
+// Per-card metadata: how many images match the filter (limit=1, total only)
+// and the name of the remembered target folder.
+async function loadCardMeta(list: DownloadConfig[]) {
+  await Promise.all(
+    list.map(async (config) => {
+      try {
+        const page = await api.images.list({
+          projectId: activeProjectId.value,
+          tagId: config.whitelistTagIds.length ? config.whitelistTagIds : undefined,
+          limit: 1,
+        });
+        matchCounts.value[config.id] = page.total;
+      } catch {
+        // count stays "counting…" — non-fatal
+      }
+      const handle = await getStoredDirHandle(config.id);
+      if (handle) folderNames.value[config.id] = handle.name;
+    }),
+  );
+}
+
 function tagName(id: string): string {
   return projectTags.value.find((t) => t.id === id)?.name ?? id;
 }
 const formatDateTime = (iso: string) => DateTime.fromISO(iso).toLocaleString(DateTime.DATETIME_SHORT);
+const formatBytes = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.round(n / 1024)} kB`);
+
+const statusLabel = (s?: ImageStatus) => ({ new: "new", changed: "changed", present: "present", excluded: "excluded" })[s ?? "present"];
+function statusBadgeClass(s?: ImageStatus): string {
+  switch (s) {
+    case "new":
+      return "bg-accent-600 text-white";
+    case "changed":
+      return "bg-amber-500 text-white";
+    case "excluded":
+      return "bg-red-600/90 text-white";
+    default:
+      return "bg-primary-900/70 text-white";
+  }
+}
 
 // ---- config CRUD ----
 const dialogOpen = ref(false);
@@ -193,6 +326,7 @@ async function saveConfig(payload: DownloadConfigCreate | DownloadConfigUpdate) 
       showNotificationToast({ headline: "Download config saved", type: "success" });
     }
     dialogOpen.value = false;
+    preview.value = null; // filters may have changed — a stale preview lies
     await loadData();
   } catch (error: any) {
     fail(error);
@@ -211,16 +345,27 @@ async function deleteConfig() {
   }
 }
 
-// ---- download run ----
-interface RunState {
-  configName: string;
-  delta: boolean;
-  progress: RunProgress;
-  finished: boolean;
-  aborted: boolean;
+// ---- directory persistence ----
+// The picked folder is remembered per config (IndexedDB) — runs reuse it
+// silently; "change" on the card re-picks.
+async function getDirectory(config: DownloadConfig, forcePick = false): Promise<FileSystemDirectoryHandle | null> {
+  if (!forcePick) {
+    const stored = await getStoredDirHandle(config.id);
+    if (stored && (await ensurePermission(stored))) return stored;
+  }
+  try {
+    const handle = await pickDirectory();
+    await storeDirHandle(config.id, handle);
+    folderNames.value[config.id] = handle.name;
+    return handle;
+  } catch {
+    return null; // user dismissed the picker
+  }
 }
-const run = ref<RunState | null>(null);
-const activeRun = computed(() => run.value && !run.value.finished);
+
+async function changeFolder(config: DownloadConfig) {
+  await getDirectory(config, true);
+}
 
 // fetchAllImages pages through /images with the config's AND whitelist —
 // the same server-side filter the CLI used.
@@ -241,26 +386,60 @@ async function fetchAllImages(config: DownloadConfig): Promise<Image[]> {
   }
 }
 
-async function startRun(config: DownloadConfig, delta: boolean) {
-  let directory: FileSystemDirectoryHandle;
+// ---- preview ----
+interface PreviewState {
+  config: DownloadConfig;
+  images: Image[];
+  plan: DownloadPlan; // delta-mode plan: new/changed/present/excluded counts
+  directory: FileSystemDirectoryHandle;
+}
+const preview = ref<PreviewState | null>(null);
+const previewLoading = ref<string | null>(null);
+
+async function openPreview(config: DownloadConfig) {
+  previewLoading.value = config.id;
   try {
-    directory = await pickDirectory();
-  } catch {
-    return; // user dismissed the picker
+    const directory = await getDirectory(config);
+    if (!directory) return;
+    const [images, existing] = await Promise.all([fetchAllImages(config), collectExistingFiles(directory)]);
+    preview.value = { config, images, plan: planDownload(images, config, existing, { delta: true }), directory };
+  } catch (error: any) {
+    fail(error);
+  } finally {
+    previewLoading.value = null;
   }
+}
+
+// ---- download run ----
+interface RunState {
+  configName: string;
+  delta: boolean;
+  progress: RunProgress;
+  finished: boolean;
+  aborted: boolean;
+}
+const run = ref<RunState | null>(null);
+const activeRun = computed(() => run.value && !run.value.finished);
+
+async function startRun(config: DownloadConfig, delta: boolean) {
+  const directory = preview.value?.config.id === config.id ? preview.value.directory : await getDirectory(config);
+  if (!directory) return;
   const runStart = new Date();
   const state: RunState = {
     configName: config.name,
     delta,
-    progress: { total: 0, done: 0, failed: [], skipped: 0 },
+    progress: { total: 0, done: 0, failed: [], skipped: 0, workers: [] },
     finished: false,
     aborted: false,
   };
   run.value = state;
+  preview.value = null; // the run invalidates the preview's counts
   try {
-    const images = await fetchAllImages(config);
+    // Re-plan at run time — the preview may be minutes old.
+    const [images, existing] = await Promise.all([fetchAllImages(config), collectExistingFiles(directory)]);
+    const plan = planDownload(images, config, existing, { delta });
     const result = await runDownload(
-      images,
+      plan,
       config,
       directory,
       { delta, runDate: runStart },
