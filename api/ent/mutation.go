@@ -5108,6 +5108,9 @@ type ImageTagMutation struct {
 	tagAssignments        map[string]struct{}
 	removedtagAssignments map[string]struct{}
 	clearedtagAssignments bool
+	scheduleItems         map[string]struct{}
+	removedscheduleItems  map[string]struct{}
+	clearedscheduleItems  bool
 	done                  bool
 	oldValue              func(context.Context) (*ImageTag, error)
 	predicates            []predicate.ImageTag
@@ -5648,6 +5651,60 @@ func (m *ImageTagMutation) ResetTagAssignments() {
 	m.removedtagAssignments = nil
 }
 
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by ids.
+func (m *ImageTagMutation) AddScheduleItemIDs(ids ...string) {
+	if m.scheduleItems == nil {
+		m.scheduleItems = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.scheduleItems[ids[i]] = struct{}{}
+	}
+}
+
+// ClearScheduleItems clears the "scheduleItems" edge to the ScheduleItem entity.
+func (m *ImageTagMutation) ClearScheduleItems() {
+	m.clearedscheduleItems = true
+}
+
+// ScheduleItemsCleared reports if the "scheduleItems" edge to the ScheduleItem entity was cleared.
+func (m *ImageTagMutation) ScheduleItemsCleared() bool {
+	return m.clearedscheduleItems
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (m *ImageTagMutation) RemoveScheduleItemIDs(ids ...string) {
+	if m.removedscheduleItems == nil {
+		m.removedscheduleItems = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.scheduleItems, ids[i])
+		m.removedscheduleItems[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedScheduleItems returns the removed IDs of the "scheduleItems" edge to the ScheduleItem entity.
+func (m *ImageTagMutation) RemovedScheduleItemsIDs() (ids []string) {
+	for id := range m.removedscheduleItems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ScheduleItemsIDs returns the "scheduleItems" edge IDs in the mutation.
+func (m *ImageTagMutation) ScheduleItemsIDs() (ids []string) {
+	for id := range m.scheduleItems {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetScheduleItems resets all changes to the "scheduleItems" edge.
+func (m *ImageTagMutation) ResetScheduleItems() {
+	m.scheduleItems = nil
+	m.clearedscheduleItems = false
+	m.removedscheduleItems = nil
+}
+
 // Where appends a list predicates to the ImageTagMutation builder.
 func (m *ImageTagMutation) Where(ps ...predicate.ImageTag) {
 	m.predicates = append(m.predicates, ps...)
@@ -5932,12 +5989,15 @@ func (m *ImageTagMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ImageTagMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.project != nil {
 		edges = append(edges, imagetag.EdgeProject)
 	}
 	if m.tagAssignments != nil {
 		edges = append(edges, imagetag.EdgeTagAssignments)
+	}
+	if m.scheduleItems != nil {
+		edges = append(edges, imagetag.EdgeScheduleItems)
 	}
 	return edges
 }
@@ -5956,15 +6016,24 @@ func (m *ImageTagMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case imagetag.EdgeScheduleItems:
+		ids := make([]ent.Value, 0, len(m.scheduleItems))
+		for id := range m.scheduleItems {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ImageTagMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.removedtagAssignments != nil {
 		edges = append(edges, imagetag.EdgeTagAssignments)
+	}
+	if m.removedscheduleItems != nil {
+		edges = append(edges, imagetag.EdgeScheduleItems)
 	}
 	return edges
 }
@@ -5979,18 +6048,27 @@ func (m *ImageTagMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case imagetag.EdgeScheduleItems:
+		ids := make([]ent.Value, 0, len(m.removedscheduleItems))
+		for id := range m.removedscheduleItems {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ImageTagMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.clearedproject {
 		edges = append(edges, imagetag.EdgeProject)
 	}
 	if m.clearedtagAssignments {
 		edges = append(edges, imagetag.EdgeTagAssignments)
+	}
+	if m.clearedscheduleItems {
+		edges = append(edges, imagetag.EdgeScheduleItems)
 	}
 	return edges
 }
@@ -6003,6 +6081,8 @@ func (m *ImageTagMutation) EdgeCleared(name string) bool {
 		return m.clearedproject
 	case imagetag.EdgeTagAssignments:
 		return m.clearedtagAssignments
+	case imagetag.EdgeScheduleItems:
+		return m.clearedscheduleItems
 	}
 	return false
 }
@@ -6027,6 +6107,9 @@ func (m *ImageTagMutation) ResetEdge(name string) error {
 		return nil
 	case imagetag.EdgeTagAssignments:
 		m.ResetTagAssignments()
+		return nil
+	case imagetag.EdgeScheduleItems:
+		m.ResetScheduleItems()
 		return nil
 	}
 	return fmt.Errorf("unknown ImageTag edge %s", name)

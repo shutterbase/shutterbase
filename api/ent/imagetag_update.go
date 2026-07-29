@@ -16,6 +16,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 )
 
 // ImageTagUpdate is the builder for updating ImageTag entities.
@@ -147,6 +148,21 @@ func (_u *ImageTagUpdate) AddTagAssignments(v ...*ImageTagAssignment) *ImageTagU
 	return _u.AddTagAssignmentIDs(ids...)
 }
 
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_u *ImageTagUpdate) AddScheduleItemIDs(ids ...string) *ImageTagUpdate {
+	_u.mutation.AddScheduleItemIDs(ids...)
+	return _u
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ImageTagUpdate) AddScheduleItems(v ...*ScheduleItem) *ImageTagUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddScheduleItemIDs(ids...)
+}
+
 // Mutation returns the ImageTagMutation object of the builder.
 func (_u *ImageTagUpdate) Mutation() *ImageTagMutation {
 	return _u.mutation
@@ -177,6 +193,27 @@ func (_u *ImageTagUpdate) RemoveTagAssignments(v ...*ImageTagAssignment) *ImageT
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTagAssignmentIDs(ids...)
+}
+
+// ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ImageTagUpdate) ClearScheduleItems() *ImageTagUpdate {
+	_u.mutation.ClearScheduleItems()
+	return _u
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to ScheduleItem entities by IDs.
+func (_u *ImageTagUpdate) RemoveScheduleItemIDs(ids ...string) *ImageTagUpdate {
+	_u.mutation.RemoveScheduleItemIDs(ids...)
+	return _u
+}
+
+// RemoveScheduleItems removes "scheduleItems" edges to ScheduleItem entities.
+func (_u *ImageTagUpdate) RemoveScheduleItems(v ...*ScheduleItem) *ImageTagUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveScheduleItemIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -348,6 +385,51 @@ func (_u *ImageTagUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   imagetag.ScheduleItemsTable,
+			Columns: imagetag.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedScheduleItemsIDs(); len(nodes) > 0 && !_u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   imagetag.ScheduleItemsTable,
+			Columns: imagetag.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   imagetag.ScheduleItemsTable,
+			Columns: imagetag.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{imagetag.Label}
@@ -484,6 +566,21 @@ func (_u *ImageTagUpdateOne) AddTagAssignments(v ...*ImageTagAssignment) *ImageT
 	return _u.AddTagAssignmentIDs(ids...)
 }
 
+// AddScheduleItemIDs adds the "scheduleItems" edge to the ScheduleItem entity by IDs.
+func (_u *ImageTagUpdateOne) AddScheduleItemIDs(ids ...string) *ImageTagUpdateOne {
+	_u.mutation.AddScheduleItemIDs(ids...)
+	return _u
+}
+
+// AddScheduleItems adds the "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ImageTagUpdateOne) AddScheduleItems(v ...*ScheduleItem) *ImageTagUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddScheduleItemIDs(ids...)
+}
+
 // Mutation returns the ImageTagMutation object of the builder.
 func (_u *ImageTagUpdateOne) Mutation() *ImageTagMutation {
 	return _u.mutation
@@ -514,6 +611,27 @@ func (_u *ImageTagUpdateOne) RemoveTagAssignments(v ...*ImageTagAssignment) *Ima
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveTagAssignmentIDs(ids...)
+}
+
+// ClearScheduleItems clears all "scheduleItems" edges to the ScheduleItem entity.
+func (_u *ImageTagUpdateOne) ClearScheduleItems() *ImageTagUpdateOne {
+	_u.mutation.ClearScheduleItems()
+	return _u
+}
+
+// RemoveScheduleItemIDs removes the "scheduleItems" edge to ScheduleItem entities by IDs.
+func (_u *ImageTagUpdateOne) RemoveScheduleItemIDs(ids ...string) *ImageTagUpdateOne {
+	_u.mutation.RemoveScheduleItemIDs(ids...)
+	return _u
+}
+
+// RemoveScheduleItems removes "scheduleItems" edges to ScheduleItem entities.
+func (_u *ImageTagUpdateOne) RemoveScheduleItems(v ...*ScheduleItem) *ImageTagUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveScheduleItemIDs(ids...)
 }
 
 // Where appends a list predicates to the ImageTagUpdate builder.
@@ -708,6 +826,51 @@ func (_u *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, err 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetagassignment.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   imagetag.ScheduleItemsTable,
+			Columns: imagetag.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedScheduleItemsIDs(); len(nodes) > 0 && !_u.mutation.ScheduleItemsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   imagetag.ScheduleItemsTable,
+			Columns: imagetag.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ScheduleItemsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   imagetag.ScheduleItemsTable,
+			Columns: imagetag.ScheduleItemsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(scheduleitem.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

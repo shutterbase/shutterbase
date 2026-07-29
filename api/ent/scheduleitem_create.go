@@ -445,10 +445,10 @@ func (_c *ScheduleItemCreate) createSpec() (*ScheduleItem, *sqlgraph.CreateSpec)
 	}
 	if nodes := _c.mutation.TagsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.O2M,
+			Rel:     sqlgraph.M2M,
 			Inverse: false,
 			Table:   scheduleitem.TagsTable,
-			Columns: []string{scheduleitem.TagsColumn},
+			Columns: scheduleitem.TagsPrimaryKey,
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(imagetag.FieldID, field.TypeString),

@@ -103,6 +103,9 @@ func (d *Connection) initPostgres() error {
 	if err := ensureGINIndex(context.Background(), db); err != nil {
 		log.Panic().Err(err).Msg("failed to ensure images.imageTags GIN index")
 	}
+	if err := backfillScheduleItemTags(context.Background(), db, d.Options.Schema); err != nil {
+		log.Panic().Err(err).Msg("failed to backfill schedule_item_tags join table")
+	}
 
 	log.Info().Msg("PostgreSQL database client initialized")
 	return nil
@@ -129,6 +132,46 @@ func ensureGINIndex(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("failed to create GIN fallback index: %w", err)
 	}
 	log.Warn().Msg("ent auto-migrate omitted jsonb_path_ops opclass; installed fallback GIN index image_image_tags")
+	return nil
+}
+
+// backfillScheduleItemTags is the one-off migration for the tags edge going
+// O2M -> M2M: it copies the legacy FK column image_tags.schedule_item_tags into
+// the schedule_item_tags join table, then drops the column so this never runs
+// again. No-op (and skipped) once the column is gone; fresh DBs never have it.
+func backfillScheduleItemTags(ctx context.Context, db *sql.DB, schema string) error {
+	if schema == "" {
+		schema = "public"
+	}
+	var exists bool
+	if err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM information_schema.columns
+		 WHERE table_schema = $1 AND table_name = 'image_tags' AND column_name = 'schedule_item_tags')`,
+		schema).Scan(&exists); err != nil {
+		return fmt.Errorf("failed to check for legacy schedule_item_tags column: %w", err)
+	}
+	if !exists {
+		return nil
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO schedule_item_tags (schedule_item_id, image_tag_id)
+		 SELECT schedule_item_tags, id FROM image_tags WHERE schedule_item_tags IS NOT NULL
+		 ON CONFLICT DO NOTHING`); err != nil {
+		return fmt.Errorf("failed to copy legacy tag links into join table: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`ALTER TABLE image_tags DROP COLUMN schedule_item_tags`); err != nil {
+		return fmt.Errorf("failed to drop legacy schedule_item_tags column: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	log.Info().Msg("migrated legacy schedule item tag links to M2M join table")
 	return nil
 }
 

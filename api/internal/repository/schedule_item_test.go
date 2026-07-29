@@ -57,6 +57,37 @@ func TestScheduleItemCRUD(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// Regression: the tags edge was O2M (FK on image_tags), so suggesting the same
+// tag on a second item hit a constraint error -> 409. It is M2M now.
+func TestScheduleItemSameTagOnMultipleItems(t *testing.T) {
+	ctx := context.Background()
+	repo, m := seededRepo(t)
+	tag := []string{m.Tags["Podium"]}
+
+	first, err := repo.CreateScheduleItem(ctx, &repository.CreateScheduleItemParameters{
+		Title: "Design", Start: m.ReferenceNow, End: m.ReferenceNow.Add(time.Hour),
+		ProjectID: m.Project, TagIDs: tag,
+	})
+	require.NoError(t, err)
+
+	second, err := repo.CreateScheduleItem(ctx, &repository.CreateScheduleItemParameters{
+		Title: "Cost", Start: m.ReferenceNow.Add(2 * time.Hour), End: m.ReferenceNow.Add(3 * time.Hour),
+		ProjectID: m.Project, TagIDs: tag,
+	})
+	require.NoError(t, err, "same tag must be suggestible on a second item")
+	require.Len(t, second.Edges.Tags, 1)
+
+	// and via update, the path the 409 was reported on.
+	upd, err := repo.UpdateScheduleItem(ctx, second.ID, &repository.UpdateScheduleItemParameters{TagIDs: &tag})
+	require.NoError(t, err)
+	require.Len(t, upd.Edges.Tags, 1)
+
+	// the first item keeps its suggestion — the tag was not stolen.
+	got, err := repo.GetScheduleItem(ctx, first.ID)
+	require.NoError(t, err)
+	require.Len(t, got.Edges.Tags, 1)
+}
+
 func TestScheduleItemListOverlapAndMine(t *testing.T) {
 	ctx := context.Background()
 	repo, m := seededRepo(t)

@@ -39,9 +39,8 @@ type ImageTag struct {
 	ProjectID string `json:"-"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ImageTagQuery when eager-loading is set.
-	Edges              ImageTagEdges `json:"edges"`
-	schedule_item_tags *string
-	selectValues       sql.SelectValues
+	Edges        ImageTagEdges `json:"edges"`
+	selectValues sql.SelectValues
 }
 
 // ImageTagEdges holds the relations/edges for other nodes in the graph.
@@ -50,9 +49,11 @@ type ImageTagEdges struct {
 	Project *Project `json:"project,omitempty"`
 	// TagAssignments holds the value of the tagAssignments edge.
 	TagAssignments []*ImageTagAssignment `json:"tagAssignments,omitempty"`
+	// ScheduleItems holds the value of the scheduleItems edge.
+	ScheduleItems []*ScheduleItem `json:"scheduleItems,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // ProjectOrErr returns the Project value or an error if the edge
@@ -75,6 +76,15 @@ func (e ImageTagEdges) TagAssignmentsOrErr() ([]*ImageTagAssignment, error) {
 	return nil, &NotLoadedError{edge: "tagAssignments"}
 }
 
+// ScheduleItemsOrErr returns the ScheduleItems value or an error if the edge
+// was not loaded in eager-loading.
+func (e ImageTagEdges) ScheduleItemsOrErr() ([]*ScheduleItem, error) {
+	if e.loadedTypes[2] {
+		return e.ScheduleItems, nil
+	}
+	return nil, &NotLoadedError{edge: "scheduleItems"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*ImageTag) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -88,8 +98,6 @@ func (*ImageTag) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullString)
 		case imagetag.FieldCreatedAt, imagetag.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
-		case imagetag.ForeignKeys[0]: // schedule_item_tags
-			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -167,13 +175,6 @@ func (_m *ImageTag) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ProjectID = value.String
 			}
-		case imagetag.ForeignKeys[0]:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field schedule_item_tags", values[i])
-			} else if value.Valid {
-				_m.schedule_item_tags = new(string)
-				*_m.schedule_item_tags = value.String
-			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -195,6 +196,11 @@ func (_m *ImageTag) QueryProject() *ProjectQuery {
 // QueryTagAssignments queries the "tagAssignments" edge of the ImageTag entity.
 func (_m *ImageTag) QueryTagAssignments() *ImageTagAssignmentQuery {
 	return NewImageTagClient(_m.config).QueryTagAssignments(_m)
+}
+
+// QueryScheduleItems queries the "scheduleItems" edge of the ImageTag entity.
+func (_m *ImageTag) QueryScheduleItems() *ScheduleItemQuery {
+	return NewImageTagClient(_m.config).QueryScheduleItems(_m)
 }
 
 // Update returns a builder for updating this ImageTag.

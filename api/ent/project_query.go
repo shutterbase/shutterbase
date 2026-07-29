@@ -700,7 +700,6 @@ func (_q *ProjectQuery) loadImageTags(ctx context.Context, query *ImageTagQuery,
 			init(nodes[i])
 		}
 	}
-	query.withFKs = true
 	if len(query.ctx.Fields) > 0 {
 		query.ctx.AppendFieldOnce(imagetag.FieldProjectID)
 	}
