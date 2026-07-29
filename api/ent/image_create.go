@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -201,6 +202,12 @@ func (_c *ImageCreate) SetNillableAiScope(v *string) *ImageCreate {
 	if v != nil {
 		_c.SetAiScope(*v)
 	}
+	return _c
+}
+
+// SetAiRawResult sets the "aiRawResult" field.
+func (_c *ImageCreate) SetAiRawResult(v json.RawMessage) *ImageCreate {
+	_c.mutation.SetAiRawResult(v)
 	return _c
 }
 
@@ -569,6 +576,10 @@ func (_c *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AiScope(); ok {
 		_spec.SetField(image.FieldAiScope, field.TypeString, value)
 		_node.AiScope = value
+	}
+	if value, ok := _c.mutation.AiRawResult(); ok {
+		_spec.SetField(image.FieldAiRawResult, field.TypeJSON, value)
+		_node.AiRawResult = value
 	}
 	if value, ok := _c.mutation.AiAttempts(); ok {
 		_spec.SetField(image.FieldAiAttempts, field.TypeInt, value)

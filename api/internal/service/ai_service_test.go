@@ -70,7 +70,7 @@ type recordInference struct {
 	seen []string
 }
 
-func (r *recordInference) Infer(_ context.Context, req InferenceRequest) ([]InferredTag, error) {
+func (r *recordInference) Infer(_ context.Context, req InferenceRequest) (InferenceResult, error) {
 	// object name looks like "se/seedimg00000001-512.jpg"; capture the storage id.
 	for _, part := range strings.Split(req.ImageURL, "/") {
 		if strings.HasPrefix(part, "seedimg") {
@@ -81,13 +81,13 @@ func (r *recordInference) Infer(_ context.Context, req InferenceRequest) ([]Infe
 	for _, name := range r.tags {
 		tags = append(tags, InferredTag{Name: name, Confidence: 1})
 	}
-	return tags, nil
+	return InferenceResult{Tags: tags}, nil
 }
 
 type failInference struct{}
 
-func (failInference) Infer(_ context.Context, _ InferenceRequest) ([]InferredTag, error) {
-	return nil, errors.New("boom")
+func (failInference) Infer(_ context.Context, _ InferenceRequest) (InferenceResult, error) {
+	return InferenceResult{}, errors.New("boom")
 }
 
 // Provider selection by config.
@@ -255,12 +255,12 @@ type deadlineInference struct {
 	seen    []string
 }
 
-func (d *deadlineInference) Infer(_ context.Context, req InferenceRequest) ([]InferredTag, error) {
+func (d *deadlineInference) Infer(_ context.Context, req InferenceRequest) (InferenceResult, error) {
 	d.seen = append(d.seen, req.ImageID)
 	if req.ImageID == d.failFor {
-		return nil, fmt.Errorf("infer: %w", context.DeadlineExceeded)
+		return InferenceResult{}, fmt.Errorf("infer: %w", context.DeadlineExceeded)
 	}
-	return []InferredTag{}, nil
+	return InferenceResult{}, nil
 }
 
 // A deadline-exceeded inference retries at the BACK of the FIFO without arming
@@ -312,8 +312,8 @@ func (netTimeoutErr) Temporary() bool { return true }
 
 type netTimeoutInference struct{}
 
-func (netTimeoutInference) Infer(_ context.Context, _ InferenceRequest) ([]InferredTag, error) {
-	return nil, fmt.Errorf("infer: %w", netTimeoutErr{})
+func (netTimeoutInference) Infer(_ context.Context, _ InferenceRequest) (InferenceResult, error) {
+	return InferenceResult{}, fmt.Errorf("infer: %w", netTimeoutErr{})
 }
 
 // An http-client-level timeout (net.Error, not DeadlineExceeded) classifies as
@@ -338,9 +338,9 @@ func TestClientTimeoutClassifiesAsTimeout(t *testing.T) {
 // scopeInference records the Scope of each request it serves.
 type scopeInference struct{ scopes []string }
 
-func (s *scopeInference) Infer(_ context.Context, req InferenceRequest) ([]InferredTag, error) {
+func (s *scopeInference) Infer(_ context.Context, req InferenceRequest) (InferenceResult, error) {
 	s.scopes = append(s.scopes, req.Scope)
-	return []InferredTag{}, nil
+	return InferenceResult{}, nil
 }
 
 // A scoped project rerun persists aiScope, forwards it to the inference
@@ -367,6 +367,32 @@ func TestScopedRerunThreadsScope(t *testing.T) {
 	svc.Enqueue(m.Images[0])
 	require.True(t, svc.step(ctx))
 	assert.Equal(t, "", inf.scopes[len(inf.scopes)-1], "single-image rerun must be a full run")
+}
+
+// rawInference returns a fixed raw payload alongside no tags.
+type rawInference struct{ raw string }
+
+func (r *rawInference) Infer(_ context.Context, _ InferenceRequest) (InferenceResult, error) {
+	if r.raw == "" {
+		return InferenceResult{}, nil
+	}
+	return InferenceResult{Raw: []byte(r.raw)}, nil
+}
+
+// The provider's raw payload is stored on done and cleared again when a later
+// run returns none.
+func TestRawResultStoredAndCleared(t *testing.T) {
+	inf := &rawInference{raw: `{"carNumber":"E7"}`}
+	svc, m := newSvc(t, inf)
+	ctx := context.Background()
+	img := m.Images[0]
+
+	require.NoError(t, svc.process(ctx, img))
+	assert.JSONEq(t, `{"carNumber":"E7"}`, string(svc.repo.Client.Image.GetX(ctx, img).AiRawResult))
+
+	inf.raw = ""
+	require.NoError(t, svc.process(ctx, img))
+	assert.Empty(t, svc.repo.Client.Image.GetX(ctx, img).AiRawResult, "a run without raw must clear the stale payload")
 }
 
 // Boot recovery: STALE processing rows are re-queued by Start; fresh ones are

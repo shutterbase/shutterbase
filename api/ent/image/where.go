@@ -881,6 +881,16 @@ func AiScopeContainsFold(v string) predicate.Image {
 	return predicate.Image(sql.FieldContainsFold(FieldAiScope, v))
 }
 
+// AiRawResultIsNil applies the IsNil predicate on the "aiRawResult" field.
+func AiRawResultIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldAiRawResult))
+}
+
+// AiRawResultNotNil applies the NotNil predicate on the "aiRawResult" field.
+func AiRawResultNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldAiRawResult))
+}
+
 // AiAttemptsEQ applies the EQ predicate on the "aiAttempts" field.
 func AiAttemptsEQ(v int) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldAiAttempts, v))

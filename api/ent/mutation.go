@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -4159,6 +4160,8 @@ type ImageMutation struct {
 	aiStatus                   *image.AiStatus
 	aiQueuedAt                 *time.Time
 	aiScope                    *string
+	aiRawResult                *json.RawMessage
+	appendaiRawResult          json.RawMessage
 	aiAttempts                 *int
 	addaiAttempts              *int
 	aiError                    *string
@@ -4988,6 +4991,71 @@ func (m *ImageMutation) ResetAiScope() {
 	delete(m.clearedFields, image.FieldAiScope)
 }
 
+// SetAiRawResult sets the "aiRawResult" field.
+func (m *ImageMutation) SetAiRawResult(jm json.RawMessage) {
+	m.aiRawResult = &jm
+	m.appendaiRawResult = nil
+}
+
+// AiRawResult returns the value of the "aiRawResult" field in the mutation.
+func (m *ImageMutation) AiRawResult() (r json.RawMessage, exists bool) {
+	v := m.aiRawResult
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiRawResult returns the old "aiRawResult" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldAiRawResult(ctx context.Context) (v json.RawMessage, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiRawResult is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiRawResult requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiRawResult: %w", err)
+	}
+	return oldValue.AiRawResult, nil
+}
+
+// AppendAiRawResult adds jm to the "aiRawResult" field.
+func (m *ImageMutation) AppendAiRawResult(jm json.RawMessage) {
+	m.appendaiRawResult = append(m.appendaiRawResult, jm...)
+}
+
+// AppendedAiRawResult returns the list of values that were appended to the "aiRawResult" field in this mutation.
+func (m *ImageMutation) AppendedAiRawResult() (json.RawMessage, bool) {
+	if len(m.appendaiRawResult) == 0 {
+		return nil, false
+	}
+	return m.appendaiRawResult, true
+}
+
+// ClearAiRawResult clears the value of the "aiRawResult" field.
+func (m *ImageMutation) ClearAiRawResult() {
+	m.aiRawResult = nil
+	m.appendaiRawResult = nil
+	m.clearedFields[image.FieldAiRawResult] = struct{}{}
+}
+
+// AiRawResultCleared returns if the "aiRawResult" field was cleared in this mutation.
+func (m *ImageMutation) AiRawResultCleared() bool {
+	_, ok := m.clearedFields[image.FieldAiRawResult]
+	return ok
+}
+
+// ResetAiRawResult resets all changes to the "aiRawResult" field.
+func (m *ImageMutation) ResetAiRawResult() {
+	m.aiRawResult = nil
+	m.appendaiRawResult = nil
+	delete(m.clearedFields, image.FieldAiRawResult)
+}
+
 // SetAiAttempts sets the "aiAttempts" field.
 func (m *ImageMutation) SetAiAttempts(i int) {
 	m.aiAttempts = &i
@@ -5629,7 +5697,7 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 24)
+	fields := make([]string, 0, 25)
 	if m.createdAt != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
@@ -5674,6 +5742,9 @@ func (m *ImageMutation) Fields() []string {
 	}
 	if m.aiScope != nil {
 		fields = append(fields, image.FieldAiScope)
+	}
+	if m.aiRawResult != nil {
+		fields = append(fields, image.FieldAiRawResult)
 	}
 	if m.aiAttempts != nil {
 		fields = append(fields, image.FieldAiAttempts)
@@ -5740,6 +5811,8 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.AiQueuedAt()
 	case image.FieldAiScope:
 		return m.AiScope()
+	case image.FieldAiRawResult:
+		return m.AiRawResult()
 	case image.FieldAiAttempts:
 		return m.AiAttempts()
 	case image.FieldAiError:
@@ -5797,6 +5870,8 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldAiQueuedAt(ctx)
 	case image.FieldAiScope:
 		return m.OldAiScope(ctx)
+	case image.FieldAiRawResult:
+		return m.OldAiRawResult(ctx)
 	case image.FieldAiAttempts:
 		return m.OldAiAttempts(ctx)
 	case image.FieldAiError:
@@ -5928,6 +6003,13 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAiScope(v)
+		return nil
+	case image.FieldAiRawResult:
+		v, ok := value.(json.RawMessage)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiRawResult(v)
 		return nil
 	case image.FieldAiAttempts:
 		v, ok := value.(int)
@@ -6106,6 +6188,9 @@ func (m *ImageMutation) ClearedFields() []string {
 	if m.FieldCleared(image.FieldAiScope) {
 		fields = append(fields, image.FieldAiScope)
 	}
+	if m.FieldCleared(image.FieldAiRawResult) {
+		fields = append(fields, image.FieldAiRawResult)
+	}
 	if m.FieldCleared(image.FieldAiError) {
 		fields = append(fields, image.FieldAiError)
 	}
@@ -6161,6 +6246,9 @@ func (m *ImageMutation) ClearField(name string) error {
 		return nil
 	case image.FieldAiScope:
 		m.ClearAiScope()
+		return nil
+	case image.FieldAiRawResult:
+		m.ClearAiRawResult()
 		return nil
 	case image.FieldAiError:
 		m.ClearAiError()
@@ -6223,6 +6311,9 @@ func (m *ImageMutation) ResetField(name string) error {
 		return nil
 	case image.FieldAiScope:
 		m.ResetAiScope()
+		return nil
+	case image.FieldAiRawResult:
+		m.ResetAiRawResult()
 		return nil
 	case image.FieldAiAttempts:
 		m.ResetAiAttempts()

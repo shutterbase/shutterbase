@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -37,11 +38,19 @@ type InferredTag struct {
 	Confidence float64
 }
 
+// InferenceResult is one provider run: the tags plus the provider's raw
+// detection payload (aiserver Raw — stored verbatim for human inspection;
+// nil for providers without one).
+type InferenceResult struct {
+	Tags []InferredTag
+	Raw  json.RawMessage
+}
+
 // ImageInference is the single seam the AI tagging service talks to.
 // Provider-specific transport (OpenAI, OpenRouter, the aiserver contract)
 // lives behind this; the service stays provider-agnostic.
 type ImageInference interface {
-	Infer(ctx context.Context, req InferenceRequest) ([]InferredTag, error)
+	Infer(ctx context.Context, req InferenceRequest) (InferenceResult, error)
 }
 
 // NewInference selects an implementation from AI_PROVIDER. Unknown providers are
@@ -74,7 +83,7 @@ type StubInference struct {
 	Tags []string
 }
 
-func (s *StubInference) Infer(_ context.Context, req InferenceRequest) ([]InferredTag, error) {
+func (s *StubInference) Infer(_ context.Context, req InferenceRequest) (InferenceResult, error) {
 	names := s.Tags
 	if names == nil {
 		names = []string{req.Prompt}
@@ -83,7 +92,7 @@ func (s *StubInference) Infer(_ context.Context, req InferenceRequest) ([]Inferr
 	for _, n := range names {
 		tags = append(tags, InferredTag{Name: n, Confidence: 1})
 	}
-	return tags, nil
+	return InferenceResult{Tags: tags}, nil
 }
 
 // openAIInference ports the old hook's go-openai usage: system prompt + the
@@ -103,7 +112,7 @@ func newOpenAIInference(baseURL string) *openAIInference {
 	}
 }
 
-func (o *openAIInference) Infer(ctx context.Context, req InferenceRequest) ([]InferredTag, error) {
+func (o *openAIInference) Infer(ctx context.Context, req InferenceRequest) (InferenceResult, error) {
 	cfg := openai.DefaultConfig(o.apiKey)
 	if o.baseURL != "" {
 		cfg.BaseURL = o.baseURL
@@ -121,7 +130,7 @@ func (o *openAIInference) Infer(ctx context.Context, req InferenceRequest) ([]In
 		},
 	})
 	if err != nil {
-		return nil, err
+		return InferenceResult{}, err
 	}
 	tags := make([]InferredTag, 0, len(resp.Choices))
 	for _, choice := range resp.Choices {
@@ -129,7 +138,7 @@ func (o *openAIInference) Infer(ctx context.Context, req InferenceRequest) ([]In
 			tags = append(tags, InferredTag{Name: t, Confidence: 1})
 		}
 	}
-	return tags, nil
+	return InferenceResult{Tags: tags}, nil
 }
 
 // HTTPInference speaks the shutterbase AI-server contract. The full request
@@ -139,7 +148,7 @@ type HTTPInference struct {
 	Client *aiserver.Client
 }
 
-func (h *HTTPInference) Infer(ctx context.Context, req InferenceRequest) ([]InferredTag, error) {
+func (h *HTTPInference) Infer(ctx context.Context, req InferenceRequest) (InferenceResult, error) {
 	resp, err := h.Client.Ingest(ctx, req.ProjectID, aiserver.IngestRequest{
 		Project: aiserver.Project{
 			ID:     req.ProjectID,
@@ -154,11 +163,11 @@ func (h *HTTPInference) Infer(ctx context.Context, req InferenceRequest) ([]Infe
 		Scope:      req.Scope,
 	})
 	if err != nil {
-		return nil, err
+		return InferenceResult{}, err
 	}
 	tags := make([]InferredTag, 0, len(resp.Tags))
 	for _, t := range resp.Tags {
 		tags = append(tags, InferredTag{Name: t.Name, Confidence: t.Confidence})
 	}
-	return tags, nil
+	return InferenceResult{Tags: tags, Raw: resp.Raw}, nil
 }

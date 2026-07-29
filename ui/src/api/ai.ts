@@ -101,6 +101,13 @@ export async function recluster(projectId: string): Promise<void> {
   await http.post(`/projects/${projectId}/ai/recluster`);
 }
 
+// Stored raw detection payload of the image's last AI run (the AI server's
+// full detail — model reads, evidence axes, notes). 404 when none is stored.
+export async function result(imageId: string): Promise<{ raw: unknown; inferredAt?: string }> {
+  const { data } = await http.get<{ raw: unknown; inferredAt?: string }>(`/images/${imageId}/ai/result`);
+  return data;
+}
+
 export async function faces(imageId: string): Promise<AiFace[]> {
   const { data } = await http.get<{ faces: AiFace[] }>(`/images/${imageId}/ai/faces`);
   return data.faces;
