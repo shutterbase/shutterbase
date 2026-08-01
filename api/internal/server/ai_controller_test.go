@@ -298,6 +298,8 @@ type fakeRemote struct {
 	personsScope    []string
 	rankedSampleRef string
 	mergeScopeSeen  []string
+	// merges (optional) overrides the fixed p1-p2 merge list fixture.
+	merges []aiserver.Merge
 }
 
 func (f *fakeRemote) Prime(context.Context, string, aiserver.Project) error { return nil }
@@ -350,6 +352,9 @@ func (f *fakeRemote) DecideMerge(_ context.Context, d aiserver.MergeDecision) er
 	return nil
 }
 func (f *fakeRemote) Merges(context.Context, []string) (aiserver.MergesResponse, error) {
+	if f.merges != nil {
+		return aiserver.MergesResponse{Items: f.merges}, nil
+	}
 	return aiserver.MergesResponse{Items: []aiserver.Merge{
 		{PersonA: "p1", PersonB: "p2", CreatedAt: time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)},
 	}}, nil

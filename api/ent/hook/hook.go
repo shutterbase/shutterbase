@@ -93,6 +93,18 @@ func (f ImageTagAssignmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ImageTagAssignmentMutation", m)
 }
 
+// The PersonNameFunc type is an adapter to allow the use of ordinary
+// function as PersonName mutator.
+type PersonNameFunc func(context.Context, *ent.PersonNameMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PersonNameFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PersonNameMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PersonNameMutation", m)
+}
+
 // The ProjectFunc type is an adapter to allow the use of ordinary
 // function as Project mutator.
 type ProjectFunc func(context.Context, *ent.ProjectMutation) (ent.Value, error)

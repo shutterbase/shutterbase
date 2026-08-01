@@ -13,6 +13,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
+	"github.com/shutterbase/shutterbase/ent/personname"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -272,6 +273,37 @@ func init() {
 	imagetagassignment.DefaultID = imagetagassignmentDescID.Default.(func() string)
 	// imagetagassignment.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	imagetagassignment.IDValidator = imagetagassignmentDescID.Validators[0].(func(string) error)
+	personnameMixin := schema.PersonName{}.Mixin()
+	personnameMixinFields0 := personnameMixin[0].Fields()
+	_ = personnameMixinFields0
+	personnameMixinFields1 := personnameMixin[1].Fields()
+	_ = personnameMixinFields1
+	personnameFields := schema.PersonName{}.Fields()
+	_ = personnameFields
+	// personnameDescCreatedAt is the schema descriptor for createdAt field.
+	personnameDescCreatedAt := personnameMixinFields1[0].Descriptor()
+	// personname.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	personname.DefaultCreatedAt = personnameDescCreatedAt.Default.(func() time.Time)
+	// personnameDescUpdatedAt is the schema descriptor for updatedAt field.
+	personnameDescUpdatedAt := personnameMixinFields1[1].Descriptor()
+	// personname.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	personname.DefaultUpdatedAt = personnameDescUpdatedAt.Default.(func() time.Time)
+	// personname.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	personname.UpdateDefaultUpdatedAt = personnameDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// personnameDescPersonRef is the schema descriptor for personRef field.
+	personnameDescPersonRef := personnameFields[0].Descriptor()
+	// personname.PersonRefValidator is a validator for the "personRef" field. It is called by the builders before save.
+	personname.PersonRefValidator = personnameDescPersonRef.Validators[0].(func(string) error)
+	// personnameDescName is the schema descriptor for name field.
+	personnameDescName := personnameFields[1].Descriptor()
+	// personname.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	personname.NameValidator = personnameDescName.Validators[0].(func(string) error)
+	// personnameDescID is the schema descriptor for id field.
+	personnameDescID := personnameMixinFields0[0].Descriptor()
+	// personname.DefaultID holds the default value on creation for the id field.
+	personname.DefaultID = personnameDescID.Default.(func() string)
+	// personname.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	personname.IDValidator = personnameDescID.Validators[0].(func(string) error)
 	projectMixin := schema.Project{}.Mixin()
 	projectMixinFields0 := projectMixin[0].Fields()
 	_ = projectMixinFields0

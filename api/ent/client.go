@@ -23,6 +23,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
+	"github.com/shutterbase/shutterbase/ent/personname"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -53,6 +54,8 @@ type Client struct {
 	ImageTag *ImageTagClient
 	// ImageTagAssignment is the client for interacting with the ImageTagAssignment builders.
 	ImageTagAssignment *ImageTagAssignmentClient
+	// PersonName is the client for interacting with the PersonName builders.
+	PersonName *PersonNameClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectAssignment is the client for interacting with the ProjectAssignment builders.
@@ -85,6 +88,7 @@ func (c *Client) init() {
 	c.Image = NewImageClient(c.config)
 	c.ImageTag = NewImageTagClient(c.config)
 	c.ImageTagAssignment = NewImageTagAssignmentClient(c.config)
+	c.PersonName = NewPersonNameClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectAssignment = NewProjectAssignmentClient(c.config)
 	c.Role = NewRoleClient(c.config)
@@ -191,6 +195,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
+		PersonName:         NewPersonNameClient(cfg),
 		Project:            NewProjectClient(cfg),
 		ProjectAssignment:  NewProjectAssignmentClient(cfg),
 		Role:               NewRoleClient(cfg),
@@ -224,6 +229,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
+		PersonName:         NewPersonNameClient(cfg),
 		Project:            NewProjectClient(cfg),
 		ProjectAssignment:  NewProjectAssignmentClient(cfg),
 		Role:               NewRoleClient(cfg),
@@ -261,8 +267,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
-		c.ImageTagAssignment, c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem,
-		c.TimeOffset, c.Upload, c.User,
+		c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment, c.Role,
+		c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -273,8 +279,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
-		c.ImageTagAssignment, c.Project, c.ProjectAssignment, c.Role, c.ScheduleItem,
-		c.TimeOffset, c.Upload, c.User,
+		c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment, c.Role,
+		c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -297,6 +303,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ImageTag.mutate(ctx, m)
 	case *ImageTagAssignmentMutation:
 		return c.ImageTagAssignment.mutate(ctx, m)
+	case *PersonNameMutation:
+		return c.PersonName.mutate(ctx, m)
 	case *ProjectMutation:
 		return c.Project.mutate(ctx, m)
 	case *ProjectAssignmentMutation:
@@ -1516,6 +1524,139 @@ func (c *ImageTagAssignmentClient) mutate(ctx context.Context, m *ImageTagAssign
 		return (&ImageTagAssignmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ImageTagAssignment mutation op: %q", m.Op())
+	}
+}
+
+// PersonNameClient is a client for the PersonName schema.
+type PersonNameClient struct {
+	config
+}
+
+// NewPersonNameClient returns a client for the PersonName from the given config.
+func NewPersonNameClient(c config) *PersonNameClient {
+	return &PersonNameClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `personname.Hooks(f(g(h())))`.
+func (c *PersonNameClient) Use(hooks ...Hook) {
+	c.hooks.PersonName = append(c.hooks.PersonName, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `personname.Intercept(f(g(h())))`.
+func (c *PersonNameClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PersonName = append(c.inters.PersonName, interceptors...)
+}
+
+// Create returns a builder for creating a PersonName entity.
+func (c *PersonNameClient) Create() *PersonNameCreate {
+	mutation := newPersonNameMutation(c.config, OpCreate)
+	return &PersonNameCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PersonName entities.
+func (c *PersonNameClient) CreateBulk(builders ...*PersonNameCreate) *PersonNameCreateBulk {
+	return &PersonNameCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PersonNameClient) MapCreateBulk(slice any, setFunc func(*PersonNameCreate, int)) *PersonNameCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PersonNameCreateBulk{err: fmt.Errorf("calling to PersonNameClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PersonNameCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PersonNameCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PersonName.
+func (c *PersonNameClient) Update() *PersonNameUpdate {
+	mutation := newPersonNameMutation(c.config, OpUpdate)
+	return &PersonNameUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PersonNameClient) UpdateOne(_m *PersonName) *PersonNameUpdateOne {
+	mutation := newPersonNameMutation(c.config, OpUpdateOne, withPersonName(_m))
+	return &PersonNameUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PersonNameClient) UpdateOneID(id string) *PersonNameUpdateOne {
+	mutation := newPersonNameMutation(c.config, OpUpdateOne, withPersonNameID(id))
+	return &PersonNameUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PersonName.
+func (c *PersonNameClient) Delete() *PersonNameDelete {
+	mutation := newPersonNameMutation(c.config, OpDelete)
+	return &PersonNameDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PersonNameClient) DeleteOne(_m *PersonName) *PersonNameDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PersonNameClient) DeleteOneID(id string) *PersonNameDeleteOne {
+	builder := c.Delete().Where(personname.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PersonNameDeleteOne{builder}
+}
+
+// Query returns a query builder for PersonName.
+func (c *PersonNameClient) Query() *PersonNameQuery {
+	return &PersonNameQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePersonName},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PersonName entity by its id.
+func (c *PersonNameClient) Get(ctx context.Context, id string) (*PersonName, error) {
+	return c.Query().Where(personname.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PersonNameClient) GetX(ctx context.Context, id string) *PersonName {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PersonNameClient) Hooks() []Hook {
+	return c.hooks.PersonName
+}
+
+// Interceptors returns the client interceptors.
+func (c *PersonNameClient) Interceptors() []Interceptor {
+	return c.inters.PersonName
+}
+
+func (c *PersonNameClient) mutate(ctx context.Context, m *PersonNameMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PersonNameCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PersonNameUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PersonNameUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PersonNameDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PersonName mutation op: %q", m.Op())
 	}
 }
 
@@ -2918,12 +3059,12 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 type (
 	hooks struct {
 		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
-		Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
+		PersonName, Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
 		User []ent.Hook
 	}
 	inters struct {
 		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
-		Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
+		PersonName, Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
 		User []ent.Interceptor
 	}
 )
