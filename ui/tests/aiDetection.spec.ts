@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiBadgeLabel, aiBadgeTitle, aiUploadSummary, faceBoxStyle, faceCropStyle } from "src/util/aiDetection";
+import { aiBadgeLabel, aiBadgeTitle, aiUploadSummary, faceBoxStyle, faceCropStyle, faceRendition } from "src/util/aiDetection";
 
 describe("aiBadgeLabel", () => {
   it("shows the queue position only while pending", () => {
@@ -59,6 +59,24 @@ describe("faceCropStyle", () => {
   });
   it("returns null without image dimensions", () => {
     expect(faceCropStyle({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }, 0, 0)).toBeNull();
+  });
+});
+
+describe("faceRendition", () => {
+  it("scales the rendition with crop depth", () => {
+    // huge face on a square image: crop covers the full image → 512 suffices
+    expect(faceRendition({ x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, 4000, 4000, 512, 2.75)).toBe("512");
+    // same face on a 3:2 image: crop = short edge = 2/3 of the long edge → 1024
+    expect(faceRendition({ x: 0.2, y: 0.1, w: 0.3, h: 0.8 }, 6000, 4000, 512, 2.75)).toBe("1024");
+    // small face: crop side = 600px of a 6000px edge → needs 512/0.1 = 5120 → capped at 2048
+    expect(faceRendition({ x: 0.45, y: 0.45, w: 0.05, h: 0.05 }, 6000, 4000, 512, 2)).toBe("2048");
+    // medium face: crop side = 2062px of 6000 → needs ~1490 → 2048
+    expect(faceRendition({ x: 0.4, y: 0.3, w: 0.125, h: 0.1 }, 6000, 4000, 512, 2.75)).toBe("2048");
+    // shallow-ish crop on a smaller image: side 1650 of 3000 → needs ~931 → 1024
+    expect(faceRendition({ x: 0.3, y: 0.3, w: 0.2, h: 0.2 }, 3000, 2000, 512, 2.75)).toBe("1024");
+  });
+  it("falls back to 512 without dimensions", () => {
+    expect(faceRendition({ x: 0.1, y: 0.1, w: 0.2, h: 0.2 }, 0, 0)).toBe("512");
   });
 });
 

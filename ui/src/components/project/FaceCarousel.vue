@@ -2,10 +2,10 @@
   <div>
     <div class="relative aspect-square w-full overflow-hidden rounded-sm bg-primary-100 dark:bg-primary-900">
       <template v-if="current && crop">
-        <img :src="src(current)" :alt="current.image.computedFileName" :style="crop.img" class="absolute max-w-none" loading="lazy" />
+        <img :src="currentSrc" :alt="current.image.computedFileName" :style="crop.img" class="absolute max-w-none" loading="lazy" />
         <div :style="crop.box" class="absolute rounded-sm border-2 border-accent-400/90 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"></div>
       </template>
-      <img v-else-if="current" :src="src(current)" :alt="current.image.computedFileName" class="h-full w-full object-cover" loading="lazy" />
+      <img v-else-if="current" :src="currentSrc" :alt="current.image.computedFileName" @load="onImgLoad" class="h-full w-full object-cover" loading="lazy" />
       <div v-else class="flex h-full w-full items-center justify-center">
         <span class="label-mono-sm text-primary-400 dark:text-primary-600">{{ loading ? "…" : "no sample" }}</span>
       </div>
@@ -37,7 +37,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/solid";
 import { api } from "src/api";
 import { AiPersonImage, AiPersonImagesPage } from "src/api/ai";
-import { faceCropStyle } from "src/util/aiDetection";
+import { faceCropStyle, faceRendition } from "src/util/aiDetection";
 
 // One face of a person cluster, cropped with generous margin, with arrows to
 // flip through the cluster's appearances in place. Seed it with a single
@@ -67,10 +67,34 @@ const loading = ref(false);
 
 const current = computed(() => items.value[index.value]);
 const atEnd = computed(() => !hasMore.value && index.value >= items.value.length - 1);
-const crop = computed(() => (current.value ? faceCropStyle(current.value, current.value.image.width ?? 0, current.value.image.height ?? 0) : null));
 
-function src(item: AiPersonImage) {
-  return item.image.downloadUrls?.["512"] ?? "";
+// Old imports have no stored width/height; the loaded thumbnail's natural
+// dimensions are aspect-correct and the crop math is scale-invariant, so they
+// substitute fully (probed per current image via @load on the fallback img).
+const probed = ref<{ w: number; h: number } | null>(null);
+watch(current, () => (probed.value = null));
+
+const dims = computed(() => {
+  const image = current.value?.image;
+  if (image?.width && image?.height) return { w: image.width, h: image.height };
+  return probed.value;
+});
+
+const crop = computed(() => (current.value && dims.value ? faceCropStyle(current.value, dims.value.w, dims.value.h) : null));
+const currentSrc = computed(() => (current.value ? src(current.value, dims.value) : ""));
+
+function onImgLoad(event: Event) {
+  if (dims.value) return;
+  const el = event.target as HTMLImageElement;
+  if (el.naturalWidth && el.naturalHeight) probed.value = { w: el.naturalWidth, h: el.naturalHeight };
+}
+
+// Deep crops pixelate on the 512 rendition — pick the rendition by crop depth.
+function src(item: AiPersonImage, d?: { w: number; h: number } | null) {
+  const urls = item.image.downloadUrls ?? {};
+  const w = d?.w ?? item.image.width ?? 0;
+  const h = d?.h ?? item.image.height ?? 0;
+  return urls[faceRendition(item, w, h)] ?? urls["512"] ?? "";
 }
 
 // fetchNext loads the next page and leaves `index` on the face the user asked

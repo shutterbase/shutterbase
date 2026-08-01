@@ -280,6 +280,7 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import FaceCarousel from "src/components/project/FaceCarousel.vue";
 import { api } from "src/api";
 import { AiMerge, AiMergeCandidate, AiPersonImage, AiPersonImagesPage, AiRankedPerson } from "src/api/ai";
+import { faceRendition } from "src/util/aiDetection";
 import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { showNotificationToast } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
@@ -432,7 +433,9 @@ function reviewFail(error: any) {
 }
 
 function preload(item?: AiPersonImage) {
-  const url = item?.image.downloadUrls?.["512"];
+  if (!item) return;
+  const size = faceRendition(item, item.image.width ?? 0, item.image.height ?? 0);
+  const url = item.image.downloadUrls?.[size] ?? item.image.downloadUrls?.["512"];
   if (url) new Image().src = url;
 }
 
@@ -476,7 +479,15 @@ async function refill() {
     }
     if (cursor >= 500) exhausted.value = true;
   } catch (error: any) {
-    if (gen === refillGen) reviewFail(error);
+    if (gen !== refillGen) return;
+    if (!error?.response) {
+      // response-less = transient network blip (pod roll, flaky wifi) — a
+      // background prefetch must self-heal, not raise the error modal. With
+      // an empty queue nothing else re-triggers refill, so retry on a timer.
+      if (!queue.value.length) setTimeout(() => refill(), 5000);
+    } else {
+      reviewFail(error);
+    }
   } finally {
     if (gen === refillGen) refilling = false;
   }

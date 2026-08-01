@@ -38,18 +38,36 @@ export function faceBoxStyle(box: RelativeBox): Record<string, string> {
   return { left: pct(box.x), top: pct(box.y), width: pct(box.w), height: pct(box.h) };
 }
 
+// cropSide is the edge length (in image px) of the square face crop: margin ×
+// the face's larger edge, clamped to fit the image. 0 when uncomputable.
+function cropSide(box: RelativeBox, imageWidth: number, imageHeight: number, margin: number): number {
+  if (!imageWidth || !imageHeight) return 0;
+  const edge = Math.max(box.w * imageWidth, box.h * imageHeight);
+  if (edge <= 0) return 0;
+  return Math.min(edge * margin, Math.min(imageWidth, imageHeight));
+}
+
+// faceRendition picks the smallest thumbnail rendition whose crop region still
+// fills a tile of tilePx — deep crops need a larger source or they pixelate.
+// The math is scale-invariant, so rendition dimensions work as well as
+// original ones. Falls back to "512" without dimensions.
+export function faceRendition(box: RelativeBox, imageWidth: number, imageHeight: number, tilePx = 512, margin = 2.75): string {
+  const side = cropSide(box, imageWidth, imageHeight, margin);
+  if (!side) return "512";
+  const neededLongEdge = (tilePx * Math.max(imageWidth, imageHeight)) / side;
+  return String([512, 1024, 2048].find((s) => s >= neededLongEdge) ?? 2048);
+}
+
 // faceCropStyle positions an <img> inside a square, overflow-hidden tile so
 // the face bbox sits centered with generous margin — a face crop without
-// server-side cropping. The crop is a square of `margin` × the face's larger
-// edge, clamped into the image. Returns percentage styles for the img and for
-// the face box drawn inside the crop, or null when the image dimensions are
+// server-side cropping. Returns percentage styles for the img and for the
+// face box drawn inside the crop, or null when the image dimensions are
 // unknown (caller falls back to object-cover).
 export function faceCropStyle(box: RelativeBox, imageWidth: number, imageHeight: number, margin = 2.75): { img: Record<string, string>; box: Record<string, string> } | null {
-  if (!imageWidth || !imageHeight) return null;
+  const side = cropSide(box, imageWidth, imageHeight, margin);
+  if (!side) return null;
   const faceW = box.w * imageWidth;
   const faceH = box.h * imageHeight;
-  if (faceW <= 0 || faceH <= 0) return null;
-  const side = Math.min(Math.max(faceW, faceH) * margin, Math.min(imageWidth, imageHeight));
   const clamp = (v: number, max: number) => Math.max(0, Math.min(v, max));
   const left = clamp((box.x + box.w / 2) * imageWidth - side / 2, imageWidth - side);
   const top = clamp((box.y + box.h / 2) * imageHeight - side / 2, imageHeight - side);
