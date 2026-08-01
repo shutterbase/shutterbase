@@ -316,13 +316,15 @@ function fail(error: any) {
 async function loadPersons(reset = false) {
   personsLoading.value = true;
   try {
-    if (reset) {
-      personsPage.value = 0;
-      persons.value = [];
-    }
+    if (reset) personsPage.value = 0;
     const page = await api.ai.rankedPersons(personsPage.value, PERSONS_PAGE_SIZE);
     personsTotal.value = page.total;
-    persons.value.push(...page.items);
+    // on reset, swap the list only once the data is here — no blank flash
+    if (reset) {
+      persons.value = page.items;
+    } else {
+      persons.value.push(...page.items);
+    }
   } catch (error: any) {
     fail(error);
   } finally {
@@ -375,11 +377,13 @@ const skippedStore = useStorage<string[]>("shutterbase-face-merge-skipped-global
 const skippedCount = computed(() => skippedStore.value.length);
 
 // Candidates are prefetched PREFETCH deep (pair + one page of face samples per
-// side, first thumbnails warmed), so a "different"/"skip" verdict shows the
-// next pair instantly. The queue mirrors a prefix of the AI server's candidate
-// list: `cursor` counts consumed server offsets (queued + locally skipped);
-// deciding the head shifts every later offset down by one (cursor--). A merge
-// may reshuffle candidates around the merged pair, so "same" flushes the queue.
+// side, first thumbnails warmed), so every verdict shows the next pair
+// instantly. The queue mirrors a prefix of the AI server's candidate list:
+// `cursor` counts consumed server offsets (queued + locally skipped); deciding
+// the head shifts every later offset down by one (cursor--). Merges keep both
+// persons alive on the AI server, so queued pairs stay valid after "same" too
+// (their names/samples may go slightly stale until shown); only unmerge and
+// un-skipping re-sync from offset 0 via flushQueue.
 const PREFETCH = 10;
 const SIDE_PAGE_SIZE = 8;
 interface ReviewEntry {
@@ -524,6 +528,11 @@ async function decide(verdict: "same" | "different") {
   try {
     await api.ai.mergeDecide(entry.candidate.personA, entry.candidate.personB, verdict);
     reviewed.value++;
+    // either verdict removes exactly this pair from the server's candidate
+    // list — the prefetched queue stays valid, the next pair shows instantly
+    queue.value.shift();
+    cursor--;
+    refill();
     if (verdict === "same") {
       showNotificationToast({ headline: "Clusters merged", type: "success" });
       const nameA = entry.names[entry.candidate.personA];
@@ -531,13 +540,7 @@ async function decide(verdict: "same" | "different") {
       if (nameA && nameB && nameA !== nameB) {
         nameConflict.value = { personRef: entry.candidate.personA, options: [nameA, nameB], chosen: nameA };
       }
-      flushQueue();
-      refill();
       await Promise.all([loadMerges(), loadPersons(true)]);
-    } else {
-      queue.value.shift();
-      cursor--;
-      refill();
     }
   } catch (error: any) {
     fail(error);
