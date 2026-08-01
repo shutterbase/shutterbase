@@ -360,6 +360,29 @@ var (
 			},
 		},
 	}
+	// PersonNamesColumns holds the columns for the "person_names" table.
+	PersonNamesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "personRef", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString},
+	}
+	// PersonNamesTable holds the schema information for the "person_names" table.
+	PersonNamesTable = &schema.Table{
+		Name:       "person_names",
+		Columns:    PersonNamesColumns,
+		PrimaryKey: []*schema.Column{PersonNamesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "personname_personRef",
+				Unique:  true,
+				Columns: []*schema.Column{PersonNamesColumns[5]},
+			},
+		},
+	}
 	// ProjectsColumns holds the columns for the "projects" table.
 	ProjectsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -716,6 +739,7 @@ var (
 		ImagesTable,
 		ImageTagsTable,
 		ImageTagAssignmentsTable,
+		PersonNamesTable,
 		ProjectsTable,
 		ProjectAssignmentsTable,
 		RolesTable,

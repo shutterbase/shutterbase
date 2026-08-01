@@ -38,6 +38,28 @@ export function faceBoxStyle(box: RelativeBox): Record<string, string> {
   return { left: pct(box.x), top: pct(box.y), width: pct(box.w), height: pct(box.h) };
 }
 
+// faceCropStyle positions an <img> inside a square, overflow-hidden tile so
+// the face bbox sits centered with generous margin — a face crop without
+// server-side cropping. The crop is a square of `margin` × the face's larger
+// edge, clamped into the image. Returns percentage styles for the img and for
+// the face box drawn inside the crop, or null when the image dimensions are
+// unknown (caller falls back to object-cover).
+export function faceCropStyle(box: RelativeBox, imageWidth: number, imageHeight: number, margin = 2.75): { img: Record<string, string>; box: Record<string, string> } | null {
+  if (!imageWidth || !imageHeight) return null;
+  const faceW = box.w * imageWidth;
+  const faceH = box.h * imageHeight;
+  if (faceW <= 0 || faceH <= 0) return null;
+  const side = Math.min(Math.max(faceW, faceH) * margin, Math.min(imageWidth, imageHeight));
+  const clamp = (v: number, max: number) => Math.max(0, Math.min(v, max));
+  const left = clamp((box.x + box.w / 2) * imageWidth - side / 2, imageWidth - side);
+  const top = clamp((box.y + box.h / 2) * imageHeight - side / 2, imageHeight - side);
+  const pct = (v: number) => `${((v / side) * 100).toFixed(2)}%`;
+  return {
+    img: { width: pct(imageWidth), left: `-${pct(left)}`, top: `-${pct(top)}` },
+    box: { left: pct(box.x * imageWidth - left), top: pct(box.y * imageHeight - top), width: pct(faceW), height: pct(faceH) },
+  };
+}
+
 // Summary line for an upload's AI rollup: "12/40 done · 213 ahead".
 export function aiUploadSummary(s: { pending: number; processing: number; done: number; error: number; ahead: number }): string {
   const total = s.pending + s.processing + s.done + s.error;

@@ -149,6 +149,7 @@ export async function personImages(projectId: string, personRef: string, page = 
 export interface AiRankedPerson {
   personRef: string;
   count: number;
+  name?: string;
   sample?: AiPersonImage;
 }
 
@@ -170,6 +171,21 @@ export async function personImagesGlobal(personRef: string, page = 0, pageSize =
     params: { page, pageSize, ...(raw ? { raw: "true" } : {}) },
   });
   return data;
+}
+
+// Person names are user-given labels for face clusters, stored in shutterbase
+// (not the AI server) and shared by every member of a merge group.
+export async function personNames(refs: string[]): Promise<Record<string, string>> {
+  const { data } = await http.get<{ names: Record<string, string> }>(`/ai/persons/names`, {
+    params: { ref: refs },
+    paramsSerializer: { indexes: null },
+  });
+  return data.names;
+}
+
+// Empty name clears it. Requires projectAdmin on ≥1 project (403 otherwise).
+export async function setPersonName(personRef: string, name: string): Promise<void> {
+  await http.put(`/ai/persons/${personRef}/name`, { name });
 }
 
 export interface AiMergeCandidate {

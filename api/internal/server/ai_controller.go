@@ -41,6 +41,8 @@ func (s *Server) registerAIRoutes(api *gin.RouterGroup) {
 	// People overview + merge review are global (persons span projects):
 	// scoped to the user's viewable / administered projects, not to one id.
 	api.GET("/ai/persons", s.aiPersonsRanked)
+	api.GET("/ai/persons/names", s.aiPersonNames)
+	api.PUT("/ai/persons/:personRef/name", s.aiSetPersonName)
 	api.GET("/ai/persons/:personRef/images", s.aiPersonImagesGlobal)
 	api.GET("/ai/merge/next", s.aiMergeNext)
 	api.POST("/ai/merge/decide", s.aiMergeDecide)
@@ -455,9 +457,19 @@ func (s *Server) aiPersonsRanked(c *gin.Context) {
 		}
 	}
 	images := s.resolveImageRefsIn(ctx, projectIDs, refs)
+	personRefs := make([]string, 0, len(resp.Items))
+	for _, it := range resp.Items {
+		personRefs = append(personRefs, it.PersonRef)
+	}
+	// merged groups need no resolution here: the name is propagated to every
+	// member ref at write time, so the representative carries it
+	names, _ := s.Repository.GetPersonNames(ctx, personRefs)
 	items := make([]gin.H, 0, len(resp.Items))
 	for _, it := range resp.Items {
 		entry := gin.H{"personRef": it.PersonRef, "count": it.Count}
+		if name, ok := names[it.PersonRef]; ok {
+			entry["name"] = name
+		}
 		if img, ok := images[it.Sample.ImageRef]; ok {
 			entry["sample"] = gin.H{
 				"image": ToImageResponse(ctx, img, s.s3Client, s.thumbnailSizes),
@@ -545,7 +557,8 @@ func (s *Server) aiMergeDecide(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if _, ok := s.mergeScope(c); !ok {
+	scope, ok := s.mergeScope(c)
+	if !ok {
 		return
 	}
 	var d aiserver.MergeDecision
@@ -558,6 +571,9 @@ func (s *Server) aiMergeDecide(c *gin.Context) {
 	}
 	if abortAIError(c, remote.DecideMerge(c.Request.Context(), d)) {
 		return
+	}
+	if d.Verdict == "same" {
+		s.propagateMergedName(c, remote, scope, d.PersonA)
 	}
 	c.Status(http.StatusNoContent)
 }
