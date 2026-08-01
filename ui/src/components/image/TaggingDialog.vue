@@ -60,7 +60,9 @@
                 @keydown.space.prevent="() => acceptTag(tag)"
                 v-for="(tag, index) in recentTags"
                 class="cursor-pointer group flex select-none items-center rounded-md p-2 transition-colors hover:bg-primary-100 dark:hover:bg-primary-800"
+                :class="{ 'bg-primary-100 dark:bg-primary-800': index === highlightedIndex }"
                 role="option"
+                :aria-selected="index === highlightedIndex"
                 tabindex="0"
               >
                 <div>
@@ -85,10 +87,12 @@
                 @keydown.space.prevent="() => acceptTag(tag)"
                 v-for="(tag, index) in filteredTags"
                 class="cursor-pointer group flex select-none items-center rounded-md p-2 transition-colors hover:bg-primary-100 dark:hover:bg-primary-800"
+                :class="{ 'bg-primary-100 dark:bg-primary-800': index === highlightedIndex }"
                 role="option"
+                :aria-selected="index === highlightedIndex"
                 tabindex="0"
               >
-                <div v-if="filteredTags.length === 1 && enterKeyLabel" class="h-6 w-6">
+                <div v-if="index === highlightedIndex && enterKeyLabel" class="h-6 w-6">
                   <kbd
                     class="font-data px-2 py-1.5 text-xs font-semibold text-primary-700 bg-primary-100 border border-primary-200 rounded-lg dark:bg-primary-800 dark:text-primary-200 dark:border-primary-700"
                     >{{ enterKeyLabel }}</kbd
@@ -208,6 +212,24 @@ const recentTags = computed(() => {
   });
 });
 
+// the list arrow/j-k navigation and Enter act on: recent tags when the
+// search box is empty, filtered results once the user starts typing
+const activeList = computed(() => (searchText.value === "" ? recentTags.value : filteredTags.value));
+const highlightedIndex = ref(0);
+watch([searchText, () => props.shown], () => {
+  highlightedIndex.value = 0;
+});
+
+useHotkeyAction("tagging.select-next", () => moveHighlight(1));
+useHotkeyAction("tagging.select-previous", () => moveHighlight(-1));
+function moveHighlight(delta: number) {
+  const length = activeList.value.length;
+  if (length === 0) {
+    return;
+  }
+  highlightedIndex.value = (highlightedIndex.value + delta + length) % length;
+}
+
 // kbd hints reflect the user's effective bindings, not the shipped defaults
 function acceptKeyLabel(index: number): string {
   const keys = actionKeys(userStore.user?.hotkeys, `tagging.accept-${index + 1}`);
@@ -252,10 +274,11 @@ onUnmounted(() => {
 
 useHotkeyAction("tagging.accept-only-result", acceptOnlyResult);
 function acceptOnlyResult() {
-  if (filteredTags.value.length === 1) {
-    acceptTag(filteredTags.value[0]);
+  if (activeList.value.length > 0) {
+    acceptTag(activeList.value[Math.min(highlightedIndex.value, activeList.value.length - 1)]);
+    return;
   }
-  if (filteredTags.value.length === 0 && searchText.value === "") {
+  if (searchText.value === "") {
     emit("close-and-next");
   }
 }
