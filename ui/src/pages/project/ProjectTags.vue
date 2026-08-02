@@ -13,6 +13,7 @@ import { useRoute } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
 import { ImageTagsResponse, ProjectsResponse } from "src/types/pocketbase";
+import { toTagOrder } from "src/util/tagOrder";
 import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { ProjectWithTagsType } from "src/types/custom";
@@ -75,6 +76,7 @@ async function addTag(input: ImageTagsResponse) {
       name: input.name,
       description: input.description,
       isAlbum: input.isAlbum,
+      order: toTagOrder(input.order) || undefined,
       type: input.type,
       projectId: item.value.id,
     });
@@ -151,6 +153,7 @@ async function editTag(input: ImageTagsResponse) {
       name: input.name,
       description: input.description,
       isAlbum: input.isAlbum,
+      order: toTagOrder(input.order),
       type: input.type,
     });
     showTagDialog.value = false;
@@ -197,6 +200,7 @@ function showTagEdit() {
 const imageTagColumns: TableColumn<ImageTagsResponse>[] = [
   { key: "name", label: "Name" },
   { key: "description", label: "Description" },
+  { key: "order", label: "Order" },
   { key: "type", label: "Type" },
   {
     key: "actions",

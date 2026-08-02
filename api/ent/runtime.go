@@ -244,6 +244,10 @@ func init() {
 	imagetagDescIsAlbum := imagetagFields[2].Descriptor()
 	// imagetag.DefaultIsAlbum holds the default value on creation for the isAlbum field.
 	imagetag.DefaultIsAlbum = imagetagDescIsAlbum.Default.(bool)
+	// imagetagDescOrder is the schema descriptor for order field.
+	imagetagDescOrder := imagetagFields[3].Descriptor()
+	// imagetag.OrderValidator is a validator for the "order" field. It is called by the builders before save.
+	imagetag.OrderValidator = imagetagDescOrder.Validators[0].(func(int) error)
 	// imagetagDescID is the schema descriptor for id field.
 	imagetagDescID := imagetagMixinFields0[0].Descriptor()
 	// imagetag.DefaultID holds the default value on creation for the id field.

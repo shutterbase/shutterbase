@@ -64,6 +64,11 @@ export const personFilter = ref<string | null>(null);
 // hard project filter. Route-driven like the filter itself (?personScope=all).
 export const personCrossProject = ref(false);
 
+// Implicit upload-batch filter: set by "view images" links on an upload or its
+// kanban card, cleared via the chip above the grid. Route-driven (?upload=)
+// like the person filter; Images.vue owns the sync.
+export const uploadFilter = ref<string | null>(null);
+
 // --- grid snapshot -----------------------------------------------------------
 // Applying the person filter replaces the loaded (possibly deeply scrolled)
 // grid. A snapshot of that state lets "clear filter" / browser-back land on
@@ -127,7 +132,7 @@ export async function loadImages(reload: boolean) {
   try {
     if (reload) page.value = 1;
 
-    filtered.value = !!searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral" || !!personFilter.value;
+    filtered.value = !!searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral" || !!personFilter.value || !!uploadFilter.value;
 
     const params = buildImageListParams({
       projectId: activeProject.value.id,
@@ -135,6 +140,7 @@ export async function loadImages(reload: boolean) {
       tags: filterTags.value,
       personRef: personFilter.value ?? undefined,
       crossProject: personCrossProject.value,
+      uploadId: uploadFilter.value ?? undefined,
       orientation: aspectRatioFilter.value,
       sortOrder: preferredImageSortOrder.value,
       limit: PAGE_SIZE,

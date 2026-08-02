@@ -106,6 +106,20 @@ func (_c *ImageTagCreate) SetNillableIsAlbum(v *bool) *ImageTagCreate {
 	return _c
 }
 
+// SetOrder sets the "order" field.
+func (_c *ImageTagCreate) SetOrder(v int) *ImageTagCreate {
+	_c.mutation.SetOrder(v)
+	return _c
+}
+
+// SetNillableOrder sets the "order" field if the given value is not nil.
+func (_c *ImageTagCreate) SetNillableOrder(v *int) *ImageTagCreate {
+	if v != nil {
+		_c.SetOrder(*v)
+	}
+	return _c
+}
+
 // SetType sets the "type" field.
 func (_c *ImageTagCreate) SetType(v imagetag.Type) *ImageTagCreate {
 	_c.mutation.SetType(v)
@@ -247,6 +261,11 @@ func (_c *ImageTagCreate) check() error {
 	if _, ok := _c.mutation.IsAlbum(); !ok {
 		return &ValidationError{Name: "isAlbum", err: errors.New(`ent: missing required field "ImageTag.isAlbum"`)}
 	}
+	if v, ok := _c.mutation.Order(); ok {
+		if err := imagetag.OrderValidator(v); err != nil {
+			return &ValidationError{Name: "order", err: fmt.Errorf(`ent: validator failed for field "ImageTag.order": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.GetType(); !ok {
 		return &ValidationError{Name: "type", err: errors.New(`ent: missing required field "ImageTag.type"`)}
 	}
@@ -328,6 +347,10 @@ func (_c *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
 		_node.IsAlbum = value
+	}
+	if value, ok := _c.mutation.Order(); ok {
+		_spec.SetField(imagetag.FieldOrder, field.TypeInt, value)
+		_node.Order = &value
 	}
 	if value, ok := _c.mutation.GetType(); ok {
 		_spec.SetField(imagetag.FieldType, field.TypeEnum, value)

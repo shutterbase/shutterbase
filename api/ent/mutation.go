@@ -6517,6 +6517,8 @@ type ImageTagMutation struct {
 	name                  *string
 	description           *string
 	isAlbum               *bool
+	_order                *int
+	add_order             *int
 	_type                 *imagetag.Type
 	clearedFields         map[string]struct{}
 	project               *string
@@ -6914,6 +6916,76 @@ func (m *ImageTagMutation) ResetIsAlbum() {
 	m.isAlbum = nil
 }
 
+// SetOrder sets the "order" field.
+func (m *ImageTagMutation) SetOrder(i int) {
+	m._order = &i
+	m.add_order = nil
+}
+
+// Order returns the value of the "order" field in the mutation.
+func (m *ImageTagMutation) Order() (r int, exists bool) {
+	v := m._order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrder returns the old "order" field's value of the ImageTag entity.
+// If the ImageTag object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageTagMutation) OldOrder(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrder: %w", err)
+	}
+	return oldValue.Order, nil
+}
+
+// AddOrder adds i to the "order" field.
+func (m *ImageTagMutation) AddOrder(i int) {
+	if m.add_order != nil {
+		*m.add_order += i
+	} else {
+		m.add_order = &i
+	}
+}
+
+// AddedOrder returns the value that was added to the "order" field in this mutation.
+func (m *ImageTagMutation) AddedOrder() (r int, exists bool) {
+	v := m.add_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOrder clears the value of the "order" field.
+func (m *ImageTagMutation) ClearOrder() {
+	m._order = nil
+	m.add_order = nil
+	m.clearedFields[imagetag.FieldOrder] = struct{}{}
+}
+
+// OrderCleared returns if the "order" field was cleared in this mutation.
+func (m *ImageTagMutation) OrderCleared() bool {
+	_, ok := m.clearedFields[imagetag.FieldOrder]
+	return ok
+}
+
+// ResetOrder resets all changes to the "order" field.
+func (m *ImageTagMutation) ResetOrder() {
+	m._order = nil
+	m.add_order = nil
+	delete(m.clearedFields, imagetag.FieldOrder)
+}
+
 // SetType sets the "type" field.
 func (m *ImageTagMutation) SetType(i imagetag.Type) {
 	m._type = &i
@@ -7155,7 +7227,7 @@ func (m *ImageTagMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageTagMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 10)
 	if m.createdAt != nil {
 		fields = append(fields, imagetag.FieldCreatedAt)
 	}
@@ -7176,6 +7248,9 @@ func (m *ImageTagMutation) Fields() []string {
 	}
 	if m.isAlbum != nil {
 		fields = append(fields, imagetag.FieldIsAlbum)
+	}
+	if m._order != nil {
+		fields = append(fields, imagetag.FieldOrder)
 	}
 	if m._type != nil {
 		fields = append(fields, imagetag.FieldType)
@@ -7205,6 +7280,8 @@ func (m *ImageTagMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case imagetag.FieldIsAlbum:
 		return m.IsAlbum()
+	case imagetag.FieldOrder:
+		return m.Order()
 	case imagetag.FieldType:
 		return m.GetType()
 	case imagetag.FieldProjectID:
@@ -7232,6 +7309,8 @@ func (m *ImageTagMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldDescription(ctx)
 	case imagetag.FieldIsAlbum:
 		return m.OldIsAlbum(ctx)
+	case imagetag.FieldOrder:
+		return m.OldOrder(ctx)
 	case imagetag.FieldType:
 		return m.OldType(ctx)
 	case imagetag.FieldProjectID:
@@ -7294,6 +7373,13 @@ func (m *ImageTagMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetIsAlbum(v)
 		return nil
+	case imagetag.FieldOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrder(v)
+		return nil
 	case imagetag.FieldType:
 		v, ok := value.(imagetag.Type)
 		if !ok {
@@ -7315,13 +7401,21 @@ func (m *ImageTagMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *ImageTagMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.add_order != nil {
+		fields = append(fields, imagetag.FieldOrder)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *ImageTagMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case imagetag.FieldOrder:
+		return m.AddedOrder()
+	}
 	return nil, false
 }
 
@@ -7330,6 +7424,13 @@ func (m *ImageTagMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *ImageTagMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case imagetag.FieldOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOrder(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ImageTag numeric field %s", name)
 }
@@ -7343,6 +7444,9 @@ func (m *ImageTagMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(imagetag.FieldUpdatedBy) {
 		fields = append(fields, imagetag.FieldUpdatedBy)
+	}
+	if m.FieldCleared(imagetag.FieldOrder) {
+		fields = append(fields, imagetag.FieldOrder)
 	}
 	return fields
 }
@@ -7363,6 +7467,9 @@ func (m *ImageTagMutation) ClearField(name string) error {
 		return nil
 	case imagetag.FieldUpdatedBy:
 		m.ClearUpdatedBy()
+		return nil
+	case imagetag.FieldOrder:
+		m.ClearOrder()
 		return nil
 	}
 	return fmt.Errorf("unknown ImageTag nullable field %s", name)
@@ -7392,6 +7499,9 @@ func (m *ImageTagMutation) ResetField(name string) error {
 		return nil
 	case imagetag.FieldIsAlbum:
 		m.ResetIsAlbum()
+		return nil
+	case imagetag.FieldOrder:
+		m.ResetOrder()
 		return nil
 	case imagetag.FieldType:
 		m.ResetType()

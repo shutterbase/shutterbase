@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"sync"
 
 	"github.com/shutterbase/shutterbase/ent"
@@ -99,7 +101,7 @@ func buildMetadata(image *ent.Image) map[string]any {
 	}
 
 	// Keywords: only default/manual tags, never the internal management tag.
-	keywords := []string{}
+	tags := []*ent.ImageTag{}
 	for _, a := range image.Edges.ImageTagAssignments {
 		tag := a.Edges.ImageTag
 		if tag == nil {
@@ -112,6 +114,10 @@ func buildMetadata(image *ent.Image) map[string]any {
 		if tag.Name == "internal" {
 			continue
 		}
+		tags = append(tags, tag)
+	}
+	keywords := make([]string, 0, len(tags))
+	for _, tag := range sortTagsByOrder(tags) {
 		keywords = append(keywords, tag.Name)
 	}
 	m["EXIF:XPKeywords"] = keywords
@@ -139,4 +145,23 @@ func buildMetadata(image *ent.Image) map[string]any {
 
 	m["IPTC:OriginatingProgram"] = "Shutterbase by Max Partenfeder"
 	return m
+}
+
+// sortTagsByOrder ranks tags for keyword injection: lower order first, ties
+// alphabetical; tags without an order come after all ranked ones, alphabetical.
+func sortTagsByOrder(tags []*ent.ImageTag) []*ent.ImageTag {
+	rank := func(t *ent.ImageTag) int {
+		if t.Order == nil {
+			return math.MaxInt
+		}
+		return *t.Order
+	}
+	sort.SliceStable(tags, func(i, j int) bool {
+		ri, rj := rank(tags[i]), rank(tags[j])
+		if ri != rj {
+			return ri < rj
+		}
+		return tags[i].Name < tags[j].Name
+	})
+	return tags
 }

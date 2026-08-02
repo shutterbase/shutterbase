@@ -45,6 +45,11 @@ describe("buildImageListParams (UI state -> §4.3 list params)", () => {
     expect(buildImageListParams({ projectId: "p1" }).personRef).toBeUndefined();
   });
 
+  it("maps the implicit upload filter and drops it when unset", () => {
+    expect(buildImageListParams({ projectId: "p1", uploadId: "u-1" }).uploadId).toBe("u-1");
+    expect(buildImageListParams({ projectId: "p1" }).uploadId).toBeUndefined();
+  });
+
   it("sends crossProject only together with a person filter", () => {
     expect(buildImageListParams({ projectId: "p1", personRef: "person-7", crossProject: true }).crossProject).toBe("true");
     expect(buildImageListParams({ projectId: "p1", personRef: "person-7" }).crossProject).toBeUndefined();

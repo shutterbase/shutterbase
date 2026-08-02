@@ -15,6 +15,7 @@ export interface ImageTagCreate {
   name: string;
   description?: string;
   isAlbum?: boolean;
+  order?: number; // positive rank; omit for unranked
   type: string;
   projectId: string;
 }
@@ -23,6 +24,7 @@ export interface ImageTagUpdate {
   name?: string;
   description?: string;
   isAlbum?: boolean;
+  order?: number; // positive rank; 0 clears, omit leaves untouched
   type?: string;
 }
 

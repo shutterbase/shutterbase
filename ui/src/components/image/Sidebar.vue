@@ -60,8 +60,19 @@
           <LockClosedIcon class="mt-px h-4 w-4 shrink-0" />
           <span>This upload is submitted for review — official tags are frozen. Custom tags can still be changed.</span>
         </p>
-        <div class="flex flex-wrap gap-2">
-          <ImageTagBadge v-for="tagAssignment in tagAssignments" :key="tagAssignment.id" :tagAssignment="tagAssignment" :removable="removable(tagAssignment)" @remove="removeTag" />
+        <div class="space-y-3">
+          <div v-for="group in tagGroups" :key="group.category">
+            <p class="label-mono text-[0.6rem] text-primary-400 dark:text-primary-500">{{ group.category }}</p>
+            <div class="mt-1 flex flex-wrap gap-2">
+              <ImageTagBadge
+                v-for="tagAssignment in group.assignments"
+                :key="tagAssignment.id"
+                :tagAssignment="tagAssignment"
+                :removable="removable(tagAssignment)"
+                @remove="removeTag"
+              />
+            </div>
+          </div>
         </div>
         <p
           v-if="tagsCanBeAdded()"
@@ -199,6 +210,7 @@ import Clipboard from "src/components/Clipboard.vue";
 import { LockClosedIcon } from "@heroicons/vue/24/outline";
 import { ArrowPathIcon, ClockIcon, ExclamationTriangleIcon, SparklesIcon } from "@heroicons/vue/24/solid";
 import { canEditImageTag, officialTagsFrozen } from "src/pages/upload/uploadUtil";
+import { groupTagAssignments } from "src/util/tagOrder";
 import { aiPositions, aiQueueTotal } from "src/pages/image/imageQueryLogic";
 
 const userStore = useUserStore();
@@ -217,6 +229,10 @@ const props = withDefaults(defineProps<Props>(), {});
 const tagAssignments = computed(() => {
   return props.item?.tags || [];
 });
+
+// One row per tag category (template, manual, custom, ai), each row ordered by
+// the tags' rank — same ordering the EXIF export applies.
+const tagGroups = computed(() => groupTagAssignments(tagAssignments.value));
 
 const aiStatusText = computed(() => {
   const item = props.item;

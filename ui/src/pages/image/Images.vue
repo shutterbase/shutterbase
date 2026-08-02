@@ -7,10 +7,12 @@
         :total-image-count="totalImageCount"
         :show-filter="displayMode === DisplayMode.GRID"
         :selection-count="imageIndices.length"
+        :upload-filter="uploadFilter"
         @search="updateSearchText"
         @filter-tags="updateFilterTags"
         @aspect-ratio-filter="updateAspectRatioFilter"
         @rerun-ai="rerunSelection"
+        @upload-filter="setUploadFilter"
       />
       <div v-if="displayMode === DisplayMode.GRID">
         <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
@@ -137,6 +139,7 @@ import {
   filtered,
   personFilter,
   personCrossProject,
+  uploadFilter,
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
@@ -177,6 +180,11 @@ const clearPersonFilter = () =>
     delete q.person;
     delete q.personScope;
   });
+const setUploadFilter = (id: string | null) =>
+  pushQuery((q) => {
+    if (id) q.upload = id;
+    else delete q.upload;
+  });
 const togglePersonScope = () =>
   pushQuery((q) => {
     if (q.personScope === "all") delete q.personScope;
@@ -187,14 +195,16 @@ async function applyRoute(initial = false) {
   if (route.name !== "images") return;
   const person = (route.query.person as string) || null;
   const crossProject = route.query.personScope === "all";
+  const uploadId = (route.query.upload as string) || null;
   const imageId = (route.query.image as string) || null;
 
-  if (initial || person !== personFilter.value || crossProject !== personCrossProject.value) {
-    if (person) {
-      // entering a person filter from the unfiltered grid: remember where we were
-      if (!initial && !personFilter.value) snapshotGrid();
+  if (initial || person !== personFilter.value || crossProject !== personCrossProject.value || uploadId !== uploadFilter.value) {
+    if (person || uploadId) {
+      // entering an implicit filter from the unfiltered grid: remember where we were
+      if (!initial && !personFilter.value && !uploadFilter.value) snapshotGrid();
       personFilter.value = person;
       personCrossProject.value = crossProject;
+      uploadFilter.value = uploadId;
       imageIndex.value = -1;
       imageIndices.value = [];
       multiselectStart.value = null;
@@ -203,6 +213,7 @@ async function applyRoute(initial = false) {
     } else {
       personFilter.value = null;
       personCrossProject.value = false;
+      uploadFilter.value = null;
       const scrollY = initial ? null : restoreGridSnapshot();
       if (scrollY === null) {
         await loadImages(true);

@@ -59,9 +59,22 @@
             dragged?.id === upload.id ? 'opacity-50' : '',
           ]"
         >
-          <a href="#" @click.prevent="emit('open', upload)" class="block truncate font-medium text-primary-900 hover:text-accent-600 dark:text-white dark:hover:text-accent-400">{{
-            upload.name
-          }}</a>
+          <div class="flex items-center justify-between gap-2">
+            <a
+              href="#"
+              @click.prevent="emit('open', upload)"
+              class="block truncate font-medium text-primary-900 hover:text-accent-600 dark:text-white dark:hover:text-accent-400"
+              >{{ upload.name }}</a
+            >
+            <router-link
+              :to="{ name: 'images', query: { upload: upload.id } }"
+              title="Show this upload's images"
+              class="shrink-0 text-primary-400 transition-colors hover:text-accent-600 dark:text-primary-500 dark:hover:text-accent-400"
+            >
+              <PhotoIcon class="h-4 w-4" />
+              <span class="sr-only">Show this upload's images</span>
+            </router-link>
+          </div>
           <p class="mt-0.5 truncate text-sm text-primary-500 dark:text-primary-400">{{ upload.user?.firstName }} {{ upload.user?.lastName }}</p>
 
           <dl class="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -91,7 +104,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { Upload, UploadState } from "src/types/api";
-import { PlusIcon } from "@heroicons/vue/24/outline";
+import { PhotoIcon, PlusIcon } from "@heroicons/vue/24/outline";
 import { UPLOAD_STATES, UPLOAD_STATE_LABEL, UPLOAD_STATE_HINT, TRANSITION_LABEL, allowedTransitions, formatDuration, formatTaggingRate } from "src/util/uploadReview";
 
 interface Props {

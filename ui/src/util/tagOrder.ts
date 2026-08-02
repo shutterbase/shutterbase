@@ -1,0 +1,44 @@
+import { EmbeddedTag, ImageTagAssignment } from "src/types/api";
+
+// Tag category rows for the image detail sidebar. "template" covers the
+// official template-driven tags (tag type default/template), "ai" is any
+// inferred assignment regardless of the tag it points at.
+export type TagCategory = "template" | "manual" | "custom" | "ai";
+export const TAG_CATEGORIES: TagCategory[] = ["template", "manual", "custom", "ai"];
+
+export function tagCategory(assignment: ImageTagAssignment): TagCategory {
+  if (assignment.type === "inferred") return "ai";
+  switch (assignment.tag.type) {
+    case "custom":
+      return "custom";
+    case "manual":
+      return "manual";
+    default:
+      return "template";
+  }
+}
+
+// compareTagOrder ranks tags: lower order first, ties alphabetical; tags
+// without an order come after all ranked ones, alphabetical. Mirrors the
+// server-side EXIF keyword ordering (api/internal/exif/inject.go).
+export function compareTagOrder(a: EmbeddedTag, b: EmbeddedTag): number {
+  const ra = a.order ?? Number.POSITIVE_INFINITY;
+  const rb = b.order ?? Number.POSITIVE_INFINITY;
+  if (ra !== rb) return ra - rb;
+  return a.name.localeCompare(b.name);
+}
+
+// toTagOrder coerces a form value (free-text input) into an order rank: a
+// positive integer, or 0 for empty/invalid input (= "clear" on update, to be
+// dropped on create).
+export function toTagOrder(value: unknown): number {
+  const n = typeof value === "string" ? parseInt(value, 10) : typeof value === "number" ? value : NaN;
+  return Number.isInteger(n) && n > 0 ? n : 0;
+}
+
+export function groupTagAssignments(assignments: ImageTagAssignment[]): { category: TagCategory; assignments: ImageTagAssignment[] }[] {
+  return TAG_CATEGORIES.map((category) => ({
+    category,
+    assignments: assignments.filter((a) => tagCategory(a) === category).sort((a, b) => compareTagOrder(a.tag, b.tag)),
+  })).filter((group) => group.assignments.length > 0);
+}

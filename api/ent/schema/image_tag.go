@@ -18,6 +18,9 @@ func (ImageTag) Fields() []ent.Field {
 		field.String("name").NotEmpty().StructTag(`json:"name"`),
 		field.String("description").NotEmpty().StructTag(`json:"description"`),
 		field.Bool("isAlbum").Default(false).StructTag(`json:"isAlbum"`),
+		// Sort rank for tag application/display: lower first, ties and unset
+		// tags alphabetical, unset after all ranked tags.
+		field.Int("order").Optional().Nillable().Positive().StructTag(`json:"order,omitempty"`),
 		field.Enum("type").Values("template", "default", "manual", "custom").StructTag(`json:"type"`),
 		field.String("project_id").StructTag(`json:"-"`),
 	}

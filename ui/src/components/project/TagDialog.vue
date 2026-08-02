@@ -149,12 +149,14 @@ function saveTag() {
 const createTagFields: CreateField<ImageTagsResponse>[] = [
   { key: "name", label: "Name", type: CreateFieldType.TEXT },
   { key: "description", label: "Description", type: CreateFieldType.TEXT },
+  { key: "order", label: "Order (lower first, empty = last)", type: CreateFieldType.TEXT },
   { key: "type", label: "Type", type: CreateFieldType.SELECT, options: ["template", "default", "manual", "custom"], optionsDefault: "manual" },
 ];
 
 const editTagFields: EditField<ImageTagsResponse>[] = [
   { key: "name", label: "Name", type: EditFieldType.TEXT },
   { key: "description", label: "Description", type: EditFieldType.TEXT },
+  { key: "order", label: "Order (lower first, empty = last)", type: EditFieldType.TEXT },
   { key: "type", label: "Type", type: EditFieldType.SELECT, options: ["template", "default", "manual", "custom"] },
 ];
 </script>

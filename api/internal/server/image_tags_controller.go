@@ -20,6 +20,7 @@ func (s *Server) imageTagResponse(ctx context.Context, t *ent.ImageTag) gin.H {
 		"name":        t.Name,
 		"description": t.Description,
 		"isAlbum":     t.IsAlbum,
+		"order":       t.Order,
 		"type":        t.Type,
 		"project":     projectRefByID(ctx, s.Repository, t.ProjectID),
 		"createdAt":   t.CreatedAt,
@@ -102,8 +103,19 @@ type createImageTagPayload struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 	IsAlbum     *bool  `json:"isAlbum"`
+	Order       *int   `json:"order"`
 	Type        string `json:"type" binding:"required"`
 	ProjectID   string `json:"projectId" binding:"required"`
+}
+
+// validTagOrder: the rank is a positive integer; 0 means "clear" on update and
+// is rejected on create (send no order instead).
+func validTagOrder(c *gin.Context, order *int, allowZero bool) bool {
+	if order == nil || *order > 0 || (allowZero && *order == 0) {
+		return true
+	}
+	apiError(c, http.StatusBadRequest, "invalid_order", "order must be a positive integer")
+	return false
 }
 
 func (s *Server) createImageTag(c *gin.Context) {
@@ -131,10 +143,14 @@ func (s *Server) createImageTag(c *gin.Context) {
 		!allow(c, authorization.CanDeleteImageTag(authUser(c), payload.ProjectID)) {
 		return
 	}
+	if !validTagOrder(c, payload.Order, false) {
+		return
+	}
 	item, err := s.Repository.CreateImageTag(c.Request.Context(), &repository.CreateImageTagParameters{
 		Name:        payload.Name,
 		Description: payload.Description,
 		IsAlbum:     payload.IsAlbum,
+		Order:       payload.Order,
 		Type:        t,
 		ProjectID:   payload.ProjectID,
 	})
@@ -154,17 +170,21 @@ func (s *Server) updateImageTag(c *gin.Context) {
 		Name        *string `json:"name"`
 		Description *string `json:"description"`
 		IsAlbum     *bool   `json:"isAlbum"`
+		Order       *int    `json:"order"`
 		Type        *string `json:"type"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	if !validTagOrder(c, payload.Order, true) {
+		return
+	}
 	existing, err := s.Repository.GetImageTag(c.Request.Context(), id)
 	if abortGetError(c, err) {
 		return
 	}
-	params := &repository.UpdateImageTagParameters{Name: payload.Name, Description: payload.Description, IsAlbum: payload.IsAlbum}
+	params := &repository.UpdateImageTagParameters{Name: payload.Name, Description: payload.Description, IsAlbum: payload.IsAlbum, Order: payload.Order}
 	resultingType := string(existing.Type)
 	if payload.Type != nil {
 		t := imagetag.Type(*payload.Type)

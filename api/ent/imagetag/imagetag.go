@@ -29,6 +29,8 @@ const (
 	FieldDescription = "description"
 	// FieldIsAlbum holds the string denoting the isalbum field in the database.
 	FieldIsAlbum = "is_album"
+	// FieldOrder holds the string denoting the order field in the database.
+	FieldOrder = "order"
 	// FieldType holds the string denoting the type field in the database.
 	FieldType = "type"
 	// FieldProjectID holds the string denoting the project_id field in the database.
@@ -72,6 +74,7 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldIsAlbum,
+	FieldOrder,
 	FieldType,
 	FieldProjectID,
 }
@@ -105,6 +108,8 @@ var (
 	DescriptionValidator func(string) error
 	// DefaultIsAlbum holds the default value on creation for the "isAlbum" field.
 	DefaultIsAlbum bool
+	// OrderValidator is a validator for the "order" field. It is called by the builders before save.
+	OrderValidator func(int) error
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
@@ -177,6 +182,11 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByIsAlbum orders the results by the isAlbum field.
 func ByIsAlbum(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsAlbum, opts...).ToFunc()
+}
+
+// ByOrder orders the results by the order field.
+func ByOrder(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOrder, opts...).ToFunc()
 }
 
 // ByType orders the results by the type field.

@@ -47,6 +47,15 @@ test.describe("gallery toolbar", () => {
     await expect(page.getByText(/Clear 1 selected/)).toBeVisible();
   });
 
+  test("image detail groups tags into category rows", async ({ page }) => {
+    await page.locator('[id^="grid-tile-"]').first().click();
+    await expect(page.getByText("Image Tags")).toBeVisible();
+    // seeded images carry the Default tag (type default) → it renders under the
+    // "template" category row with its caption
+    await expect(page.getByText("template", { exact: true })).toBeVisible();
+    await expect(page.getByText("Default", { exact: true })).toBeVisible();
+  });
+
   test("sort listbox opens with ordering options", async ({ page }) => {
     await page.getByRole("button", { name: /Latest first/ }).click();
     await expect(page.getByRole("option", { name: /Oldest first/ })).toBeVisible();

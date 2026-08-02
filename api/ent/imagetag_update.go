@@ -100,6 +100,33 @@ func (_u *ImageTagUpdate) SetNillableIsAlbum(v *bool) *ImageTagUpdate {
 	return _u
 }
 
+// SetOrder sets the "order" field.
+func (_u *ImageTagUpdate) SetOrder(v int) *ImageTagUpdate {
+	_u.mutation.ResetOrder()
+	_u.mutation.SetOrder(v)
+	return _u
+}
+
+// SetNillableOrder sets the "order" field if the given value is not nil.
+func (_u *ImageTagUpdate) SetNillableOrder(v *int) *ImageTagUpdate {
+	if v != nil {
+		_u.SetOrder(*v)
+	}
+	return _u
+}
+
+// AddOrder adds value to the "order" field.
+func (_u *ImageTagUpdate) AddOrder(v int) *ImageTagUpdate {
+	_u.mutation.AddOrder(v)
+	return _u
+}
+
+// ClearOrder clears the value of the "order" field.
+func (_u *ImageTagUpdate) ClearOrder() *ImageTagUpdate {
+	_u.mutation.ClearOrder()
+	return _u
+}
+
 // SetType sets the "type" field.
 func (_u *ImageTagUpdate) SetType(v imagetag.Type) *ImageTagUpdate {
 	_u.mutation.SetType(v)
@@ -264,6 +291,11 @@ func (_u *ImageTagUpdate) check() error {
 			return &ValidationError{Name: "description", err: fmt.Errorf(`ent: validator failed for field "ImageTag.description": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Order(); ok {
+		if err := imagetag.OrderValidator(v); err != nil {
+			return &ValidationError{Name: "order", err: fmt.Errorf(`ent: validator failed for field "ImageTag.order": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := imagetag.TypeValidator(v); err != nil {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "ImageTag.type": %w`, err)}
@@ -307,6 +339,15 @@ func (_u *ImageTagUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Order(); ok {
+		_spec.SetField(imagetag.FieldOrder, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedOrder(); ok {
+		_spec.AddField(imagetag.FieldOrder, field.TypeInt, value)
+	}
+	if _u.mutation.OrderCleared() {
+		_spec.ClearField(imagetag.FieldOrder, field.TypeInt)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(imagetag.FieldType, field.TypeEnum, value)
@@ -518,6 +559,33 @@ func (_u *ImageTagUpdateOne) SetNillableIsAlbum(v *bool) *ImageTagUpdateOne {
 	return _u
 }
 
+// SetOrder sets the "order" field.
+func (_u *ImageTagUpdateOne) SetOrder(v int) *ImageTagUpdateOne {
+	_u.mutation.ResetOrder()
+	_u.mutation.SetOrder(v)
+	return _u
+}
+
+// SetNillableOrder sets the "order" field if the given value is not nil.
+func (_u *ImageTagUpdateOne) SetNillableOrder(v *int) *ImageTagUpdateOne {
+	if v != nil {
+		_u.SetOrder(*v)
+	}
+	return _u
+}
+
+// AddOrder adds value to the "order" field.
+func (_u *ImageTagUpdateOne) AddOrder(v int) *ImageTagUpdateOne {
+	_u.mutation.AddOrder(v)
+	return _u
+}
+
+// ClearOrder clears the value of the "order" field.
+func (_u *ImageTagUpdateOne) ClearOrder() *ImageTagUpdateOne {
+	_u.mutation.ClearOrder()
+	return _u
+}
+
 // SetType sets the "type" field.
 func (_u *ImageTagUpdateOne) SetType(v imagetag.Type) *ImageTagUpdateOne {
 	_u.mutation.SetType(v)
@@ -695,6 +763,11 @@ func (_u *ImageTagUpdateOne) check() error {
 			return &ValidationError{Name: "description", err: fmt.Errorf(`ent: validator failed for field "ImageTag.description": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.Order(); ok {
+		if err := imagetag.OrderValidator(v); err != nil {
+			return &ValidationError{Name: "order", err: fmt.Errorf(`ent: validator failed for field "ImageTag.order": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := imagetag.TypeValidator(v); err != nil {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "ImageTag.type": %w`, err)}
@@ -755,6 +828,15 @@ func (_u *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, err 
 	}
 	if value, ok := _u.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.Order(); ok {
+		_spec.SetField(imagetag.FieldOrder, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedOrder(); ok {
+		_spec.AddField(imagetag.FieldOrder, field.TypeInt, value)
+	}
+	if _u.mutation.OrderCleared() {
+		_spec.ClearField(imagetag.FieldOrder, field.TypeInt)
 	}
 	if value, ok := _u.mutation.GetType(); ok {
 		_spec.SetField(imagetag.FieldType, field.TypeEnum, value)

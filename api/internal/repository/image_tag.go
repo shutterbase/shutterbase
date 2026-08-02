@@ -85,6 +85,7 @@ type CreateImageTagParameters struct {
 	Name        string
 	Description string
 	IsAlbum     *bool
+	Order       *int
 	Type        imagetag.Type
 	ProjectID   string
 }
@@ -96,7 +97,8 @@ func (r *Repository) CreateImageTag(ctx context.Context, parameters *CreateImage
 		SetType(parameters.Type).
 		SetProjectID(parameters.ProjectID).
 		SetCreatedBy(util.GetActorID(ctx)).
-		SetUpdatedBy(util.GetActorID(ctx))
+		SetUpdatedBy(util.GetActorID(ctx)).
+		SetNillableOrder(parameters.Order)
 	if parameters.IsAlbum != nil {
 		create = create.SetIsAlbum(*parameters.IsAlbum)
 	}
@@ -118,7 +120,9 @@ type UpdateImageTagParameters struct {
 	Name        *string
 	Description *string
 	IsAlbum     *bool
-	Type        *imagetag.Type
+	// Order: nil = untouched; pointer to 0 = clear (0 is not a valid rank).
+	Order *int
+	Type  *imagetag.Type
 }
 
 func (r *Repository) UpdateImageTag(ctx context.Context, id string, parameters *UpdateImageTagParameters) (*ent.ImageTag, error) {
@@ -148,6 +152,20 @@ func (r *Repository) UpdateImageTag(ctx context.Context, id string, parameters *
 	if parameters.IsAlbum != nil && item.IsAlbum != *parameters.IsAlbum {
 		update.SetIsAlbum(*parameters.IsAlbum)
 		st.SetFieldChanged(imagetag.FieldIsAlbum, item.IsAlbum, *parameters.IsAlbum)
+	}
+	if parameters.Order != nil {
+		current := 0
+		if item.Order != nil {
+			current = *item.Order
+		}
+		if *parameters.Order != current {
+			if *parameters.Order == 0 {
+				update.ClearOrder()
+			} else {
+				update.SetOrder(*parameters.Order)
+			}
+			st.SetFieldChanged(imagetag.FieldOrder, current, *parameters.Order)
+		}
 	}
 	if parameters.Type != nil && item.Type != *parameters.Type {
 		update.SetType(*parameters.Type)
