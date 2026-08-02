@@ -199,8 +199,9 @@ export interface AiMergeCandidates {
   remaining: number;
 }
 
-export async function mergeNext(skip = 0): Promise<AiMergeCandidates> {
-  const { data } = await http.get<AiMergeCandidates>(`/ai/merge/next`, { params: { skip } });
+// person (optional) narrows the queue to pairs involving that person.
+export async function mergeNext(skip = 0, person = ""): Promise<AiMergeCandidates> {
+  const { data } = await http.get<AiMergeCandidates>(`/ai/merge/next`, { params: { skip, ...(person ? { person } : {}) } });
   return data;
 }
 

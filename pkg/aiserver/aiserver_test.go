@@ -18,6 +18,7 @@ type fakeServer struct {
 	lastSkip      int
 	lastDecision  MergeDecision
 	lastRaw       bool
+	lastPerson    string
 	deletedMerges []string
 	reclustered   []string
 	lastProjects  []string
@@ -78,9 +79,10 @@ func (f *fakeServer) Persons(_ context.Context, projectIDs []string, page, pageS
 	}, nil
 }
 
-func (f *fakeServer) MergeCandidates(_ context.Context, projectIDs []string, skip int) (MergeCandidatesResponse, error) {
+func (f *fakeServer) MergeCandidates(_ context.Context, projectIDs []string, skip int, personRef string) (MergeCandidatesResponse, error) {
 	f.lastSkip = skip
 	f.lastProjects = projectIDs
+	f.lastPerson = personRef
 	if skip > 0 {
 		return MergeCandidatesResponse{Remaining: 0}, nil
 	}
@@ -167,15 +169,18 @@ func TestClientHandlerRoundtrip(t *testing.T) {
 		t.Fatalf("persons project scope mangled: %v", fake.lastProjects)
 	}
 
-	cands, err := client.MergeCandidates(ctx, scope, 0)
+	cands, err := client.MergeCandidates(ctx, scope, 0, "")
 	if err != nil || cands.Remaining != 3 || cands.Candidate == nil || cands.Candidate.PersonB != "p2" {
 		t.Fatalf("mergeCandidates: %v %+v", err, cands)
 	}
-	if len(fake.lastProjects) != 2 {
-		t.Fatalf("mergeCandidates project scope mangled: %v", fake.lastProjects)
+	if len(fake.lastProjects) != 2 || fake.lastPerson != "" {
+		t.Fatalf("mergeCandidates scope mangled: %v person=%q", fake.lastProjects, fake.lastPerson)
 	}
-	if cands, err = client.MergeCandidates(ctx, scope, 5); err != nil || cands.Candidate != nil || fake.lastSkip != 5 {
+	if cands, err = client.MergeCandidates(ctx, scope, 5, ""); err != nil || cands.Candidate != nil || fake.lastSkip != 5 {
 		t.Fatalf("mergeCandidates skip mangled: %v %+v skip=%d", err, cands, fake.lastSkip)
+	}
+	if _, err = client.MergeCandidates(ctx, scope, 0, "p9"); err != nil || fake.lastPerson != "p9" {
+		t.Fatalf("mergeCandidates person filter mangled: %v person=%q", err, fake.lastPerson)
 	}
 	if err := client.DecideMerge(ctx, MergeDecision{PersonA: "p1", PersonB: "p2", Verdict: "same"}); err != nil {
 		t.Fatalf("decideMerge: %v", err)

@@ -34,8 +34,9 @@ type Server interface {
 	Persons(ctx context.Context, projectIDs []string, page, pageSize int) (PersonsResponse, error)
 	// MergeCandidates returns the next undecided similar-person pair whose
 	// persons both appear in any of the given projects, skipping the first
-	// skip pairs (the client's "skip" depth).
-	MergeCandidates(ctx context.Context, projectIDs []string, skip int) (MergeCandidatesResponse, error)
+	// skip pairs (the client's "skip" depth). A non-empty personRef narrows
+	// the queue to pairs involving that person (or its merge group).
+	MergeCandidates(ctx context.Context, projectIDs []string, skip int, personRef string) (MergeCandidatesResponse, error)
 	// DecideMerge records a verdict for a pair; "same" creates a reversible
 	// merge entry. Merges are global — persons span projects.
 	DecideMerge(ctx context.Context, d MergeDecision) error
@@ -130,7 +131,7 @@ func NewHandler(s Server, apiKey string) http.Handler {
 		if skip < 0 {
 			skip = 0
 		}
-		resp, err := s.MergeCandidates(r.Context(), r.URL.Query()["projectId"], skip)
+		resp, err := s.MergeCandidates(r.Context(), r.URL.Query()["projectId"], skip, r.URL.Query().Get("person"))
 		respond(w, resp, err)
 	})
 

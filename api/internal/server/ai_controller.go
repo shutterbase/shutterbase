@@ -528,7 +528,8 @@ func (s *Server) aiPersonImagesGlobal(c *gin.Context) {
 }
 
 // aiMergeNext proxies the next similar-person merge candidate within the
-// caller's administered projects.
+// caller's administered projects. ?person=<ref> narrows the queue to pairs
+// involving that person (the gallery's "similar faces" review).
 func (s *Server) aiMergeNext(c *gin.Context) {
 	remote, ok := s.remote(c)
 	if !ok {
@@ -542,7 +543,7 @@ func (s *Server) aiMergeNext(c *gin.Context) {
 	if skip < 0 {
 		skip = 0
 	}
-	resp, err := remote.MergeCandidates(c.Request.Context(), scope, skip)
+	resp, err := remote.MergeCandidates(c.Request.Context(), scope, skip, c.Query("person"))
 	if abortAIError(c, err) {
 		return
 	}

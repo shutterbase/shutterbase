@@ -56,31 +56,42 @@
             </div>
           </div>
           <div class="mt-2 flex items-baseline justify-between">
-            <span class="label-mono-sm text-primary-500 dark:text-primary-400">#{{ i + 1 }}</span>
+            <span class="label-mono-sm text-primary-500 dark:text-primary-400">#{{ (personsPage - 1) * PERSONS_PAGE_SIZE + i + 1 }}</span>
             <span class="text-sm font-medium text-primary-900 dark:text-white">{{ person.count.toLocaleString() }} photo{{ person.count === 1 ? "" : "s" }}</span>
           </div>
         </div>
       </div>
-      <div v-if="personsLoading" class="mt-6 text-center text-sm text-primary-500 dark:text-primary-400">Loading…</div>
+      <div v-if="personsLoading && persons.length === 0" class="mt-6 text-center text-sm text-primary-500 dark:text-primary-400">Loading…</div>
       <div v-else-if="persons.length === 0" class="mt-10 text-center text-sm text-primary-500 dark:text-primary-400">No detected persons yet.</div>
-      <div v-else-if="persons.length < personsTotal" class="mt-6 text-center">
-        <button
-          @click="loadMorePersons"
-          class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
-        >
-          Load more
+      <nav v-if="personsPageCount > 1" class="mt-6 flex items-center justify-center gap-1.5" aria-label="People pages">
+        <button @click="goToPage(personsPage - 1)" :disabled="personsPage === 1" title="Previous page" :class="pagerIdle">
+          <ChevronLeftIcon class="h-4 w-4" />
         </button>
-      </div>
+        <template v-for="(item, idx) in pageItems" :key="idx">
+          <span v-if="item === '…'" class="px-1 text-sm text-primary-400 dark:text-primary-600">…</span>
+          <button v-else @click="goToPage(item)" :class="item === personsPage ? pagerCurrent : pagerIdle">{{ item }}</button>
+        </template>
+        <button @click="goToPage(personsPage + 1)" :disabled="personsPage === personsPageCount" title="Next page" :class="pagerIdle">
+          <ChevronRightIcon class="h-4 w-4" />
+        </button>
+      </nav>
     </template>
 
     <!-- merge review: server-gated (projectAdmin on ≥1 project); hidden on 403 -->
-    <div v-if="canReview && !noAiServer" class="mt-12 border-t border-primary-200 pt-8 dark:border-primary-800">
+    <div v-if="canReview && !noAiServer" ref="reviewSection" class="mt-12 border-t border-primary-200 pt-8 dark:border-primary-800">
       <div class="flex items-baseline justify-between">
         <div>
           <h2 class="text-base font-semibold text-primary-900 dark:text-white">Face cluster review</h2>
           <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">
             The AI server suggests pairs of face clusters that might be the same person. Confirming a pair merges them into one — reversibly, see below.
           </p>
+          <span
+            v-if="reviewPersonRef"
+            class="label-mono-sm mt-2 inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300"
+          >
+            similar to {{ reviewPersonName || reviewPersonRef }}
+            <button class="cursor-pointer font-bold hover:text-accent-400" title="Review all clusters again" @click="clearReviewPerson()">×</button>
+          </span>
         </div>
         <div class="flex shrink-0 items-baseline gap-3">
           <span v-if="remaining > 0" class="label-mono-sm text-primary-500 dark:text-primary-400">{{ remaining }} pair{{ remaining === 1 ? "" : "s" }} left</span>
@@ -270,22 +281,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from "@headlessui/vue";
-import { PencilIcon } from "@heroicons/vue/24/solid";
+import { ChevronLeftIcon, ChevronRightIcon, PencilIcon } from "@heroicons/vue/24/solid";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import FaceCarousel from "src/components/project/FaceCarousel.vue";
 import { api } from "src/api";
 import { AiMerge, AiMergeCandidate, AiPersonImage, AiPersonImagesPage, AiRankedPerson } from "src/api/ai";
 import { faceRendition } from "src/util/aiDetection";
+import { pageWindow } from "src/util/pagination";
 import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { showNotificationToast } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
 
 const router = useRouter();
+const route = useRoute();
 const { activeProjectId } = storeToRefs(useUserStore());
 
 const PERSONS_PAGE_SIZE = 24;
@@ -293,10 +306,19 @@ const PERSONS_PAGE_SIZE = 24;
 const noAiServer = ref(false);
 
 // --- ranked persons -----------------------------------------------------------
+// The page lives in the route query (?page=2, 1-based, absent = 1) so the
+// browser back button returns to the exact page a person was opened from.
 const persons = ref<AiRankedPerson[]>([]);
 const personsTotal = ref(0);
-const personsPage = ref(0);
+const personsPage = computed(() => Math.max(1, parseInt(route.query.page as string) || 1));
+const personsPageCount = computed(() => Math.max(1, Math.ceil(personsTotal.value / PERSONS_PAGE_SIZE)));
+const pageItems = computed(() => pageWindow(personsPage.value, personsPageCount.value));
 const personsLoading = ref(true);
+
+const pagerIdle =
+  "inline-flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-md border border-primary-200 bg-surface px-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-default disabled:opacity-40 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white";
+const pagerCurrent =
+  "inline-flex h-8 min-w-8 items-center justify-center rounded-md border border-accent-500 bg-accent-600/10 px-2 text-sm font-semibold text-accent-700 dark:text-accent-300";
 // the gallery person filter needs a project anchor; without an active project
 // the cards are plain tiles
 const canBrowse = computed(() => !!activeProjectId.value);
@@ -313,29 +335,42 @@ function fail(error: any) {
   }
 }
 
-async function loadPersons(reset = false) {
+// latest-wins guard: a stale response (fast page clicks) never lands
+let personsGen = 0;
+
+async function loadPersons() {
+  const gen = ++personsGen;
   personsLoading.value = true;
   try {
-    if (reset) personsPage.value = 0;
-    const page = await api.ai.rankedPersons(personsPage.value, PERSONS_PAGE_SIZE);
+    const page = await api.ai.rankedPersons(personsPage.value - 1, PERSONS_PAGE_SIZE);
+    if (gen !== personsGen) return;
     personsTotal.value = page.total;
-    // on reset, swap the list only once the data is here — no blank flash
-    if (reset) {
-      persons.value = page.items;
-    } else {
-      persons.value.push(...page.items);
+    // swap the list only once the data is here — no blank flash on page flips
+    persons.value = page.items;
+    // a stale deep link beyond the last page falls back to page 1
+    if (page.items.length === 0 && page.total > 0 && personsPage.value > 1) {
+      router.replace({ query: { ...route.query, page: undefined } });
     }
   } catch (error: any) {
+    if (gen !== personsGen) return;
     fail(error);
   } finally {
-    personsLoading.value = false;
+    if (gen === personsGen) personsLoading.value = false;
   }
 }
 
-async function loadMorePersons() {
-  personsPage.value++;
-  await loadPersons();
+function goToPage(page: number) {
+  if (page < 1 || page > personsPageCount.value || page === personsPage.value) return;
+  router.push({ query: { ...route.query, page: page === 1 ? undefined : String(page) } });
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
+watch(
+  () => route.query.page,
+  () => {
+    if (route.name === "people") loadPersons();
+  },
+);
 
 function showInGallery(person: AiRankedPerson) {
   router.push({ name: "images", query: { person: person.personRef, personScope: "all" } });
@@ -416,6 +451,33 @@ const sides = computed(() => {
 const merges = ref<AiMerge[]>([]);
 const expanded = ref<{ key: string; side: "A" | "B"; personRef: string } | null>(null);
 
+// --- person-scoped review (?person=<ref>) ------------------------------------
+// The gallery's "similar faces" button lands here: the queue narrows to pairs
+// involving this person. Route-driven so the scope survives back/forward.
+const reviewSection = ref<HTMLElement | null>(null);
+const reviewPersonRef = computed(() => (route.query.person as string) || "");
+const reviewPersonName = ref("");
+
+async function loadReviewPersonName() {
+  reviewPersonName.value = "";
+  if (!reviewPersonRef.value) return;
+  try {
+    const names = await api.ai.personNames([reviewPersonRef.value]);
+    reviewPersonName.value = names[reviewPersonRef.value] ?? "";
+  } catch {
+    // the scope chip falls back to the raw ref
+  }
+}
+
+const clearReviewPerson = () => router.push({ query: { ...route.query, person: undefined } });
+
+watch(reviewPersonRef, () => {
+  if (route.name !== "people") return;
+  flushQueue();
+  refill();
+  loadReviewPersonName();
+});
+
 function pairKey(c: AiMergeCandidate) {
   return `${c.personA}/${c.personB}`;
 }
@@ -460,7 +522,7 @@ async function refill() {
     // ponytail: cursor capped at 500 — with that many locally skipped pairs in
     // one generation the server needs a skip-aware endpoint anyway.
     while (queue.value.length < PREFETCH && cursor < 500) {
-      const next = await api.ai.mergeNext(cursor);
+      const next = await api.ai.mergeNext(cursor, reviewPersonRef.value);
       if (gen !== refillGen) return;
       if (!next.candidate) {
         exhausted.value = true;
@@ -540,7 +602,7 @@ async function decide(verdict: "same" | "different") {
       if (nameA && nameB && nameA !== nameB) {
         nameConflict.value = { personRef: entry.candidate.personA, options: [nameA, nameB], chosen: nameA };
       }
-      await Promise.all([loadMerges(), loadPersons(true)]);
+      await Promise.all([loadMerges(), loadPersons()]);
     }
   } catch (error: any) {
     fail(error);
@@ -557,7 +619,7 @@ async function unmerge(m: AiMerge) {
     expanded.value = null;
     flushQueue();
     refill();
-    await Promise.all([loadMerges(), loadPersons(true)]);
+    await Promise.all([loadMerges(), loadPersons()]);
   } catch (error: any) {
     fail(error);
   } finally {
@@ -592,15 +654,18 @@ async function resolveNameConflict() {
   try {
     await api.ai.setPersonName(personRef, name);
     showNotificationToast({ headline: `Merged person named “${name}”`, type: "success" });
-    await Promise.all([loadMerges(), loadPersons(true)]);
+    await Promise.all([loadMerges(), loadPersons()]);
   } catch (error: any) {
     fail(error);
   }
 }
 
 onMounted(() => {
-  loadPersons(true);
+  loadPersons();
   refill();
   loadMerges();
+  loadReviewPersonName();
+  // arriving via "similar faces": the review section is the destination
+  if (reviewPersonRef.value) nextTick(() => reviewSection.value?.scrollIntoView({ behavior: "smooth", block: "start" }));
 });
 </script>

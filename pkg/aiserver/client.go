@@ -95,10 +95,13 @@ func (c *Client) Persons(ctx context.Context, projectIDs []string, page, pageSiz
 	return resp, err
 }
 
-func (c *Client) MergeCandidates(ctx context.Context, projectIDs []string, skip int) (MergeCandidatesResponse, error) {
+func (c *Client) MergeCandidates(ctx context.Context, projectIDs []string, skip int, personRef string) (MergeCandidatesResponse, error) {
 	var resp MergeCandidatesResponse
-	err := c.do(ctx, http.MethodGet,
-		fmt.Sprintf("%s/merge-candidates?skip=%d&%s", basePath, skip, projectQuery(projectIDs)), nil, &resp)
+	path := fmt.Sprintf("%s/merge-candidates?skip=%d&%s", basePath, skip, projectQuery(projectIDs))
+	if personRef != "" {
+		path += "&person=" + url.QueryEscape(personRef)
+	}
+	err := c.do(ctx, http.MethodGet, path, nil, &resp)
 	return resp, err
 }
 
