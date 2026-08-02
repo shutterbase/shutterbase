@@ -54,6 +54,17 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
   aspectRatioFilter.value = aspectRatioState;
 }
 
+// The ImagesHeader owns these controls and remounts clean, so a fresh Images
+// mount must reset them too — a value surviving here filters the grid
+// invisibly (a sticky portrait filter once shrank a 38-photo person view to 5).
+export function resetTransientFilters() {
+  if (!searchText.value && filterTags.value.length === 0 && aspectRatioFilter.value === "neutral") return;
+  invalidateGridSnapshot(); // the snapshot was taken under the filters being cleared
+  searchText.value = "";
+  filterTags.value = [];
+  aspectRatioFilter.value = "neutral";
+}
+
 // Implicit person filter: set by clicking a face box in the detail view,
 // cleared via the chip above the grid. No picker UI — the face IS the picker.
 // The value is driven by the route query (?person=) so the browser history

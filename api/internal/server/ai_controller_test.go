@@ -298,6 +298,7 @@ type fakeRemote struct {
 	personsScope    []string
 	rankedSampleRef string
 	mergeScopeSeen  []string
+	mergePersonSeen string
 	// merges (optional) overrides the fixed p1-p2 merge list fixture.
 	merges []aiserver.Merge
 }
@@ -337,8 +338,9 @@ func (f *fakeRemote) PersonImages(_ context.Context, projectID string, _ string,
 func (f *fakeRemote) Similar(context.Context, string, string, int, int) (aiserver.SimilarResponse, error) {
 	return aiserver.SimilarResponse{}, nil
 }
-func (f *fakeRemote) MergeCandidates(_ context.Context, projects []string, skip int) (aiserver.MergeCandidatesResponse, error) {
+func (f *fakeRemote) MergeCandidates(_ context.Context, projects []string, skip int, personRef string) (aiserver.MergeCandidatesResponse, error) {
 	f.mergeScopeSeen = projects
+	f.mergePersonSeen = personRef
 	if skip > 0 {
 		return aiserver.MergeCandidatesResponse{Remaining: 1}, nil
 	}
@@ -493,6 +495,13 @@ func TestAIMergeEndpoints(t *testing.T) {
 	assert.Equal(t, "p2", next.Candidate.PersonB)
 	assert.Equal(t, 1, next.Remaining)
 	assert.Contains(t, remote.mergeScopeSeen, m.Project, "admin scope spans all projects")
+	assert.Empty(t, remote.mergePersonSeen)
+
+	// ?person narrows the queue to pairs involving that person
+	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/ai/merge/next?person=p7", "")
+	s.aiMergeNext(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "p7", remote.mergePersonSeen)
 
 	// a projectAdmin's scope is exactly their administered projects
 	ctx := context.Background()

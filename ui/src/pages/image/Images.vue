@@ -32,6 +32,14 @@
           >
             all my projects
           </button>
+          <button
+            v-if="isProjectAdminOrHigher"
+            class="label-mono-sm cursor-pointer rounded-full border border-primary-300 px-3 py-1 text-primary-500 transition-colors hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200"
+            title="Review face clusters similar to this person and merge them"
+            @click="openSimilarFaces()"
+          >
+            similar faces
+          </button>
         </div>
         <div :class="['mt-8 select-none', gridClasses]">
           <ImageGridTile
@@ -125,6 +133,7 @@ import AiImageListDialog from "src/components/image/AiImageListDialog.vue";
 import { api } from "src/api";
 import { AiFace } from "src/api/ai";
 import { faceBoxStyle } from "src/util/aiDetection";
+import { useUserStore } from "src/stores/user-store";
 import * as websocket from "src/util/websocket";
 
 import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
@@ -143,6 +152,7 @@ import {
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
+  resetTransientFilters,
 } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading, activeProject } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
@@ -190,6 +200,11 @@ const togglePersonScope = () =>
     if (q.personScope === "all") delete q.personScope;
     else q.personScope = "all";
   });
+
+// "similar faces": person-scoped merge review on the People page; back
+// returns here and remounts the grid, so fresh merges show up immediately.
+const isProjectAdminOrHigher = useUserStore().isProjectAdminOrHigher();
+const openSimilarFaces = () => router.push({ name: "people", query: { person: personFilter.value } });
 
 async function applyRoute(initial = false) {
   if (route.name !== "images") return;
@@ -283,6 +298,9 @@ async function onScroll() {
 }
 window.addEventListener("scroll", onScroll);
 
+// before the watchers below exist, so the reset itself never queues a reload
+resetTransientFilters();
+
 onMounted(() => applyRoute(true));
 // any other filter/sort change makes the saved unfiltered-grid position stale
 const reloadDebounced = useDebounceFn(() => {
@@ -318,11 +336,6 @@ function toggleGridDetail() {
   } else {
     closeDetail();
   }
-}
-
-onMounted(clearFilterTags);
-function clearFilterTags() {
-  filterTags.value = []; // person filter comes from the route query instead
 }
 
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
