@@ -2,9 +2,15 @@
   <div class="mx-auto max-w-7xl w-full lg:px-8">
     <main class="px-4 py-4 sm:px-6 lg:px-0">
       <div v-if="upload" class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-        <h2 class="display text-2xl text-primary-900 dark:text-white">
-          Upload <b class="font-semibold">{{ upload.name }}</b>
-        </h2>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="display text-2xl text-primary-900 dark:text-white">
+            Upload <b class="font-semibold">{{ upload.name }}</b>
+          </h2>
+          <router-link :to="{ name: 'images', query: { upload: upload.id } }" :class="[transitionBase, transitionQuiet]">
+            <PhotoIcon class="h-4 w-4" />
+            View in images
+          </router-link>
+        </div>
 
         <!-- Review state: the same flow the uploads kanban drives, on the page
              where the photographer actually works through the upload. -->
@@ -79,7 +85,7 @@ import * as dateTimeUtil from "src/util/dateTimeUtil";
 import { FileProcessor, Image, newImage, newImageFromBackendImage } from "src/util/fileProcessor";
 import { error } from "src/util/logger";
 import { showUploadEdit } from "./uploadUtil";
-import { CheckCircleIcon, ClockIcon, LockClosedIcon, PencilSquareIcon, SparklesIcon } from "@heroicons/vue/24/outline";
+import { CheckCircleIcon, ClockIcon, LockClosedIcon, PencilSquareIcon, PhotoIcon, SparklesIcon } from "@heroicons/vue/24/outline";
 import { UPLOAD_STATE_LABEL, UPLOAD_STATE_HINT, TRANSITION_LABEL, allowedTransitions, canAddImages } from "src/util/uploadReview";
 import { AiUploadStatus } from "src/api/ai";
 import { aiUploadSummary } from "src/util/aiDetection";

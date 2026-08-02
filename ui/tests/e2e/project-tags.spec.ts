@@ -23,6 +23,7 @@ test.describe.serial("project tags CRUD", () => {
     await expect(dialog.getByText("Add tag")).toBeVisible();
     await dialog.getByLabel("Name", { exact: true }).fill(TAG);
     await dialog.getByLabel("Description", { exact: true }).fill("created by e2e");
+    await dialog.getByLabel(/^Order/).fill("7");
     await dialog.getByRole("button", { name: "Save tag" }).click();
     await expect(dialog).toBeHidden();
 
@@ -32,6 +33,7 @@ test.describe.serial("project tags CRUD", () => {
     await page.reload();
     const row = page.getByRole("row").filter({ hasText: TAG });
     await expect(row, "created tag must persist after reload").toBeVisible();
+    await expect(row, "and keep its order rank").toContainText("7");
 
     // --- delete ---
     await row.getByRole("button", { name: "Delete" }).click();

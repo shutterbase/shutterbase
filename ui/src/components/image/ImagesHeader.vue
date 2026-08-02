@@ -145,6 +145,35 @@
         </transition>
       </Popover>
 
+      <!-- upload batch -->
+      <Listbox :model-value="uploadFilter" @update:model-value="onUploadSelect">
+        <div class="relative">
+          <ListboxButton :class="[triggerBase, uploadFilter ? triggerActive : triggerIdle]">
+            <ArrowUpTrayIcon class="h-[18px] w-[18px]" />
+            <span class="max-w-36 truncate">{{ currentUploadLabel }}</span>
+            <ChevronDownIcon class="h-4 w-4 opacity-60" />
+          </ListboxButton>
+          <transition leave-active-class="transition duration-100 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
+            <ListboxOptions
+              class="scrollbar-tool absolute right-0 z-30 mt-2 max-h-72 w-64 overflow-y-auto rounded-lg border border-primary-200 bg-surface p-1 shadow-xl focus:outline-none dark:border-primary-700 dark:bg-surface-dark"
+            >
+              <ListboxOption v-for="opt in uploadOptions" :key="opt.value ?? 'all'" :value="opt.value" v-slot="{ active, selected }">
+                <li
+                  :class="[
+                    'flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm',
+                    active ? 'bg-primary-100 dark:bg-primary-800' : '',
+                    selected ? 'text-accent-700 dark:text-accent-200' : 'text-primary-700 dark:text-primary-200',
+                  ]"
+                >
+                  <span class="flex-1 truncate">{{ opt.label }}</span>
+                  <CheckIcon v-if="selected" class="h-4 w-4 shrink-0" />
+                </li>
+              </ListboxOption>
+            </ListboxOptions>
+          </transition>
+        </div>
+      </Listbox>
+
       <!-- orientation -->
       <Listbox v-model="orientation">
         <div class="relative">
@@ -221,13 +250,15 @@ import {
   TableCellsIcon,
   RectangleStackIcon,
   SparklesIcon,
+  ArrowUpTrayIcon,
 } from "@heroicons/vue/24/outline";
 import { Popover, PopoverButton, PopoverPanel, Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
 import { computed, h, ref, watch } from "vue";
-import { ImageTag } from "src/types/api";
+import { ImageTag, Upload } from "src/types/api";
+import { api } from "src/api";
 
 type Density = "gallery" | "comfortable" | "dense";
 
@@ -237,11 +268,14 @@ interface Props {
   density?: Density;
   // multi-selected image count — enables the "Rerun AI" toolbar action
   selectionCount?: number;
+  // active upload-batch filter — route-driven, Images.vue owns the query sync
+  uploadFilter?: string | null;
 }
 const props = withDefaults(defineProps<Props>(), {
   totalImageCount: 0,
   density: "comfortable",
   selectionCount: 0,
+  uploadFilter: null,
 });
 
 const emit = defineEmits<{
@@ -250,6 +284,7 @@ const emit = defineEmits<{
   aspectRatioFilter: [string];
   "update:density": [Density];
   rerunAi: [];
+  uploadFilter: [string | null];
 }>();
 
 const { activeProject, preferredImageSortOrder, projectTags } = storeToRefs(useUserStore());
@@ -310,6 +345,30 @@ function toggleTag(tag: ImageTag) {
 }
 function clearTags() {
   selectedTags.value = [];
+}
+
+// upload batch — the picker renders and emits; Images.vue maps the selection
+// onto the route query (?upload=), mirroring the person filter.
+// ponytail: one unpaginated fetch — revisit if a project ever exceeds 500 uploads
+const uploads = ref<Upload[]>([]);
+watch(
+  () => activeProject.value?.id,
+  async (projectId) => {
+    uploads.value = [];
+    if (!projectId) return;
+    try {
+      const items = (await api.uploads.list({ projectId, limit: 500 })).items;
+      uploads.value = items.sort((a, b) => new Date(b.updatedAt ?? 0).getTime() - new Date(a.updatedAt ?? 0).getTime());
+    } catch {
+      // picker degrades to "All uploads"; deep links keep working without it
+    }
+  },
+  { immediate: true },
+);
+const uploadOptions = computed(() => [{ value: null as string | null, label: "All uploads" }, ...uploads.value.map((u) => ({ value: u.id, label: u.name }))]);
+const currentUploadLabel = computed(() => uploads.value.find((u) => u.id === props.uploadFilter)?.name ?? (props.uploadFilter ? "1 upload" : "Upload"));
+function onUploadSelect(id: string | null) {
+  emit("uploadFilter", id);
 }
 
 // kept for Images.vue: re-sync selected tags when toggling grid/detail

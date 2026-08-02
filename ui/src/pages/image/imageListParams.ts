@@ -9,6 +9,7 @@ export function buildImageListParams(input: {
   tags?: { id: string }[];
   personRef?: string;
   crossProject?: boolean;
+  uploadId?: string;
   orientation?: string;
   sortOrder?: SORT_ORDER;
   limit?: number;
@@ -28,6 +29,9 @@ export function buildImageListParams(input: {
     if (input.crossProject) {
       params.crossProject = "true";
     }
+  }
+  if (input.uploadId) {
+    params.uploadId = input.uploadId;
   }
   if (input.orientation && input.orientation !== "neutral") {
     params.orientation = input.orientation as "portrait" | "landscape";

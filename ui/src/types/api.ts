@@ -59,6 +59,7 @@ export interface EmbeddedTag {
   name: string;
   type: string;
   isAlbum?: boolean;
+  order?: number | null;
   description?: string;
 }
 
@@ -112,6 +113,7 @@ export interface ImageTag {
   name: string;
   description: string;
   isAlbum: boolean;
+  order?: number | null; // positive rank; lower = applied/shown first, unset = last
   type: string; // template | default | manual | custom
   project: EmbeddedProject;
   createdAt: string;

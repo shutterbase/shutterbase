@@ -101,6 +101,11 @@ func IsAlbum(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldIsAlbum, v))
 }
 
+// Order applies equality check predicate on the "order" field. It's identical to OrderEQ.
+func Order(v int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEQ(FieldOrder, v))
+}
+
 // ProjectID applies equality check predicate on the "project_id" field. It's identical to ProjectIDEQ.
 func ProjectID(v string) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldProjectID, v))
@@ -424,6 +429,56 @@ func IsAlbumEQ(v bool) predicate.ImageTag {
 // IsAlbumNEQ applies the NEQ predicate on the "isAlbum" field.
 func IsAlbumNEQ(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldNEQ(FieldIsAlbum, v))
+}
+
+// OrderEQ applies the EQ predicate on the "order" field.
+func OrderEQ(v int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEQ(FieldOrder, v))
+}
+
+// OrderNEQ applies the NEQ predicate on the "order" field.
+func OrderNEQ(v int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNEQ(FieldOrder, v))
+}
+
+// OrderIn applies the In predicate on the "order" field.
+func OrderIn(vs ...int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldIn(FieldOrder, vs...))
+}
+
+// OrderNotIn applies the NotIn predicate on the "order" field.
+func OrderNotIn(vs ...int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNotIn(FieldOrder, vs...))
+}
+
+// OrderGT applies the GT predicate on the "order" field.
+func OrderGT(v int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldGT(FieldOrder, v))
+}
+
+// OrderGTE applies the GTE predicate on the "order" field.
+func OrderGTE(v int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldGTE(FieldOrder, v))
+}
+
+// OrderLT applies the LT predicate on the "order" field.
+func OrderLT(v int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldLT(FieldOrder, v))
+}
+
+// OrderLTE applies the LTE predicate on the "order" field.
+func OrderLTE(v int) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldLTE(FieldOrder, v))
+}
+
+// OrderIsNil applies the IsNil predicate on the "order" field.
+func OrderIsNil() predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldIsNull(FieldOrder))
+}
+
+// OrderNotNil applies the NotNil predicate on the "order" field.
+func OrderNotNil() predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNotNull(FieldOrder))
 }
 
 // TypeEQ applies the EQ predicate on the "type" field.
