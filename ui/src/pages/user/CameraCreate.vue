@@ -5,7 +5,8 @@
         <CreateGroup @edit="updateData" headline="Camera Information" subtitle="General information concerning the camera" :fields="informationFields" />
         <button
           @click="createItem"
-          class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+          :disabled="!item.name?.trim()"
+          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 active:bg-accent-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-primary-950"
         >
           Create
         </button>
@@ -21,7 +22,7 @@ import { useRoute, useRouter } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import CreateGroup, { Field, FieldType, CreateData } from "src/components/CreateGroup.vue";
 import { CamerasResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { capitalize } from "src/util/stringUtils";
 
@@ -46,7 +47,7 @@ function updateData(editData: CreateData<ITEM_TYPE>) {
 async function createItem() {
   try {
     console.log(`Creating ${ITEM_NAME} ${item.value.name}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).create({ ...item.value, user: userId.value });
+    const response = await api.cameras.create({ name: item.value.name, userId: userId.value });
     const itemId = response.id;
     console.log(`Project created with ID ${itemId}`);
     showNotificationToast({ headline: `${capitalize(ITEM_NAME)} created`, type: "success" });

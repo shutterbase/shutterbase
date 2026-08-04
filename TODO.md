@@ -1,9 +1,5 @@
 # TODOs for FSG
 
-## Very bad
-
-- hotkeys blocking inputs in text fields
-
 ## Bad
 
 - close tagging dialog when clicking outside of it
@@ -16,3 +12,4 @@
 - add pagination or infiniscroll to project tags
 - tag ui broken when tag description too long
 - applied tag shows up locally as "manual" even though it might be "custom"
+- verify S3 completeness after Hetzner transfer finishes: compare bucket originals (`XX/<storageId>.jpg`) against the 29108 `images.storage_id` rows in prod (mc ls -r diff or `import --verify` re-run)

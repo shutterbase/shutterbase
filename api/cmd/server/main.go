@@ -1,99 +1,180 @@
 package main
 
 import (
+	"context"
 	"os"
-	"path/filepath"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/labstack/echo/v5"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
-	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-	"github.com/shutterbase/shutterbase/internal/hooks"
+	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/s3"
 	"github.com/shutterbase/shutterbase/internal/server"
-	"github.com/shutterbase/shutterbase/internal/timeoffset"
 	"github.com/shutterbase/shutterbase/internal/util"
-
-	_ "github.com/shutterbase/shutterbase/migrations"
+	"github.com/shutterbase/shutterbase/internal/vault"
 )
 
 func main() {
-
-	err := util.InitConfig()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize config")
+	if err := util.InitConfig(); err != nil {
+		log.Panic().Err(err).Msg("error initializing config")
 	}
 	config.Print()
 
-	err = util.InitLogger()
-	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize logger")
+	if err := util.InitLogger(); err != nil {
+		log.Panic().Err(err).Msg("error initializing logger")
 	}
 
-	s3Client, err := s3.NewClient(&s3.S3ClientOptions{
-		Endpoint:  config.Get().String("S3_ENDPOINT"),
-		Port:      config.Get().Int("S3_PORT"),
-		SSL:       config.Get().Bool("S3_SSL"),
-		Bucket:    config.Get().String("S3_BUCKET"),
-		AccessKey: config.Get().String("S3_ACCESS_KEY"),
-		SecretKey: config.Get().String("S3_SECRET_KEY"),
+	vaultCredentials := resolveVaultCredentials(context.Background())
+
+	databaseConnection := initDatabaseConnection(vaultCredentials.database)
+	defer databaseConnection.Close()
+
+	srv, err := server.NewServer(&server.Options{
+		Port:                  config.Get().Int("PORT"),
+		ApiBaseURL:            config.Get().String("API_BASE_URL"),
+		DevMode:               config.Get().Bool("DEV"),
+		Database:              databaseConnection,
+		S3Client:              vaultCredentials.s3Client,
+		SessionSecretKey:      config.Get().String("SESSION_SECRET_KEY"),
+		DefaultAdminUsername:  config.Get().String("DEFAULT_ADMIN_USERNAME"),
+		DefaultAdminPassword:  config.Get().String("DEFAULT_ADMIN_PASSWORD"),
+		ImpersonationReadOnly: config.Get().Bool("IMPERSONATION_READ_ONLY"),
 	})
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to initialize s3 client")
+		log.Panic().Err(err).Msg("error initializing server")
 	}
 
-	app := pocketbase.New()
+	go func() {
+		if err := srv.Run(); err != nil {
+			log.Panic().Err(err).Msg("error running server")
+		}
+	}()
 
-	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		e.Router.GET("/*", func(c echo.Context) error {
-			root := "./web"
-			path := filepath.Clean(c.Request().URL.Path)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Info().Str("signal", sig.String()).Msg("received shutdown signal")
 
-			if _, err := os.Stat(filepath.Join(root, path)); os.IsNotExist(err) {
-				c.Response().Header().Set("Cache-Control", "no-cache")
-				return c.File(filepath.Join(root, "index.html"))
-			}
-
-			return c.File(filepath.Join(root, path))
-		})
-		return nil
-	})
-
-	context := &util.Context{
-		App:      app,
-		S3Client: s3Client,
-	}
-
-	if config.Get().Bool("DEV") {
-		registerMigrateCmd(context)
-	}
-
-	hooks.RegisterHooks(context)
-
-	server := server.NewServer(&server.ServerOptions{
-		S3Client: s3Client,
-		App:      app,
-	})
-	server.RegisterRoutes()
-
-	timeoffset.StartWebsocketTrigger(server)
-
-	// serves static files from the provided public dir (if exists)
-	// app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-	//     e.Router.GET("/*", apis.StaticDirectoryHandler(os.DirFS("./pb_public"), false))
-	//     return nil
-	// })
-
-	if err := app.Start(); err != nil {
-		log.Fatal().Err(err)
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
+	log.Info().Msg("server shutdown complete")
 }
 
-func registerMigrateCmd(context *util.Context) {
-	migratecmd.MustRegister(context.App, context.App.RootCmd, migratecmd.Config{
-		Automigrate: true,
+// vaultCredentials carries whatever was fetched from vault; nil fields mean
+// "use the env-var config" (the default source).
+type vaultCredentials struct {
+	database *vault.DatabaseCredentials
+	s3Client *s3.S3Client
+}
+
+// resolveVaultCredentials honors DATABASE_CREDENTIALS_SOURCE and
+// S3_CREDENTIALS_SOURCE ("env" or "vault", independently) plus the
+// VAULT_ENV_KV_PATH app-secret overlay, and only dials vault when at least one
+// of them asks for it. The vault client and its renewers live for the process
+// lifetime, hence context.Background().
+func resolveVaultCredentials(ctx context.Context) *vaultCredentials {
+	databaseSource := config.Get().String("DATABASE_CREDENTIALS_SOURCE")
+	s3Source := config.Get().String("S3_CREDENTIALS_SOURCE")
+	envKVPath := config.Get().String("VAULT_ENV_KV_PATH")
+	for name, source := range map[string]string{"DATABASE_CREDENTIALS_SOURCE": databaseSource, "S3_CREDENTIALS_SOURCE": s3Source} {
+		if source != "env" && source != "vault" {
+			log.Panic().Str(name, source).Msg("invalid credentials source (supported: env, vault)")
+		}
+	}
+	credentials := &vaultCredentials{}
+	if databaseSource != "vault" && s3Source != "vault" && envKVPath == "" {
+		return credentials
+	}
+
+	vaultClient, err := vault.NewClient(ctx, &vault.Options{
+		Address:          config.Get().String("VAULT_ADDR"),
+		Token:            config.Get().String("VAULT_TOKEN"),
+		KubernetesRole:   config.Get().String("VAULT_KUBERNETES_ROLE"),
+		OIDCMount:        config.Get().String("VAULT_OIDC_MOUNT"),
+		OIDCCallbackPort: config.Get().Int("VAULT_OIDC_CALLBACK_PORT"),
 	})
+	if err != nil {
+		log.Panic().Err(err).Msg("error connecting to vault")
+	}
+
+	if envKVPath != "" {
+		data, err := vaultClient.GetKV(ctx, envKVPath)
+		if err != nil {
+			log.Panic().Err(err).Msg("error fetching env secret from vault")
+		}
+		applied := vault.ApplyEnvOverlay(data)
+		// Re-resolve config so the overlaid variables are visible everywhere.
+		if err := util.InitConfig(); err != nil {
+			log.Panic().Err(err).Msg("error re-initializing config after vault env overlay")
+		}
+		log.Info().Int("applied", applied).Str("path", envKVPath).Msg("vault env overlay applied")
+	}
+
+	if databaseSource == "vault" {
+		credsPath := config.Get().String("VAULT_DATABASE_CREDS_PATH")
+		if credsPath == "" {
+			log.Panic().Msg("DATABASE_CREDENTIALS_SOURCE=vault requires VAULT_DATABASE_CREDS_PATH")
+		}
+		credentials.database, err = vaultClient.GetDatabaseCredentials(ctx, credsPath)
+		if err != nil {
+			log.Panic().Err(err).Msg("error fetching database credentials from vault")
+		}
+	}
+
+	if s3Source == "vault" {
+		kvPath := config.Get().String("VAULT_S3_KV_PATH")
+		if kvPath == "" {
+			log.Panic().Msg("S3_CREDENTIALS_SOURCE=vault requires VAULT_S3_KV_PATH")
+		}
+		accessKey, err := vaultClient.GetKVString(ctx, kvPath, config.Get().String("VAULT_S3_ACCESS_KEY_FIELD"))
+		if err != nil {
+			log.Panic().Err(err).Msg("error fetching S3 access key from vault")
+		}
+		secretKey, err := vaultClient.GetKVString(ctx, kvPath, config.Get().String("VAULT_S3_SECRET_KEY_FIELD"))
+		if err != nil {
+			log.Panic().Err(err).Msg("error fetching S3 secret key from vault")
+		}
+		credentials.s3Client, err = s3.NewClient(&s3.S3ClientOptions{
+			Endpoint:  config.Get().String("S3_ENDPOINT"),
+			Port:      config.Get().Int("S3_PORT"),
+			SSL:       config.Get().Bool("S3_SSL"),
+			Bucket:    config.Get().String("S3_BUCKET"),
+			AccessKey: accessKey,
+			SecretKey: secretKey,
+		})
+		if err != nil {
+			log.Panic().Err(err).Msg("error initializing S3 client with vault credentials")
+		}
+	}
+
+	return credentials
+}
+
+func initDatabaseConnection(vaultCreds *vault.DatabaseCredentials) *database.Connection {
+	username := config.Get().String("DATABASE_USERNAME")
+	password := config.Get().String("DATABASE_PASSWORD")
+	if vaultCreds != nil {
+		username = vaultCreds.Username
+		password = vaultCreds.Password
+	}
+	connection, err := database.NewConnection(&database.Options{
+		DatabaseType: config.Get().String("DATABASE_TYPE"),
+		Host:         config.Get().String("DATABASE_HOST"),
+		Port:         config.Get().Int("DATABASE_PORT"),
+		Username:     username,
+		Password:     password,
+		Database:     config.Get().String("DATABASE_NAME"),
+		Schema:       config.Get().String("DATABASE_SCHEMA"),
+		SSLMode:      config.Get().String("DATABASE_SSL_MODE"),
+		TimeZone:     config.Get().String("DATABASE_TIMEZONE"),
+		File:         config.Get().String("DATABASE_FILE"),
+	})
+	if err != nil {
+		log.Panic().Err(err).Msg("error initializing database connection")
+	}
+	return connection
 }

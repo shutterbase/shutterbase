@@ -1,12 +1,22 @@
+// cmd/downloader bulk-downloads a project's images via the v3 REST API (S11).
+// Auth is an API key ("Authorization: ApiKey <keyId>.<secret>", --api-key / env
+// SHUTTERBASE_API_KEY) — the old email/password PocketBase login is gone.
+//
+// Tag filters keep their semantics: --whitelist tags are AND-applied server-side
+// (the /images endpoint's repeated tagId @> GIN filter); --blacklist tags are
+// OR-excluded client-side against each image's denormalized imageTags list (the
+// REST API has no exclusion param).
 package main
 
 import (
 	"bufio"
-	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -18,7 +28,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
-	"github.com/shutterbase/shutterbase/internal/client"
 	"github.com/urfave/cli/v2"
 )
 
@@ -61,30 +70,19 @@ func main() {
 			&cli.StringFlag{
 				Name:    "url",
 				Aliases: []string{"u"},
-				Usage:   "shutterbase API URL",
+				Usage:   "shutterbase API base URL (e.g. https://shutterbase.fsg.one/api/v1)",
 				EnvVars: []string{"SHUTTERBASE_API_URL"},
 			},
 			&cli.StringFlag{
-				Name:    "exifworker-url",
-				Usage:   "shutterbase exifworker API URL",
-				EnvVars: []string{"SHUTTERBASE_EXIFWORKER_URL"},
+				Name:    "api-key",
+				Aliases: []string{"k"},
+				Usage:   "shutterbase API key in the form <keyId>.<secret>",
+				EnvVars: []string{"SHUTTERBASE_API_KEY"},
 			},
 			&cli.StringFlag{
 				Name:    "project",
 				Usage:   "shutterbase project id",
 				EnvVars: []string{"SHUTTERBASE_PROJECT_ID"},
-			},
-			&cli.StringFlag{
-				Name:    "email",
-				Aliases: []string{"e"},
-				Usage:   "shutterbase email",
-				EnvVars: []string{"SHUTTERBASE_EMAIL"},
-			},
-			&cli.StringFlag{
-				Name:    "password",
-				Aliases: []string{"p"},
-				Usage:   "shutterbase password",
-				EnvVars: []string{"SHUTTERBASE_PASSWORD"},
 			},
 			&cli.StringFlag{
 				Name:    "blocklist",
@@ -157,6 +155,18 @@ func main() {
 	}
 }
 
+// splitTags splits a comma list, dropping empty entries (so an absent flag yields
+// no filter rather than a single "" tag).
+func splitTags(s string) []string {
+	out := []string{}
+	for _, t := range strings.Split(s, ",") {
+		if t = strings.TrimSpace(t); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func download(c *cli.Context, properties DownloadProperties) error {
 
 	runStartTime := time.Now()
@@ -176,36 +186,24 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		outputDir = filepath.Join("downloads", strings.Join(whitelistTags, "_"))
 	}
 
-	blacklistTagsString := c.String("blacklist")
-	blacklistTags := strings.Split(blacklistTagsString, ",")
-
 	if c.String("url") == "" {
 		log.Fatal().Msg("Please specify a shutterbase API URL")
 	}
-
-	if c.String("email") == "" {
-		log.Fatal().Msg("Please specify a shutterbase email")
+	if c.String("api-key") == "" {
+		log.Fatal().Msg("Please specify a shutterbase API key")
 	}
-
-	if c.String("password") == "" {
-		log.Fatal().Msg("Please specify a shutterbase password")
-	}
-
 	if c.String("project") == "" {
 		log.Fatal().Msg("Please specify a shutterbase project id")
 	}
 
 	if properties.Type == DownloadTypeDelta {
-		// check if output dir exists
 		if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 			log.Fatal().Msgf("Output directory '%s' does not exist. Please run a full sync first", outputDir)
 		}
-		// check if timestamp file exists
 		timestampFile := filepath.Join(outputDir, ".timestamp")
 		if _, err := os.Stat(timestampFile); os.IsNotExist(err) {
 			log.Fatal().Msgf("Timestamp file '%s' does not exist. Please run a full sync first", timestampFile)
 		}
-		// read timestamp file
 		timestampFileContent, err := os.ReadFile(timestampFile)
 		if err != nil {
 			log.Fatal().Err(err).Msgf("Failed to read timestamp file '%s'", timestampFile)
@@ -225,8 +223,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 	// check if output dir exists
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		log.Info().Msgf("Creating output directory '%s'", outputDir)
-		err := os.MkdirAll(outputDir, os.ModePerm)
-		if err != nil {
+		if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
 			log.Fatal().Err(err).Msgf("Failed to create output directory '%s'", outputDir)
 		}
 	}
@@ -255,16 +252,20 @@ func download(c *cli.Context, properties DownloadProperties) error {
 	apiClient := client.NewClient(c.String("url"))
 	err := apiClient.Login(c.Context, c.String("email"), c.String("password"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to login")
+		log.Fatal().Err(err).Msg("Failed to resolve whitelist tags")
+	}
+	blacklistTagIDs, err := apiClient.resolveTagIDs(c.Context, projectID, blacklistTags)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to resolve blacklist tags")
 	}
 
-	images, err := apiClient.GetImages(c.Context, c.String("project"), whitelistTags, blacklistTags)
+	images, err := apiClient.getImages(c.Context, projectID, whitelistTagIDs, blacklistTagIDs)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to fetch images list")
 	}
 
-	filterByBlocklist := func(input []client.Image) []client.Image {
-		result := []client.Image{}
+	filterByBlocklist := func(input []Image) []Image {
+		result := []Image{}
 		for _, image := range input {
 			if !slices.Contains(blockedImages, image.ComputedFileName) {
 				result = append(result, image)
@@ -323,7 +324,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 
 	type DownloadResult struct {
 		Status DownloadStatus
-		Image  client.Image
+		Image  Image
 		Error  error
 	}
 
@@ -341,7 +342,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		bar.Add(1)
 	}
 	downloadResults := make(chan DownloadResult, len(filteredImages))
-	workQueue := make(chan client.Image, len(filteredImages))
+	workQueue := make(chan Image, len(filteredImages))
 
 	waitGroup := sync.WaitGroup{}
 	workerCount := c.Int("parallelism")
@@ -354,13 +355,11 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-
 			for {
 				image, ok := <-workQueue
 				if !ok {
 					return
 				}
-
 				log.Debug().Msgf("Downloading image '%s'", image.ComputedFileName)
 				incrementBar()
 
@@ -612,30 +611,12 @@ func applyLogLevel(logLevel string) {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	case "info":
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	case "warn":
+	case "warn", "warning":
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "warning":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "err":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-	case "error":
+	case "err", "error":
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	default:
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	}
-}
-
-func getHumanReadableSize(size int64) string {
-	if size < 1024 {
-		return fmt.Sprintf("%d B", size)
-	} else if size < 1024*1024 {
-		return fmt.Sprintf("%.2f KiB", float64(size)/1024)
-	} else if size < 1024*1024*1024 {
-		return fmt.Sprintf("%.2f MiB", float64(size)/(1024*1024))
-	} else if size < 1024*1024*1024*1024 {
-		return fmt.Sprintf("%.2f GiB", float64(size)/(1024*1024*1024))
-	} else {
-		return fmt.Sprintf("%.2f TiB", float64(size)/(1024*1024*1024*1024))
 	}
 }
 

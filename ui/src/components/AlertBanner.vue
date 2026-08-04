@@ -4,10 +4,10 @@
       <div :class="['rounded-md p-4', backgroundColor]">
         <div class="flex">
           <div class="flex-shrink-0">
-            <ExclamationCircleIcon v-if="type === AlertBannerType.ERROR" class="h-5 w-5 text-red-400" />
-            <InformationCircleIcon v-else-if="type === AlertBannerType.INFO" class="h-5 w-5 text-blue-400" />
-            <CheckCircleIcon v-else-if="type === AlertBannerType.SUCCESS" class="h-5 w-5 text-green-400" />
-            <ExclamationTriangleIcon v-else-if="type === AlertBannerType.WARNING" class="h-5 w-5 text-yellow-400" />
+            <ExclamationCircleIcon v-if="type === AlertBannerType.ERROR" class="h-5 w-5 text-error-500 dark:text-error-400" />
+            <InformationCircleIcon v-else-if="type === AlertBannerType.INFO" class="h-5 w-5 text-accent-500 dark:text-accent-400" />
+            <CheckCircleIcon v-else-if="type === AlertBannerType.SUCCESS" class="h-5 w-5 text-success-500 dark:text-success-400" />
+            <ExclamationTriangleIcon v-else-if="type === AlertBannerType.WARNING" class="h-5 w-5 text-warning-500 dark:text-warning-400" />
           </div>
           <div class="ml-3">
             <h3 :class="['text-sm font-medium', headlineColor]">{{ headline }}</h3>
@@ -59,52 +59,52 @@ const props = withDefaults(defineProps<Props>(), {
 const headlineColor = computed(() => {
   switch (props.type) {
     case AlertBannerType.ERROR:
-      return "text-red-800 dark:text-red-300";
+      return "text-error-800 dark:text-error-300";
     case AlertBannerType.INFO:
-      return "text-blue-800 dark:text-blue-300";
+      return "text-accent-800 dark:text-accent-300";
     case AlertBannerType.SUCCESS:
-      return "text-green-800 dark:text-green-300";
+      return "text-success-800 dark:text-success-300";
     case AlertBannerType.WARNING:
-      return "text-yellow-800 dark:text-yellow-300";
+      return "text-warning-800 dark:text-warning-300";
   }
 });
 
 const messageColor = computed(() => {
   switch (props.type) {
     case AlertBannerType.ERROR:
-      return "text-red-700 dark:text-red-200";
+      return "text-error-700 dark:text-error-200";
     case AlertBannerType.INFO:
-      return "text-blue-700 dark:text-blue-200";
+      return "text-accent-700 dark:text-accent-200";
     case AlertBannerType.SUCCESS:
-      return "text-green-700 dark:text-green-200";
+      return "text-success-700 dark:text-success-200";
     case AlertBannerType.WARNING:
-      return "text-yellow-700 dark:text-yellow-200";
+      return "text-warning-700 dark:text-warning-200";
   }
 });
 
 const backgroundColor = computed(() => {
   switch (props.type) {
     case AlertBannerType.ERROR:
-      return "bg-red-50 dark:bg-red-900";
+      return "border border-error-200 bg-error-50 dark:border-error-900 dark:bg-error-950/40";
     case AlertBannerType.INFO:
-      return "bg-blue-50 dark:bg-blue-900";
+      return "border border-accent-200 bg-accent-50 dark:border-accent-900 dark:bg-accent-950/40";
     case AlertBannerType.SUCCESS:
-      return "bg-green-50 dark:bg-green-900";
+      return "border border-success-200 bg-success-50 dark:border-success-900 dark:bg-success-950/40";
     case AlertBannerType.WARNING:
-      return "bg-yellow-50 dark:bg-yellow-900";
+      return "border border-warning-200 bg-warning-50 dark:border-warning-900 dark:bg-warning-950/40";
   }
 });
 
 const buttonColor = computed(() => {
   switch (props.type) {
     case AlertBannerType.ERROR:
-      return "bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-950 text-red-800 dark:text-red-200 focus:ring-red-600 dark:focus:ring-red-400 focus:ring-offset-red-50 dark:focus:ring-offset-red-950";
+      return "bg-error-100 dark:bg-error-950/40 hover:bg-error-200 dark:hover:bg-error-950/70 text-error-800 dark:text-error-200 focus:ring-error-600 dark:focus:ring-error-400 focus:ring-offset-error-50 dark:focus:ring-offset-error-950";
     case AlertBannerType.INFO:
-      return "bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-950 text-blue-800 dark:text-blue-200 focus:ring-blue-600 dark:focus:ring-blue-400 focus:ring-offset-blue-50 dark:focus:ring-offset-blue-950";
+      return "bg-accent-100 dark:bg-accent-950/40 hover:bg-accent-200 dark:hover:bg-accent-950/70 text-accent-800 dark:text-accent-200 focus:ring-accent-600 dark:focus:ring-accent-400 focus:ring-offset-accent-50 dark:focus:ring-offset-accent-950";
     case AlertBannerType.SUCCESS:
-      return "bg-green-100 dark:bg-green-900 hover:bg-green-200 dark:hover:bg-green-950 text-green-800 dark:text-green-200 focus:ring-green-600 dark:focus:ring-green-400 focus:ring-offset-green-50 dark:focus:ring-offset-green-950";
+      return "bg-success-100 dark:bg-success-950/40 hover:bg-success-200 dark:hover:bg-success-950/70 text-success-800 dark:text-success-200 focus:ring-success-600 dark:focus:ring-success-400 focus:ring-offset-success-50 dark:focus:ring-offset-success-950";
     case AlertBannerType.WARNING:
-      return "bg-yellow-100 dark:bg-yellow-900 hover:bg-yellow-200 dark:hover:bg-yellow-950 text-yellow-800 dark:text-yellow-200 focus:ring-yellow-600 dark:focus:ring-yellow-400 focus:ring-offset-yellow-50 dark:focus:ring-offset-yellow-950";
+      return "bg-warning-100 dark:bg-warning-950/40 hover:bg-warning-200 dark:hover:bg-warning-950/70 text-warning-800 dark:text-warning-200 focus:ring-warning-600 dark:focus:ring-warning-400 focus:ring-offset-warning-50 dark:focus:ring-offset-warning-950";
   }
 });
 </script>

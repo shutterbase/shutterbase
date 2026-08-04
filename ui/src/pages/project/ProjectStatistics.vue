@@ -1,11 +1,11 @@
 <template>
-  <main class="px-4 sm:px-6 lg:flex-auto lg:px-0 py-4">
-    <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
-      <div class="pb-2">
-        <h2 class="text-2xl font-semibold leading-7 text-gray-900 dark:text-primary-200">Project Statistics</h2>
-        <Table dense :items="imageTagStatistics" :columns="imageTagColumns" name="" :allow-add="false"></Table>
-      </div>
+  <main class="mx-auto w-full max-w-7xl">
+    <div class="px-4 sm:px-6 lg:px-8">
+      <p class="label-mono text-accent-600 dark:text-accent-400">Project</p>
+      <h1 class="display mt-2 text-3xl text-primary-900 dark:text-white">Statistics</h1>
+      <p class="mt-2 text-sm text-primary-500 dark:text-primary-400">Tag usage across this project's images.</p>
     </div>
+    <Table class="mt-6" dense :items="imageTagStatistics" :columns="imageTagColumns" name="" :allow-add="false"></Table>
   </main>
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
@@ -17,7 +17,7 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
 
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 const route = useRoute();
 
 type ProjectStatistics = {
@@ -40,8 +40,7 @@ async function loadData() {
 
   try {
     console.log(`Loading project statistics for  ${projectId}`);
-    const response = await pb.send<ProjectStatistics>(`/api/statistics/${projectId}`, {});
-    console.log(response);
+    const response = (await api.statistics.project(projectId)) as ProjectStatistics;
     response.tags.sort((a, b) => b.count - a.count);
     response.tags = response.tags.map(trimTagDescription);
     imageTagStatistics.value = response.tags;

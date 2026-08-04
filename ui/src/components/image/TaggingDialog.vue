@@ -10,7 +10,7 @@
       From: "opacity-100"
       To: "opacity-0"
   -->
-    <div v-show="shown" class="fixed inset-0 bg-gray-500 bg-opacity-25 transition-opacity"></div>
+    <div v-show="shown" class="fixed inset-0 bg-primary-950/60 backdrop-blur-sm transition-opacity"></div>
 
     <div v-show="shown" class="fixed inset-0 z-10 w-screen overflow-y-auto p-4 sm:p-6 md:p-20">
       <!--
@@ -25,10 +25,10 @@
     -->
       <div
         v-show="shown"
-        class="mx-auto max-w-3xl transform divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 shadow-2xl ring-1 ring-black ring-opacity-5 transition-all"
+        class="mx-auto max-w-3xl transform divide-y divide-primary-200 dark:divide-primary-800 overflow-hidden rounded-xl border border-primary-200 bg-surface dark:border-primary-800 dark:bg-surface-dark shadow-2xl transition-all"
       >
         <div class="relative">
-          <svg class="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <svg class="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-primary-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path
               fill-rule="evenodd"
               d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
@@ -40,109 +40,93 @@
             ref="searchTextInput"
             v-model="searchText"
             type="text"
-            class="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:ring-0 sm:text-sm"
+            class="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-sm text-primary-900 placeholder:text-primary-400 focus:outline-none focus:ring-0 dark:text-primary-100 dark:placeholder:text-primary-500"
             placeholder="Search tag..."
           />
         </div>
 
-        <div v-if="(filteredTags.length !== 0 && searchText !== '') || (recentTags.length !== 0 && searchText === '')" class="flex transform-gpu divide-x divide-gray-100">
+        <div
+          v-if="(filteredTags.length !== 0 && searchText !== '') || (recentTags.length !== 0 && searchText === '')"
+          class="flex transform-gpu divide-x divide-primary-200 dark:divide-primary-800"
+        >
           <!-- Preview Visible: "sm:h-96" -->
           <div class="max-h-96 min-w-0 flex-auto scroll-py-4 overflow-y-auto px-6 py-4 sm:h-96">
             <!-- Default state, show/hide based on command palette state. -->
-            <h2 v-if="filteredTags.length === 0 && searchText === ''" class="mb-4 mt-2 text-xs font-semibold text-gray-500">Recent tags</h2>
-            <ul v-if="filteredTags.length === 0 && searchText === ''" class="-mx-2 text-sm text-gray-700" id="options" role="listbox">
-              <!-- Active: "bg-gray-100 text-gray-900" -->
+            <h2 v-if="filteredTags.length === 0 && searchText === ''" class="label-mono mb-4 mt-2 text-primary-500 dark:text-primary-400">Recent tags</h2>
+            <ul v-if="filteredTags.length === 0 && searchText === ''" class="-mx-2 text-sm text-primary-700 dark:text-primary-200" id="options" role="listbox">
               <li
                 @click="() => acceptTag(tag)"
+                @keydown.enter="() => acceptTag(tag)"
+                @keydown.space.prevent="() => acceptTag(tag)"
                 v-for="(tag, index) in recentTags"
-                class="cursor-pointer group flex select-none items-center rounded-md p-2 hover:bg-gray-200 hover:text-gray-100 dark:hover:bg-gray-900 dark:hover:text-gray-100"
+                class="cursor-pointer group flex select-none items-center rounded-md p-2 transition-colors hover:bg-primary-100 dark:hover:bg-primary-800"
+                :class="{ 'bg-primary-100 dark:bg-primary-800': index === highlightedIndex }"
                 role="option"
-                tabindex="-1"
+                :aria-selected="index === highlightedIndex"
+                tabindex="0"
               >
                 <div>
                   <kbd
-                    class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
-                    >Shift+{{ index + 1 }}</kbd
+                    v-if="acceptKeyLabel(index)"
+                    class="font-data px-2 py-1.5 text-xs font-semibold text-primary-700 bg-primary-100 border border-primary-200 rounded-lg dark:bg-primary-800 dark:text-primary-200 dark:border-primary-700"
+                    >{{ acceptKeyLabel(index) }}</kbd
                   >
                 </div>
                 <div class="ml-10 flex-auto truncate">
-                  <!-- Active: "text-gray-900", Not Active: "text-gray-700" -->
-                  <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ tag.name }}</p>
-                  <!-- Active: "text-gray-700", Not Active: "text-gray-500" -->
-                  <p class="text-sm text-gray-500 truncate">{{ tag.description }}</p>
+                  <p class="text-sm font-medium text-primary-800 dark:text-primary-100 truncate">{{ tag.name }}</p>
+                  <p class="text-sm text-primary-500 dark:text-primary-400 truncate">{{ tag.description }}</p>
                 </div>
               </li>
             </ul>
 
             <!-- Results, show/hide based on command palette state. -->
-            <ul class="-mx-2 text-sm text-gray-700" id="options" role="listbox">
-              <!-- Active: "bg-gray-100 text-gray-900" -->
+            <ul class="-mx-2 text-sm text-primary-700 dark:text-primary-200" id="options" role="listbox">
               <li
                 @click="() => acceptTag(tag)"
+                @keydown.enter="() => acceptTag(tag)"
+                @keydown.space.prevent="() => acceptTag(tag)"
                 v-for="(tag, index) in filteredTags"
-                class="cursor-pointer group flex select-none items-center rounded-md p-2 hover:bg-gray-200 hover:text-gray-100 dark:hover:bg-gray-900 dark:hover:text-gray-100"
+                class="cursor-pointer group flex select-none items-center rounded-md p-2 transition-colors hover:bg-primary-100 dark:hover:bg-primary-800"
+                :class="{ 'bg-primary-100 dark:bg-primary-800': index === highlightedIndex }"
                 role="option"
-                tabindex="-1"
+                :aria-selected="index === highlightedIndex"
+                tabindex="0"
               >
-                <div v-if="filteredTags.length === 1" class="h-6 w-6">
+                <div v-if="index === highlightedIndex && enterKeyLabel" class="h-6 w-6">
                   <kbd
-                    class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
-                    >Enter</kbd
+                    class="font-data px-2 py-1.5 text-xs font-semibold text-primary-700 bg-primary-100 border border-primary-200 rounded-lg dark:bg-primary-800 dark:text-primary-200 dark:border-primary-700"
+                    >{{ enterKeyLabel }}</kbd
                   >
                 </div>
-                <div v-else-if="index <= 5">
+                <div v-else-if="index <= 5 && acceptKeyLabel(index)">
                   <kbd
-                    class="px-2 py-1.5 text-xs font-semibold text-gray-800 bg-gray-100 border border-gray-200 rounded-lg dark:bg-gray-600 dark:text-gray-100 dark:border-gray-500"
-                    >Shift+{{ index + 1 }}</kbd
+                    class="font-data px-2 py-1.5 text-xs font-semibold text-primary-700 bg-primary-100 border border-primary-200 rounded-lg dark:bg-primary-800 dark:text-primary-200 dark:border-primary-700"
+                    >{{ acceptKeyLabel(index) }}</kbd
                   >
                 </div>
-                <TagIcon v-else class="h-6 w-6 text-gray-400 dark:text-gray-600" />
+                <TagIcon v-else class="h-6 w-6 text-primary-400 dark:text-primary-500" />
                 <div class="ml-10 flex-auto truncate">
-                  <!-- Active: "text-gray-900", Not Active: "text-gray-700" -->
-                  <p class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ tag.name }}</p>
-                  <!-- Active: "text-gray-700", Not Active: "text-gray-500" -->
-                  <p class="text-sm text-gray-500 truncate">{{ tag.description }}</p>
+                  <p class="text-sm font-medium text-primary-800 dark:text-primary-100 truncate">{{ tag.name }}</p>
+                  <p class="text-sm text-primary-500 dark:text-primary-400 truncate">{{ tag.description }}</p>
                 </div>
               </li>
             </ul>
           </div>
-
-          <!-- Active item side-panel, show/hide based on active state -->
-          <!-- <div class="h-96 w-1/2 flex-none flex-col divide-y divide-gray-100 overflow-y-auto sm:flex">
-            <div class="flex-none p-6 text-center">
-              <img
-                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                alt=""
-                class="mx-auto h-16 w-16 rounded-full"
-              />
-              <h2 class="mt-3 font-semibold text-gray-900">Tom Cook</h2>
-              <p class="text-sm leading-6 text-gray-500">Director, Product Development</p>
-            </div>
-            <div class="flex flex-auto flex-col justify-between p-6">
-              <dl class="grid grid-cols-1 gap-x-6 gap-y-3 text-sm text-gray-700">
-                <dt class="col-end-1 font-semibold text-gray-900">Phone</dt>
-                <dd>881-460-8515</dd>
-                <dt class="col-end-1 font-semibold text-gray-900">URL</dt>
-                <dd class="truncate"><a href="https://example.com" class="text-indigo-600 underline">https://example.com</a></dd>
-                <dt class="col-end-1 font-semibold text-gray-900">Email</dt>
-                <dd class="truncate"><a href="#" class="text-indigo-600 underline">tomcook@example.com</a></dd>
-              </dl>
-              <button
-                type="button"
-                class="mt-6 w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-              >
-                Send message
-              </button>
-            </div>
-          </div>  -->
         </div>
 
         <!-- Empty state, show/hide based on command palette state -->
         <div v-if="filteredTags.length === 0 && searchText !== ''" class="px-6 py-14 text-center text-sm sm:px-14">
-          <TagIcon class="mx-auto h-6 w-6 text-gray-500" />
-          <p class="mt-4 font-semibold text-gray-900 dark:text-gray-100">No matching tags</p>
-          <p class="mt-2 text-gray-500">No tag matching your search could be found. Please use a different keyword or create a 'custom' tag</p>
-          <p @click="createCustomTag" class="mt-4 font-semibold text-gray-900 dark:text-gray-100 underline cursor-pointer">
+          <TagIcon class="mx-auto h-6 w-6 text-primary-400 dark:text-primary-500" />
+          <p class="mt-4 font-semibold text-primary-900 dark:text-white">No matching tags</p>
+          <p class="mt-2 text-primary-500 dark:text-primary-400">No tag matching your search could be found. Please use a different keyword or create a 'custom' tag</p>
+          <p
+            @click="createCustomTag"
+            @keydown.enter="createCustomTag"
+            @keydown.space.prevent="createCustomTag"
+            role="button"
+            tabindex="0"
+            class="mt-4 font-semibold text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer"
+          >
             Create custom tag '<b>{{ searchText }}</b
             >'
           </p>
@@ -157,14 +141,14 @@ import { useUserStore } from "src/stores/user-store";
 import { storeToRefs } from "pinia";
 import { ImageWithTagsType } from "src/types/custom";
 import { TagIcon } from "@heroicons/vue/24/outline";
-import { Ref, computed, nextTick, onMounted, ref } from "vue";
+import { Ref, computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { emitter } from "src/boot/mitt";
 import { debug } from "src/util/logger";
-import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
+import { actionKeys, formatCombo, pushHotkeyContext, useHotkeyAction } from "src/util/hotkeys";
 import { Image } from "src/util/fileProcessor";
-import { ImageTagsRecord, ImageTagsResponse } from "src/types/pocketbase";
+import { ImageTagsResponse } from "src/types/pocketbase";
 import { tagStack } from "src/pages/image/imageQueryLogic";
-import pb from "src/boot/pocketbase";
+import { api } from "src/api";
 
 interface Props {
   image: ImageWithTagsType | null;
@@ -197,7 +181,7 @@ const filteredTags = computed(() => {
     if (tag.type === "default" && !userStore.isProjectAdminOrHigher()) {
       return false;
     }
-    if (props.image?.expand.image_tag_assignments_via_image?.some((assignment) => assignment.imageTag === tag.id)) {
+    if (props.image?.tags?.some((assignment) => assignment.tag.id === tag.id)) {
       return false;
     }
     if (tag.name.toLowerCase().includes(searchText.value.toLowerCase())) {
@@ -221,11 +205,39 @@ const recentTags = computed(() => {
     if (tag.type === "default" || tag.type === "template") {
       return false;
     }
-    if (props.image?.expand.image_tag_assignments_via_image?.some((assignment) => assignment.imageTag === tag.id)) {
+    if (props.image?.tags?.some((assignment) => assignment.tag.id === tag.id)) {
       return false;
     }
     return true;
   });
+});
+
+// the list arrow/j-k navigation and Enter act on: recent tags when the
+// search box is empty, filtered results once the user starts typing
+const activeList = computed(() => (searchText.value === "" ? recentTags.value : filteredTags.value));
+const highlightedIndex = ref(0);
+watch([searchText, () => props.shown], () => {
+  highlightedIndex.value = 0;
+});
+
+useHotkeyAction("tagging.select-next", () => moveHighlight(1));
+useHotkeyAction("tagging.select-previous", () => moveHighlight(-1));
+function moveHighlight(delta: number) {
+  const length = activeList.value.length;
+  if (length === 0) {
+    return;
+  }
+  highlightedIndex.value = (highlightedIndex.value + delta + length) % length;
+}
+
+// kbd hints reflect the user's effective bindings, not the shipped defaults
+function acceptKeyLabel(index: number): string {
+  const keys = actionKeys(userStore.user?.hotkeys, `tagging.accept-${index + 1}`);
+  return keys.length ? formatCombo(keys[0]) : "";
+}
+const enterKeyLabel = computed(() => {
+  const keys = actionKeys(userStore.user?.hotkeys, "tagging.accept-only-result");
+  return keys.length ? formatCombo(keys[0]) : "";
 });
 
 function focusSearchText() {
@@ -239,26 +251,45 @@ function clearSearchText() {
   searchText.value = "";
 }
 
-onHotkey({ key: "Enter", modifierKeys: [] }, acceptOnlyResult);
+// While shown, this dialog owns the hotkey context: gallery hotkeys pause and
+// the accept/close actions below become active (they fire inside the search
+// input too — allowInInputs on their action definitions).
+let popContext: (() => void) | null = null;
+watch(
+  () => props.shown,
+  (shown) => {
+    if (shown && !popContext) {
+      popContext = pushHotkeyContext("tagging-dialog");
+    } else if (!shown && popContext) {
+      popContext();
+      popContext = null;
+    }
+  },
+  { immediate: true },
+);
+onUnmounted(() => {
+  popContext?.();
+  popContext = null;
+});
+
+useHotkeyAction("tagging.accept-only-result", acceptOnlyResult);
 function acceptOnlyResult() {
-  if (filteredTags.value.length === 1) {
-    acceptTag(filteredTags.value[0]);
+  if (activeList.value.length > 0) {
+    acceptTag(activeList.value[Math.min(highlightedIndex.value, activeList.value.length - 1)]);
+    return;
   }
-  if (filteredTags.value.length === 0 && searchText.value === "") {
+  if (searchText.value === "") {
     emit("close-and-next");
   }
 }
 
-onHotkey({ key: "1", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(0));
-onHotkey({ key: "2", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(1));
-onHotkey({ key: "3", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(2));
-onHotkey({ key: "4", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(3));
-onHotkey({ key: "5", modifierKeys: [`shift`] }, getAcceptTagIndexFunction(4));
+for (let index = 0; index < 5; index++) {
+  useHotkeyAction(`tagging.accept-${index + 1}`, getAcceptTagIndexFunction(index));
+}
 function getAcceptTagIndexFunction(index: number) {
-  return (event: HotkeyEvent) => {
+  return () => {
     if (recentTags.value.length !== 0 && filteredTags.value.length === 0 && searchText.value === "") {
       if (recentTags.value.length > index) {
-        event.event.preventDefault();
         acceptTag(recentTags.value[index]);
       }
     }
@@ -267,7 +298,6 @@ function getAcceptTagIndexFunction(index: number) {
       return;
     }
     if (filteredTags.value.length > index) {
-      event.event.preventDefault();
       acceptTag(filteredTags.value[index]);
     }
   };
@@ -286,11 +316,11 @@ async function createCustomTag() {
     return;
   }
   try {
-    const createdTag = await pb.collection<ImageTagsResponse>("image_tags").create({
+    const createdTag = await api.imageTags.create({
       name: searchText.value,
       description: `Custom tag '${searchText.value}'`,
       type: "custom",
-      project: props.image.project,
+      projectId: props.image.project.id,
     });
     userStore.projectTags.push(createdTag);
     acceptTag(createdTag);

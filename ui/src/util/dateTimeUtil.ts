@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { TimeOffsetsResponse } from "src/types/pocketbase";
+import { TimeOffset } from "src/types/api";
 
 export function dateFromUnix(unixTime: number): string {
   const date = new Date(unixTime * 1000);
@@ -36,7 +36,26 @@ export function parseBackendTime(backendTime: string): Date {
   return new Date(Date.parse(backendTime));
 }
 
-export function timeOffsetUpToDate(timeOffset: TimeOffsetsResponse): boolean {
+/**
+ * Whole unix seconds from a backend timestamp string. Backend timestamps carry
+ * sub-second precision (Postgres keeps microseconds), so anything feeding a
+ * BigInt/i64 must truncate first — BigInt() throws a RangeError on a fraction.
+ */
+export function backendTimeToUnixSeconds(backendTime: string): number {
+  return Math.floor(parseBackendTime(backendTime).getTime() / 1000);
+}
+
+/** Map API time offsets onto the WASM `TimeOffsetResult` shape (whole-second bigints). */
+export function toWasmTimeOffsets(offsets: TimeOffset[]) {
+  return offsets.map((timeOffset) => ({
+    free: (): void => {},
+    time_offset: BigInt(Math.round(timeOffset.timeOffset)),
+    server_time: BigInt(backendTimeToUnixSeconds(timeOffset.serverTime)),
+    camera_time: BigInt(backendTimeToUnixSeconds(timeOffset.cameraTime)),
+  }));
+}
+
+export function timeOffsetUpToDate(timeOffset: TimeOffset): boolean {
   const serverTime = parseBackendTime(timeOffset.serverTime);
   return DateTime.fromJSDate(serverTime) > DateTime.now().minus({ hours: 24 });
 }

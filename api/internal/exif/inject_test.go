@@ -1,0 +1,56 @@
+package exif
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
+)
+
+func tag(name string, tagType imagetag.Type, order *int) *ent.ImageTag {
+	return &ent.ImageTag{Name: name, Type: tagType, Order: order}
+}
+
+func intPtr(v int) *int { return &v }
+
+func TestSortTagsByOrder(t *testing.T) {
+	tags := []*ent.ImageTag{
+		tag("zebra", imagetag.TypeManual, nil),
+		tag("bravo", imagetag.TypeManual, intPtr(2)),
+		tag("delta", imagetag.TypeManual, intPtr(1)),
+		tag("alpha", imagetag.TypeManual, nil),
+		tag("charlie", imagetag.TypeManual, intPtr(2)),
+	}
+	got := []string{}
+	for _, tg := range sortTagsByOrder(tags) {
+		got = append(got, tg.Name)
+	}
+	// ranked ascending, order ties alphabetical, unset last alphabetical
+	want := []string{"delta", "bravo", "charlie", "alpha", "zebra"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestBuildMetadataKeywordsRespectOrder(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("manual-late", imagetag.TypeManual, nil)}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("default-first", imagetag.TypeDefault, intPtr(1))}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("custom-hidden", imagetag.TypeCustom, intPtr(1))}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("internal", imagetag.TypeDefault, intPtr(1))}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("manual-second", imagetag.TypeManual, intPtr(5))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	want := []string{"default-first", "manual-second", "manual-late"}
+	if !reflect.DeepEqual(m["EXIF:XPKeywords"], want) {
+		t.Fatalf("XPKeywords = %v, want %v", m["EXIF:XPKeywords"], want)
+	}
+	if !reflect.DeepEqual(m["IPTC:Keywords"], want) {
+		t.Fatalf("IPTC:Keywords = %v, want %v", m["IPTC:Keywords"], want)
+	}
+}

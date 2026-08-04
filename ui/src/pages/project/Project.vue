@@ -1,7 +1,9 @@
 <template>
-  <div class="mx-auto max-w-7xl w-full lg:flex lg:gap-x-16 lg:px-8">
+  <div class="w-full">
     <Navigation />
-    <router-view />
+    <div class="pt-8 pb-12">
+      <router-view />
+    </div>
   </div>
 </template>
 

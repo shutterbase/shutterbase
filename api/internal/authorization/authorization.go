@@ -1,0 +1,440 @@
+// Package authorization holds the composable authz checkers and the per-§4
+// entity rules shared by HTTP controllers (and, later, WS broadcast filtering).
+//
+// Two layers:
+//   - Checker combinators (All/Any/Not) + context primitives (IsUser/IsAdmin/
+//     HasUserID) for the simple "any authed / admin-only" gates.
+//   - Pure entity helpers (CanViewImage, CanCreateImageTag, …) that take the
+//     EFFECTIVE viewer (util.GetUser) plus the target row and implement the §4
+//     project-scoped rules.
+//
+// Everything reads the effective user from util.GetUser, so S8b impersonation
+// composes for free. Project-scoped roles come from the user's eager-loaded
+// project_assignments (loaded by the auth UserTransformer); the project role
+// hierarchy is projectAdmin >= projectEditor >= projectViewer.
+package authorization
+
+import (
+	"strings"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
+	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
+	"github.com/shutterbase/shutterbase/ent/upload"
+	"github.com/shutterbase/shutterbase/ent/user"
+	"github.com/shutterbase/shutterbase/internal/util"
+)
+
+// Project-scoped role keys (the roles table; distinct from the global user enum).
+const (
+	RoleProjectAdmin  = "projectAdmin"
+	RoleProjectEditor = "projectEditor"
+	RoleProjectViewer = "projectViewer"
+)
+
+// projectRoleRank ranks the project roles for hierarchy checks. A higher rank
+// satisfies any lower-ranked requirement (admin >= editor >= viewer). Unknown
+// keys rank 0 and satisfy nothing.
+var projectRoleRank = map[string]int{
+	RoleProjectViewer: 1,
+	RoleProjectEditor: 2,
+	RoleProjectAdmin:  3,
+}
+
+// IsProjectRole reports whether a role key may be assigned to a project
+// membership. projectAdmin is the ceiling — "admin" is the GLOBAL user enum, not
+// a project role. Assigning it creates an assignment row that ProjectRole
+// ignores (unranked keys never beat ""), so the roster lists the person as a
+// member while authorization sees no membership at all: not even viewer access,
+// with nothing in the UI explaining why. The roles table can hold such rows —
+// the PocketBase import carries over whatever the legacy DB had.
+func IsProjectRole(key string) bool { return projectRoleRank[key] > 0 }
+
+// --- Checker combinators (context-based) ---
+
+// Checker is an authorization check evaluated against a gin context.
+type Checker struct {
+	check func(c *gin.Context) bool
+}
+
+// Check evaluates the check against the provided context.
+func (ch *Checker) Check(c *gin.Context) bool { return ch.check(c) }
+
+// All passes if ALL provided checks pass (AND). False if none are provided.
+func All(checks ...*Checker) *Checker {
+	return &Checker{check: func(c *gin.Context) bool {
+		if len(checks) == 0 {
+			return false
+		}
+		for _, ch := range checks {
+			if !ch.Check(c) {
+				return false
+			}
+		}
+		return true
+	}}
+}
+
+// Any passes if ANY provided check passes (OR). False if none pass.
+func Any(checks ...*Checker) *Checker {
+	return &Checker{check: func(c *gin.Context) bool {
+		for _, ch := range checks {
+			if ch.Check(c) {
+				return true
+			}
+		}
+		return false
+	}}
+}
+
+// Not inverts the wrapped check.
+func Not(checker *Checker) *Checker {
+	return &Checker{check: func(c *gin.Context) bool { return !checker.Check(c) }}
+}
+
+// --- Context primitives ---
+
+// IsUser passes when the request carries an authenticated, active user.
+func IsUser() *Checker {
+	return &Checker{check: func(c *gin.Context) bool {
+		return isActive(util.GetUser(c.Request.Context()))
+	}}
+}
+
+// IsAdmin passes when the effective user is an active global admin.
+func IsAdmin() *Checker {
+	return &Checker{check: func(c *gin.Context) bool {
+		return isAdmin(util.GetUser(c.Request.Context()))
+	}}
+}
+
+// IsRealAdmin passes when the REAL logged-in user is an active global admin,
+// ignoring any active impersonation (S8). The impersonation control endpoints
+// gate on this so an impersonated viewer cannot re-escalate.
+func IsRealAdmin() *Checker {
+	return &Checker{check: func(c *gin.Context) bool {
+		return isAdmin(util.GetRealUser(c.Request.Context()))
+	}}
+}
+
+// HasUserID passes when the effective user is active and has the given id
+// (owner-can-access-own-resource).
+func HasUserID(id uuid.UUID) *Checker {
+	return &Checker{check: func(c *gin.Context) bool {
+		u := util.GetUser(c.Request.Context())
+		return isActive(u) && u.ID == id
+	}}
+}
+
+// --- Pure predicates on the effective user ---
+
+func isActive(u *ent.User) bool { return u != nil && u.Active }
+
+func isAdmin(u *ent.User) bool { return isActive(u) && u.Role == user.RoleAdmin }
+
+func isOwner(u *ent.User, ownerID uuid.UUID) bool { return isActive(u) && u.ID == ownerID }
+
+// ProjectRole returns the highest project role the user holds for projectID, or
+// "" if none. Reads the eager-loaded project_assignments.
+func ProjectRole(u *ent.User, projectID string) string {
+	// A deactivated user holds no effective project role even if assignment rows
+	// still exist — mirrors isAdmin/isOwner, and closes the gap where a
+	// deactivated-but-assigned user (or a stale session after deactivation)
+	// retained project access.
+	if !isActive(u) {
+		return ""
+	}
+	best := ""
+	for _, pa := range u.Edges.ProjectAssignments {
+		if pa.ProjectID != projectID || pa.Edges.Role == nil {
+			continue
+		}
+		if projectRoleRank[pa.Edges.Role.Key] > projectRoleRank[best] {
+			best = pa.Edges.Role.Key
+		}
+	}
+	return best
+}
+
+// HasRoleInProject reports whether the user holds AT LEAST roleKey in projectID
+// (hierarchy-aware: projectAdmin satisfies projectEditor/projectViewer).
+func HasRoleInProject(u *ent.User, projectID, roleKey string) bool {
+	want := projectRoleRank[roleKey]
+	return want > 0 && projectRoleRank[ProjectRole(u, projectID)] >= want
+}
+
+// IsAssigned reports whether the user holds any role in projectID.
+func IsAssigned(u *ent.User, projectID string) bool {
+	return ProjectRole(u, projectID) != ""
+}
+
+// AssignedProjectIDs returns the distinct project ids the user is assigned to
+// (used to scope LIST results for non-admins).
+func AssignedProjectIDs(u *ent.User) []string {
+	if !isActive(u) {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, pa := range u.Edges.ProjectAssignments {
+		if _, ok := seen[pa.ProjectID]; ok {
+			continue
+		}
+		seen[pa.ProjectID] = struct{}{}
+		out = append(out, pa.ProjectID)
+	}
+	return out
+}
+
+// --- Global helpers (admin / self) ---
+
+// IsAdminUser is the pure equivalent of the IsAdmin() checker.
+func IsAdminUser(u *ent.User) bool { return isAdmin(u) }
+
+// IsSelf reports whether the active user has the given id.
+func IsSelf(u *ent.User, id uuid.UUID) bool { return isActive(u) && u.ID == id }
+
+// AdminProjectIDs lists the projects the user is a projectAdmin of — the
+// scope of cross-project operations like the face merge review.
+func AdminProjectIDs(u *ent.User) []string {
+	if !isActive(u) {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := []string{}
+	for _, pa := range u.Edges.ProjectAssignments {
+		if pa.Edges.Role == nil || pa.Edges.Role.Key != RoleProjectAdmin {
+			continue
+		}
+		if _, ok := seen[pa.ProjectID]; ok {
+			continue
+		}
+		seen[pa.ProjectID] = struct{}{}
+		out = append(out, pa.ProjectID)
+	}
+	return out
+}
+
+// HasAnyProjectAdmin reports whether the user is a projectAdmin of any project.
+// Used to widen the user list for pickers (§4.12).
+func HasAnyProjectAdmin(u *ent.User) bool {
+	if !isActive(u) {
+		return false
+	}
+	for _, pa := range u.Edges.ProjectAssignments {
+		if pa.Edges.Role != nil && pa.Edges.Role.Key == RoleProjectAdmin {
+			return true
+		}
+	}
+	return false
+}
+
+// --- Projects (§4.6) ---
+
+// CanViewProject: admin or any assignment.
+func CanViewProject(u *ent.User, projectID string) bool {
+	return isAdmin(u) || IsAssigned(u, projectID)
+}
+
+// CanManageProject: global admin only — project lifecycle (CREATE and DELETE).
+func CanManageProject(u *ent.User) bool { return isAdmin(u) }
+
+// CanEditProject: global admin, or a projectAdmin OF THIS PROJECT — field edits
+// to an existing project (§4.6). A projectAdmin administers within a project
+// (properties, tags) but does not control its lifecycle; create/delete stay
+// global-admin-only via CanManageProject.
+func CanEditProject(u *ent.User, projectID string) bool {
+	return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
+}
+
+// --- Images (§4.3) ---
+
+// CanViewImage: admin or assigned to the image's project.
+func CanViewImage(u *ent.User, img *ent.Image) bool {
+	return img != nil && (isAdmin(u) || IsAssigned(u, img.ProjectID))
+}
+
+// CanCreateImage: project member (or admin).
+func CanCreateImage(u *ent.User, projectID string) bool {
+	return isAdmin(u) || IsAssigned(u, projectID)
+}
+
+// CanEditImage: projectEditor+ (or admin).
+func CanEditImage(u *ent.User, img *ent.Image) bool {
+	return img != nil && (isAdmin(u) || HasRoleInProject(u, img.ProjectID, RoleProjectEditor))
+}
+
+// CanReparentImage: re-parenting (camera/upload) is admin/projectAdmin only.
+func CanReparentImage(u *ent.User, img *ent.Image) bool {
+	return img != nil && (isAdmin(u) || HasRoleInProject(u, img.ProjectID, RoleProjectAdmin))
+}
+
+// CanDeleteImage: owner, projectAdmin, or admin.
+func CanDeleteImage(u *ent.User, img *ent.Image) bool {
+	return img != nil && (isAdmin(u) || isOwner(u, img.UserID) || HasRoleInProject(u, img.ProjectID, RoleProjectAdmin))
+}
+
+// --- Image tags (§4.4) ---
+
+// CanCreateImageTag: type∈{default,manual} -> admin/projectAdmin; type=custom ->
+// any member. template (and unknown) -> never (not creatable via API).
+func CanCreateImageTag(u *ent.User, projectID, tagType string) bool {
+	switch tagType {
+	// template tags ($DATE, $COPYRIGHT, …) drive automatic tagging for the whole
+	// project — the same blast radius as a default tag, so the same gate. They
+	// used to be uncreatable entirely, which left the UI offering a type the API
+	// refused and no way to add one outside the seed/import.
+	case "template", "default", "manual":
+		return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
+	case "custom":
+		return isAdmin(u) || IsAssigned(u, projectID)
+	default:
+		return false
+	}
+}
+
+// CanEditImageTag mirrors CanCreateImageTag, keyed on the resulting type.
+func CanEditImageTag(u *ent.User, projectID, resultingType string) bool {
+	return CanCreateImageTag(u, projectID, resultingType)
+}
+
+// CanDeleteImageTag: admin/projectAdmin.
+func CanDeleteImageTag(u *ent.User, projectID string) bool {
+	return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
+}
+
+// --- Image tag assignments (§4.5) ---
+
+// CanManageImageTagAssignment: projectEditor+ (or admin); projectViewer -> false.
+func CanManageImageTagAssignment(u *ent.User, projectID string) bool {
+	return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectEditor)
+}
+
+// --- Cameras (§4.8) ---
+
+// CanModifyCamera: admin or owner.
+func CanModifyCamera(u *ent.User, cam *ent.Camera) bool {
+	return cam != nil && (isAdmin(u) || isOwner(u, cam.UserID))
+}
+
+// --- Uploads (§4.9) ---
+
+// CanModifyUpload: admin, projectAdmin of the upload's project, or owner.
+func CanModifyUpload(u *ent.User, up *ent.Upload) bool {
+	return up != nil && (isAdmin(u) || isOwner(u, up.UserID) || HasRoleInProject(u, up.ProjectID, RoleProjectAdmin))
+}
+
+// CanCreateUpload: project member (or admin).
+func CanCreateUpload(u *ent.User, projectID string) bool {
+	return isAdmin(u) || IsAssigned(u, projectID)
+}
+
+// --- Upload review flow (project.uploadReviewEnabled) ---
+
+// ReviewErrorTagName is the reserved per-project tag a projectAdmin puts on an
+// image to mark a tagging error. It is a "custom" tag (never exported), but
+// unlike other custom tags only a projectAdmin may add or remove it.
+const ReviewErrorTagName = "error"
+
+// IsReviewErrorTag reports whether a tag name is the reserved error tag.
+func IsReviewErrorTag(name string) bool {
+	return strings.EqualFold(name, ReviewErrorTagName)
+}
+
+// isProjectAdmin: global admin or projectAdmin of this project — the reviewer
+// role of the upload review flow.
+func isProjectAdmin(u *ent.User, projectID string) bool {
+	return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
+}
+
+// CanTransitionUpload reports whether u may move up into state next. The
+// photographer (owner) may only submit open -> ready; every other transition
+// (send back, accept, reopen) is the reviewer's. A no-op transition is allowed
+// so a repeated PUT stays idempotent.
+func CanTransitionUpload(u *ent.User, up *ent.Upload, next upload.State) bool {
+	if up == nil || !isActive(u) {
+		return false
+	}
+	if isProjectAdmin(u, up.ProjectID) {
+		return true
+	}
+	return isOwner(u, up.UserID) && up.State == upload.StateOpen && next == upload.StateReady
+}
+
+// CanAssignTag reports whether u may create or delete an assignment of tag on
+// img. Base rule is CanManageImageTagAssignment; with the review flow enabled a
+// non-reviewer additionally loses
+//   - the error tag entirely (only a projectAdmin flags/clears errors), and
+//   - every non-custom ("official", i.e. exported) tag once the upload left the
+//     open state — custom tags stay editable because they are never exported.
+func CanAssignTag(u *ent.User, img *ent.Image, up *ent.Upload, tag *ent.ImageTag, reviewEnabled bool) bool {
+	if img == nil || up == nil || tag == nil {
+		return false
+	}
+	if !CanManageImageTagAssignment(u, img.ProjectID) {
+		return false
+	}
+	if !reviewEnabled || isProjectAdmin(u, img.ProjectID) {
+		return true
+	}
+	if IsReviewErrorTag(tag.Name) {
+		return false
+	}
+	return up.State == upload.StateOpen || tag.Type == imagetag.TypeCustom
+}
+
+// CanAddImagesToUpload: with the review flow on, a submitted upload takes no
+// further images from the photographer — only a reviewer can still re-parent.
+func CanAddImagesToUpload(u *ent.User, up *ent.Upload, reviewEnabled bool) bool {
+	if up == nil {
+		return false
+	}
+	return !reviewEnabled || up.State == upload.StateOpen || isProjectAdmin(u, up.ProjectID)
+}
+
+// CanApplyUploadTimeline: the timeline editor writes OFFICIAL ("scheduled") tag
+// assignments, so the review freeze applies — once the upload left open, only a
+// reviewer may re-apply (S15).
+func CanApplyUploadTimeline(u *ent.User, up *ent.Upload, reviewEnabled bool) bool {
+	if !CanModifyUpload(u, up) {
+		return false
+	}
+	return !reviewEnabled || up.State == upload.StateOpen || isProjectAdmin(u, up.ProjectID)
+}
+
+// --- Schedule items (S15) ---
+
+// CanManageScheduleItem: item CRUD — admin or projectAdmin of this project.
+func CanManageScheduleItem(u *ent.User, projectID string) bool {
+	return isProjectAdmin(u, projectID)
+}
+
+// CanManageScheduleAssignment reports whether u may add/remove target on a
+// schedule item. A projectEditor+ manages THEMSELVES (pull principle; no
+// cardinality cap — overbooking is allowed by design); admin/projectAdmin
+// manage anyone.
+func CanManageScheduleAssignment(u *ent.User, projectID string, target uuid.UUID) bool {
+	if isProjectAdmin(u, projectID) {
+		return true
+	}
+	return IsSelf(u, target) && HasRoleInProject(u, projectID, RoleProjectEditor)
+}
+
+// --- Project assignments (§4.7) ---
+
+// CanManageProjectAssignment: a global admin, or a projectAdmin of THIS project.
+// A projectAdmin already administers everything inside their project, so letting
+// them manage its roster is no escalation — and the global user role lives on the
+// user row, out of reach from here.
+func CanManageProjectAssignment(u *ent.User, projectID string) bool {
+	return isProjectAdmin(u, projectID)
+}
+
+// --- Statistics (§4.13) ---
+
+// CanViewStatistics: admin or assigned (same as project view).
+func CanViewStatistics(u *ent.User, projectID string) bool {
+	return CanViewProject(u, projectID)
+}
