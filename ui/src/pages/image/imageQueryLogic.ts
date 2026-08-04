@@ -1,18 +1,22 @@
-import pb from "src/boot/pocketbase";
 import { useUserStore } from "src/stores/user-store";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
-import { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
-import { ImageTagAssignmentType, ImageWithTagsType } from "src/types/custom";
-import { ImageTagsResponse } from "src/types/pocketbase";
-import { emitter } from "src/boot/mitt";
-import { HotkeyEvent, onHotkey } from "src/util/keyEvents";
-import { dateTimeToBackendString } from "src/util/dateTimeUtil";
+import { api } from "src/api";
+import { ImageTag } from "src/types/api";
+import { ImageWithTagsType } from "src/types/custom";
+import { buildImageListParams } from "src/pages/image/imageListParams";
+import { emitter, showNotificationToast } from "src/boot/mitt";
+import { canEditImageTag } from "src/pages/upload/uploadUtil";
+import { isReviewErrorTag } from "src/util/uploadReview";
+
+export { buildImageListParams };
 
 export enum DisplayMode {
   GRID = "grid",
   DETAIL = "detail",
 }
+
+const PAGE_SIZE = 20;
 
 export const { activeProject, preferredImageSortOrder, tagStack } = storeToRefs(useUserStore());
 
@@ -40,15 +44,83 @@ export function updateSearchText(text: string) {
   searchText.value = text;
 }
 
-export const filterTags = ref<ImageTagsResponse[]>([]);
-export function updateFilterTags(tags: ImageTagsResponse[]) {
+export const filterTags = ref<ImageTag[]>([]);
+export function updateFilterTags(tags: ImageTag[]) {
   filterTags.value = tags;
 }
 
 export const aspectRatioFilter = ref("neutral");
 export function updateAspectRatioFilter(aspectRatioState: string) {
-  console.log("Updating aspect ratio filter to:", aspectRatioState);
   aspectRatioFilter.value = aspectRatioState;
+}
+
+// The ImagesHeader owns these controls and remounts clean, so a fresh Images
+// mount must reset them too — a value surviving here filters the grid
+// invisibly (a sticky portrait filter once shrank a 38-photo person view to 5).
+export function resetTransientFilters() {
+  if (!searchText.value && filterTags.value.length === 0 && aspectRatioFilter.value === "neutral") return;
+  invalidateGridSnapshot(); // the snapshot was taken under the filters being cleared
+  searchText.value = "";
+  filterTags.value = [];
+  aspectRatioFilter.value = "neutral";
+}
+
+// Implicit person filter: set by clicking a face box in the detail view,
+// cleared via the chip above the grid. No picker UI — the face IS the picker.
+// The value is driven by the route query (?person=) so the browser history
+// walks through filter states; Images.vue owns the sync.
+export const personFilter = ref<string | null>(null);
+
+// Cross-project scope for the person filter — the grid's ONE exception to the
+// hard project filter. Route-driven like the filter itself (?personScope=all).
+export const personCrossProject = ref(false);
+
+// Implicit upload-batch filter: set by "view images" links on an upload or its
+// kanban card, cleared via the chip above the grid. Route-driven (?upload=)
+// like the person filter; Images.vue owns the sync.
+export const uploadFilter = ref<string | null>(null);
+
+// --- grid snapshot -----------------------------------------------------------
+// Applying the person filter replaces the loaded (possibly deeply scrolled)
+// grid. A snapshot of that state lets "clear filter" / browser-back land on
+// the exact position instead of page 1.
+// ponytail: single snapshot — any other filter/sort change invalidates it.
+
+interface GridSnapshot {
+  images: ImageWithTagsType[];
+  page: number;
+  total: number;
+  imageIndex: number;
+  scrollY: number;
+}
+
+let gridSnapshot: GridSnapshot | null = null;
+
+export function snapshotGrid() {
+  gridSnapshot = {
+    images: images.value,
+    page: page.value,
+    total: totalImageCount.value,
+    imageIndex: imageIndex.value,
+    scrollY: window.scrollY,
+  };
+}
+
+export function invalidateGridSnapshot() {
+  gridSnapshot = null;
+}
+
+// restoreGridSnapshot puts the saved grid back and returns the scroll offset
+// to restore, or null when there is nothing to restore.
+export function restoreGridSnapshot(): number | null {
+  if (!gridSnapshot) return null;
+  const snap = gridSnapshot;
+  gridSnapshot = null;
+  images.value = snap.images;
+  page.value = snap.page;
+  totalImageCount.value = snap.total;
+  imageIndex.value = snap.imageIndex;
+  return snap.scrollY;
 }
 
 export async function triggerInfiniteScroll() {
@@ -57,68 +129,38 @@ export async function triggerInfiniteScroll() {
   }
 }
 
-function getFilter() {
-  const and = [];
-  and.push(`project='${activeProject.value.id}'`);
-
-  if (searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral") {
-    filtered.value = true;
-  } else {
-    filtered.value = false;
-  }
-
-  if (searchText.value) {
-    and.push(`(computedFileName ~ '${searchText.value}' || fileName ~ '%${searchText.value}%')`);
-  }
-
-  if (filterTags.value.length > 0) {
-    const tagFilters = [];
-    for (const tag of filterTags.value) {
-      tagFilters.push(`imageTags?~"${tag.id}"`);
-    }
-    and.push(`(${tagFilters.join(" && ")})`);
-  }
-
-  if (aspectRatioFilter.value !== "neutral") {
-    switch (aspectRatioFilter.value) {
-      case "portrait":
-        and.push("width < height");
-        break;
-      case "landscape":
-        and.push("width > height");
-        break;
-    }
-  }
-
-  return `(${and.join(" && ")})`;
-}
-
-function getSort() {
-  switch (preferredImageSortOrder.value) {
-    case SORT_ORDER.LATEST_FIRST:
-      return "-capturedAtCorrected";
-    case SORT_ORDER.OLDEST_FIRST:
-      return "capturedAtCorrected";
-    case SORT_ORDER.MOST_RECENTLY_UPDATED:
-      return "-updated";
-    case SORT_ORDER.LEAST_RECENTLY_UPDATED:
-      return "updated";
-    default:
-      return "-capturedAtCorrected";
-  }
-}
+// latest-wins guard: every call gets an id; only the newest call's response is
+// allowed to mutate state, so a filter/search/sort change mid-flight is never
+// dropped and a stale in-flight response is discarded.
+let requestId = 0;
 
 export async function loadImages(reload: boolean) {
-  if (loading.value) return;
+  // pagination guard only: don't stack "load more" requests, but a reload
+  // (new filter/search/sort) must always issue a fresh query.
+  if (!reload && loading.value) return;
+  const myRequestId = ++requestId;
   loading.value = true;
   try {
     if (reload) page.value = 1;
-    const result = await pb.collection<ImageWithTagsType>("images").getList(page.value, 20, {
-      filter: getFilter(),
-      sort: getSort(),
-      expand: "camera, user, project, image_tag_assignments_via_image, image_tag_assignments_via_image.imageTag",
+
+    filtered.value = !!searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral" || !!personFilter.value || !!uploadFilter.value;
+
+    const params = buildImageListParams({
+      projectId: activeProject.value.id,
+      search: searchText.value,
+      tags: filterTags.value,
+      personRef: personFilter.value ?? undefined,
+      crossProject: personCrossProject.value,
+      uploadId: uploadFilter.value ?? undefined,
+      orientation: aspectRatioFilter.value,
+      sortOrder: preferredImageSortOrder.value,
+      limit: PAGE_SIZE,
+      offset: (page.value - 1) * PAGE_SIZE,
     });
-    totalImageCount.value = result.totalItems;
+
+    const result = await api.images.list(params);
+    if (myRequestId !== requestId) return; // superseded by a newer call, discard
+    totalImageCount.value = result.total;
     page.value++;
 
     if (reload) {
@@ -126,40 +168,49 @@ export async function loadImages(reload: boolean) {
     }
     images.value.push(...result.items);
   } catch (error: any) {
+    if (myRequestId !== requestId) return;
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   } finally {
-    loading.value = false;
+    if (myRequestId === requestId) loading.value = false;
   }
 }
 
-export async function addImageTag(image: ImageWithTagsType, tag: ImageTagsResponse) {
-  const applyTag = async (image: ImageWithTagsType, tag: ImageTagsResponse) => {
-    const result = await pb.collection("image_tag_assignments").create<ImageTagAssignmentType>({
-      image: image.id,
-      imageTag: tag.id,
+export async function addImageTag(image: ImageWithTagsType, tag: ImageTag) {
+  // Every tag assignment (dialog, hotkey, repeat-last) funnels through here, so
+  // this is the one place the review freeze has to be honored client-side.
+  if (!canEditImageTag(image, tag)) {
+    showNotificationToast({
+      headline: isReviewErrorTag(tag.name) ? `Only a project admin can set '${tag.name}'` : `'${tag.name}' is frozen while the upload is in review`,
+      type: "warning",
+    });
+    return;
+  }
+  const applyTag = async (image: ImageWithTagsType, tag: ImageTag) => {
+    const assignment = await api.imageTagAssignments.create({
+      imageId: image.id,
+      imageTagId: tag.id,
       type: "manual",
     });
-    result.expand = { imageTag: tag };
     const editedImageIndex = images.value.findIndex((i) => i.id === image.id);
-    images.value[editedImageIndex].expand.image_tag_assignments_via_image.push(result);
-    images.value[editedImageIndex].updated = dateTimeToBackendString(new Date());
+    images.value[editedImageIndex].tags.push(assignment);
+    images.value[editedImageIndex].updatedAt = new Date().toISOString();
   };
 
   try {
-    let imageApplyList: ImageWithTagsType[] = [];
-    for (const imageIndex of imageIndices.value) {
-      const i = images.value[imageIndex];
-      if (!i.expand.image_tag_assignments_via_image.some((imageTagAssignment) => imageTagAssignment.imageTag === tag.id)) {
-        imageApplyList.push(images.value[imageIndex]);
+    const imageApplyList: ImageWithTagsType[] = [];
+    for (const idx of imageIndices.value) {
+      const i = images.value[idx];
+      if (!i.tags.some((a) => a.tag.id === tag.id)) {
+        imageApplyList.push(images.value[idx]);
       }
     }
     if (image !== null && !imageApplyList.includes(image)) {
       imageApplyList.push(image);
     }
 
-    for (const image of imageApplyList) {
-      await applyTag(image, tag);
+    for (const img of imageApplyList) {
+      await applyTag(img, tag);
     }
     emitter.emit("reset-tagging-dialog");
   } catch (error: any) {
@@ -168,13 +219,72 @@ export async function addImageTag(image: ImageWithTagsType, tag: ImageTagsRespon
   }
 }
 
-onHotkey({ key: "ArrowRight", modifierKeys: [] }, nextImage);
-onHotkey({ key: "l", modifierKeys: [] }, nextImage);
-function nextImage(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
+// --- AI detection state -----------------------------------------------------
+
+// global queue positions for the loaded pending images (imageId -> 1-based)
+export const aiPositions = ref<Record<string, number>>({});
+export const aiQueueTotal = ref(0);
+
+// refreshAiPositions re-reads status + position for every loaded image that is
+// still in flight. One batched call; grid badges and the sidebar read the map.
+export async function refreshAiPositions() {
+  const inFlight = images.value.filter((i) => i.aiStatus === "pending" || i.aiStatus === "processing").map((i) => i.id);
+  if (inFlight.length === 0) {
+    aiPositions.value = {};
     return;
   }
-  event.event.preventDefault();
+  try {
+    const status = await api.ai.queueStatus(activeProject.value.id, inFlight.slice(0, 200));
+    const map: Record<string, number> = {};
+    for (const item of status.items) {
+      if (item.position) map[item.imageId] = item.position;
+      const img = images.value.find((i) => i.id === item.imageId);
+      if (img) img.aiStatus = item.status ?? null;
+    }
+    aiPositions.value = map;
+    aiQueueTotal.value = status.queueTotal;
+  } catch {
+    // positions are decoration — never surface an error for them
+  }
+}
+
+// applyAiEvent patches a websocket image/changed event into the loaded list.
+// A "done" image is refetched so its fresh inferred tags appear live.
+export function applyAiEvent(data: { projectId: string; imageId: string; status: string }) {
+  if (data.projectId !== activeProject.value?.id) return;
+  const img = images.value.find((i) => i.id === data.imageId);
+  if (!img) return;
+  img.aiStatus = (data.status || null) as ImageWithTagsType["aiStatus"];
+  if (data.status === "done") {
+    api.images
+      .get(data.imageId)
+      .then((fresh) => {
+        const idx = images.value.findIndex((i) => i.id === data.imageId);
+        if (idx !== -1) images.value[idx] = fresh;
+      })
+      .catch(() => undefined);
+  }
+}
+
+// rerunAiSelection re-queues the current selection (multi-select + current).
+export async function rerunAiSelection() {
+  const targets = new Set(imageIndices.value);
+  if (imageIndex.value !== -1) targets.add(imageIndex.value);
+  const ids = [...targets].map((i) => images.value[i]?.id).filter((id): id is string => !!id);
+  if (ids.length === 0) return;
+  try {
+    const queued = await api.ai.rerunBatch(activeProject.value.id, ids);
+    showNotificationToast({ headline: `AI detection queued for ${queued} image${queued === 1 ? "" : "s"}`, type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+// Hotkey handlers: bound to their action ids by Images.vue (useHotkeyAction),
+// so they are only active while the images page is mounted. Context gating in
+// the dispatcher keeps them silent while the tagging dialog is open.
+export function nextImage() {
   if (imageIndex.value < images.value.length - 1) {
     imageIndex.value++;
   }
@@ -184,26 +294,14 @@ function nextImage(event: HotkeyEvent) {
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "ArrowLeft", modifierKeys: [] }, previousImage);
-onHotkey({ key: "h", modifierKeys: [] }, previousImage);
-function previousImage(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function previousImage() {
   if (imageIndex.value > 0) {
     imageIndex.value--;
   }
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "ArrowUp", modifierKeys: [] }, previousRow);
-onHotkey({ key: "k", modifierKeys: [] }, previousRow);
-function previousRow(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function previousRow() {
   if (imageIndex.value - 4 >= 0) {
     imageIndex.value -= 4;
   } else {
@@ -212,13 +310,7 @@ function previousRow(event: HotkeyEvent) {
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "ArrowDown", modifierKeys: [] }, nextRow);
-onHotkey({ key: "j", modifierKeys: [] }, nextRow);
-function nextRow(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function nextRow() {
   if (imageIndex.value + 4 < images.value.length) {
     imageIndex.value += 4;
   } else {
@@ -230,12 +322,7 @@ function nextRow(event: HotkeyEvent) {
   emitter.emit("update-image-grid-scroll-position");
 }
 
-onHotkey({ key: "s", modifierKeys: [] }, repeatLastTagAssignment);
-function repeatLastTagAssignment(event: HotkeyEvent) {
-  if (taggingDialogVisible.value) {
-    return;
-  }
-  event.event.preventDefault();
+export function repeatLastTagAssignment() {
   const image = images.value[imageIndex.value];
   if (!image) {
     return;
@@ -246,8 +333,51 @@ function repeatLastTagAssignment(event: HotkeyEvent) {
     return;
   }
 
-  if (image.expand.image_tag_assignments_via_image.some((i) => i.imageTag === lastAppliedTag.id)) {
+  if (image.tags.some((a) => a.tag.id === lastAppliedTag.id)) {
     return;
   }
   addImageTag(image, lastAppliedTag);
+}
+
+// Tag hotkey actuation: toggle the named tag on the current image. Assigning
+// goes through addImageTag (multi-select aware); removing strips the tag from
+// the current image and any multi-selected images carrying it.
+export async function toggleTagByName(tagName: string) {
+  const image = images.value[imageIndex.value];
+  if (!image) {
+    return;
+  }
+  const userStore = useUserStore();
+  const tag = userStore.projectTags.find((t) => t.name.toLowerCase() === tagName.toLowerCase());
+  if (!tag) {
+    showNotificationToast({ headline: `Tag '${tagName}' not found in this project`, type: "warning" });
+    return;
+  }
+  if (!image.tags.some((a) => a.tag.id === tag.id)) {
+    await addImageTag(image, tag);
+    return;
+  }
+  if (!canEditImageTag(image, tag)) {
+    showNotificationToast({ headline: `'${tag.name}' is frozen while the upload is in review`, type: "warning" });
+    return;
+  }
+  const targets = new Set(imageIndices.value);
+  targets.add(imageIndex.value);
+  try {
+    for (const idx of targets) {
+      const img = images.value[idx];
+      const assignment = img?.tags.find((a) => a.tag.id === tag.id);
+      if (!assignment) continue;
+      await api.imageTagAssignments.remove(assignment.id);
+      img.tags.splice(
+        img.tags.findIndex((a) => a.id === assignment.id),
+        1,
+      );
+      img.updatedAt = new Date().toISOString();
+    }
+    showNotificationToast({ headline: `Tag ${tag.name} removed`, type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
 }

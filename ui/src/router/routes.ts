@@ -1,5 +1,5 @@
 import { RouteRecordRaw } from "vue-router";
-import pb from "src/boot/pocketbase";
+import { useUserStore } from "src/stores/user-store";
 import { projectRoutes } from "src/router/routes/project";
 import { userRoutes } from "src/router/routes/user";
 import { uploadRoutes } from "src/router/routes/upload";
@@ -20,6 +20,26 @@ const routes: RouteRecordRaw[] = [
       ...uploadRoutes,
       ...imageRoutes,
       {
+        name: "people",
+        path: "/people",
+        component: () => import("pages/people/People.vue"),
+      },
+      {
+        name: "schedule",
+        path: "/schedule",
+        component: () => import("pages/schedule/Schedule.vue"),
+      },
+      {
+        name: "schedule-item",
+        path: "/schedule/items/:id",
+        component: () => import("pages/schedule/ScheduleItemDetail.vue"),
+      },
+      {
+        name: "download",
+        path: "/download",
+        component: () => import("pages/download/Download.vue"),
+      },
+      {
         name: "sandbox",
         path: "/sandbox",
         component: () => import("pages/Sandbox.vue"),
@@ -31,7 +51,7 @@ const routes: RouteRecordRaw[] = [
     path: "/login",
     component: () => import("pages/Login.vue"),
     beforeEnter: (to, from, next) => {
-      if (pb.authStore.isValid) {
+      if (useUserStore().isAuthenticated) {
         next({ name: "index" });
       } else {
         next();
@@ -42,6 +62,11 @@ const routes: RouteRecordRaw[] = [
     name: "logout",
     path: "/logout",
     component: () => import("pages/Logout.vue"),
+  },
+  {
+    name: "change-password",
+    path: "/change-password",
+    component: () => import("pages/ChangePassword.vue"),
   },
   {
     name: "signup",

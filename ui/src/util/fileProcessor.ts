@@ -2,11 +2,13 @@ import { DateTime } from "luxon";
 import * as fileUtil from "./fileUtil";
 import init, { set_log_level, process_file, TimeOffsetResult as WasmTimeOffsetResult, FileProcessorOptions, FileProcessorResult } from "image-wasm";
 import { Ref, ref } from "vue";
-import pb, { URL as BACKEND_BASE_URL } from "src/boot/pocketbase";
+import { API_BASE } from "src/boot/axios";
+import { api } from "src/api";
+import { useUserStore } from "src/stores/user-store";
 import { getLogLevelString, debug, info, error } from "./logger";
-import { time } from "console";
-import { UploadsResponse, ImagesRecord, ImagesResponse } from "src/types/pocketbase";
-import { dateTimeFromBackend, parseBackendTime } from "src/util/dateTimeUtil";
+import { showNotificationToast } from "src/boot/mitt";
+import { Upload, Image as BackendImage } from "src/types/api";
+import { parseBackendTime } from "src/util/dateTimeUtil";
 
 export type TimeOffsetResult = WasmTimeOffsetResult;
 
@@ -45,6 +47,7 @@ export type Image = {
   cameraTime?: DateTime;
   correctedTime?: DateTime;
   data: ArrayBuffer | null;
+  errorMessage?: string; // human-readable reason when status === ERROR
   thumbnail?: string;
   downloadUrls?: { [key: string]: string };
   size: number;
@@ -54,12 +57,12 @@ export type Image = {
 };
 
 export class FileProcessor {
-  private upload: Ref<UploadsResponse> = ref({} as UploadsResponse);
+  private upload: Ref<Upload> = ref({} as Upload);
   private images: Ref<Image[]> = ref([]);
   private timeOffsets: Ref<TimeOffsetResult[]> = ref([]);
   private interval: NodeJS.Timeout | null = null;
 
-  constructor(upload: Ref<UploadsResponse>, images: Ref<Image[]>, timeOffsets: Ref<TimeOffsetResult[]>) {
+  constructor(upload: Ref<Upload>, images: Ref<Image[]>, timeOffsets: Ref<TimeOffsetResult[]>) {
     this.upload = upload;
     this.images = images;
     this.timeOffsets = timeOffsets;
@@ -188,28 +191,24 @@ export class FileProcessor {
         return;
       }
 
-      const copyrightTag = pb.authStore.model?.copyrightTag;
+      // The copyright tag is no longer needed for processing (the server names
+      // the file), but a photographer without one would get an unnamed image —
+      // still worth refusing here rather than after the S3 upload.
+      const copyrightTag = useUserStore().user?.copyrightTag;
       if (copyrightTag == null || copyrightTag == "") {
         error("No copyright tag available");
         reject();
         return;
       }
 
-      const authToken = pb.authStore.token;
-      if (authToken == null || authToken == "") {
-        error("No auth token available");
-        reject();
-        return;
-      }
-
       const options: FileProcessorOptions = {
-        file_name: image.originalFileName,
         time_offsets: this.timeOffsets.value,
-        copyright_tag: copyrightTag,
         dimensions: FILE_DIMENSIONS,
         thumbnail_size: 256,
-        auth_token: authToken,
-        api_url: `${BACKEND_BASE_URL}/api`,
+        // cookie-session: WASM uploads use credentials:include, no bearer token.
+        api_url: API_BASE,
+        // binds the presign request to this upload (server checks CanModifyUpload).
+        upload_id: this.upload.value.id,
       };
 
       try {
@@ -221,7 +220,6 @@ export class FileProcessor {
         image.storageId = processingResult.storage_id;
         image.cameraTime = DateTime.fromSeconds(processingResult.camera_time_unix_seconds);
         image.correctedTime = DateTime.fromSeconds(processingResult.corrected_camera_time_unix_seconds);
-        image.computedFileName = processingResult.computed_file_name;
         image.thumbnail = processingResult.thumbnail;
         image.exifData = Object.fromEntries(processingResult.metadata);
         image.width = processingResult.original_width;
@@ -229,6 +227,11 @@ export class FileProcessor {
 
         resolve();
       } catch (err: any) {
+        // surface the reason to the human, not just the console — e.g. the
+        // hard timestamp rule: "image has no EXIF capture time"
+        const reason = String(err?.message ?? err).replace(/^Error:\s*/, "");
+        image.errorMessage = reason;
+        showNotificationToast({ headline: `${image.originalFileName}: ${reason}`, type: "error" });
         error(`Failed to process image: ${err}`);
         reject();
         return;
@@ -238,24 +241,26 @@ export class FileProcessor {
 
   private createBackendImage = (image: Image): Promise<void> => {
     return new Promise(async (resolve, reject) => {
-      pb.collection<ImagesResponse>("images")
+      api.images
         .create({
-          storageId: image.storageId,
+          storageId: image.storageId!,
           fileName: image.originalFileName,
-          computedFileName: image.computedFileName,
           size: image.size,
           width: image.width,
           height: image.height,
-          capturedAt: image.cameraTime?.toISO(),
-          capturedAtCorrected: image.correctedTime?.toISO(),
-          user: pb.authStore.model?.id,
-          upload: this.upload.value.id,
-          project: this.upload.value.project,
-          camera: this.upload.value.camera,
+          capturedAt: image.cameraTime?.toISO() ?? undefined,
+          uploadId: this.upload.value.id,
+          projectId: this.upload.value.project.id,
+          cameraId: this.upload.value.camera.id,
           exifData: image.exifData,
         })
         .then((response) => {
           image.id = response.id;
+          // The server owns the canonical name — it renders the timestamp in the
+          // event zone (TIMEZONE), which a browser cannot know. Taking it from
+          // the response keeps the tile identical to the persisted name instead
+          // of computing a second, browser-zone version of the same rule.
+          image.computedFileName = response.computedFileName;
           resolve();
         })
         .catch((err) => {
@@ -284,7 +289,7 @@ export function newImage(options: { file: File }): Image {
   };
 }
 
-export function newImageFromBackendImage(backendImage: ImagesResponse): Image {
+export function newImageFromBackendImage(backendImage: BackendImage): Image {
   return {
     id: backendImage.id,
     storageId: backendImage.storageId,

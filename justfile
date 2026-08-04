@@ -1,5 +1,23 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
+# starts local dev dependencies (Postgres + RustFS) and seeds the DB (idempotent)
+up:
+  docker compose up -d
+  docker compose up -d --wait postgres
+  cd api && go run ./cmd/seed
+
+# stops local dev dependencies
+down:
+  docker compose down
+
+# tails logs from local dev dependencies
+deps-logs:
+  docker compose logs -f
+
+# stops deps and wipes their bind-mounted data under sandbox/
+clear: down
+  rm -rf sandbox/postgres sandbox/rustfs
+
 # pushes all changes to the main branch
 push +COMMIT_MESSAGE:
   git add .

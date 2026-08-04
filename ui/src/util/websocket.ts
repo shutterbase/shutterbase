@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import { emitter } from "src/boot/mitt";
-import { BACKEND_HOST, BACKEND_PORT, BACKEND_WEBSOCKET_PROTOCOL } from "src/boot/pocketbase";
-import pb from "src/boot/pocketbase";
+import { websocketUrl } from "src/boot/axios";
+import { useUserStore } from "src/stores/user-store";
 
 export type WebsocketMessage = {
   object: string;
@@ -17,16 +17,16 @@ export function isConnected() {
   }
   return websocket.readyState === WebSocket.OPEN || websocket.readyState === WebSocket.CONNECTING;
 }
-const URL = `${BACKEND_WEBSOCKET_PROTOCOL}${BACKEND_HOST}${BACKEND_PORT}/api/ws`;
-
 export function connect() {
   if (isConnected()) {
     return;
   }
-  if (!pb.authStore.isValid) {
+  // Gate on the cookie-session being authenticated; retry until it is.
+  if (!useUserStore().isAuthenticated) {
     setTimeout(connect, 1000);
+    return;
   }
-  websocket = new WebSocket(URL);
+  websocket = new WebSocket(websocketUrl());
   websocket.onmessage = (event) => {
     const payload = JSON.parse(event.data);
     broadcast({

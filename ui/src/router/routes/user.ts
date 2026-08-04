@@ -5,6 +5,11 @@ export const userRoutes = [
     component: () => import("pages/user/Users.vue"),
   },
   {
+    name: "user-create",
+    path: "/users/create",
+    component: () => import("pages/user/UserCreate.vue"),
+  },
+  {
     name: "camera-create",
     path: "/users/:userid/cameras/create",
     component: () => import("pages/user/CameraCreate.vue"),
@@ -28,6 +33,16 @@ export const userRoutes = [
         name: "cameras",
         path: "cameras",
         component: () => import("pages/user/Cameras.vue"),
+      },
+      {
+        name: "user-hotkeys",
+        path: "hotkeys",
+        component: () => import("pages/user/UserHotkeys.vue"),
+      },
+      {
+        name: "user-api-keys",
+        path: "api-keys",
+        component: () => import("pages/user/UserApiKeys.vue"),
       },
       // {
       //   name: "camera",

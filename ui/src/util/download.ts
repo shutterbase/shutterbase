@@ -1,20 +1,15 @@
-import { EXIF_WORKER_URL } from "src/boot/pocketbase";
+import { API_BASE } from "src/boot/axios";
 import { ImageWithTagsType, DownloadUrls } from "src/types/custom";
-import pb from "src/boot/pocketbase";
 import { emitter } from "src/boot/mitt";
 
 async function fetchImage(image: ImageWithTagsType, resolution: keyof DownloadUrls): Promise<ArrayBuffer> {
   const id = image.id;
-  const url = `${EXIF_WORKER_URL}/api/download/${id}/${resolution}`;
-  const token = pb.authStore.token;
+  const url = `${API_BASE}/download/${id}/${resolution}`;
 
   emitter.emit("notification", { headline: "Downloading image...", type: "info" });
   try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `${token}`,
-      },
-    });
+    // cookie-session: send credentials, no Authorization header.
+    const response = await fetch(url, { credentials: "include" });
 
     if (!response.ok) {
       throw new Error("Failed to download image");

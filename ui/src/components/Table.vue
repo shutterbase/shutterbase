@@ -1,87 +1,65 @@
 <template>
   <div class="px-4 sm:px-6 lg:px-8">
-    <div class="sm:flex sm:items-center">
+    <!-- hideHeader: for pages that own a toolbar of their own, so the title and
+         the add button do not appear twice (and, in a non-table view, not at all). -->
+    <div v-if="!hideHeader" class="sm:flex sm:items-end sm:justify-between">
       <div class="sm:flex-auto">
-        <h1 class="text-base font-semibold leading-6 text-gray-900 dark:text-gray-100">{{ capitalize(pluralName) }}</h1>
-        <p class="mt-2 text-sm text-gray-700 dark:text-gray-300">{{ subtitle }}</p>
+        <h1 class="display text-3xl text-primary-900 dark:text-white">{{ capitalize(pluralName) }}</h1>
+        <p v-if="subtitle" class="mt-2 text-sm text-primary-500 dark:text-primary-400">{{ subtitle }}</p>
       </div>
       <div v-if="addCallback && allowAdd" class="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
         <button
           @click="addCallback"
           type="button"
-          class="block rounded-md bg-secondary-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+          class="inline-flex items-center gap-1.5 rounded-md bg-accent-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface dark:focus-visible:ring-offset-primary-950"
         >
+          <PlusIcon class="h-4 w-4" />
           Add {{ name }}
         </button>
       </div>
     </div>
-    <div class="mt-8 flow-root">
-      <div class="-mx-4 -my-2 sm:-mx-6 lg:-mx-8">
-        <div class="inline-block min-w-full py-2 align-middle">
+
+    <div class="mt-7 flow-root">
+      <div class="overflow-x-auto">
+        <div class="inline-block min-w-full align-middle">
           <table class="min-w-full border-separate border-spacing-0">
             <thead>
               <tr>
                 <th
-                  v-for="(column, columnIndex) in columns"
+                  v-for="column in columns"
                   :key="column.key"
                   scope="col"
-                  class="sticky top-0 z-10 border-b border-gray-300 dark:dark:border-primary-400 bg-gray-50 dark:bg-primary-900 bg-opacity-75 py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-200 backdrop-blur backdrop-filter sm:pl-6 lg:pl-8"
+                  class="label-mono sticky top-0 z-10 border-b border-primary-200 bg-surface/85 px-4 py-3.5 text-left text-primary-500 backdrop-blur dark:border-primary-800 dark:bg-surface-dark/85 dark:text-primary-400"
                 >
                   {{ column.label }}
                 </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="items.length === 0">
-                <td :colspan="columns.length" :class="[rowPadding, 'text-sm font-medium text-gray-900 dark:text-gray-200 text-left']">No {{ pluralName }} found</td>
+              <tr v-if="!loading && items.length === 0">
+                <td :colspan="columns.length" :class="[rowPadding, 'px-4 text-left text-sm text-primary-500 dark:text-primary-400']">No {{ pluralName }} found</td>
               </tr>
 
-              <tr v-for="item in items" :key="item.id" class="even:bg-gray-200 even:dark:bg-primary-900">
+              <tr v-for="item in items" :key="item.id" class="group transition-colors hover:bg-primary-50 dark:hover:bg-primary-800/40">
                 <td
                   v-for="(column, columnIndex) in columns"
                   :key="Array.isArray(column.key) ? column.key.join('.') : column.key"
-                  :class="[rowPadding, 'whitespace-nowrap pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-gray-200 sm:pl-6 lg:pl-8']"
+                  :class="[
+                    rowPadding,
+                    'whitespace-nowrap border-b border-primary-100 px-4 text-sm dark:border-primary-800/70',
+                    columnIndex === 0 ? 'font-medium text-primary-900 dark:text-white' : 'text-primary-700 dark:text-primary-300',
+                  ]"
                 >
-                  <span v-if="column.key !== 'actions'">
-                    <span>{{ getValue(item, column) }}</span>
-                  </span>
-                  <span v-else class="flex">
-                    <span
+                  <span v-if="column.key !== 'actions'">{{ getValue(item, column) }}</span>
+                  <span v-else class="flex items-center gap-2">
+                    <button
                       v-for="(action, actionIndex) in column.actions?.filter((action) => (action.showCallback ? action.showCallback(item) : true))"
                       :key="actionIndex"
                       @click="() => action.callback(item)"
+                      :class="[actionBase, actionVariant(action.type)]"
                     >
-                      <button
-                        v-if="action.type === 'edit'"
-                        :class="[
-                          actionIndex === 0 ? '' : 'ml-2',
-                          'block rounded-sm px-2 text-center text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-                          'bg-secondary-600 text-white hover:bg-secondary-500 dark:hover:bg-secondary-700 focus-visible:outline-secondary-600',
-                        ]"
-                      >
-                        {{ action.label }}
-                      </button>
-                      <button
-                        v-if="action.type === 'delete'"
-                        :class="[
-                          actionIndex === 0 ? '' : 'ml-2',
-                          'block rounded-sm px-2 text-center text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-                          'bg-error-600 text-white hover:bg-error-500 dark:hover:bg-error-700 focus-visible:outline-error-600',
-                        ]"
-                      >
-                        {{ action.label }}
-                      </button>
-                      <button
-                        v-if="action.type === 'custom'"
-                        :class="[
-                          actionIndex === 0 ? '' : 'ml-2',
-                          'block rounded-sm px-2 text-center text-sm font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-                          'bg-primary-600 dark:bg-primary-900 text-white hover:bg-primary-500 dark:hover:bg-primary-950 focus-visible:outline-primary-600',
-                        ]"
-                      >
-                        {{ action.label }}
-                      </button>
-                    </span>
+                      {{ action.label }}
+                    </button>
                   </span>
                 </td>
               </tr>
@@ -96,18 +74,22 @@
 <script setup lang="ts" generic="T extends Identifiable">
 import { plural } from "pluralize";
 import { computed } from "vue";
+import { PlusIcon } from "@heroicons/vue/24/outline";
 
 interface Props {
   title?: string;
   subtitle?: string;
 
   allowAdd?: boolean;
+  hideHeader?: boolean;
 
   columns?: TableColumn<T>[];
 
   name?: string;
 
   dense?: boolean;
+
+  loading?: boolean;
 
   items?: T[];
 
@@ -123,13 +105,30 @@ const props = withDefaults(defineProps<Props>(), {
   subtitle: () => "",
   name: () => "item",
   allowAdd: () => true,
+  hideHeader: () => false,
   dense: () => false,
+  loading: () => false,
   columns: () => [],
   items: () => [],
 });
 
 const pluralName = plural(props.name);
-const rowPadding = computed(() => (props.dense ? "py-2" : "py-4"));
+const rowPadding = computed(() => (props.dense ? "py-2.5" : "py-3.5"));
+
+// shared action-button styling, on the design tokens (the old `secondary-*` colour
+// never existed in the palette, so these buttons used to render as invisible white text).
+const actionBase =
+  "inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium shadow-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-500";
+function actionVariant(type: string): string {
+  if (type === "delete") {
+    return "border-error-300 bg-error-50 text-error-700 hover:bg-error-100 dark:border-error-800/70 dark:bg-error-950/40 dark:text-error-300 dark:hover:bg-error-950/70";
+  }
+  if (type === "custom") {
+    return "border-accent-400/50 bg-accent-500/10 text-accent-700 hover:bg-accent-500/20 dark:border-accent-400/40 dark:text-accent-200";
+  }
+  // edit / default — quiet bordered button
+  return "border-primary-200 bg-surface text-primary-700 hover:border-primary-300 hover:text-primary-900 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:border-primary-600 dark:hover:text-white";
+}
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);

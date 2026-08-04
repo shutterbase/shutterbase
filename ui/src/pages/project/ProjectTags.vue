@@ -1,13 +1,6 @@
 <template>
   <div class="mx-auto max-w-7xl w-full">
-    <Table
-      dense
-      :items="item?.expand?.image_tags_via_project || []"
-      :columns="imageTagColumns"
-      name="Project Tag"
-      :allow-add="userStore.isProjectAdminOrHigher()"
-      :add-callback="startTagCreate"
-    ></Table>
+    <Table dense :items="item?.tags || []" :columns="imageTagColumns" name="Project Tag" :allow-add="userStore.isProjectAdminOrHigher()" :add-callback="startTagCreate"></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
     <TagDialog :show="showTagDialog" :create="createTag" :tag="editTagData" @add="addTag" @edit="editTag" @bulk="switchToBulkDialog" @closed="() => (showTagDialog = false)" />
     <BulkTagCreationDialog :show="showBulkTagDialog" @add="addBulkTags" @closed="() => (showBulkTagDialog = false)" />
@@ -20,7 +13,8 @@ import { useRoute } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
 import { ImageTagsResponse, ProjectsResponse } from "src/types/pocketbase";
-import pb from "src/boot/pocketbase";
+import { toTagOrder } from "src/util/tagOrder";
+import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { ProjectWithTagsType } from "src/types/custom";
 import TagDialog from "src/components/project/TagDialog.vue";
@@ -61,10 +55,8 @@ async function loadItem() {
 
   try {
     console.log(`Loading ${ITEM_NAME} ${itemId}`);
-    const response = await pb.collection<ITEM_TYPE>(ITEM_COLLECTION).getOne(itemId, {
-      expand: "image_tags_via_project",
-    });
-    item.value = response;
+    const [project, tags] = await Promise.all([api.projects.get(itemId), api.imageTags.list({ projectId: itemId, limit: 500 })]);
+    item.value = { ...project, tags: tags.items };
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
@@ -79,14 +71,20 @@ async function addTag(input: ImageTagsResponse) {
 
   try {
     console.log(`Adding tag ${input.name} to project ${item.value?.name}`);
-    input.project = item.value.id;
 
-    const response = await pb.collection<ImageTagsResponse>("image_tags").create(input);
+    const response = await api.imageTags.create({
+      name: input.name,
+      description: input.description,
+      isAlbum: input.isAlbum,
+      order: toTagOrder(input.order) || undefined,
+      type: input.type,
+      projectId: item.value.id,
+    });
     showTagDialog.value = false;
     const itemId = response.id;
     console.log(`Tag with ID ${itemId} created`);
     showNotificationToast({ headline: `Tag created`, type: "success" });
-    item.value.expand.image_tags_via_project.push(response);
+    item.value.tags = [...(item.value.tags || []), response];
     projectTags.value?.push(response);
   } catch (error: any) {
     unexpectedError.value = error;
@@ -102,25 +100,33 @@ async function addBulkTags(input: ImageTagsResponse[]) {
 
   console.log(`Adding ${input.length} tags to project ${item.value.name}`);
 
+  let created = 0;
   for (const tag of input) {
-    tag.project = item.value.id;
     try {
-      const response = await pb.collection<ImageTagsResponse>("image_tags").create(tag);
-      item.value.expand.image_tags_via_project.push(response);
+      const response = await api.imageTags.create({
+        name: tag.name,
+        description: tag.description,
+        isAlbum: tag.isAlbum,
+        type: tag.type,
+        projectId: item.value.id,
+      });
+      item.value.tags = [...(item.value.tags || []), response];
       projectTags.value?.push(response);
+      created++;
       console.log(`Tag with ID ${response.id} created`);
     } catch (error: any) {
       console.log(`Error creating tag ${tag.name}`);
-      showNotificationToast({ headline: `Error creatin tag ${tag.name}`, type: "error", timeout: 10000 });
+      showNotificationToast({ headline: `Error creating tag ${tag.name} (${created}/${input.length} created)`, type: "error", timeout: 10000 });
       unexpectedError.value = error;
       showUnexpectedErrorMessage.value = true;
-      break;
+      // keep the dialog open so the user can retry the remaining tags
+      return;
     }
   }
 
   showBulkTagDialog.value = false;
-  console.log(`${input.length} tags created`);
-  showNotificationToast({ headline: `${input.length} tags created`, type: "success" });
+  console.log(`${created} tags created`);
+  showNotificationToast({ headline: `${created} tags created`, type: "success" });
 }
 
 function startTagCreate() {
@@ -143,13 +149,20 @@ async function editTag(input: ImageTagsResponse) {
 
   try {
     console.log(`Editing tag ${input.name} in project ${item.value.name}`);
-    const response = await pb.collection<ImageTagsResponse>("image_tags").update(input.id, input);
+    const response = await api.imageTags.update(input.id, {
+      name: input.name,
+      description: input.description,
+      isAlbum: input.isAlbum,
+      order: toTagOrder(input.order),
+      type: input.type,
+    });
     showTagDialog.value = false;
     console.log(`Tag with ID ${input.id} updated`);
     showNotificationToast({ headline: `Tag updated`, type: "success" });
 
-    const index = item.value.expand.image_tags_via_project.findIndex((t) => t.id === input.id);
-    item.value.expand.image_tags_via_project[index] = response;
+    const tags = item.value.tags || [];
+    const index = tags.findIndex((t) => t.id === input.id);
+    if (index !== -1) tags[index] = response;
 
     const projectTagIndex = projectTags.value?.findIndex((t) => t.id === input.id);
     if (projectTagIndex !== undefined && projectTagIndex !== -1) {
@@ -161,7 +174,7 @@ async function editTag(input: ImageTagsResponse) {
   }
 }
 
-function deleteTag(tag: ImageTagsResponse) {
+async function deleteTag(tag: ImageTagsResponse) {
   if (item.value === null) {
     console.log(`No ${ITEM_NAME} loaded`);
     return;
@@ -169,10 +182,10 @@ function deleteTag(tag: ImageTagsResponse) {
 
   try {
     console.log(`Deleting tag ${tag.name} from project ${item.value.name}`);
-    const response = pb.collection<ImageTagsResponse>("image_tags").delete(tag.id);
+    await api.imageTags.remove(tag.id);
     console.log(`Tag with ID ${tag.id} deleted`);
     showNotificationToast({ headline: `Tag deleted`, type: "success" });
-    item.value.expand.image_tags_via_project = item.value.expand.image_tags_via_project.filter((t) => t.id !== tag.id);
+    item.value.tags = (item.value.tags || []).filter((t) => t.id !== tag.id);
     projectTags.value = projectTags.value?.filter((t) => t.id !== tag.id);
   } catch (error: any) {
     unexpectedError.value = error;
@@ -187,6 +200,7 @@ function showTagEdit() {
 const imageTagColumns: TableColumn<ImageTagsResponse>[] = [
   { key: "name", label: "Name" },
   { key: "description", label: "Description" },
+  { key: "order", label: "Order" },
   { key: "type", label: "Type" },
   {
     key: "actions",
