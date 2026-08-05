@@ -288,7 +288,7 @@ export function nextImage() {
   if (imageIndex.value < images.value.length - 1) {
     imageIndex.value++;
   }
-  if (imageIndex.value === images.value.length - 4) {
+  if (imageIndex.value >= images.value.length - 4) {
     triggerInfiniteScroll();
   }
   emitter.emit("update-image-grid-scroll-position");

@@ -60,11 +60,22 @@ test.describe("detail view keyboard flow", () => {
     const zen = page.getByTestId("zen-overlay");
     const first = imageParam(page);
 
+    // apply a custom tag first — zen must list it too (all tags, not just the EXIF subset)
+    const uniq = `e2e-zenall-${Date.now()}`;
+    await page.keyboard.press("t");
+    const search = page.getByPlaceholder("Search tag...");
+    await expect(search).toBeVisible();
+    await search.fill(uniq);
+    await page.getByRole("button", { name: /Create custom tag/ }).click();
+    await expect(visibleBadge(page, uniq)).toHaveCount(1);
+    await page.keyboard.press("Escape");
+
     await page.keyboard.press("z"); // detail → zen
     await expect(zen).toBeVisible();
     // header: centered logo; footer: file name left, tags middle, position right
     await expect(zen.locator('img[alt="shutterbase"]')).toBeVisible();
     await expect(zen.locator('span:text-is("Default")')).toBeVisible(); // seeded EXIF tag
+    await expect(zen.locator(`span:text-is("${uniq}")`)).toBeVisible(); // custom tag, not EXIF-exported
     await expect(zen.locator("span").filter({ hasText: /\.jpg$/i }).first()).toBeVisible();
     await expect(zen.locator("span").filter({ hasText: /^\d+ \/ \d+$/ })).toBeVisible();
 
