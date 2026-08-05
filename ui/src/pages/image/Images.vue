@@ -124,7 +124,7 @@
     <div class="absolute inset-x-0 top-0 flex justify-center bg-black/70 py-1">
       <img class="h-5" src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" />
     </div>
-    <!-- thin footer: name | applied tags (EXIF export order; click removes) | position -->
+    <!-- thin footer: name | all applied tags (sidebar category order; click removes) | position -->
     <div class="absolute inset-x-0 bottom-0 flex items-center gap-4 bg-black/70 px-3 py-1">
       <span class="min-w-0 shrink truncate font-data text-sm text-primary-200">{{ images[imageIndex].computedFileName }}</span>
       <div class="flex flex-1 flex-wrap items-center justify-center gap-2">
@@ -163,7 +163,7 @@ import FilmStrip from "src/components/image/FilmStrip.vue";
 import ZoomableImage from "src/components/image/ZoomableImage.vue";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
 import { canRemoveTagAssignment, removeTagAssignment } from "src/util/imageTags";
-import { exifKeywordAssignments } from "src/util/tagOrder";
+import { groupTagAssignments } from "src/util/tagOrder";
 import { devPlaceholder } from "src/util/devPlaceholder";
 import { ImageWithTagsType } from "src/types/custom";
 import { onMounted, onUnmounted, reactive, ref, computed, watch, nextTick } from "vue";
@@ -392,7 +392,9 @@ function toggleZen() {
   if (imageIndex.value === -1 && images.value.length > 0) imageIndex.value = 0;
   if (images.value[imageIndex.value]) zenMode.value = true;
 }
-const zenTags = computed(() => exifKeywordAssignments(images.value[imageIndex.value]?.tags ?? []));
+// All tags, not just the EXIF-exported subset — zen is primarily a tagging
+// view, so custom/AI tags must be visible too. Sidebar category order.
+const zenTags = computed(() => groupTagAssignments(images.value[imageIndex.value]?.tags ?? []).flatMap((g) => g.assignments));
 
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
 
