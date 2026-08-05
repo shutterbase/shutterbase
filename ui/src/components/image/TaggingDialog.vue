@@ -271,6 +271,10 @@ watch(
     } else if (!shown && popContext) {
       popContext();
       popContext = null;
+      // blur synchronously: Chrome's focus fixup for display:none is async, so
+      // a rapid follow-up hotkey (Enter → t) would land in the hidden input
+      // and be swallowed by the editable-target guard
+      searchTextInput.value?.blur();
     }
   },
   { immediate: true },
