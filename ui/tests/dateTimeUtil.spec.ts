@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DateTime } from "luxon";
-import { timeOffsetUpToDate, toWasmTimeOffsets, backendTimeToUnixSeconds } from "src/util/dateTimeUtil";
+import { appliedTimeOffset, timeOffsetUpToDate, toWasmTimeOffsets, backendTimeToUnixSeconds } from "src/util/dateTimeUtil";
 import { TimeOffset } from "src/types/api";
 
 function offsetWithServerTime(serverTime: string): TimeOffset {
@@ -60,6 +60,22 @@ describe("toWasmTimeOffsets", () => {
   it("maps every offset it is given", () => {
     expect(toWasmTimeOffsets([fractional, fractional])).toHaveLength(2);
     expect(toWasmTimeOffsets([])).toEqual([]);
+  });
+});
+
+describe("appliedTimeOffset (corrected minus original)", () => {
+  const base = "2026-07-25T15:08:17Z";
+  it("formats seconds, minutes and hours with a sign", () => {
+    expect(appliedTimeOffset(base, "2026-07-25T15:08:22Z")).toBe("+5s");
+    expect(appliedTimeOffset(base, "2026-07-25T15:07:32Z")).toBe("-45s");
+    expect(appliedTimeOffset(base, "2026-07-25T15:10:20Z")).toBe("+2m 03s");
+    expect(appliedTimeOffset(base, "2026-07-25T16:10:20Z")).toBe("+1h 02m 03s");
+    expect(appliedTimeOffset(base, "2026-07-24T15:08:16Z")).toBe("-24h 00m 01s");
+  });
+  it("reports a zero offset neutrally and rounds sub-second drift", () => {
+    expect(appliedTimeOffset(base, base)).toBe("±0s");
+    expect(appliedTimeOffset(base, "2026-07-25T15:08:17.400Z")).toBe("±0s");
+    expect(appliedTimeOffset(base, "2026-07-25T15:08:17.600Z")).toBe("+1s");
   });
 });
 

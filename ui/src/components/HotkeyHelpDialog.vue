@@ -1,5 +1,5 @@
 <template>
-  <div v-if="open" class="relative z-10" role="dialog" aria-modal="true">
+  <div v-if="open" class="relative z-50" role="dialog" aria-modal="true">
     <div class="fixed inset-0 bg-primary-950/60 backdrop-blur-sm transition-opacity" @click="open = false"></div>
 
     <div class="fixed inset-0 z-10 w-screen overflow-y-auto p-4 sm:p-6 md:p-16">

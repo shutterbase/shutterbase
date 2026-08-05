@@ -34,6 +34,7 @@ export const HOTKEY_ACTIONS: HotkeyActionDef[] = [
   { id: "images.previous-row", label: "One row up", context: "images", defaultKeys: ["ArrowUp", "k"] },
   { id: "images.next-row", label: "One row down", context: "images", defaultKeys: ["ArrowDown", "j"] },
   { id: "images.toggle-view", label: "Toggle grid / detail view", context: "images", defaultKeys: ["g"] },
+  { id: "images.zen-toggle", label: "Toggle zen mode", context: "images", defaultKeys: ["z"] },
   { id: "images.open-tagging", label: "Open tagging dialog", context: "images", defaultKeys: ["t"] },
   { id: "images.repeat-last-tag", label: "Repeat last tag assignment", context: "images", defaultKeys: ["s"] },
   { id: "tagging.close", label: "Close tagging dialog", context: "tagging-dialog", defaultKeys: ["Escape"], allowInInputs: true },

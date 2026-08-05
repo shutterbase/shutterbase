@@ -1,5 +1,6 @@
 <template>
-  <div aria-live="assertive" class="pointer-events-none fixed inset-0 flex items-end px-4 py-20 sm:items-start">
+  <!-- z-[60]: toasts stay visible above every overlay, including zen (z-40) -->
+  <div aria-live="assertive" class="pointer-events-none fixed inset-0 z-[60] flex items-end px-4 py-20 sm:items-start">
     <div class="flex w-full flex-col items-center space-y-4 sm:items-end">
       <div
         v-for="notification in notifications"
