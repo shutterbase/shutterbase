@@ -120,15 +120,23 @@
       expand-class="fixed inset-0"
       @error="onHeroError(images[imageIndex])"
     />
-    <!-- applied tags in the order the EXIF export writes them; click removes -->
-    <div v-if="zenTags.length" class="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-center gap-2 bg-gradient-to-t from-black/70 to-transparent px-4 pb-4 pt-10">
-      <ImageTagBadge
-        v-for="tagAssignment in zenTags"
-        :key="tagAssignment.id"
-        :tagAssignment="tagAssignment"
-        :removable="canRemoveTagAssignment(images[imageIndex], tagAssignment)"
-        @remove="(ta) => removeTagAssignment(images[imageIndex], ta)"
-      />
+    <!-- thin header: logo only; always the dark variant, zen is always on black -->
+    <div class="absolute inset-x-0 top-0 flex justify-center bg-black/70 py-1">
+      <img class="h-5" src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" />
+    </div>
+    <!-- thin footer: name | applied tags (EXIF export order; click removes) | position -->
+    <div class="absolute inset-x-0 bottom-0 flex items-center gap-4 bg-black/70 px-3 py-1">
+      <span class="min-w-0 shrink truncate font-data text-sm text-primary-200">{{ images[imageIndex].computedFileName }}</span>
+      <div class="flex flex-1 flex-wrap items-center justify-center gap-2">
+        <ImageTagBadge
+          v-for="tagAssignment in zenTags"
+          :key="tagAssignment.id"
+          :tagAssignment="tagAssignment"
+          :removable="canRemoveTagAssignment(images[imageIndex], tagAssignment)"
+          @remove="(ta) => removeTagAssignment(images[imageIndex], ta)"
+        />
+      </div>
+      <span class="label-mono-sm shrink-0 text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
     </div>
   </div>
   <TaggingDialog

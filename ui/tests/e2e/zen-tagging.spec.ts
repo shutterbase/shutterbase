@@ -62,7 +62,11 @@ test.describe("detail view keyboard flow", () => {
 
     await page.keyboard.press("z"); // detail → zen
     await expect(zen).toBeVisible();
-    await expect(zen.locator('span:text-is("Default")')).toBeVisible(); // seeded EXIF tag in the bottom bar
+    // header: centered logo; footer: file name left, tags middle, position right
+    await expect(zen.locator('img[alt="shutterbase"]')).toBeVisible();
+    await expect(zen.locator('span:text-is("Default")')).toBeVisible(); // seeded EXIF tag
+    await expect(zen.locator("span").filter({ hasText: /\.jpg$/i }).first()).toBeVisible();
+    await expect(zen.locator("span").filter({ hasText: /^\d+ \/ \d+$/ })).toBeVisible();
 
     await page.keyboard.press("g"); // guarded while zen is active
     await expect(zen).toBeVisible();
