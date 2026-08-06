@@ -172,6 +172,7 @@ export interface DownloadConfig {
   deltaSubfolder: boolean;
   groupByDate: boolean;
   lastDownloadAt: string | null;
+  folderStructure?: "default" | "weekday"; // default: "default"
   projectId: string;
   createdAt: string;
   updatedAt: string;
