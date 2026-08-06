@@ -131,6 +131,20 @@ func (_c *DownloadConfigCreate) SetNillableGroupByDate(v *bool) *DownloadConfigC
 	return _c
 }
 
+// SetFolderStructure sets the "folder_structure" field.
+func (_c *DownloadConfigCreate) SetFolderStructure(v string) *DownloadConfigCreate {
+	_c.mutation.SetFolderStructure(v)
+	return _c
+}
+
+// SetNillableFolderStructure sets the "folder_structure" field if the given value is not nil.
+func (_c *DownloadConfigCreate) SetNillableFolderStructure(v *string) *DownloadConfigCreate {
+	if v != nil {
+		_c.SetFolderStructure(*v)
+	}
+	return _c
+}
+
 // SetLastDownloadAt sets the "lastDownloadAt" field.
 func (_c *DownloadConfigCreate) SetLastDownloadAt(v time.Time) *DownloadConfigCreate {
 	_c.mutation.SetLastDownloadAt(v)
@@ -244,6 +258,10 @@ func (_c *DownloadConfigCreate) defaults() {
 		v := downloadconfig.DefaultGroupByDate
 		_c.mutation.SetGroupByDate(v)
 	}
+	if _, ok := _c.mutation.FolderStructure(); !ok {
+		v := downloadconfig.DefaultFolderStructure
+		_c.mutation.SetFolderStructure(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := downloadconfig.DefaultID()
 		_c.mutation.SetID(v)
@@ -271,6 +289,9 @@ func (_c *DownloadConfigCreate) check() error {
 	}
 	if _, ok := _c.mutation.GroupByDate(); !ok {
 		return &ValidationError{Name: "groupByDate", err: errors.New(`ent: missing required field "DownloadConfig.groupByDate"`)}
+	}
+	if _, ok := _c.mutation.FolderStructure(); !ok {
+		return &ValidationError{Name: "folder_structure", err: errors.New(`ent: missing required field "DownloadConfig.folder_structure"`)}
 	}
 	if _, ok := _c.mutation.ProjectID(); !ok {
 		return &ValidationError{Name: "project_id", err: errors.New(`ent: missing required field "DownloadConfig.project_id"`)}
@@ -363,6 +384,10 @@ func (_c *DownloadConfigCreate) createSpec() (*DownloadConfig, *sqlgraph.CreateS
 	if value, ok := _c.mutation.GroupByDate(); ok {
 		_spec.SetField(downloadconfig.FieldGroupByDate, field.TypeBool, value)
 		_node.GroupByDate = value
+	}
+	if value, ok := _c.mutation.FolderStructure(); ok {
+		_spec.SetField(downloadconfig.FieldFolderStructure, field.TypeString, value)
+		_node.FolderStructure = value
 	}
 	if value, ok := _c.mutation.LastDownloadAt(); ok {
 		_spec.SetField(downloadconfig.FieldLastDownloadAt, field.TypeTime, value)

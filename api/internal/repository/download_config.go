@@ -42,6 +42,7 @@ type CreateDownloadConfigParameters struct {
 	BlockedImageIds []string
 	DeltaSubfolder  bool
 	GroupByDate     bool
+	FolderStructure string
 }
 
 func (r *Repository) CreateDownloadConfig(ctx context.Context, parameters *CreateDownloadConfigParameters) (*ent.DownloadConfig, error) {
@@ -60,6 +61,7 @@ func (r *Repository) CreateDownloadConfig(ctx context.Context, parameters *Creat
 		SetGroupByDate(parameters.GroupByDate).
 		SetCreatedBy(util.GetActorID(ctx)).
 		SetUpdatedBy(util.GetActorID(ctx)).
+		SetFolderStructure(parameters.FolderStructure).
 		Save(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("error creating download config")
@@ -81,6 +83,7 @@ type UpdateDownloadConfigParameters struct {
 	BlockedImageIds *[]string
 	DeltaSubfolder  *bool
 	GroupByDate     *bool
+	FolderStructure *string
 	LastDownloadAt  *time.Time
 }
 
@@ -118,6 +121,9 @@ func (r *Repository) UpdateDownloadConfig(ctx context.Context, id string, parame
 	if parameters.GroupByDate != nil {
 		update.SetGroupByDate(*parameters.GroupByDate)
 	}
+	if parameters.FolderStructure != nil {
+		update.SetFolderStructure(*parameters.FolderStructure)
+	}
 	if parameters.LastDownloadAt != nil {
 		update.SetLastDownloadAt(*parameters.LastDownloadAt)
 	}
@@ -125,6 +131,7 @@ func (r *Repository) UpdateDownloadConfig(ctx context.Context, id string, parame
 		log.Error().Err(err).Msg("error updating download config")
 		return nil, err
 	}
+
 	safeGo(func() {
 		r.CreateAuditLog(context.WithoutCancel(ctx), &CreateAuditLogParameters{
 			Action: "update", ObjectType: util.StringPointer("download_config"), ObjectId: util.StringPointer(id),

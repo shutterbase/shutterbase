@@ -9,6 +9,8 @@ import {
   formatBytes,
   formatDuration,
   DELTA_SAFETY_MARGIN_MS,
+    extractDateFromTag,
+  weekdaySegment,
 } from "src/util/downloadRunner";
 import { DownloadConfig, Image } from "src/types/api";
 
@@ -150,5 +152,28 @@ describe("targetSegments", () => {
   it("stacks delta subfolder before the date folder", () => {
     const cfg = { ...config, deltaSubfolder: true, groupByDate: true };
     expect(targetSegments(captured, cfg, { delta: true, runDate })).toEqual(["delta_2026-07-29", "2026-07-27"]);
+  });
+});
+
+describe("extractDateFromTag / weekdaySegment", () => {
+  it("extracts YYYYMMDD from a tag", () => {
+    const tags = ["foo", "20260804", "bar"];
+    expect(extractDateFromTag(tags)?.toISOString().slice(0,10)).toBe("2026-08-04");
+  });
+  it("returns null if no date present", () => {
+    expect(extractDateFromTag(["a","b","c"])).toBeNull();
+  });
+  it("weekdaySegment returns German weekday", () => {
+    const date = new Date("2026-08-04T00:00:00Z"); // Tuesday = Dienstag
+    expect(weekdaySegment(date)).toBe("20260804 Dienstag");
+  });
+});
+
+describe("targetSegments with folderStructure = weekday", () => {
+  const runDate = new Date("2026-07-29T08:00:00Z");
+  const captured = { capturedAtCorrected: "2026-07-27T14:30:00Z", capturedAt: "2026-07-27T14:00:00Z", tags: ["20260727"] };
+  it("uses tag-derived weekday segment", () => {
+    const cfg = { ...config, folderStructure: "weekday" } as unknown as DownloadConfig;
+    expect(targetSegments(captured as any, cfg as any, { delta: false, runDate })).toEqual([ "20260727 Dienstag" ]);
   });
 });

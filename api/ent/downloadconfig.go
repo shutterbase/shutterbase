@@ -41,6 +41,8 @@ type DownloadConfig struct {
 	DeltaSubfolder bool `json:"deltaSubfolder"`
 	// GroupByDate holds the value of the "groupByDate" field.
 	GroupByDate bool `json:"groupByDate"`
+	// FolderStructure holds the value of the "folder_structure" field.
+	FolderStructure string `json:"folderStructure"`
 	// LastDownloadAt holds the value of the "lastDownloadAt" field.
 	LastDownloadAt *time.Time `json:"lastDownloadAt"`
 	// ProjectID holds the value of the "project_id" field.
@@ -97,7 +99,7 @@ func (*DownloadConfig) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case downloadconfig.FieldDeltaSubfolder, downloadconfig.FieldGroupByDate:
 			values[i] = new(sql.NullBool)
-		case downloadconfig.FieldID, downloadconfig.FieldName, downloadconfig.FieldProjectID:
+		case downloadconfig.FieldID, downloadconfig.FieldName, downloadconfig.FieldFolderStructure, downloadconfig.FieldProjectID:
 			values[i] = new(sql.NullString)
 		case downloadconfig.FieldCreatedAt, downloadconfig.FieldUpdatedAt, downloadconfig.FieldLastDownloadAt:
 			values[i] = new(sql.NullTime)
@@ -191,6 +193,12 @@ func (_m *DownloadConfig) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field groupByDate", values[i])
 			} else if value.Valid {
 				_m.GroupByDate = value.Bool
+			}
+		case downloadconfig.FieldFolderStructure:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field folder_structure", values[i])
+			} else if value.Valid {
+				_m.FolderStructure = value.String
 			}
 		case downloadconfig.FieldLastDownloadAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -290,6 +298,9 @@ func (_m *DownloadConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("groupByDate=")
 	builder.WriteString(fmt.Sprintf("%v", _m.GroupByDate))
+	builder.WriteString(", ")
+	builder.WriteString("folder_structure=")
+	builder.WriteString(_m.FolderStructure)
 	builder.WriteString(", ")
 	if v := _m.LastDownloadAt; v != nil {
 		builder.WriteString("lastDownloadAt=")

@@ -158,6 +158,10 @@ func init() {
 	downloadconfigDescGroupByDate := downloadconfigFields[5].Descriptor()
 	// downloadconfig.DefaultGroupByDate holds the default value on creation for the groupByDate field.
 	downloadconfig.DefaultGroupByDate = downloadconfigDescGroupByDate.Default.(bool)
+	// downloadconfigDescFolderStructure is the schema descriptor for folder_structure field.
+	downloadconfigDescFolderStructure := downloadconfigFields[6].Descriptor()
+	// downloadconfig.DefaultFolderStructure holds the default value on creation for the folder_structure field.
+	downloadconfig.DefaultFolderStructure = downloadconfigDescFolderStructure.Default.(string)
 	// downloadconfigDescID is the schema descriptor for id field.
 	downloadconfigDescID := downloadconfigMixinFields0[0].Descriptor()
 	// downloadconfig.DefaultID holds the default value on creation for the id field.

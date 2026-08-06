@@ -33,6 +33,7 @@ func (DownloadConfig) Fields() []ent.Field {
 		// (PR #40 "upload" mode).
 		field.Bool("deltaSubfolder").Default(false).StructTag(`json:"deltaSubfolder"`),
 		field.Bool("groupByDate").Default(false).StructTag(`json:"groupByDate"`),
+		field.String("folder_structure").Default("default").StructTag(`json:"folderStructure"`),
 		field.Time("lastDownloadAt").Optional().Nillable().StructTag(`json:"lastDownloadAt"`),
 		field.String("project_id").StructTag(`json:"-"`),
 		field.UUID("user_id", uuid.UUID{}).StructTag(`json:"-"`),
