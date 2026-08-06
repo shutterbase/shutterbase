@@ -59,7 +59,7 @@ describe("formatCombo", () => {
 
 describe("binding resolution", () => {
   it("falls back to defaults without config", () => {
-    expect(actionKeys(null, "images.next-image")).toEqual(["ArrowRight", "l"]);
+    expect(actionKeys(null, "images.next-image")).toEqual(["ArrowRight", "l", "ctrl+ArrowRight", "meta+ArrowRight"]);
     expect(effectiveTagBindings(null)).toEqual(DEFAULT_TAG_BINDINGS);
   });
 
@@ -67,7 +67,7 @@ describe("binding resolution", () => {
     const config: UserHotkeys = { bindings: { "images.next-image": ["n"], "images.toggle-view": [] } };
     expect(actionKeys(config, "images.next-image")).toEqual(["n"]);
     expect(actionKeys(config, "images.toggle-view")).toEqual([]);
-    expect(actionKeys(config, "images.previous-image")).toEqual(["ArrowLeft", "h"]);
+    expect(actionKeys(config, "images.previous-image")).toEqual(["ArrowLeft", "h", "ctrl+ArrowLeft", "meta+ArrowLeft"]);
   });
 
   it("replaces tag bindings entirely when set", () => {

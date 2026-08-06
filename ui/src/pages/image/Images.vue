@@ -59,20 +59,26 @@
 
     <!-- Detail view: full-bleed so the photo gets the width the grid's max-w-7xl
          would waste. Stacks image-over-details on narrow viewports, details
-         panel left of the image from lg up. pb clears the fixed film strip. -->
-    <div v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1 && images[imageIndex]" class="w-full px-4 pb-32 sm:px-6 lg:px-8">
-      <div class="mx-auto mt-8 flex max-w-screen-2xl flex-col-reverse gap-6 lg:flex-row">
+         panel left of the image from lg up. No bottom padding: the film strip
+         is fixed, so clearance comes from the column height caps (sidebar
+         max-h, hero max-h), not from flow padding — flow padding is what made
+         the whole page scroll. -->
+    <div v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1 && images[imageIndex]" class="w-full px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto mt-4 flex max-w-screen-2xl flex-col-reverse gap-6 lg:flex-row">
         <Sidebar :item="images[imageIndex]" />
         <figure class="min-w-0 flex-1">
-          <!-- inline-block wrapper hugs the rendered img exactly, so the
-               relative (0..1) face boxes map to plain percentages -->
-          <div class="relative mx-auto block w-fit">
-            <img
-              :src="heroSrc(images[imageIndex])"
-              @error="onHeroError(images[imageIndex])"
-              :alt="images[imageIndex].computedFileName"
-              class="mx-auto max-h-[max(18rem,calc(100vh-24rem))] max-w-full rounded-sm drop-shadow-lg"
-            />
+          <!-- zoomed, the image breaks out of the column into a viewport-wide
+               stage that spares only the header bar (top-16) and the film
+               strip (bottom-24); z-0 keeps it the lowest element -->
+          <ZoomableImage
+            class="mx-auto"
+            :src="heroSrc(images[imageIndex])"
+            :hires-src="heroHiresSrc(images[imageIndex])"
+            :alt="images[imageIndex].computedFileName"
+            img-class="mx-auto max-h-[max(18rem,calc(100vh-25rem))] max-w-full rounded-sm drop-shadow-lg"
+            expand-class="fixed inset-x-0 top-16 bottom-24 z-0"
+            @error="onHeroError(images[imageIndex])"
+          >
             <template v-if="facesVisible">
               <div
                 v-for="(face, i) in faces"
@@ -92,7 +98,7 @@
                 >
               </div>
             </template>
-          </div>
+          </ZoomableImage>
           <figcaption class="mt-3 flex items-baseline justify-center gap-4">
             <span class="truncate font-data text-sm text-primary-700 dark:text-primary-200">{{ images[imageIndex].computedFileName }}</span>
             <span class="label-mono-sm shrink-0 text-primary-500 dark:text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
@@ -101,6 +107,37 @@
       </div>
     </div>
     <FilmStrip v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1" :images="images" :current-index="imageIndex" @select="selectFromStrip" />
+  </div>
+  <!-- Zen mode: only the image, fullscreen, over everything except the tagging
+       dialog (z-50) and toasts (z-[60]). The underlying grid/detail view stays
+       untouched, so leaving zen lands exactly where the user was. -->
+  <div v-if="zenMode && imageIndex !== -1 && images[imageIndex]" data-testid="zen-overlay" class="fixed inset-0 z-40 flex items-center justify-center bg-black">
+    <ZoomableImage
+      :src="heroSrc(images[imageIndex])"
+      :hires-src="heroHiresSrc(images[imageIndex])"
+      :alt="images[imageIndex].computedFileName"
+      img-class="max-h-dvh max-w-[100vw] object-contain"
+      expand-class="fixed inset-0"
+      @error="onHeroError(images[imageIndex])"
+    />
+    <!-- thin header: logo only; always the dark variant, zen is always on black -->
+    <div class="absolute inset-x-0 top-0 flex justify-center bg-black/70 py-1">
+      <img class="h-5" src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" />
+    </div>
+    <!-- thin footer: name | all applied tags (sidebar category order; click removes) | position -->
+    <div class="absolute inset-x-0 bottom-0 flex items-center gap-4 bg-black/70 px-3 py-1">
+      <span class="min-w-0 shrink truncate font-data text-sm text-primary-200">{{ images[imageIndex].computedFileName }}</span>
+      <div class="flex flex-1 flex-wrap items-center justify-center gap-2">
+        <ImageTagBadge
+          v-for="tagAssignment in zenTags"
+          :key="tagAssignment.id"
+          :tagAssignment="tagAssignment"
+          :removable="canRemoveTagAssignment(images[imageIndex], tagAssignment)"
+          @remove="(ta) => removeTagAssignment(images[imageIndex], ta)"
+        />
+      </div>
+      <span class="label-mono-sm shrink-0 text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
+    </div>
   </div>
   <TaggingDialog
     v-if="imageIndex !== -1"
@@ -123,6 +160,10 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import Sidebar from "src/components/image/Sidebar.vue";
 import TaggingDialog from "src/components/image/TaggingDialog.vue";
 import FilmStrip from "src/components/image/FilmStrip.vue";
+import ZoomableImage from "src/components/image/ZoomableImage.vue";
+import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
+import { canRemoveTagAssignment, removeTagAssignment } from "src/util/imageTags";
+import { groupTagAssignments } from "src/util/tagOrder";
 import { devPlaceholder } from "src/util/devPlaceholder";
 import { ImageWithTagsType } from "src/types/custom";
 import { onMounted, onUnmounted, reactive, ref, computed, watch, nextTick } from "vue";
@@ -325,11 +366,13 @@ useHotkeyAction("images.previous-row", previousRow);
 useHotkeyAction("images.next-row", nextRow);
 useHotkeyAction("images.repeat-last-tag", repeatLastTagAssignment);
 useHotkeyAction("images.toggle-view", toggleGridDetail);
+useHotkeyAction("images.zen-toggle", toggleZen);
 useHotkeyAction("images.open-tagging", showTaggingDialog);
 useHotkeyAction("tagging.close", hideTaggingDialog);
 useTagHotkey(toggleTagByName);
 
 function toggleGridDetail() {
+  if (zenMode.value) return; // zen owns the screen; z leaves it first
   if (displayMode.value === DisplayMode.GRID) {
     const id = images.value[imageIndex.value === -1 ? 0 : imageIndex.value]?.id;
     if (id) openDetail(id);
@@ -337,6 +380,21 @@ function toggleGridDetail() {
     closeDetail();
   }
 }
+
+// Zen mode is an overlay, not a display mode: grid/detail (and the route) stay
+// as they are underneath, so z always returns to the previously active view.
+const zenMode = ref(false);
+function toggleZen() {
+  if (zenMode.value) {
+    zenMode.value = false;
+    return;
+  }
+  if (imageIndex.value === -1 && images.value.length > 0) imageIndex.value = 0;
+  if (images.value[imageIndex.value]) zenMode.value = true;
+}
+// All tags, not just the EXIF-exported subset — zen is primarily a tagging
+// view, so custom/AI tags must be visible too. Sidebar category order.
+const zenTags = computed(() => groupTagAssignments(images.value[imageIndex.value]?.tags ?? []).flatMap((g) => g.assignments));
 
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
 
@@ -429,6 +487,11 @@ function onHeroError(image: ImageWithTagsType) {
   if (placeholder && heroOverrides[image.id] !== placeholder) {
     heroOverrides[image.id] = placeholder;
   }
+}
+// full-res rendition for deep zoom — never paired with a placeholder base,
+// the two would show different content
+function heroHiresSrc(image: ImageWithTagsType): string | undefined {
+  return heroOverrides[image.id] ? undefined : image.downloadUrls?.["original"];
 }
 
 emitter.on("update-image-grid-scroll-position", scrollToSelectedImage);

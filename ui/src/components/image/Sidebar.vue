@@ -1,32 +1,30 @@
 <template>
   <!-- In-flow details panel: full width when stacked under the image on narrow
        viewports, a fixed 20rem column beside it from lg up. -->
+  <!-- lg: capped to the viewport (app header + images toolbar + film strip
+       clearance) and scrolls internally, so the panel never stretches the
+       page. relative z-10 keeps it above the zoomed image stage (z-0). -->
   <div
     v-if="item"
-    class="w-full shrink-0 self-start rounded-lg border border-primary-200 bg-surface text-primary-900 dark:border-primary-800 dark:bg-surface-dark dark:text-primary-200 lg:w-80"
+    class="scrollbar-tool relative z-10 w-full shrink-0 self-start rounded-lg border border-primary-200 bg-surface text-primary-900 dark:border-primary-800 dark:bg-surface-dark dark:text-primary-200 lg:max-h-[calc(100vh-20rem)] lg:w-80 lg:overflow-y-auto"
   >
-    <div class="p-5">
-      <h3 class="display text-lg text-primary-900 dark:text-white pb-5 border-b border-primary-200 dark:border-primary-800">Image Details</h3>
-      <div class="border-b border-primary-200 dark:border-primary-800 py-6 space-y-3">
+    <div class="p-4">
+      <!-- sticky within the panel's own scroll; negative margins pull it flush
+           against the container edges so content slides underneath, not above -->
+      <h3
+        class="display sticky top-0 z-10 -mx-4 -mt-4 bg-surface px-4 pt-4 text-lg text-primary-900 dark:bg-surface-dark dark:text-white pb-3 border-b border-primary-200 dark:border-primary-800"
+      >
+        Image Details
+      </h3>
+      <div class="border-b border-primary-200 dark:border-primary-800 py-4 space-y-2">
         <div>
           <p class="label-mono text-primary-500 dark:text-primary-400">Name</p>
-          <p class="mt-0.5 flex items-center gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
-            <span class="truncate">{{ item.computedFileName }}</span>
+          <p ref="nameRow" class="mt-0.5 flex items-center gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
+            <span class="truncate whitespace-nowrap" :style="nameStyle">{{ item.computedFileName }}</span>
+            <!-- invisible measurer: full name width at base size, immune to the
+                 shrink applied to the visible span (no feedback loop) -->
+            <span ref="nameMeasure" aria-hidden="true" class="invisible absolute whitespace-pre font-data text-sm">{{ item.computedFileName }}</span>
             <Clipboard class="h-4 shrink-0" :text="item.computedFileName" />
-          </p>
-        </div>
-        <div>
-          <p class="label-mono text-primary-500 dark:text-primary-400">ID</p>
-          <p class="mt-0.5 flex items-center gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
-            <span class="truncate">{{ item.id }}</span>
-            <Clipboard class="h-4 shrink-0" :text="item.id" />
-          </p>
-        </div>
-        <div>
-          <p class="label-mono text-primary-500 dark:text-primary-400">Original file name</p>
-          <p class="mt-0.5 flex items-center gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
-            <span class="truncate">{{ item.fileName }}</span>
-            <Clipboard class="h-4 shrink-0" :text="item.fileName" />
           </p>
         </div>
         <div>
@@ -34,25 +32,48 @@
           <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.capturedAtCorrected) }}</p>
         </div>
         <div>
-          <p class="label-mono text-primary-500 dark:text-primary-400">Original capture time</p>
-          <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.capturedAt) }}</p>
-        </div>
-        <div>
-          <p class="label-mono text-primary-500 dark:text-primary-400">Uploaded</p>
-          <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.createdAt) }}</p>
-          <p class="text-sm text-primary-500 dark:text-primary-400">by {{ item.user.firstName }} {{ item.user.lastName }}</p>
-        </div>
-        <div>
           <p class="label-mono text-primary-500 dark:text-primary-400">Updated</p>
           <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.updatedAt) }}</p>
         </div>
-        <p v-if="imageCanBeDeleted()" @click="showDeleteImageDialog" class="text-sm font-medium text-error-600 hover:text-error-500 dark:text-error-400 underline cursor-pointer">
-          delete
+        <template v-if="showAllDetails">
+          <div>
+            <p class="label-mono text-primary-500 dark:text-primary-400">Original capture time</p>
+            <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.capturedAt) }}</p>
+          </div>
+          <div v-if="appliedOffset">
+            <p class="label-mono text-primary-500 dark:text-primary-400">Applied time offset</p>
+            <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ appliedOffset }}</p>
+          </div>
+          <div>
+            <p class="label-mono text-primary-500 dark:text-primary-400">ID</p>
+            <p class="mt-0.5 flex items-center gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
+              <span class="truncate">{{ item.id }}</span>
+              <Clipboard class="h-4 shrink-0" :text="item.id" />
+            </p>
+          </div>
+          <div>
+            <p class="label-mono text-primary-500 dark:text-primary-400">Original file name</p>
+            <p class="mt-0.5 flex items-center gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
+              <span class="truncate">{{ item.fileName }}</span>
+              <Clipboard class="h-4 shrink-0" :text="item.fileName" />
+            </p>
+          </div>
+          <div>
+            <p class="label-mono text-primary-500 dark:text-primary-400">Uploaded</p>
+            <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.createdAt) }}</p>
+            <p class="text-sm text-primary-500 dark:text-primary-400">by {{ item.user.firstName }} {{ item.user.lastName }}</p>
+          </div>
+          <p v-if="imageCanBeDeleted()" @click="showDeleteImageDialog" class="text-sm font-medium text-error-600 hover:text-error-500 dark:text-error-400 underline cursor-pointer">
+            delete
+          </p>
+        </template>
+        <p @click="showAllDetails = !showAllDetails" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
+          {{ showAllDetails ? "less" : "more" }}
         </p>
       </div>
 
-      <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
-        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Image Tags</h3>
+      <div class="border-b border-primary-200 dark:border-primary-800 pb-4">
+        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-3">Image Tags</h3>
         <p
           v-if="officialTagsFrozen(item)"
           class="mb-3 flex items-start gap-1.5 rounded-md border border-warning-200 bg-warning-50 px-2.5 py-2 text-xs text-warning-800 dark:border-warning-800/70 dark:bg-warning-950/40 dark:text-warning-200"
@@ -60,7 +81,7 @@
           <LockClosedIcon class="mt-px h-4 w-4 shrink-0" />
           <span>This upload is submitted for review — official tags are frozen. Custom tags can still be changed.</span>
         </p>
-        <div class="space-y-3">
+        <div class="space-y-2">
           <div v-for="group in tagGroups" :key="group.category">
             <p class="label-mono text-[0.6rem] text-primary-400 dark:text-primary-500">{{ group.category }}</p>
             <div class="mt-1 flex flex-wrap gap-2">
@@ -68,8 +89,8 @@
                 v-for="tagAssignment in group.assignments"
                 :key="tagAssignment.id"
                 :tagAssignment="tagAssignment"
-                :removable="removable(tagAssignment)"
-                @remove="removeTag"
+                :removable="canRemoveTagAssignment(item, tagAssignment)"
+                @remove="(ta) => removeTagAssignment(item, ta)"
               />
             </div>
           </div>
@@ -82,8 +103,8 @@
           add
         </p>
       </div>
-      <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
-        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">AI Detection</h3>
+      <div class="border-b border-primary-200 dark:border-primary-800 pb-4">
+        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-3">AI Detection</h3>
         <div class="flex items-center gap-2">
           <SparklesIcon v-if="item.aiStatus === 'done'" class="h-4 w-4 text-accent-500" />
           <ArrowPathIcon v-else-if="item.aiStatus === 'processing'" class="h-4 w-4 animate-spin text-accent-500" />
@@ -110,8 +131,8 @@
         </div>
       </div>
 
-      <div class="border-b border-primary-200 dark:border-primary-800 pb-6">
-        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Download Links</h3>
+      <div class="border-b border-primary-200 dark:border-primary-800 pb-4">
+        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-3">Download Links</h3>
         <div class="flex flex-wrap gap-2">
           <span
             v-for="resolution in ['original', '2048', '1024', '512', '256']"
@@ -123,7 +144,7 @@
         </div>
       </div>
       <div class="pb-1">
-        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-5">Infos</h3>
+        <h3 class="label-mono text-primary-500 dark:text-primary-400 py-3">Infos</h3>
         <div class="flex items-center gap-2 pt-1">
           <svg class="h-5 fill-primary-500 dark:fill-primary-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">
             <path
@@ -157,7 +178,10 @@
           <p class="ml-2 font-data text-sm text-primary-700 dark:text-primary-200">{{ item.exifData["FocalLength"] }}mm @ f{{ item.exifData["FNumber"] }}</p>
         </div>
         <div class="flex items-center gap-2 pt-1">
-          <span class="h-5 w-5"></span>
+          <svg class="h-5 w-5 stroke-primary-500 dark:stroke-primary-400" viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <circle cx="12" cy="12" r="4.5" />
+          </svg>
           <p class="ml-2 font-data text-sm text-primary-700 dark:text-primary-200">{{ item.exifData["LensModel"] }}</p>
         </div>
         <div v-if="item.width && item.height" class="flex items-center gap-2 pt-1">
@@ -195,11 +219,11 @@
 </template>
 
 <script setup lang="ts">
-import { ImageTagAssignmentType, ImageWithTagsType } from "src/types/custom";
+import { ImageWithTagsType } from "src/types/custom";
 import { dateTimeFromBackend } from "src/util/dateTimeUtil";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 import { emitter, showNotificationToast } from "src/boot/mitt";
 import { downloadImage } from "src/util/download";
@@ -209,7 +233,9 @@ import { ImagesResponse } from "src/types/pocketbase";
 import Clipboard from "src/components/Clipboard.vue";
 import { LockClosedIcon } from "@heroicons/vue/24/outline";
 import { ArrowPathIcon, ClockIcon, ExclamationTriangleIcon, SparklesIcon } from "@heroicons/vue/24/solid";
-import { canEditImageTag, officialTagsFrozen } from "src/pages/upload/uploadUtil";
+import { officialTagsFrozen } from "src/pages/upload/uploadUtil";
+import { appliedTimeOffset } from "src/util/dateTimeUtil";
+import { canRemoveTagAssignment, removeTagAssignment } from "src/util/imageTags";
 import { groupTagAssignments } from "src/util/tagOrder";
 import { aiPositions, aiQueueTotal } from "src/pages/image/imageQueryLogic";
 
@@ -225,6 +251,36 @@ interface Props {
   item: ImageWithTagsType | null;
 }
 const props = withDefaults(defineProps<Props>(), {});
+
+// details collapse to name + corrected capture time; "more" reveals the rest
+const showAllDetails = ref(false);
+
+// Auto-shrink the name to a single line: compare the hidden measurer's width
+// (full name at base 14px) against the row minus the clipboard icon, scale the
+// font down proportionally. Floor at 9px — below that truncation takes over.
+const nameRow = ref<HTMLElement | null>(null);
+const nameMeasure = ref<HTMLElement | null>(null);
+const nameStyle = ref<{ fontSize?: string }>({});
+function fitName() {
+  const row = nameRow.value;
+  const measure = nameMeasure.value;
+  if (!row || !measure) return;
+  const available = row.clientWidth - 24; // ponytail: clipboard icon + gap, static
+  const full = measure.offsetWidth;
+  nameStyle.value = full > available ? { fontSize: `${Math.max((available / full) * 14, 9)}px` } : {};
+}
+watch(() => props.item?.computedFileName, fitName, { flush: "post" });
+let nameResizeObserver: ResizeObserver | null = null;
+onMounted(() => {
+  fitName();
+  nameResizeObserver = new ResizeObserver(fitName);
+  if (nameRow.value) nameResizeObserver.observe(nameRow.value);
+});
+onUnmounted(() => nameResizeObserver?.disconnect());
+const appliedOffset = computed(() => {
+  if (!props.item?.capturedAt || !props.item?.capturedAtCorrected) return null;
+  return appliedTimeOffset(props.item.capturedAt, props.item.capturedAtCorrected);
+});
 
 const tagAssignments = computed(() => {
   return props.item?.tags || [];
@@ -283,20 +339,6 @@ async function rerunAi() {
   }
 }
 
-function removable(tagAssignment: ImageTagAssignmentType): boolean {
-  if (!userStore.isProjectEditorOrHigher()) return false;
-  // The upload review flow freezes official tags once an upload is submitted and
-  // reserves the error tag for reviewers.
-  if (!canEditImageTag(props.item, tagAssignment.tag)) return false;
-  const isOwnImage = props.item?.user.id === userStore.user?.id;
-  const isProjectAdminOrHigher = userStore.isProjectAdminOrHigher();
-  if (tagAssignment.tag.type === "default") {
-    return isProjectAdminOrHigher;
-  } else {
-    return isOwnImage || isProjectAdminOrHigher;
-  }
-}
-
 // Custom tags stay editable on a submitted upload, so the add affordance stays —
 // addImageTag refuses the individual frozen tags.
 function tagsCanBeAdded(): boolean {
@@ -305,33 +347,6 @@ function tagsCanBeAdded(): boolean {
 
 function imageCanBeDeleted(): boolean {
   return userStore.isProjectAdminOrHigher() || props.item?.user.id === userStore.user?.id;
-}
-
-// the old hardcoded "p removes the review tag" hotkey is now the default
-// tag binding p → "review" (see src/util/hotkeys.ts), actuated in Images.vue
-async function removeTag(tagAssignment: ImageTagAssignmentType) {
-  if (!removable(tagAssignment)) {
-    return;
-  }
-  try {
-    await api.imageTagAssignments.remove(tagAssignment.id);
-    emitter.emit(`notification`, {
-      headline: `Tag ${tagAssignment.tag.name} removed`,
-      type: "success",
-    });
-    if (props.item) {
-      props.item.tags.splice(
-        props.item.tags.findIndex((ta) => ta.id === tagAssignment.id),
-        1,
-      );
-      props.item.updatedAt = new Date().toISOString();
-    }
-  } catch (error: any) {
-    emitter.emit(`notification`, {
-      headline: `Error removing tag ${tagAssignment.tag.name}`,
-      type: "error",
-    });
-  }
 }
 
 function showDeleteImageDialog() {

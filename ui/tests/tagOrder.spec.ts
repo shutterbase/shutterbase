@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compareTagOrder, groupTagAssignments, tagCategory, toTagOrder } from "src/util/tagOrder";
+import { compareTagOrder, exifKeywordAssignments, groupTagAssignments, tagCategory, toTagOrder } from "src/util/tagOrder";
 import { ImageTagAssignment } from "src/types/api";
 
 function assignment(id: string, assignmentType: string, tagType: string, name: string, order?: number | null): ImageTagAssignment {
@@ -42,6 +42,20 @@ describe("groupTagAssignments", () => {
     ]);
     expect(groups.map((g) => g.category)).toEqual(["template", "custom", "ai"]);
     expect(groups[0].assignments.map((a) => a.tag.name)).toEqual(["mike", "zulu", "alpha"]);
+  });
+});
+
+describe("exifKeywordAssignments", () => {
+  it("mirrors the EXIF export: default/manual-type tags only, no 'internal', ranked by order", () => {
+    const list = exifKeywordAssignments([
+      assignment("1", "manual", "custom", "note"),
+      assignment("2", "default", "default", "internal"),
+      assignment("3", "manual", "manual", "podium", 2),
+      assignment("4", "default", "default", "20240817", 1),
+      assignment("5", "inferred", "manual", "crowd"), // inferred assignment on a manual tag IS exported
+      assignment("6", "default", "template", "$DATE"),
+    ]);
+    expect(list.map((a) => a.tag.name)).toEqual(["20240817", "podium", "crowd"]);
   });
 });
 
