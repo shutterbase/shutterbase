@@ -37,6 +37,24 @@ export function parseBackendTime(backendTime: string): Date {
 }
 
 /**
+ * Signed, human-readable offset the time-sync applied to a capture time —
+ * corrected minus original, whole seconds: "+1h 02m 03s", "-45s", "±0s".
+ */
+export function appliedTimeOffset(capturedAt: string, capturedAtCorrected: string): string {
+  const seconds = Math.round((parseBackendTime(capturedAtCorrected).getTime() - parseBackendTime(capturedAt).getTime()) / 1000);
+  if (seconds === 0) return "±0s";
+  const sign = seconds < 0 ? "-" : "+";
+  const total = Math.abs(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (h > 0) return `${sign}${h}h ${pad(m)}m ${pad(s)}s`;
+  if (m > 0) return `${sign}${m}m ${pad(s)}s`;
+  return `${sign}${s}s`;
+}
+
+/**
  * Whole unix seconds from a backend timestamp string. Backend timestamps carry
  * sub-second precision (Postgres keeps microseconds), so anything feeding a
  * BigInt/i64 must truncate first — BigInt() throws a RangeError on a fraction.

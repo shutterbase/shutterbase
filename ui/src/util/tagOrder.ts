@@ -36,6 +36,13 @@ export function toTagOrder(value: unknown): number {
   return Number.isInteger(n) && n > 0 ? n : 0;
 }
 
+// exifKeywordAssignments mirrors the EXIF keyword export
+// (api/internal/exif/inject.go): only assignments of default/manual-type tags,
+// never the internal management tag, ranked by the tags' order.
+export function exifKeywordAssignments(assignments: ImageTagAssignment[]): ImageTagAssignment[] {
+  return assignments.filter((a) => (a.tag.type === "default" || a.tag.type === "manual") && a.tag.name !== "internal").sort((a, b) => compareTagOrder(a.tag, b.tag));
+}
+
 export function groupTagAssignments(assignments: ImageTagAssignment[]): { category: TagCategory; assignments: ImageTagAssignment[] }[] {
   return TAG_CATEGORIES.map((category) => ({
     category,

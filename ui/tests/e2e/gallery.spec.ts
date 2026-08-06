@@ -56,6 +56,18 @@ test.describe("gallery toolbar", () => {
     await expect(page.getByText("Default", { exact: true })).toBeVisible();
   });
 
+  test("detail sidebar collapses details behind more, revealing the applied offset", async ({ page }) => {
+    await page.locator('[id^="grid-tile-"]').first().click();
+    await expect(page.getByText("Corrected capture time")).toBeVisible();
+    await expect(page.getByText("Updated", { exact: true })).toBeVisible();
+    await expect(page.getByText("Original file name")).toBeHidden();
+    await page.getByText("more", { exact: true }).click();
+    await expect(page.getByText("Original file name")).toBeVisible();
+    await expect(page.getByText("Applied time offset")).toBeVisible();
+    await page.getByText("less", { exact: true }).click();
+    await expect(page.getByText("Original file name")).toBeHidden();
+  });
+
   test("sort listbox opens with ordering options", async ({ page }) => {
     await page.getByRole("button", { name: /Latest first/ }).click();
     await expect(page.getByRole("option", { name: /Oldest first/ })).toBeVisible();

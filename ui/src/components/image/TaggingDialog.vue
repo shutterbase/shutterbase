@@ -1,5 +1,6 @@
 <template>
-  <div v-show="shown" class="relative z-10" role="dialog" aria-modal="true">
+  <!-- z-50: layers above the zen overlay (z-40) so tagging works there too -->
+  <div v-show="shown" class="relative z-50" role="dialog" aria-modal="true">
     <!--
     Background backdrop, show/hide based on modal state.
 
@@ -213,11 +214,14 @@ const recentTags = computed(() => {
 });
 
 // the list arrow/j-k navigation and Enter act on: recent tags when the
-// search box is empty, filtered results once the user starts typing
+// search box is empty, filtered results once the user starts typing.
+// -1 = nothing selected: with an empty search box nothing is preselected, so
+// Enter advances to the next image (double-enter flow) instead of applying the
+// top recent tag; arrows/j-k opt into the recent list explicitly.
 const activeList = computed(() => (searchText.value === "" ? recentTags.value : filteredTags.value));
-const highlightedIndex = ref(0);
+const highlightedIndex = ref(-1);
 watch([searchText, () => props.shown], () => {
-  highlightedIndex.value = 0;
+  highlightedIndex.value = searchText.value === "" ? -1 : 0;
 });
 
 useHotkeyAction("tagging.select-next", () => moveHighlight(1));
@@ -225,6 +229,10 @@ useHotkeyAction("tagging.select-previous", () => moveHighlight(-1));
 function moveHighlight(delta: number) {
   const length = activeList.value.length;
   if (length === 0) {
+    return;
+  }
+  if (highlightedIndex.value === -1) {
+    highlightedIndex.value = delta > 0 ? 0 : length - 1;
     return;
   }
   highlightedIndex.value = (highlightedIndex.value + delta + length) % length;
@@ -263,6 +271,10 @@ watch(
     } else if (!shown && popContext) {
       popContext();
       popContext = null;
+      // blur synchronously: Chrome's focus fixup for display:none is async, so
+      // a rapid follow-up hotkey (Enter → t) would land in the hidden input
+      // and be swallowed by the editable-target guard
+      searchTextInput.value?.blur();
     }
   },
   { immediate: true },
@@ -274,7 +286,7 @@ onUnmounted(() => {
 
 useHotkeyAction("tagging.accept-only-result", acceptOnlyResult);
 function acceptOnlyResult() {
-  if (activeList.value.length > 0) {
+  if (highlightedIndex.value !== -1 && activeList.value.length > 0) {
     acceptTag(activeList.value[Math.min(highlightedIndex.value, activeList.value.length - 1)]);
     return;
   }
@@ -309,6 +321,9 @@ function acceptTag(tag: ImageTagsResponse) {
   }
   emit("selected", props.image, tag);
   userStore.addTagToStack(tag);
+  // re-arm the double-enter flow: an accept from the recent list keeps the
+  // search box empty, so the reset watch above never fires on its own
+  highlightedIndex.value = searchText.value === "" ? -1 : 0;
 }
 
 async function createCustomTag() {
