@@ -124,7 +124,7 @@ var (
 		{Name: "updatedAt", Type: field.TypeTime},
 		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "name", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "whitelist_tag_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "blacklist_tag_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "blocked_image_ids", Type: field.TypeJSON, Nullable: true},

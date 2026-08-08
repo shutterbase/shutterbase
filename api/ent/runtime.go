@@ -137,7 +137,21 @@ func init() {
 	// downloadconfigDescName is the schema descriptor for name field.
 	downloadconfigDescName := downloadconfigFields[0].Descriptor()
 	// downloadconfig.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	downloadconfig.NameValidator = downloadconfigDescName.Validators[0].(func(string) error)
+	downloadconfig.NameValidator = func() func(string) error {
+		validators := downloadconfigDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// downloadconfigDescWhitelistTagIds is the schema descriptor for whitelistTagIds field.
 	downloadconfigDescWhitelistTagIds := downloadconfigFields[1].Descriptor()
 	// downloadconfig.DefaultWhitelistTagIds holds the default value on creation for the whitelistTagIds field.
