@@ -24,12 +24,16 @@ func downloadConfigResponse(cfg *ent.DownloadConfig) gin.H {
 		"blockedImageIds": cfg.BlockedImageIds,
 		"deltaSubfolder":  cfg.DeltaSubfolder,
 		"groupByDate":     cfg.GroupByDate,
+		"folderStructure": cfg.FolderStructure,
 		"lastDownloadAt":  cfg.LastDownloadAt,
 		"projectId":       cfg.ProjectID,
 		"createdAt":       cfg.CreatedAt,
 		"updatedAt":       cfg.UpdatedAt,
-		"folderStructure": cfg.FolderStructure,
 	}
+}
+
+func validFolderStructure(s string) bool {
+	return s == "default" || s == "weekday"
 }
 
 func (s *Server) registerDownloadConfigRoutes(api *gin.RouterGroup) {
@@ -88,6 +92,13 @@ func (s *Server) createDownloadConfig(c *gin.Context) {
 	if !allow(c, authorization.CanViewProject(authUser(c), payload.ProjectID)) {
 		return
 	}
+	if payload.FolderStructure == "" {
+		payload.FolderStructure = "default"
+	}
+	if !validFolderStructure(payload.FolderStructure) {
+		apiError(c, http.StatusBadRequest, "invalid_folder_structure", "folderStructure must be 'default' or 'weekday'")
+		return
+	}
 	cfg, err := s.Repository.CreateDownloadConfig(c.Request.Context(), &repository.CreateDownloadConfigParameters{
 		Name:            payload.Name,
 		ProjectID:       payload.ProjectID,
@@ -97,7 +108,7 @@ func (s *Server) createDownloadConfig(c *gin.Context) {
 		BlockedImageIds: payload.BlockedImageIds,
 		DeltaSubfolder:  payload.DeltaSubfolder,
 		GroupByDate:     payload.GroupByDate,
-		FolderStructure: payload.FolderStructure,  
+		FolderStructure: payload.FolderStructure,
 	})
 	if abortDownloadConfigMutationError(c, err) {
 		return
@@ -131,13 +142,17 @@ func (s *Server) updateDownloadConfig(c *gin.Context) {
 		DeltaSubfolder  *bool      `json:"deltaSubfolder"`
 		GroupByDate     *bool      `json:"groupByDate"`
 		LastDownloadAt  *time.Time `json:"lastDownloadAt"`
-		FolderStructure *string `json:"folderStructure"`
+		FolderStructure *string    `json:"folderStructure"`
 	}
 	if !bindJSON(c, &payload) {
 		return
 	}
 	if payload.Name != nil && *payload.Name == "" {
 		apiError(c, http.StatusBadRequest, "empty_name", "name must not be empty")
+		return
+	}
+	if payload.FolderStructure != nil && !validFolderStructure(*payload.FolderStructure) {
+		apiError(c, http.StatusBadRequest, "invalid_folder_structure", "folderStructure must be 'default' or 'weekday'")
 		return
 	}
 	updated, err := s.Repository.UpdateDownloadConfig(c.Request.Context(), id, &repository.UpdateDownloadConfigParameters{

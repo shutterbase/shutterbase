@@ -47,7 +47,7 @@
               <div
                 v-if="worker"
                 class="h-full rounded-full bg-accent-400 transition-all"
-                :class="{ 'animate-pulse': worker.total === 0 }"
+                :class="{ 'animate-pulse': !worker.total }"
                 :style="{ width: worker.total ? `${Math.min(100, (worker.received / worker.total) * 100)}%` : '100%' }"
               ></div>
             </div>
@@ -108,175 +108,78 @@
           </div>
         </div>
       </div>
-<!-- sync progress -->
-<div
-  v-if="syncProgress"
-  class="mt-6 rounded-lg border border-primary-200 bg-surface p-4 dark:border-primary-800 dark:bg-surface-dark"
-  data-testid="sync-progress"
->
-  <div class="flex items-center justify-between gap-3">
-    <div class="min-w-0">
-      <p class="text-sm font-semibold text-primary-900 dark:text-white">
-        Sync läuft — {{ syncProgress.configName }}
-      </p>
+      <!-- sync progress -->
+      <div v-if="syncProgress" class="mt-6 rounded-lg border border-primary-200 bg-surface p-4 dark:border-primary-800 dark:bg-surface-dark" data-testid="sync-progress">
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-primary-900 dark:text-white">Syncing — {{ syncProgress.configName }}</p>
+            <p class="mt-0.5 truncate text-xs text-primary-500 dark:text-primary-400">
+              <template v-if="syncProgress.phase === 'scanning'">Scanning local files…</template>
+              <template v-else-if="syncProgress.fileName">{{ syncProgress.fileName }}</template>
+              <template v-else>Processing files…</template>
+            </p>
+          </div>
+          <span class="whitespace-nowrap text-xs tabular-nums text-primary-500 dark:text-primary-400">
+            <template v-if="syncProgress.total">{{ syncProgress.current }} / {{ syncProgress.total }}</template>
+          </span>
+        </div>
+        <div class="mt-3 h-2 overflow-hidden rounded-full bg-primary-100 dark:bg-primary-800">
+          <div v-if="!syncProgress.total" class="h-full w-1/3 animate-pulse rounded-full bg-accent-500"></div>
+          <div
+            v-else
+            class="h-full rounded-full bg-accent-500 transition-all duration-200"
+            :style="{ width: `${Math.min(100, (syncProgress.current / syncProgress.total) * 100)}%` }"
+          ></div>
+        </div>
+      </div>
 
-      <p class="mt-0.5 truncate text-xs text-primary-500 dark:text-primary-400">
-        <template v-if="syncProgress.phase === 'scanning'">
-          Lokale Dateien werden geprüft…
-        </template>
+      <!-- latest sync result -->
+      <div v-if="syncResult" class="mt-6 rounded-lg border border-primary-200 bg-surface p-4 dark:border-primary-800 dark:bg-surface-dark" data-testid="sync-result">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-primary-900 dark:text-white">Sync finished</p>
+            <p class="mt-0.5 text-xs text-primary-500 dark:text-primary-400">{{ syncResult.configName }} · {{ formatDateTime(syncResult.syncedAt.toISOString()) }}</p>
+          </div>
+          <button type="button" class="btn-secondary" @click="syncResult = null">Dismiss</button>
+        </div>
+        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div class="rounded-md border border-red-200 bg-red-500/10 px-3 py-2 dark:border-red-800">
+            <p class="text-2xl font-semibold tabular-nums text-red-700 dark:text-red-300">{{ syncResult.result.deletedCount }}</p>
+            <p class="text-xs text-red-700/80 dark:text-red-300/80">moved to <code>deleted/</code></p>
+          </div>
+          <div class="rounded-md border border-amber-200 bg-amber-500/10 px-3 py-2 dark:border-amber-800">
+            <p class="text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-300">{{ syncResult.result.blacklistedCount }}</p>
+            <p class="text-xs text-amber-700/80 dark:text-amber-300/80">moved to <code>blacklist/</code></p>
+          </div>
+          <div class="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 dark:border-primary-700 dark:bg-primary-900/30">
+            <p class="text-2xl font-semibold tabular-nums text-primary-700 dark:text-primary-200">{{ syncResult.result.movedFiles.length }}</p>
+            <p class="text-xs text-primary-600 dark:text-primary-300">files moved in total</p>
+          </div>
+        </div>
+        <div v-if="syncResult.result.movedFiles.length" class="mt-5">
+          <p class="text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400">Moved files</p>
+          <div class="mt-2 max-h-64 overflow-y-auto rounded-md border border-primary-200 dark:border-primary-700">
+            <table class="min-w-full divide-y divide-primary-200 text-left text-xs dark:divide-primary-700">
+              <thead class="sticky top-0 bg-primary-50 dark:bg-primary-900">
+                <tr>
+                  <th class="px-3 py-2 font-semibold text-primary-600 dark:text-primary-300">File</th>
+                  <th class="px-3 py-2 font-semibold text-primary-600 dark:text-primary-300">Reason</th>
+                  <th class="px-3 py-2 font-semibold text-primary-600 dark:text-primary-300">New location</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-primary-100 dark:divide-primary-800">
+                <tr v-for="moved in syncResult.result.movedFiles" :key="moved.fromPath" class="text-primary-700 dark:text-primary-200">
+                  <td class="max-w-[28rem] break-all px-3 py-2 font-mono">{{ moved.basename }}</td>
+                  <td class="whitespace-nowrap px-3 py-2">{{ moved.reason }}</td>
+                  <td class="max-w-[32rem] break-all px-3 py-2 font-mono">{{ moved.toPath }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-        <template v-else-if="syncProgress.fileName">
-          {{ syncProgress.fileName }}
-        </template>
-
-        <template v-else>
-          Dateien werden verarbeitet…
-        </template>
-      </p>
-    </div>
-
-    <span class="whitespace-nowrap text-xs tabular-nums text-primary-500 dark:text-primary-400">
-      <template v-if="syncProgress.total">
-        {{ syncProgress.current }} / {{ syncProgress.total }}
-      </template>
-
-      <template v-else>
-        wird ermittelt…
-      </template>
-    </span>
-  </div>
-
-  <div class="mt-3 h-2 overflow-hidden rounded-full bg-primary-100 dark:bg-primary-800">
-    <div
-      v-if="!syncProgress.total"
-      class="h-full w-1/3 animate-pulse rounded-full bg-accent-500"
-    ></div>
-
-    <div
-      v-else
-      class="h-full rounded-full bg-accent-500 transition-all duration-200"
-      :style="{
-        width: `${Math.min(
-          100,
-          (syncProgress.current / syncProgress.total) * 100,
-        )}%`,
-      }"
-    ></div>
-  </div>
-
-  <p class="mt-1 text-right text-xs tabular-nums text-primary-500 dark:text-primary-400">
-    <template v-if="syncProgress.total">
-      {{ Math.round((syncProgress.current / syncProgress.total) * 100) }} %
-    </template>
-    <template v-else>
-      wird ermittelt…
-    </template>
-  </p>
-</div>
-
-<!-- latest sync result -->
-<div
-  v-if="syncResult"
-  class="mt-6 rounded-lg border border-primary-200 bg-surface p-4 dark:border-primary-800 dark:bg-surface-dark"
-  data-testid="sync-result"
->
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div>
-      <p class="text-sm font-semibold text-primary-900 dark:text-white">
-        Sync abgeschlossen
-      </p>
-
-      <p class="mt-0.5 text-xs text-primary-500 dark:text-primary-400">
-        Config: {{ syncResult.configName }}
-        · {{ formatDateTime(syncResult.syncedAt.toISOString()) }}
-      </p>
-    </div>
-
-    <button
-      type="button"
-      class="btn-secondary"
-      @click="syncResult = null"
-    >
-      Dismiss
-    </button>
-  </div>
-
-  <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-    <div class="rounded-md border border-red-200 bg-red-500/10 px-3 py-2 dark:border-red-800">
-      <p class="text-2xl font-semibold tabular-nums text-red-700 dark:text-red-300">
-        {{ syncResult.result.deletedCount }}
-      </p>
-      <p class="text-xs text-red-700/80 dark:text-red-300/80">
-        nach <code>_deleted</code> verschoben
-      </p>
-    </div>
-
-    <div class="rounded-md border border-amber-200 bg-amber-500/10 px-3 py-2 dark:border-amber-800">
-      <p class="text-2xl font-semibold tabular-nums text-amber-700 dark:text-amber-300">
-        {{ syncResult.result.blacklistedCount }}
-      </p>
-      <p class="text-xs text-amber-700/80 dark:text-amber-300/80">
-        nach <code>_blacklist</code> verschoben
-      </p>
-    </div>
-
-    <div class="rounded-md border border-primary-200 bg-primary-50 px-3 py-2 dark:border-primary-700 dark:bg-primary-900/30">
-      <p class="text-2xl font-semibold tabular-nums text-primary-700 dark:text-primary-200">
-        {{ syncResult.result.movedFiles.length }}
-      </p>
-      <p class="text-xs text-primary-600 dark:text-primary-300">
-        Dateien insgesamt verschoben
-      </p>
-    </div>
-  </div>
-
-  <div
-    v-if="syncResult.result.movedFiles.length"
-    class="mt-5"
-  >
-    <p class="text-xs font-semibold uppercase tracking-wide text-primary-500 dark:text-primary-400">
-      Verschobene Dateien
-    </p>
-
-    <div class="mt-2 max-h-64 overflow-y-auto rounded-md border border-primary-200 dark:border-primary-700">
-      <table class="min-w-full divide-y divide-primary-200 text-left text-xs dark:divide-primary-700">
-        <thead class="sticky top-0 bg-primary-50 dark:bg-primary-900">
-          <tr>
-            <th class="px-3 py-2 font-semibold text-primary-600 dark:text-primary-300">
-              Dateiname
-            </th>
-            <th class="px-3 py-2 font-semibold text-primary-600 dark:text-primary-300">
-              Grund
-            </th>
-            <th class="px-3 py-2 font-semibold text-primary-600 dark:text-primary-300">
-              Neuer Speicherort
-            </th>
-          </tr>
-        </thead>
-
-        <tbody class="divide-y divide-primary-100 dark:divide-primary-800">
-          <tr
-            v-for="moved in syncResult.result.movedFiles"
-            :key="moved.fromPath"
-            class="text-primary-700 dark:text-primary-200"
-          >
-            <td class="max-w-[28rem] break-all px-3 py-2 font-mono">
-              {{ moved.basename }}
-            </td>
-            <td class="whitespace-nowrap px-3 py-2">
-              {{ moved.reason }}
-            </td>
-            <td class="max-w-[32rem] break-all px-3 py-2 font-mono">
-              {{ moved.toPath }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- config cards -->
+      <!-- config cards -->
       <div v-if="configs.length" class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         <div
           v-for="config in configs"
@@ -331,10 +234,6 @@
               {{ folderNames[config.id] ? "change" : "pick" }}
             </button>
           </p>
-
-
-
-
           <p class="mt-1 text-xs text-primary-500 dark:text-primary-400">
             <span v-if="config.lastDownloadAt">last download {{ formatDateTime(config.lastDownloadAt) }}</span>
             <span v-else>never downloaded</span>
@@ -344,15 +243,10 @@
               <EyeIcon class="h-4 w-4" />
               {{ previewLoading === config.id ? "Scanning…" : "Preview" }}
             </button>
-<button
-  type="button"
-  class="btn-secondary flex-1"
-  :disabled="!supported || !!activeRun || !!syncProgress"
-  @click="syncLocalFiles(config)"
->
-  <ArrowPathIcon class="h-4 w-4" />
-  Sync
-</button>
+            <button type="button" class="btn-secondary flex-1" :disabled="!supported || !!activeRun || !!syncProgress" @click="syncLocalFiles(config)">
+              <ArrowPathIcon class="h-4 w-4" />
+              Sync
+            </button>
             <button type="button" class="btn-secondary flex-1" :disabled="!supported || !!activeRun || !!syncProgress" @click="startRun(config, true)">
               <ArrowPathIcon class="h-4 w-4" />
               Delta
@@ -376,11 +270,7 @@
       @save="saveConfig"
       @deleted="deleteConfig"
     />
-    <UnexpectedErrorMessage
-      :show="Boolean(showUnexpectedErrorMessage)"
-      :error="unexpectedError ?? undefined"
-      @closed="showUnexpectedErrorMessage = false"
-    />
+    <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
   </div>
 </template>
 
@@ -411,6 +301,7 @@ import {
   RunProgress,
   runDownload,
   reconcileLocalFiles,
+  ReconcileProgress,
   ReconcileResult,
 } from "src/util/downloadRunner";
 
@@ -420,16 +311,7 @@ interface SyncResultState {
   syncedAt: Date;
 }
 
-interface SyncProgress {
-  configName: string;
-  current: number;
-  total: number;
-  fileName?: string;
-  phase: "scanning" | "moving" | "finished";
-}
-
-const syncProgress = ref<SyncProgress | null>(null);
-
+const syncProgress = ref<({ configName: string } & ReconcileProgress) | null>(null);
 const syncResult = ref<SyncResultState | null>(null);
 const userStore = useUserStore();
 const { activeProjectId } = storeToRefs(userStore);
@@ -441,15 +323,12 @@ const matchCounts = ref<Record<string, number>>({});
 const folderNames = ref<Record<string, string>>({});
 const loaded = ref(false);
 
-const unexpectedError = ref<Error | undefined>(undefined);
+const unexpectedError = ref<any>(null);
 const showUnexpectedErrorMessage = ref(false);
-
 const fail = (error: any) => {
-  unexpectedError.value = error instanceof Error ? error : new Error(String(error));
+  unexpectedError.value = error;
   showUnexpectedErrorMessage.value = true;
 };
-
-
 
 async function loadData() {
   if (!activeProjectId.value) return;
@@ -628,8 +507,7 @@ async function openPreview(config: DownloadConfig) {
   try {
     const directory = await getDirectory(config);
     if (!directory) return;
-    const images = await fetchAllImages(config);
-    const existing = await collectExistingFiles(directory);
+    const [images, existing] = await Promise.all([fetchAllImages(config), collectExistingFiles(directory)]);
     preview.value = { config, images, plan: planDownload(images, config, existing, { delta: true }), directory };
   } catch (error: any) {
     fail(error);
@@ -697,46 +575,23 @@ async function startRun(config: DownloadConfig, delta: boolean) {
 }
 
 // ---- sync local files ----
+// Reconcile moves local files that left the catalog (or got blacklisted)
+// aside — never deletes. See reconcileLocalFiles for the rules.
 async function syncLocalFiles(config: DownloadConfig) {
   const directory = await getDirectory(config);
   if (!directory) return;
-
   syncResult.value = null;
-
-  syncProgress.value = {
-    configName: config.name,
-    current: 0,
-    total: 0,
-    phase: "scanning",
-  };
-
+  syncProgress.value = { configName: config.name, current: 0, total: 0, phase: "scanning" };
   try {
     const images = await fetchAllImages(config);
-
-    const rc = await reconcileLocalFiles(
-      directory,
-      config,
-      images,
-      (progress) => {
-        syncProgress.value = {
-          configName: config.name,
-          ...progress,
-        };
-      },
-    );
-
-    syncResult.value = {
-      configName: config.name,
-      result: rc,
-      syncedAt: new Date(),
-    };
-
+    const result = await reconcileLocalFiles(directory, config, images, (progress) => {
+      syncProgress.value = { configName: config.name, ...progress };
+    });
+    syncResult.value = { configName: config.name, result, syncedAt: new Date() };
+    const moved = result.deletedCount || result.blacklistedCount;
     showNotificationToast({
-      headline:
-        rc.deletedCount || rc.blacklistedCount
-          ? `Synced: ${rc.deletedCount} deleted, ${rc.blacklistedCount} blacklisted`
-          : "No changes to sync",
-      type: rc.deletedCount || rc.blacklistedCount ? "success" : "info",
+      headline: moved ? `Synced: ${result.deletedCount} deleted, ${result.blacklistedCount} blacklisted` : "No changes to sync",
+      type: moved ? "success" : "info",
     });
   } catch (error: any) {
     fail(error);
@@ -744,8 +599,6 @@ async function syncLocalFiles(config: DownloadConfig) {
     syncProgress.value = null;
   }
 }
-
-
 </script>
 
 <style scoped>

@@ -41,7 +41,7 @@ type DownloadConfig struct {
 	DeltaSubfolder bool `json:"deltaSubfolder"`
 	// GroupByDate holds the value of the "groupByDate" field.
 	GroupByDate bool `json:"groupByDate"`
-	// FolderStructure holds the value of the "folder_structure" field.
+	// FolderStructure holds the value of the "folderStructure" field.
 	FolderStructure string `json:"folderStructure"`
 	// LastDownloadAt holds the value of the "lastDownloadAt" field.
 	LastDownloadAt *time.Time `json:"lastDownloadAt"`
@@ -196,7 +196,7 @@ func (_m *DownloadConfig) assignValues(columns []string, values []any) error {
 			}
 		case downloadconfig.FieldFolderStructure:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field folder_structure", values[i])
+				return fmt.Errorf("unexpected type %T for field folderStructure", values[i])
 			} else if value.Valid {
 				_m.FolderStructure = value.String
 			}
@@ -299,7 +299,7 @@ func (_m *DownloadConfig) String() string {
 	builder.WriteString("groupByDate=")
 	builder.WriteString(fmt.Sprintf("%v", _m.GroupByDate))
 	builder.WriteString(", ")
-	builder.WriteString("folder_structure=")
+	builder.WriteString("folderStructure=")
 	builder.WriteString(_m.FolderStructure)
 	builder.WriteString(", ")
 	if v := _m.LastDownloadAt; v != nil {

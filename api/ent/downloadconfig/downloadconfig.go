@@ -34,7 +34,7 @@ const (
 	FieldDeltaSubfolder = "delta_subfolder"
 	// FieldGroupByDate holds the string denoting the groupbydate field in the database.
 	FieldGroupByDate = "group_by_date"
-	// FieldFolderStructure holds the string denoting the folder_structure field in the database.
+	// FieldFolderStructure holds the string denoting the folderstructure field in the database.
 	FieldFolderStructure = "folder_structure"
 	// FieldLastDownloadAt holds the string denoting the lastdownloadat field in the database.
 	FieldLastDownloadAt = "last_download_at"
@@ -112,7 +112,7 @@ var (
 	DefaultDeltaSubfolder bool
 	// DefaultGroupByDate holds the default value on creation for the "groupByDate" field.
 	DefaultGroupByDate bool
-	// DefaultFolderStructure holds the default value on creation for the "folder_structure" field.
+	// DefaultFolderStructure holds the default value on creation for the "folderStructure" field.
 	DefaultFolderStructure string
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
@@ -163,7 +163,7 @@ func ByGroupByDate(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupByDate, opts...).ToFunc()
 }
 
-// ByFolderStructure orders the results by the folder_structure field.
+// ByFolderStructure orders the results by the folderStructure field.
 func ByFolderStructure(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFolderStructure, opts...).ToFunc()
 }

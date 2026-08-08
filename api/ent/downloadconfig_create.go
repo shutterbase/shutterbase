@@ -131,13 +131,13 @@ func (_c *DownloadConfigCreate) SetNillableGroupByDate(v *bool) *DownloadConfigC
 	return _c
 }
 
-// SetFolderStructure sets the "folder_structure" field.
+// SetFolderStructure sets the "folderStructure" field.
 func (_c *DownloadConfigCreate) SetFolderStructure(v string) *DownloadConfigCreate {
 	_c.mutation.SetFolderStructure(v)
 	return _c
 }
 
-// SetNillableFolderStructure sets the "folder_structure" field if the given value is not nil.
+// SetNillableFolderStructure sets the "folderStructure" field if the given value is not nil.
 func (_c *DownloadConfigCreate) SetNillableFolderStructure(v *string) *DownloadConfigCreate {
 	if v != nil {
 		_c.SetFolderStructure(*v)
@@ -291,7 +291,7 @@ func (_c *DownloadConfigCreate) check() error {
 		return &ValidationError{Name: "groupByDate", err: errors.New(`ent: missing required field "DownloadConfig.groupByDate"`)}
 	}
 	if _, ok := _c.mutation.FolderStructure(); !ok {
-		return &ValidationError{Name: "folder_structure", err: errors.New(`ent: missing required field "DownloadConfig.folder_structure"`)}
+		return &ValidationError{Name: "folderStructure", err: errors.New(`ent: missing required field "DownloadConfig.folderStructure"`)}
 	}
 	if _, ok := _c.mutation.ProjectID(); !ok {
 		return &ValidationError{Name: "project_id", err: errors.New(`ent: missing required field "DownloadConfig.project_id"`)}
