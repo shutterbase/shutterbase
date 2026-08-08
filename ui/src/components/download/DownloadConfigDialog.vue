@@ -56,7 +56,7 @@
               <div class="space-y-5 px-6 py-5">
                 <label class="block">
                   <span class="text-sm font-medium text-primary-700 dark:text-primary-200">Name</span>
-                  <input v-model="draft.name" type="text" required class="input-field mt-1" placeholder="e.g. Full delivery, Social media picks" />
+                  <input v-model="draft.name" type="text" required maxlength="100" class="input-field mt-1" placeholder="e.g. Full delivery, Social media picks" />
                 </label>
 
                 <div>

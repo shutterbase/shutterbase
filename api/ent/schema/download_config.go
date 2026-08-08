@@ -22,7 +22,7 @@ func (DownloadConfig) Mixin() []ent.Mixin {
 
 func (DownloadConfig) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("name").NotEmpty().StructTag(`json:"name"`),
+		field.String("name").NotEmpty().MaxLen(100).StructTag(`json:"name"`),
 		// whitelist tags are AND-applied server-side by /images; blacklist tags
 		// and blocked images are excluded client-side by the runner.
 		field.JSON("whitelistTagIds", []string{}).Optional().Default([]string{}).StructTag(`json:"whitelistTagIds"`),
