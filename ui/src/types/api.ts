@@ -171,8 +171,8 @@ export interface DownloadConfig {
   blockedImageIds: string[];
   deltaSubfolder: boolean;
   groupByDate: boolean;
+  folderStructure: "default" | "weekday";
   lastDownloadAt: string | null;
-  folderStructure?: "default" | "weekday"; // default: "default"
   projectId: string;
   createdAt: string;
   updatedAt: string;

@@ -154,13 +154,13 @@ func (_u *DownloadConfigUpdate) SetNillableGroupByDate(v *bool) *DownloadConfigU
 	return _u
 }
 
-// SetFolderStructure sets the "folder_structure" field.
+// SetFolderStructure sets the "folderStructure" field.
 func (_u *DownloadConfigUpdate) SetFolderStructure(v string) *DownloadConfigUpdate {
 	_u.mutation.SetFolderStructure(v)
 	return _u
 }
 
-// SetNillableFolderStructure sets the "folder_structure" field if the given value is not nil.
+// SetNillableFolderStructure sets the "folderStructure" field if the given value is not nil.
 func (_u *DownloadConfigUpdate) SetNillableFolderStructure(v *string) *DownloadConfigUpdate {
 	if v != nil {
 		_u.SetFolderStructure(*v)
@@ -570,13 +570,13 @@ func (_u *DownloadConfigUpdateOne) SetNillableGroupByDate(v *bool) *DownloadConf
 	return _u
 }
 
-// SetFolderStructure sets the "folder_structure" field.
+// SetFolderStructure sets the "folderStructure" field.
 func (_u *DownloadConfigUpdateOne) SetFolderStructure(v string) *DownloadConfigUpdateOne {
 	_u.mutation.SetFolderStructure(v)
 	return _u
 }
 
-// SetNillableFolderStructure sets the "folder_structure" field if the given value is not nil.
+// SetNillableFolderStructure sets the "folderStructure" field if the given value is not nil.
 func (_u *DownloadConfigUpdateOne) SetNillableFolderStructure(v *string) *DownloadConfigUpdateOne {
 	if v != nil {
 		_u.SetFolderStructure(*v)

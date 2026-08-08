@@ -101,7 +101,7 @@ func GroupByDate(v bool) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldEQ(FieldGroupByDate, v))
 }
 
-// FolderStructure applies equality check predicate on the "folder_structure" field. It's identical to FolderStructureEQ.
+// FolderStructure applies equality check predicate on the "folderStructure" field. It's identical to FolderStructureEQ.
 func FolderStructure(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldEQ(FieldFolderStructure, v))
 }
@@ -416,67 +416,67 @@ func GroupByDateNEQ(v bool) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldNEQ(FieldGroupByDate, v))
 }
 
-// FolderStructureEQ applies the EQ predicate on the "folder_structure" field.
+// FolderStructureEQ applies the EQ predicate on the "folderStructure" field.
 func FolderStructureEQ(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldEQ(FieldFolderStructure, v))
 }
 
-// FolderStructureNEQ applies the NEQ predicate on the "folder_structure" field.
+// FolderStructureNEQ applies the NEQ predicate on the "folderStructure" field.
 func FolderStructureNEQ(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldNEQ(FieldFolderStructure, v))
 }
 
-// FolderStructureIn applies the In predicate on the "folder_structure" field.
+// FolderStructureIn applies the In predicate on the "folderStructure" field.
 func FolderStructureIn(vs ...string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldIn(FieldFolderStructure, vs...))
 }
 
-// FolderStructureNotIn applies the NotIn predicate on the "folder_structure" field.
+// FolderStructureNotIn applies the NotIn predicate on the "folderStructure" field.
 func FolderStructureNotIn(vs ...string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldNotIn(FieldFolderStructure, vs...))
 }
 
-// FolderStructureGT applies the GT predicate on the "folder_structure" field.
+// FolderStructureGT applies the GT predicate on the "folderStructure" field.
 func FolderStructureGT(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldGT(FieldFolderStructure, v))
 }
 
-// FolderStructureGTE applies the GTE predicate on the "folder_structure" field.
+// FolderStructureGTE applies the GTE predicate on the "folderStructure" field.
 func FolderStructureGTE(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldGTE(FieldFolderStructure, v))
 }
 
-// FolderStructureLT applies the LT predicate on the "folder_structure" field.
+// FolderStructureLT applies the LT predicate on the "folderStructure" field.
 func FolderStructureLT(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldLT(FieldFolderStructure, v))
 }
 
-// FolderStructureLTE applies the LTE predicate on the "folder_structure" field.
+// FolderStructureLTE applies the LTE predicate on the "folderStructure" field.
 func FolderStructureLTE(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldLTE(FieldFolderStructure, v))
 }
 
-// FolderStructureContains applies the Contains predicate on the "folder_structure" field.
+// FolderStructureContains applies the Contains predicate on the "folderStructure" field.
 func FolderStructureContains(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldContains(FieldFolderStructure, v))
 }
 
-// FolderStructureHasPrefix applies the HasPrefix predicate on the "folder_structure" field.
+// FolderStructureHasPrefix applies the HasPrefix predicate on the "folderStructure" field.
 func FolderStructureHasPrefix(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldHasPrefix(FieldFolderStructure, v))
 }
 
-// FolderStructureHasSuffix applies the HasSuffix predicate on the "folder_structure" field.
+// FolderStructureHasSuffix applies the HasSuffix predicate on the "folderStructure" field.
 func FolderStructureHasSuffix(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldHasSuffix(FieldFolderStructure, v))
 }
 
-// FolderStructureEqualFold applies the EqualFold predicate on the "folder_structure" field.
+// FolderStructureEqualFold applies the EqualFold predicate on the "folderStructure" field.
 func FolderStructureEqualFold(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldEqualFold(FieldFolderStructure, v))
 }
 
-// FolderStructureContainsFold applies the ContainsFold predicate on the "folder_structure" field.
+// FolderStructureContainsFold applies the ContainsFold predicate on the "folderStructure" field.
 func FolderStructureContainsFold(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldContainsFold(FieldFolderStructure, v))
 }

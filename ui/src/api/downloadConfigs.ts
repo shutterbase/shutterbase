@@ -9,27 +9,6 @@ export interface DownloadConfigCreate {
   blockedImageIds?: string[];
   deltaSubfolder?: boolean;
   groupByDate?: boolean;
-  folderStructure?: 'weekday' | 'default' | undefined;
-}
-
-export interface DownloadConfigUpdate {
-  name?: string;
-  whitelistTagIds?: string[];
-  blacklistTagIds?: string[];
-  blockedImageIds?: string[];
-  deltaSubfolder?: boolean;
-  groupByDate?: boolean;
-  lastDownloadAt?: string;
-}
-
-export interface DownloadConfigCreate {
-  name: string;
-  projectId: string;
-  whitelistTagIds?: string[];
-  blacklistTagIds?: string[];
-  blockedImageIds?: string[];
-  deltaSubfolder?: boolean;
-  groupByDate?: boolean;
   folderStructure?: "default" | "weekday";
 }
 

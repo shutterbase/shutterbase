@@ -2911,7 +2911,7 @@ type DownloadConfigMutation struct {
 	appendblockedImageIds []string
 	deltaSubfolder        *bool
 	groupByDate           *bool
-	folder_structure      *string
+	folderStructure       *string
 	lastDownloadAt        *time.Time
 	clearedFields         map[string]struct{}
 	project               *string
@@ -3500,21 +3500,21 @@ func (m *DownloadConfigMutation) ResetGroupByDate() {
 	m.groupByDate = nil
 }
 
-// SetFolderStructure sets the "folder_structure" field.
+// SetFolderStructure sets the "folderStructure" field.
 func (m *DownloadConfigMutation) SetFolderStructure(s string) {
-	m.folder_structure = &s
+	m.folderStructure = &s
 }
 
-// FolderStructure returns the value of the "folder_structure" field in the mutation.
+// FolderStructure returns the value of the "folderStructure" field in the mutation.
 func (m *DownloadConfigMutation) FolderStructure() (r string, exists bool) {
-	v := m.folder_structure
+	v := m.folderStructure
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldFolderStructure returns the old "folder_structure" field's value of the DownloadConfig entity.
+// OldFolderStructure returns the old "folderStructure" field's value of the DownloadConfig entity.
 // If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
 func (m *DownloadConfigMutation) OldFolderStructure(ctx context.Context) (v string, err error) {
@@ -3531,9 +3531,9 @@ func (m *DownloadConfigMutation) OldFolderStructure(ctx context.Context) (v stri
 	return oldValue.FolderStructure, nil
 }
 
-// ResetFolderStructure resets all changes to the "folder_structure" field.
+// ResetFolderStructure resets all changes to the "folderStructure" field.
 func (m *DownloadConfigMutation) ResetFolderStructure() {
-	m.folder_structure = nil
+	m.folderStructure = nil
 }
 
 // SetLastDownloadAt sets the "lastDownloadAt" field.
@@ -3776,7 +3776,7 @@ func (m *DownloadConfigMutation) Fields() []string {
 	if m.groupByDate != nil {
 		fields = append(fields, downloadconfig.FieldGroupByDate)
 	}
-	if m.folder_structure != nil {
+	if m.folderStructure != nil {
 		fields = append(fields, downloadconfig.FieldFolderStructure)
 	}
 	if m.lastDownloadAt != nil {
