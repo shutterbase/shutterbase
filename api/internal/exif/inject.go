@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/shutterbase/shutterbase/ent"
@@ -128,13 +129,28 @@ func buildMetadata(image *ent.Image) map[string]any {
 	if u := image.Edges.User; u != nil {
 		copyrightTag = u.CopyrightTag
 	}
+	// Combo tags ("autocross|DV") are applied as one tag but exported as their
+	// pipe-separated parts, so paired keywords can never be half-applied. Parts
+	// are trimmed, empties dropped, and duplicates (a part equal to another tag)
+	// deduped keeping the first occurrence. The copyright prefix applies after
+	// splitting, so a part equal to the copyright tag renders consistently.
 	keywords := make([]string, 0, len(tags))
+	seen := map[string]struct{}{}
 	for _, tag := range sortTagsByOrder(tags) {
-		name := tag.Name
-		if prefix != "" && copyrightTag != "" && name == copyrightTag {
-			name = prefix + name
+		for _, part := range strings.Split(tag.Name, "|") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			if prefix != "" && copyrightTag != "" && part == copyrightTag {
+				part = prefix + part
+			}
+			if _, dup := seen[part]; dup {
+				continue
+			}
+			seen[part] = struct{}{}
+			keywords = append(keywords, part)
 		}
-		keywords = append(keywords, name)
 	}
 	m["EXIF:XPKeywords"] = keywords
 	m["IPTC:Keywords"] = keywords
