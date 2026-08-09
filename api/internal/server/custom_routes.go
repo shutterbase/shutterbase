@@ -20,6 +20,7 @@ import (
 func (s *Server) registerCustomRoutes(api *gin.RouterGroup) {
 	api.GET("/upload-url", s.getUploadURL)
 	api.GET("/download/:id/:res", s.downloadImage)
+	api.POST("/exif/inspect", s.inspectExif)
 	api.GET("/statistics/:projectId", s.getStatistics)
 	api.GET("/sync-image-tags", s.syncImageTags)
 }

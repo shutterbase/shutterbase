@@ -40,6 +40,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import("pages/download/Download.vue"),
       },
       {
+        name: "exif-viewer",
+        path: "/exif-viewer",
+        component: () => import("pages/exif/ExifViewer.vue"),
+      },
+      {
         name: "sandbox",
         path: "/sandbox",
         component: () => import("pages/Sandbox.vue"),
