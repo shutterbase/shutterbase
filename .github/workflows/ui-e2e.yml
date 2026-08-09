@@ -31,6 +31,10 @@ jobs:
         with:
           go-version: "1.26.4"
 
+      # The API shells out to exiftool (/download injection, /exif/inspect reading).
+      - name: Install exiftool
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libimage-exiftool-perl
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.14"

@@ -15,6 +15,7 @@ import * as auth from "./auth";
 import * as statistics from "./statistics";
 import * as apiKeys from "./apiKeys";
 import * as downloadConfigs from "./downloadConfigs";
+import * as exif from "./exif";
 
 export const api = {
   ai,
@@ -33,6 +34,7 @@ export const api = {
   statistics,
   apiKeys,
   downloadConfigs,
+  exif,
 };
 
 export default api;

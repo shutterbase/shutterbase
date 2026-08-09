@@ -29,6 +29,7 @@ test.describe.serial("smoke", () => {
       ["uploads", "/uploads"],
       ["uploads-create", "/uploads/create"],
       ["users", "/users"],
+      ["exif-viewer", "/exif-viewer"],
       ["change-password", "/change-password"],
       ["sandbox", "/sandbox"],
       ["notfound", "/zzz-does-not-exist"],
