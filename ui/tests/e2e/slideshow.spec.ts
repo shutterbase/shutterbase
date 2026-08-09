@@ -27,12 +27,13 @@ test.describe("slideshow", () => {
     await page.waitForTimeout(2500);
     expect(await position.textContent()).toBe(frozen);
 
-    // exit returns to the grid — wake the auto-faded controls first; force
-    // because the DEV quick-actions bubble (z-9999, dev builds only) floats
-    // over the bottom-right corner and would intercept the hit test
+    // exit returns to the grid — wake the auto-faded controls first. The DEV
+    // quick-actions bubble (z-9999, dev builds only) covers the button's hit
+    // point, so a positional click lands on the bubble; dispatch straight to
+    // the button instead — prod has no bubble.
     await page.mouse.move(300, 300);
     await expect(page.getByTestId("slideshow-controls")).toBeVisible();
-    await page.getByTestId("slideshow-exit").click({ force: true });
+    await page.getByTestId("slideshow-exit").dispatchEvent("click");
     await expect(page.getByTestId("slideshow-overlay")).toHaveCount(0);
   });
 
