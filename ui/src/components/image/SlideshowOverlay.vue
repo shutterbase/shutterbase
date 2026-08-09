@@ -300,6 +300,7 @@ function togglePause() {
   if (paused.value) {
     clearTimer();
     navToken++; // cancel an advance that is already past its timer, mid-preload
+    waiting.value = false; // the cancelled advance can no longer clear its own chip
   } else {
     scheduleAdvance();
   }
