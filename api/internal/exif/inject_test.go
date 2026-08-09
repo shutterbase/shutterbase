@@ -55,6 +55,44 @@ func TestBuildMetadataKeywordsRespectOrder(t *testing.T) {
 	}
 }
 
+func TestBuildMetadataComboTagsSplitAtExport(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("autocross|DV", imagetag.TypeManual, intPtr(1))}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("autocross", imagetag.TypeManual, intPtr(2))}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag(" a | b ||c ", imagetag.TypeManual, intPtr(3))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	// combo split in tag order, duplicate "autocross" deduped, parts trimmed, empties dropped
+	want := []string{"autocross", "DV", "a", "b", "c"}
+	if !reflect.DeepEqual(m["IPTC:Keywords"], want) {
+		t.Fatalf("IPTC:Keywords = %v, want %v", m["IPTC:Keywords"], want)
+	}
+	if !reflect.DeepEqual(m["EXIF:XPKeywords"], want) {
+		t.Fatalf("EXIF:XPKeywords = %v, want %v", m["EXIF:XPKeywords"], want)
+	}
+}
+
+func TestBuildMetadataComboTagPartGetsCopyrightPrefix(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			User:    &ent.User{CopyrightTag: "mm"},
+			Project: &ent.Project{CopyrightTagPrefix: "by_"},
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("autocross|mm", imagetag.TypeManual, intPtr(1))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	want := []string{"autocross", "by_mm"}
+	if !reflect.DeepEqual(m["IPTC:Keywords"], want) {
+		t.Fatalf("IPTC:Keywords = %v, want %v", m["IPTC:Keywords"], want)
+	}
+}
+
 func TestBuildMetadataCopyrightTagPrefix(t *testing.T) {
 	image := &ent.Image{
 		Edges: ent.ImageEdges{
