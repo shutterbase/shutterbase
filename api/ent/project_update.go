@@ -118,6 +118,26 @@ func (_u *ProjectUpdate) SetNillableCopyrightReference(v *string) *ProjectUpdate
 	return _u
 }
 
+// SetCopyrightTagPrefix sets the "copyrightTagPrefix" field.
+func (_u *ProjectUpdate) SetCopyrightTagPrefix(v string) *ProjectUpdate {
+	_u.mutation.SetCopyrightTagPrefix(v)
+	return _u
+}
+
+// SetNillableCopyrightTagPrefix sets the "copyrightTagPrefix" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableCopyrightTagPrefix(v *string) *ProjectUpdate {
+	if v != nil {
+		_u.SetCopyrightTagPrefix(*v)
+	}
+	return _u
+}
+
+// ClearCopyrightTagPrefix clears the value of the "copyrightTagPrefix" field.
+func (_u *ProjectUpdate) ClearCopyrightTagPrefix() *ProjectUpdate {
+	_u.mutation.ClearCopyrightTagPrefix()
+	return _u
+}
+
 // SetLocationName sets the "locationName" field.
 func (_u *ProjectUpdate) SetLocationName(v string) *ProjectUpdate {
 	_u.mutation.SetLocationName(v)
@@ -603,6 +623,12 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.CopyrightReference(); ok {
 		_spec.SetField(project.FieldCopyrightReference, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.CopyrightTagPrefix(); ok {
+		_spec.SetField(project.FieldCopyrightTagPrefix, field.TypeString, value)
+	}
+	if _u.mutation.CopyrightTagPrefixCleared() {
+		_spec.ClearField(project.FieldCopyrightTagPrefix, field.TypeString)
+	}
 	if value, ok := _u.mutation.LocationName(); ok {
 		_spec.SetField(project.FieldLocationName, field.TypeString, value)
 	}
@@ -1047,6 +1073,26 @@ func (_u *ProjectUpdateOne) SetNillableCopyrightReference(v *string) *ProjectUpd
 	if v != nil {
 		_u.SetCopyrightReference(*v)
 	}
+	return _u
+}
+
+// SetCopyrightTagPrefix sets the "copyrightTagPrefix" field.
+func (_u *ProjectUpdateOne) SetCopyrightTagPrefix(v string) *ProjectUpdateOne {
+	_u.mutation.SetCopyrightTagPrefix(v)
+	return _u
+}
+
+// SetNillableCopyrightTagPrefix sets the "copyrightTagPrefix" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableCopyrightTagPrefix(v *string) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetCopyrightTagPrefix(*v)
+	}
+	return _u
+}
+
+// ClearCopyrightTagPrefix clears the value of the "copyrightTagPrefix" field.
+func (_u *ProjectUpdateOne) ClearCopyrightTagPrefix() *ProjectUpdateOne {
+	_u.mutation.ClearCopyrightTagPrefix()
 	return _u
 }
 
@@ -1564,6 +1610,12 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if value, ok := _u.mutation.CopyrightReference(); ok {
 		_spec.SetField(project.FieldCopyrightReference, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.CopyrightTagPrefix(); ok {
+		_spec.SetField(project.FieldCopyrightTagPrefix, field.TypeString, value)
+	}
+	if _u.mutation.CopyrightTagPrefixCleared() {
+		_spec.ClearField(project.FieldCopyrightTagPrefix, field.TypeString)
 	}
 	if value, ok := _u.mutation.LocationName(); ok {
 		_spec.SetField(project.FieldLocationName, field.TypeString, value)

@@ -126,6 +126,7 @@ export interface Project {
   description: string;
   copyright: string;
   copyrightReference: string;
+  copyrightTagPrefix?: string;
   locationName: string;
   locationCode: string;
   locationCity: string;

@@ -9149,6 +9149,7 @@ type ProjectMutation struct {
 	description               *string
 	copyright                 *string
 	copyrightReference        *string
+	copyrightTagPrefix        *string
 	locationName              *string
 	locationCode              *string
 	locationCity              *string
@@ -9599,6 +9600,55 @@ func (m *ProjectMutation) OldCopyrightReference(ctx context.Context) (v string, 
 // ResetCopyrightReference resets all changes to the "copyrightReference" field.
 func (m *ProjectMutation) ResetCopyrightReference() {
 	m.copyrightReference = nil
+}
+
+// SetCopyrightTagPrefix sets the "copyrightTagPrefix" field.
+func (m *ProjectMutation) SetCopyrightTagPrefix(s string) {
+	m.copyrightTagPrefix = &s
+}
+
+// CopyrightTagPrefix returns the value of the "copyrightTagPrefix" field in the mutation.
+func (m *ProjectMutation) CopyrightTagPrefix() (r string, exists bool) {
+	v := m.copyrightTagPrefix
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCopyrightTagPrefix returns the old "copyrightTagPrefix" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldCopyrightTagPrefix(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCopyrightTagPrefix is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCopyrightTagPrefix requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCopyrightTagPrefix: %w", err)
+	}
+	return oldValue.CopyrightTagPrefix, nil
+}
+
+// ClearCopyrightTagPrefix clears the value of the "copyrightTagPrefix" field.
+func (m *ProjectMutation) ClearCopyrightTagPrefix() {
+	m.copyrightTagPrefix = nil
+	m.clearedFields[project.FieldCopyrightTagPrefix] = struct{}{}
+}
+
+// CopyrightTagPrefixCleared returns if the "copyrightTagPrefix" field was cleared in this mutation.
+func (m *ProjectMutation) CopyrightTagPrefixCleared() bool {
+	_, ok := m.clearedFields[project.FieldCopyrightTagPrefix]
+	return ok
+}
+
+// ResetCopyrightTagPrefix resets all changes to the "copyrightTagPrefix" field.
+func (m *ProjectMutation) ResetCopyrightTagPrefix() {
+	m.copyrightTagPrefix = nil
+	delete(m.clearedFields, project.FieldCopyrightTagPrefix)
 }
 
 // SetLocationName sets the "locationName" field.
@@ -10304,7 +10354,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 16)
 	if m.createdAt != nil {
 		fields = append(fields, project.FieldCreatedAt)
 	}
@@ -10328,6 +10378,9 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.copyrightReference != nil {
 		fields = append(fields, project.FieldCopyrightReference)
+	}
+	if m.copyrightTagPrefix != nil {
+		fields = append(fields, project.FieldCopyrightTagPrefix)
 	}
 	if m.locationName != nil {
 		fields = append(fields, project.FieldLocationName)
@@ -10374,6 +10427,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.Copyright()
 	case project.FieldCopyrightReference:
 		return m.CopyrightReference()
+	case project.FieldCopyrightTagPrefix:
+		return m.CopyrightTagPrefix()
 	case project.FieldLocationName:
 		return m.LocationName()
 	case project.FieldLocationCode:
@@ -10413,6 +10468,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCopyright(ctx)
 	case project.FieldCopyrightReference:
 		return m.OldCopyrightReference(ctx)
+	case project.FieldCopyrightTagPrefix:
+		return m.OldCopyrightTagPrefix(ctx)
 	case project.FieldLocationName:
 		return m.OldLocationName(ctx)
 	case project.FieldLocationCode:
@@ -10491,6 +10548,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCopyrightReference(v)
+		return nil
+	case project.FieldCopyrightTagPrefix:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCopyrightTagPrefix(v)
 		return nil
 	case project.FieldLocationName:
 		v, ok := value.(string)
@@ -10577,6 +10641,9 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldUpdatedBy) {
 		fields = append(fields, project.FieldUpdatedBy)
 	}
+	if m.FieldCleared(project.FieldCopyrightTagPrefix) {
+		fields = append(fields, project.FieldCopyrightTagPrefix)
+	}
 	if m.FieldCleared(project.FieldAiSystemMessage) {
 		fields = append(fields, project.FieldAiSystemMessage)
 	}
@@ -10605,6 +10672,9 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldUpdatedBy:
 		m.ClearUpdatedBy()
+		return nil
+	case project.FieldCopyrightTagPrefix:
+		m.ClearCopyrightTagPrefix()
 		return nil
 	case project.FieldAiSystemMessage:
 		m.ClearAiSystemMessage()
@@ -10646,6 +10716,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldCopyrightReference:
 		m.ResetCopyrightReference()
+		return nil
+	case project.FieldCopyrightTagPrefix:
+		m.ResetCopyrightTagPrefix()
 		return nil
 	case project.FieldLocationName:
 		m.ResetLocationName()

@@ -116,16 +116,36 @@ func buildMetadata(image *ent.Image) map[string]any {
 		}
 		tags = append(tags, tag)
 	}
+	// The copyright-tag prefix (e.g. "by_") is an EXIF-render-time concern only:
+	// the photographer's copyright tag lives unprefixed in the DB and UI, and only
+	// keywords derived from it (the $COPYRIGHT default tag carries the uploader's
+	// copyrightTag as its name) get prefixed here.
+	prefix := ""
+	if p := image.Edges.Project; p != nil {
+		prefix = p.CopyrightTagPrefix
+	}
+	copyrightTag := ""
+	if u := image.Edges.User; u != nil {
+		copyrightTag = u.CopyrightTag
+	}
 	keywords := make([]string, 0, len(tags))
 	for _, tag := range sortTagsByOrder(tags) {
-		keywords = append(keywords, tag.Name)
+		name := tag.Name
+		if prefix != "" && copyrightTag != "" && name == copyrightTag {
+			name = prefix + name
+		}
+		keywords = append(keywords, name)
 	}
 	m["EXIF:XPKeywords"] = keywords
 	m["IPTC:Keywords"] = keywords
 
 	if u := image.Edges.User; u != nil {
 		fullName := fmt.Sprintf("%s %s", u.FirstName, u.LastName)
-		m["IPTC:By-lineTitle"] = u.CopyrightTag
+		byLineTitle := u.CopyrightTag
+		if byLineTitle != "" {
+			byLineTitle = prefix + byLineTitle
+		}
+		m["IPTC:By-lineTitle"] = byLineTitle
 		m["IPTC:By-line"] = fullName
 		m["EXIF:Artist"] = fullName
 		m["IPTC:Writer-Editor"] = fullName

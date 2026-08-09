@@ -54,3 +54,43 @@ func TestBuildMetadataKeywordsRespectOrder(t *testing.T) {
 		t.Fatalf("IPTC:Keywords = %v, want %v", m["IPTC:Keywords"], want)
 	}
 }
+
+func TestBuildMetadataCopyrightTagPrefix(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			User:    &ent.User{FirstName: "Max", LastName: "Mustermann", CopyrightTag: "mm"},
+			Project: &ent.Project{CopyrightTagPrefix: "by_"},
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("mm", imagetag.TypeDefault, intPtr(1))}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("autocross", imagetag.TypeManual, intPtr(2))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	want := []string{"by_mm", "autocross"}
+	if !reflect.DeepEqual(m["IPTC:Keywords"], want) {
+		t.Fatalf("IPTC:Keywords = %v, want %v", m["IPTC:Keywords"], want)
+	}
+	if m["IPTC:By-lineTitle"] != "by_mm" {
+		t.Fatalf("By-lineTitle = %v, want by_mm", m["IPTC:By-lineTitle"])
+	}
+}
+
+func TestBuildMetadataNoPrefixLeavesTagsUntouched(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			User:    &ent.User{CopyrightTag: "mm"},
+			Project: &ent.Project{},
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("mm", imagetag.TypeDefault, intPtr(1))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	if !reflect.DeepEqual(m["IPTC:Keywords"], []string{"mm"}) {
+		t.Fatalf("IPTC:Keywords = %v, want [mm]", m["IPTC:Keywords"])
+	}
+	if m["IPTC:By-lineTitle"] != "mm" {
+		t.Fatalf("By-lineTitle = %v, want mm", m["IPTC:By-lineTitle"])
+	}
+}

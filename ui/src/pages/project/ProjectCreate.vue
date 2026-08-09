@@ -66,6 +66,7 @@ const aiFields: Field<ProjectsResponse>[] = [{ key: "aiSystemMessage", label: "A
 const copyrightFields: Field<ProjectsResponse>[] = [
   { key: "copyright", label: "Copyright", type: FieldType.TEXT },
   { key: "copyrightReference", label: "Copyright reference", type: FieldType.TEXT },
+  { key: "copyrightTagPrefix", label: "Copyright tag prefix", type: FieldType.TEXT },
   { key: "locationName", label: "Location name", type: FieldType.TEXT },
   { key: "locationCode", label: "Location code", type: FieldType.TEXT },
   { key: "locationCity", label: "Location city", type: FieldType.TEXT },

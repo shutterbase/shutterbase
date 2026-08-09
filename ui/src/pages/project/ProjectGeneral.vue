@@ -267,6 +267,7 @@ const reviewFields: Field<ITEM_TYPE>[] = [{ key: "uploadReviewEnabled", label: "
 const copyrightFields: Field<ITEM_TYPE>[] = [
   { key: "copyright", label: "Copyright", type: FieldType.TEXT },
   { key: "copyrightReference", label: "Copyright reference", type: FieldType.TEXT },
+  { key: "copyrightTagPrefix", label: "Copyright tag prefix", type: FieldType.TEXT, hint: "Prepended to the photographer's copyright tag in exported EXIF only, e.g. by_" },
   { key: "locationName", label: "Location name", type: FieldType.TEXT },
   { key: "locationCode", label: "Location code", type: FieldType.TEXT },
   { key: "locationCity", label: "Location city", type: FieldType.TEXT },

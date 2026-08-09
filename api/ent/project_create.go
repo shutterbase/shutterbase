@@ -108,6 +108,20 @@ func (_c *ProjectCreate) SetCopyrightReference(v string) *ProjectCreate {
 	return _c
 }
 
+// SetCopyrightTagPrefix sets the "copyrightTagPrefix" field.
+func (_c *ProjectCreate) SetCopyrightTagPrefix(v string) *ProjectCreate {
+	_c.mutation.SetCopyrightTagPrefix(v)
+	return _c
+}
+
+// SetNillableCopyrightTagPrefix sets the "copyrightTagPrefix" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableCopyrightTagPrefix(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetCopyrightTagPrefix(*v)
+	}
+	return _c
+}
+
 // SetLocationName sets the "locationName" field.
 func (_c *ProjectCreate) SetLocationName(v string) *ProjectCreate {
 	_c.mutation.SetLocationName(v)
@@ -492,6 +506,10 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CopyrightReference(); ok {
 		_spec.SetField(project.FieldCopyrightReference, field.TypeString, value)
 		_node.CopyrightReference = value
+	}
+	if value, ok := _c.mutation.CopyrightTagPrefix(); ok {
+		_spec.SetField(project.FieldCopyrightTagPrefix, field.TypeString, value)
+		_node.CopyrightTagPrefix = value
 	}
 	if value, ok := _c.mutation.LocationName(); ok {
 		_spec.SetField(project.FieldLocationName, field.TypeString, value)

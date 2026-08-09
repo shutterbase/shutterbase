@@ -106,6 +106,11 @@ func CopyrightReference(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldCopyrightReference, v))
 }
 
+// CopyrightTagPrefix applies equality check predicate on the "copyrightTagPrefix" field. It's identical to CopyrightTagPrefixEQ.
+func CopyrightTagPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldCopyrightTagPrefix, v))
+}
+
 // LocationName applies equality check predicate on the "locationName" field. It's identical to LocationNameEQ.
 func LocationName(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldLocationName, v))
@@ -579,6 +584,81 @@ func CopyrightReferenceEqualFold(v string) predicate.Project {
 // CopyrightReferenceContainsFold applies the ContainsFold predicate on the "copyrightReference" field.
 func CopyrightReferenceContainsFold(v string) predicate.Project {
 	return predicate.Project(sql.FieldContainsFold(FieldCopyrightReference, v))
+}
+
+// CopyrightTagPrefixEQ applies the EQ predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixNEQ applies the NEQ predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixIn applies the In predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldCopyrightTagPrefix, vs...))
+}
+
+// CopyrightTagPrefixNotIn applies the NotIn predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldCopyrightTagPrefix, vs...))
+}
+
+// CopyrightTagPrefixGT applies the GT predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixGTE applies the GTE predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixLT applies the LT predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixLTE applies the LTE predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixContains applies the Contains predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixHasPrefix applies the HasPrefix predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixHasSuffix applies the HasSuffix predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixIsNil applies the IsNil predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldCopyrightTagPrefix))
+}
+
+// CopyrightTagPrefixNotNil applies the NotNil predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldCopyrightTagPrefix))
+}
+
+// CopyrightTagPrefixEqualFold applies the EqualFold predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldCopyrightTagPrefix, v))
+}
+
+// CopyrightTagPrefixContainsFold applies the ContainsFold predicate on the "copyrightTagPrefix" field.
+func CopyrightTagPrefixContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldCopyrightTagPrefix, v))
 }
 
 // LocationNameEQ applies the EQ predicate on the "locationName" field.

@@ -85,6 +85,7 @@ type CreateProjectParameters struct {
 	Description         string
 	Copyright           string
 	CopyrightReference  string
+	CopyrightTagPrefix  *string
 	LocationName        string
 	LocationCode        string
 	LocationCity        string
@@ -113,6 +114,9 @@ func (r *Repository) CreateProject(ctx context.Context, parameters *CreateProjec
 	if parameters.AiSystemMessage != nil {
 		create = create.SetAiSystemMessage(*parameters.AiSystemMessage)
 	}
+	if parameters.CopyrightTagPrefix != nil {
+		create = create.SetCopyrightTagPrefix(*parameters.CopyrightTagPrefix)
+	}
 	if parameters.StartAt != nil && !parameters.StartAt.IsZero() {
 		create = create.SetStartAt(*parameters.StartAt)
 	}
@@ -138,6 +142,7 @@ type UpdateProjectParameters struct {
 	Description         *string
 	Copyright           *string
 	CopyrightReference  *string
+	CopyrightTagPrefix  *string
 	LocationName        *string
 	LocationCode        *string
 	LocationCity        *string
@@ -180,6 +185,10 @@ func (r *Repository) UpdateProject(ctx context.Context, id string, parameters *U
 	if parameters.CopyrightReference != nil && item.CopyrightReference != *parameters.CopyrightReference {
 		update.SetCopyrightReference(*parameters.CopyrightReference)
 		st.SetFieldChanged(project.FieldCopyrightReference, item.CopyrightReference, *parameters.CopyrightReference)
+	}
+	if parameters.CopyrightTagPrefix != nil && item.CopyrightTagPrefix != *parameters.CopyrightTagPrefix {
+		update.SetCopyrightTagPrefix(*parameters.CopyrightTagPrefix)
+		st.SetFieldChanged(project.FieldCopyrightTagPrefix, item.CopyrightTagPrefix, *parameters.CopyrightTagPrefix)
 	}
 	if parameters.LocationName != nil && item.LocationName != *parameters.LocationName {
 		update.SetLocationName(*parameters.LocationName)
