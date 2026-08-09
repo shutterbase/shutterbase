@@ -16,9 +16,10 @@ test.describe("exif viewer", () => {
     // real camera JPEG: fine-grained groups must be present in the accordion
     const groups = page.getByTestId("exif-raw-groups");
     await expect(groups.locator("summary", { hasText: "ExifIFD" })).toBeVisible();
-    // groups start collapsed; expanding one reveals its tag table
+    // groups start collapsed; expanding one reveals its tag table (the fixture
+    // is a stripped 5 KB thumbnail — DateTimeOriginal survives, exposure data doesn't)
     await groups.locator("summary", { hasText: "ExifIFD" }).click();
-    await expect(groups.locator("td", { hasText: "ExposureTime" }).first()).toBeVisible();
+    await expect(groups.locator("td", { hasText: "DateTimeOriginal" }).first()).toBeVisible();
   });
 
   test("requires authentication", async ({ page }) => {
