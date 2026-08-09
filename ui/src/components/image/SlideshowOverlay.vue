@@ -254,6 +254,14 @@ function show(index: number) {
 }
 
 function start() {
+  // The number inputs can yield NaN/0/negatives — clamped here, a bad show time
+  // would otherwise turn the advance timer into a busy loop.
+  const clamp = (v: unknown, min: number, max: number, fallback: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+  };
+  config.value.showSeconds = clamp(config.value.showSeconds, 1, 300, DEFAULT_SLIDESHOW_CONFIG.showSeconds);
+  config.value.transitionSeconds = clamp(config.value.transitionSeconds, 0, 10, DEFAULT_SLIDESHOW_CONFIG.transitionSeconds);
   phase.value = "playing";
   void preload(props.images[0]);
   fillPreloadWindow();
