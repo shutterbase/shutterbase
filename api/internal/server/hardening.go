@@ -151,11 +151,12 @@ func (s *Server) securityMiddleware(apiBaseURL string) gin.HandlerFunc {
 			return
 		}
 
-		// Default body cap; image create/update get the larger cap (set in the
-		// images controller). Only caps requests that carry a body.
+		// Default body cap; image create/update and the EXIF inspect upload get
+		// their larger caps in their controllers. Only caps requests that carry
+		// a body.
 		switch c.Request.Method {
 		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-			if !isImageWriteRoute(c) {
+			if !isLargeBodyRoute(c) {
 				c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, defaultBodyCap)
 			}
 		}
@@ -191,6 +192,9 @@ func (s *Server) rateLimitMiddleware() gin.HandlerFunc {
 			rl = s.hardening.uploadRL
 		case s.options.ApiBaseURL + "/download/:id/:res":
 			rl = s.hardening.downloadRL
+		case s.options.ApiBaseURL + "/exif/inspect":
+			// shares the exiftool semaphore with /download — same budget applies
+			rl = s.hardening.downloadRL
 		case "/ws":
 			rl = s.hardening.wsRL
 		case s.options.ApiBaseURL + "/images":
@@ -206,10 +210,14 @@ func (s *Server) rateLimitMiddleware() gin.HandlerFunc {
 	}
 }
 
-func isImageWriteRoute(c *gin.Context) bool {
+// isLargeBodyRoute exempts routes that legitimately carry image-sized bodies
+// from the default 1 MiB cap: image create/update (their controller sets the
+// larger cap) and the EXIF inspect upload (caps at downloadMaxBytes itself).
+func isLargeBodyRoute(c *gin.Context) bool {
 	p := c.FullPath()
 	return strings.HasSuffix(p, "/images") && c.Request.Method == http.MethodPost ||
-		strings.HasSuffix(p, "/images/:id") && c.Request.Method == http.MethodPut
+		strings.HasSuffix(p, "/images/:id") && c.Request.Method == http.MethodPut ||
+		strings.HasSuffix(p, "/exif/inspect") && c.Request.Method == http.MethodPost
 }
 
 func userOrIPKey(c *gin.Context) string {

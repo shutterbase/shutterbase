@@ -21,6 +21,10 @@ const inspectExifTimeout = 30 * time.Second
 // (capped at downloadMaxBytes) and handed to exiftool via stdin. Any
 // authenticated user may inspect their own local files.
 func (s *Server) inspectExif(c *gin.Context) {
+	// This route is exempt from the global 1 MiB body cap (isLargeBodyRoute);
+	// the real bound is enforced here — downloadMaxBytes for the file itself
+	// plus 1 MiB slack for multipart framing.
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, s.downloadMaxBytes+1<<20)
 	mr, err := c.Request.MultipartReader()
 	if err != nil {
 		apiError(c, http.StatusBadRequest, "invalid_multipart", "request must be multipart/form-data")
@@ -42,6 +46,11 @@ func (s *Server) inspectExif(c *gin.Context) {
 		data, err = io.ReadAll(io.LimitReader(part, s.downloadMaxBytes+1))
 		part.Close()
 		if err != nil {
+			var mbe *http.MaxBytesError
+			if errors.As(err, &mbe) {
+				apiError(c, http.StatusRequestEntityTooLarge, "file_too_large", "file exceeds the inspection size cap")
+				return
+			}
 			apiError(c, http.StatusBadRequest, "read_failed", "could not read file part")
 			return
 		}

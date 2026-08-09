@@ -142,7 +142,12 @@ function onDrop(event: DragEvent) {
   if (file) void inspect(file);
 }
 
+// latest-wins guard: dropping a second file mid-flight must never pair the
+// first file's metadata with the second file's name/preview.
+let inspectToken = 0;
+
 async function inspect(file: File) {
+  const token = ++inspectToken;
   loading.value = true;
   error.value = null;
   meta.value = null;
@@ -151,18 +156,24 @@ async function inspect(file: File) {
   // RAW files won't render in <img>; the browser just shows nothing — fine.
   previewUrl.value = URL.createObjectURL(file);
   try {
-    meta.value = await api.exif.inspect(file);
+    const result = await api.exif.inspect(file);
+    if (token !== inspectToken) return; // superseded by a newer drop
+    meta.value = result;
   } catch (e: any) {
+    if (token !== inspectToken) return;
     error.value = e?.response?.data?.message ?? "Could not read metadata from this file.";
   } finally {
-    loading.value = false;
-    if (fileInput.value) fileInput.value.value = "";
+    if (token === inspectToken) {
+      loading.value = false;
+      if (fileInput.value) fileInput.value.value = "";
+    }
   }
 }
 
 function formatRaw(value: unknown): string {
+  if (value === null || value === undefined) return "—";
   if (Array.isArray(value)) return value.join(", ");
-  if (value !== null && typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
 

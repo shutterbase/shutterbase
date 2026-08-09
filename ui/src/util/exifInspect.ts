@@ -5,7 +5,12 @@ import { appliedTimeOffset } from "src/util/dateTimeUtil";
 // (IFD0, ExifIFD, Canon, File, Composite, ...), each mapping tag name → value.
 export type ExifGroups = Record<string, Record<string, unknown>>;
 
-/** First value found for any of `names`, groups in exiftool order, names by priority. */
+/**
+ * First value found for any of `names` — names by priority; within one name the
+ * first group wins. NOTE: Go's JSON marshal alphabetizes the group map, so group
+ * iteration order is alphabetical, not exiftool emission order — only the
+ * name-priority lists express deliberate precedence.
+ */
 export function pickTag(meta: ExifGroups, names: string[]): unknown {
   for (const name of names) {
     for (const group of Object.values(meta)) {
