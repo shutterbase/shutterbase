@@ -13,6 +13,7 @@
         @aspect-ratio-filter="updateAspectRatioFilter"
         @rerun-ai="rerunSelection"
         @upload-filter="setUploadFilter"
+        @slideshow="slideshowActive = true"
       />
       <div v-if="displayMode === DisplayMode.GRID">
         <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
@@ -139,6 +140,9 @@
       <span class="label-mono-sm shrink-0 text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
     </div>
   </div>
+  <!-- Slideshow: plays the current (filtered, sorted) view; images keep loading
+       page by page as the show approaches the end of the loaded list. -->
+  <SlideshowOverlay v-if="slideshowActive" :images="images" :total-count="totalImageCount" @close="slideshowActive = false" @need-more="triggerInfiniteScroll" />
   <TaggingDialog
     v-if="imageIndex !== -1"
     ref="taggingDialog"
@@ -161,6 +165,7 @@ import Sidebar from "src/components/image/Sidebar.vue";
 import TaggingDialog from "src/components/image/TaggingDialog.vue";
 import FilmStrip from "src/components/image/FilmStrip.vue";
 import ZoomableImage from "src/components/image/ZoomableImage.vue";
+import SlideshowOverlay from "src/components/image/SlideshowOverlay.vue";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
 import { canRemoveTagAssignment, removeTagAssignment } from "src/util/imageTags";
 import { groupTagAssignments } from "src/util/tagOrder";
@@ -380,6 +385,9 @@ function toggleGridDetail() {
     closeDetail();
   }
 }
+
+// Slideshow is an overlay like zen: the grid state underneath stays untouched.
+const slideshowActive = ref(false);
 
 // Zen mode is an overlay, not a display mode: grid/detail (and the route) stay
 // as they are underneath, so z always returns to the previously active view.
