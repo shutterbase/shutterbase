@@ -17,9 +17,11 @@ test.describe("exif viewer", () => {
     const groups = page.getByTestId("exif-raw-groups");
     await expect(groups.locator("summary", { hasText: "ExifIFD" })).toBeVisible();
     // groups start collapsed; expanding one reveals its tag table (the fixture
-    // is a stripped 5 KB thumbnail — DateTimeOriginal survives, exposure data doesn't)
+    // is a stripped 5 KB thumbnail — DateTimeOriginal survives, exposure data
+    // doesn't). Exact match: Composite carries SubSecDateTimeOriginal, which a
+    // substring locator would resolve to first — inside a collapsed group.
     await groups.locator("summary", { hasText: "ExifIFD" }).click();
-    await expect(groups.locator("td", { hasText: "DateTimeOriginal" }).first()).toBeVisible();
+    await expect(groups.getByRole("cell", { name: "DateTimeOriginal", exact: true })).toBeVisible();
   });
 
   test("requires authentication", async ({ page }) => {
