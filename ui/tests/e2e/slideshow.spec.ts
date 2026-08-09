@@ -27,7 +27,10 @@ test.describe("slideshow", () => {
     await page.waitForTimeout(2500);
     expect(await position.textContent()).toBe(frozen);
 
-    // exit returns to the grid
+    // exit returns to the grid — the controls auto-fade to pointer-events-none
+    // after 2.5s, so wake them with a mouse move before clicking
+    await page.mouse.move(300, 300);
+    await expect(page.getByTestId("slideshow-controls")).toBeVisible();
     await page.getByTestId("slideshow-exit").click();
     await expect(page.getByTestId("slideshow-overlay")).toHaveCount(0);
   });
