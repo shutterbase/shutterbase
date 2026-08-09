@@ -76,6 +76,22 @@ func TestBuildMetadataComboTagsSplitAtExport(t *testing.T) {
 	}
 }
 
+func TestBuildMetadataComboTagCannotSmuggleInternal(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("trip|internal", imagetag.TypeManual, intPtr(1))}},
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("internal", imagetag.TypeDefault, intPtr(2))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	want := []string{"trip"}
+	if !reflect.DeepEqual(m["IPTC:Keywords"], want) {
+		t.Fatalf("IPTC:Keywords = %v, want %v (reserved internal tag must never export)", m["IPTC:Keywords"], want)
+	}
+}
+
 func TestBuildMetadataComboTagPartGetsCopyrightPrefix(t *testing.T) {
 	image := &ent.Image{
 		Edges: ent.ImageEdges{

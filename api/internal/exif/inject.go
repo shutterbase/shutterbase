@@ -112,9 +112,6 @@ func buildMetadata(image *ent.Image) map[string]any {
 		if typ != "default" && typ != "manual" {
 			continue
 		}
-		if tag.Name == "internal" {
-			continue
-		}
 		tags = append(tags, tag)
 	}
 	// The copyright-tag prefix (e.g. "by_") is an EXIF-render-time concern only:
@@ -140,6 +137,11 @@ func buildMetadata(image *ent.Image) map[string]any {
 		for _, part := range strings.Split(tag.Name, "|") {
 			part = strings.TrimSpace(part)
 			if part == "" {
+				continue
+			}
+			// The reserved management tag stays out of exports even when smuggled
+			// in as a combo part ("trip|internal") — checked per part, post-split.
+			if part == "internal" {
 				continue
 			}
 			if prefix != "" && copyrightTag != "" && part == copyrightTag {
