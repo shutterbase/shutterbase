@@ -55,6 +55,139 @@ export function classifyImage(
   return "present";
 }
 
+// ---- event-day folders (PR #89, the media team's publishing workflow) ----
+// The taggers' date tag (YYYYMMDD anywhere in the tag text) is the curated
+// event day. Without one, fall back to the capture time — where photos before
+// 04:00 still belong to the previous event day (award night, PR #40) — and to
+// the run date when no capture data exists at all.
+const TAG_DATE_REGEX = /(\d{4})(\d{2})(\d{2})/;
+export const EVENT_DAY_ROLLOVER_HOUR = 3; // local hour <= 3 → previous day
+
+export function extractDateFromTag(tags: string[] | undefined): Date | null {
+  if (!tags) return null;
+  for (const t of tags) {
+    const match = t.match(TAG_DATE_REGEX);
+    if (match) {
+      const [, y, m, d] = match;
+      const date = new Date(Number(y), Number(m) - 1, Number(d));
+      if (!isNaN(date.getTime())) return date;
+    }
+  }
+  return null;
+}
+
+// weekdaySegment: "20260804 Tuesday" — English weekday, matching the CLI's
+// Go time.Weekday() naming the media team already organizes by.
+export function weekdaySegment(date: Date, locale: string = "en-US"): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const weekday = date.toLocaleDateString(locale, { weekday: "long" });
+  return `${yyyy}${mm}${dd} ${weekday}`;
+}
+
+export function eventDayDate(image: Pick<Image, "capturedAtCorrected" | "capturedAt"> & Partial<Pick<Image, "tags">>, runDate: Date): Date {
+  const tagDate = extractDateFromTag(image.tags?.map((assignment) => assignment.tag?.name).filter((name): name is string => !!name));
+  if (tagDate) return tagDate;
+  const captured = image.capturedAtCorrected || image.capturedAt;
+  if (!captured) return runDate;
+  const capturedAt = new Date(captured);
+  if (isNaN(capturedAt.getTime())) return runDate;
+  if (capturedAt.getHours() <= EVENT_DAY_ROLLOVER_HOUR) capturedAt.setDate(capturedAt.getDate() - 1);
+  return capturedAt;
+}
+
+// ---- local-file reconciliation (PR #89) ----
+// The synced tree mirrors the curated catalog: files whose image left the
+// catalog move to deleted/, files whose image is now blacklisted or blocked
+// move to blacklist/ — always moved (subpath kept), never deleted, so every
+// sweep is reversible by hand.
+
+export interface ReconcileProgress {
+  current: number;
+  total: number;
+  fileName?: string;
+  phase: "scanning" | "moving" | "finished";
+}
+
+export interface ExistingFileEntry {
+  basename: string;
+  parentDirHandle: FileSystemDirectoryHandle;
+  relativeSegments: string[]; // path from root excluding filename
+}
+
+const RECONCILE_TARGET_DIRS = ["deleted", "blacklist", "_deleted", "_blacklist"];
+
+export async function collectExistingFileEntries(root: FileSystemDirectoryHandle, ignoreDirNames: string[] = RECONCILE_TARGET_DIRS): Promise<ExistingFileEntry[]> {
+  const results: ExistingFileEntry[] = [];
+  const walk = async (dir: FileSystemDirectoryHandle, segments: string[]): Promise<void> => {
+    for await (const [name, handle] of (dir as any).entries()) {
+      if (handle.kind === "directory") {
+        if (ignoreDirNames.includes(name)) continue;
+        await walk(handle, [...segments, name]);
+      } else if (handle.kind === "file") {
+        results.push({ basename: name, parentDirHandle: dir, relativeSegments: segments });
+      }
+    }
+  };
+  await walk(root, []);
+  return results;
+}
+
+export async function moveFileToFolder(root: FileSystemDirectoryHandle, entry: ExistingFileEntry, targetTopLevelSegment: "deleted" | "blacklist"): Promise<string> {
+  const targetSegments = [targetTopLevelSegment, ...entry.relativeSegments];
+  const targetDir = await ensureDirectory(root, targetSegments);
+  const file = await (await entry.parentDirHandle.getFileHandle(entry.basename)).getFile();
+  const destHandle = await targetDir.getFileHandle(entry.basename, { create: true });
+  const writable = await destHandle.createWritable();
+  try {
+    await file.stream().pipeTo(writable);
+  } catch (error) {
+    await writable.abort().catch(() => undefined);
+    throw error;
+  }
+  await entry.parentDirHandle.removeEntry(entry.basename);
+  return [...targetSegments, entry.basename].join("/");
+}
+
+export interface ReconcileResult {
+  deletedCount: number;
+  blacklistedCount: number;
+  movedFiles: Array<{ basename: string; reason: "deleted" | "blacklisted"; fromPath: string; toPath: string }>;
+}
+
+export async function reconcileLocalFiles(
+  directory: FileSystemDirectoryHandle,
+  config: DownloadConfig,
+  images: Image[],
+  onProgress?: (progress: ReconcileProgress) => void,
+): Promise<ReconcileResult> {
+  onProgress?.({ current: 0, total: 0, phase: "scanning" });
+  const entries = await collectExistingFileEntries(directory);
+  const currentByBasename = new Map(images.map((image) => [downloadFileName(image), image]));
+
+  const result: ReconcileResult = { deletedCount: 0, blacklistedCount: 0, movedFiles: [] };
+  const total = entries.length;
+  let current = 0;
+  for (const entry of entries) {
+    onProgress?.({ current, total, fileName: entry.basename, phase: "moving" });
+    const fromPath = [...entry.relativeSegments, entry.basename].join("/");
+    const image = currentByBasename.get(entry.basename);
+    if (!image) {
+      const toPath = await moveFileToFolder(directory, entry, "deleted");
+      result.deletedCount++;
+      result.movedFiles.push({ basename: entry.basename, reason: "deleted", fromPath, toPath });
+    } else if (isExcluded(image, config)) {
+      const toPath = await moveFileToFolder(directory, entry, "blacklist");
+      result.blacklistedCount++;
+      result.movedFiles.push({ basename: entry.basename, reason: "blacklisted", fromPath, toPath });
+    }
+    current++;
+  }
+  onProgress?.({ current: total, total, phase: "finished" });
+  return result;
+}
+
 export interface DownloadPlan {
   statuses: Map<string, ImageStatus>; // by image id
   counts: Record<ImageStatus, number>;
@@ -81,22 +214,26 @@ export function planDownload(images: Image[], config: DownloadConfig, existingFi
 }
 
 // targetSegments: folder path (without the file name) inside the picked
-// directory. Delta runs may write into a per-run delta_<date> subfolder
-// (issue #26); groupByDate sorts into capture-date folders (PR #40).
+// directory. folderStructure "weekday" sorts into "YYYYMMDD Weekday" event-day
+// folders (PR #89); groupByDate into capture-date folders (PR #40). On delta
+// runs with deltaSubfolder, the day folder is prefixed new_/delta_ so the
+// media team reviews exactly two inboxes per sync: brand-new photos and
+// re-downloaded changes (issue #26).
 export function targetSegments(
-  image: Pick<Image, "capturedAtCorrected" | "capturedAt">,
-  config: Pick<DownloadConfig, "deltaSubfolder" | "groupByDate">,
+  image: Pick<Image, "capturedAtCorrected" | "capturedAt"> & Partial<Pick<Image, "tags">>,
+  config: Pick<DownloadConfig, "deltaSubfolder" | "groupByDate" | "folderStructure">,
   options: RunOptions,
+  status?: ImageStatus,
 ): string[] {
-  const segments: string[] = [];
-  if (options.delta && config.deltaSubfolder) {
-    segments.push(`delta_${isoDate(options.runDate)}`);
+  const prefix = options.delta && config.deltaSubfolder ? (status === "new" ? "new_" : "delta_") : "";
+  if (config.folderStructure === "weekday") {
+    return [`${prefix}${weekdaySegment(eventDayDate(image, options.runDate))}`];
   }
-  if (config.groupByDate) {
-    const captured = image.capturedAtCorrected || image.capturedAt;
-    segments.push(captured ? isoDate(new Date(captured)) : "unknown-date");
-  }
-  return segments;
+  const captured = image.capturedAtCorrected || image.capturedAt;
+  const capturedDate = captured ? isoDate(new Date(captured)) : isoDate(options.runDate);
+  if (prefix) return [`${prefix}${capturedDate}`];
+  if (config.groupByDate) return [capturedDate];
+  return [];
 }
 
 function isoDate(d: Date): string {
@@ -261,7 +398,8 @@ export async function runDownload(
       emit();
       let fileBytes = 0;
       try {
-        await downloadImageToDirectory(image, root, targetSegments(image, config, options), (p) => {
+        const status = plan.statuses.get(image.id);
+        await downloadImageToDirectory(image, root, targetSegments(image, config, options, status), (p) => {
           fileBytes = p.received;
           progress.workers[slot] = p;
           emit();

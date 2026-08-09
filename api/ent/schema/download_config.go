@@ -22,17 +22,19 @@ func (DownloadConfig) Mixin() []ent.Mixin {
 
 func (DownloadConfig) Fields() []ent.Field {
 	return []ent.Field{
-		field.String("name").NotEmpty().StructTag(`json:"name"`),
+		field.String("name").NotEmpty().MaxLen(100).StructTag(`json:"name"`),
 		// whitelist tags are AND-applied server-side by /images; blacklist tags
 		// and blocked images are excluded client-side by the runner.
 		field.JSON("whitelistTagIds", []string{}).Optional().Default([]string{}).StructTag(`json:"whitelistTagIds"`),
 		field.JSON("blacklistTagIds", []string{}).Optional().Default([]string{}).StructTag(`json:"blacklistTagIds"`),
 		field.JSON("blockedImageIds", []string{}).Optional().Default([]string{}).StructTag(`json:"blockedImageIds"`),
-		// deltaSubfolder writes new/changed files into a per-run delta_<date>
-		// subfolder (issue #26); groupByDate sorts into capture-date folders
-		// (PR #40 "upload" mode).
+		// deltaSubfolder prefixes per-day folders with new_/delta_ on delta runs
+		// (issue #26, PR #89); groupByDate sorts into capture-date folders
+		// (PR #40 "upload" mode); folderStructure "weekday" sorts into
+		// "YYYYMMDD Weekday" event-day folders derived from the date tag (PR #89).
 		field.Bool("deltaSubfolder").Default(false).StructTag(`json:"deltaSubfolder"`),
 		field.Bool("groupByDate").Default(false).StructTag(`json:"groupByDate"`),
+		field.String("folderStructure").Default("default").StructTag(`json:"folderStructure"`),
 		field.Time("lastDownloadAt").Optional().Nillable().StructTag(`json:"lastDownloadAt"`),
 		field.String("project_id").StructTag(`json:"-"`),
 		field.UUID("user_id", uuid.UUID{}).StructTag(`json:"-"`),

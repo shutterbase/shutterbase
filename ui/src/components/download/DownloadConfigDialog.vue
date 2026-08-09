@@ -56,7 +56,7 @@
               <div class="space-y-5 px-6 py-5">
                 <label class="block">
                   <span class="text-sm font-medium text-primary-700 dark:text-primary-200">Name</span>
-                  <input v-model="draft.name" type="text" required class="input-field mt-1" placeholder="e.g. Full delivery, Social media picks" />
+                  <input v-model="draft.name" type="text" required maxlength="100" class="input-field mt-1" placeholder="e.g. Full delivery, Social media picks" />
                 </label>
 
                 <div>
@@ -130,27 +130,27 @@
                   <span class="mt-0.5 block text-xs text-primary-500 dark:text-primary-400">One file name (or image id) per line — never downloaded by this config.</span>
                   <textarea v-model="blockedText" rows="3" class="input-field mt-1 font-mono text-xs" placeholder="FSG26_1234_max&#10;FSG26_1235_max"></textarea>
                 </label>
-
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label class="block">
+                    <span class="text-sm font-medium text-primary-700 dark:text-primary-200">Folder strategy</span>
+                    <span class="mt-0.5 block text-xs text-primary-500 dark:text-primary-400">How photos are placed into folders.</span>
+                    <select v-model="folderChoice" class="input-field mt-1">
+                      <option value="none">None</option>
+                      <option value="date">Capture date</option>
+                      <option value="weekday">Event day (from date tag)</option>
+                    </select>
+                  </label>
                   <label class="flex items-start gap-2.5">
                     <input v-model="draft.deltaSubfolder" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
                     <span>
                       <span class="block text-sm font-medium text-primary-700 dark:text-primary-200">Delta subfolder</span>
                       <span class="block text-xs text-primary-500 dark:text-primary-400"
-                        >Delta runs write new/changed files into <code>delta_&lt;date&gt;/</code> instead of mixing them in.</span
+                        >Delta runs prefix day folders: new files into <code>new_…/</code>, changed files into <code>delta_…/</code>.</span
                       >
-                    </span>
-                  </label>
-                  <label class="flex items-start gap-2.5">
-                    <input v-model="draft.groupByDate" type="checkbox" class="mt-0.5 h-4 w-4 rounded border-primary-300 text-accent-600 focus:ring-accent-500" />
-                    <span>
-                      <span class="block text-sm font-medium text-primary-700 dark:text-primary-200">Group by date</span>
-                      <span class="block text-xs text-primary-500 dark:text-primary-400">Sort photos into capture-date folders.</span>
                     </span>
                   </label>
                 </div>
               </div>
-
               <!-- footer -->
               <div class="flex flex-row-reverse flex-wrap gap-3 border-t border-primary-100 px-6 py-4 dark:border-primary-800">
                 <button type="button" class="btn-primary" :disabled="draft.name.trim() === ''" @click="save">
@@ -198,8 +198,11 @@ const emit = defineEmits<{
   deleted: [];
 }>();
 
-const draft = ref({ name: "", whitelistTagIds: [] as string[], blacklistTagIds: [] as string[], deltaSubfolder: false, groupByDate: false });
+const draft = ref({ name: "", whitelistTagIds: [] as string[], blacklistTagIds: [] as string[], deltaSubfolder: false });
 const blockedText = ref("");
+// folderChoice folds folderStructure + groupByDate into one strategy select —
+// the two backing fields are mutually exclusive by construction.
+const folderChoice = ref<"none" | "date" | "weekday">("none");
 
 watch(
   () => [props.show, props.config, props.create] as const,
@@ -211,12 +214,15 @@ watch(
         whitelistTagIds: [...props.config.whitelistTagIds],
         blacklistTagIds: [...props.config.blacklistTagIds],
         deltaSubfolder: props.config.deltaSubfolder,
-        groupByDate: props.config.groupByDate,
       };
       blockedText.value = props.config.blockedImageIds.join("\n");
+      if (props.config.folderStructure === "weekday") folderChoice.value = "weekday";
+      else if (props.config.groupByDate) folderChoice.value = "date";
+      else folderChoice.value = "none";
     } else {
-      draft.value = { name: "", whitelistTagIds: [], blacklistTagIds: [], deltaSubfolder: false, groupByDate: false };
+      draft.value = { name: "", whitelistTagIds: [], blacklistTagIds: [], deltaSubfolder: false };
       blockedText.value = "";
+      folderChoice.value = "none";
     }
   },
   { immediate: true },
@@ -258,7 +264,10 @@ function save() {
       .map((line) => line.trim())
       .filter((line) => line !== ""),
     deltaSubfolder: draft.value.deltaSubfolder,
-    groupByDate: draft.value.groupByDate,
+    groupByDate: folderChoice.value === "date",
+    // always sent explicitly — an omitted field would keep a stale "weekday"
+    // on the server when switching back to date/none
+    folderStructure: folderChoice.value === "weekday" ? "weekday" : "default",
   });
 }
 </script>

@@ -2911,6 +2911,7 @@ type DownloadConfigMutation struct {
 	appendblockedImageIds []string
 	deltaSubfolder        *bool
 	groupByDate           *bool
+	folderStructure       *string
 	lastDownloadAt        *time.Time
 	clearedFields         map[string]struct{}
 	project               *string
@@ -3499,6 +3500,42 @@ func (m *DownloadConfigMutation) ResetGroupByDate() {
 	m.groupByDate = nil
 }
 
+// SetFolderStructure sets the "folderStructure" field.
+func (m *DownloadConfigMutation) SetFolderStructure(s string) {
+	m.folderStructure = &s
+}
+
+// FolderStructure returns the value of the "folderStructure" field in the mutation.
+func (m *DownloadConfigMutation) FolderStructure() (r string, exists bool) {
+	v := m.folderStructure
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFolderStructure returns the old "folderStructure" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldFolderStructure(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFolderStructure is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFolderStructure requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFolderStructure: %w", err)
+	}
+	return oldValue.FolderStructure, nil
+}
+
+// ResetFolderStructure resets all changes to the "folderStructure" field.
+func (m *DownloadConfigMutation) ResetFolderStructure() {
+	m.folderStructure = nil
+}
+
 // SetLastDownloadAt sets the "lastDownloadAt" field.
 func (m *DownloadConfigMutation) SetLastDownloadAt(t time.Time) {
 	m.lastDownloadAt = &t
@@ -3708,7 +3745,7 @@ func (m *DownloadConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DownloadConfigMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.createdAt != nil {
 		fields = append(fields, downloadconfig.FieldCreatedAt)
 	}
@@ -3738,6 +3775,9 @@ func (m *DownloadConfigMutation) Fields() []string {
 	}
 	if m.groupByDate != nil {
 		fields = append(fields, downloadconfig.FieldGroupByDate)
+	}
+	if m.folderStructure != nil {
+		fields = append(fields, downloadconfig.FieldFolderStructure)
 	}
 	if m.lastDownloadAt != nil {
 		fields = append(fields, downloadconfig.FieldLastDownloadAt)
@@ -3776,6 +3816,8 @@ func (m *DownloadConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.DeltaSubfolder()
 	case downloadconfig.FieldGroupByDate:
 		return m.GroupByDate()
+	case downloadconfig.FieldFolderStructure:
+		return m.FolderStructure()
 	case downloadconfig.FieldLastDownloadAt:
 		return m.LastDownloadAt()
 	case downloadconfig.FieldProjectID:
@@ -3811,6 +3853,8 @@ func (m *DownloadConfigMutation) OldField(ctx context.Context, name string) (ent
 		return m.OldDeltaSubfolder(ctx)
 	case downloadconfig.FieldGroupByDate:
 		return m.OldGroupByDate(ctx)
+	case downloadconfig.FieldFolderStructure:
+		return m.OldFolderStructure(ctx)
 	case downloadconfig.FieldLastDownloadAt:
 		return m.OldLastDownloadAt(ctx)
 	case downloadconfig.FieldProjectID:
@@ -3895,6 +3939,13 @@ func (m *DownloadConfigMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetGroupByDate(v)
+		return nil
+	case downloadconfig.FieldFolderStructure:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFolderStructure(v)
 		return nil
 	case downloadconfig.FieldLastDownloadAt:
 		v, ok := value.(time.Time)
@@ -4034,6 +4085,9 @@ func (m *DownloadConfigMutation) ResetField(name string) error {
 		return nil
 	case downloadconfig.FieldGroupByDate:
 		m.ResetGroupByDate()
+		return nil
+	case downloadconfig.FieldFolderStructure:
+		m.ResetFolderStructure()
 		return nil
 	case downloadconfig.FieldLastDownloadAt:
 		m.ResetLastDownloadAt()

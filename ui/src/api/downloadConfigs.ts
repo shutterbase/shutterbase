@@ -9,6 +9,7 @@ export interface DownloadConfigCreate {
   blockedImageIds?: string[];
   deltaSubfolder?: boolean;
   groupByDate?: boolean;
+  folderStructure?: "default" | "weekday";
 }
 
 export interface DownloadConfigUpdate {
@@ -18,6 +19,7 @@ export interface DownloadConfigUpdate {
   blockedImageIds?: string[];
   deltaSubfolder?: boolean;
   groupByDate?: boolean;
+  folderStructure?: "default" | "weekday";
   lastDownloadAt?: string;
 }
 

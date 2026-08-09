@@ -124,12 +124,13 @@ var (
 		{Name: "updatedAt", Type: field.TypeTime},
 		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
-		{Name: "name", Type: field.TypeString},
+		{Name: "name", Type: field.TypeString, Size: 100},
 		{Name: "whitelist_tag_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "blacklist_tag_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "blocked_image_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "delta_subfolder", Type: field.TypeBool, Default: false},
 		{Name: "group_by_date", Type: field.TypeBool, Default: false},
+		{Name: "folder_structure", Type: field.TypeString, Default: "default"},
 		{Name: "last_download_at", Type: field.TypeTime, Nullable: true},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
 		{Name: "user_id", Type: field.TypeUUID},
@@ -142,13 +143,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "download_configs_projects_downloadConfigs",
-				Columns:    []*schema.Column{DownloadConfigsColumns[12]},
+				Columns:    []*schema.Column{DownloadConfigsColumns[13]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "download_configs_users_downloadConfigs",
-				Columns:    []*schema.Column{DownloadConfigsColumns[13]},
+				Columns:    []*schema.Column{DownloadConfigsColumns[14]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -157,12 +158,12 @@ var (
 			{
 				Name:    "downloadconfig_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{DownloadConfigsColumns[12]},
+				Columns: []*schema.Column{DownloadConfigsColumns[13]},
 			},
 			{
 				Name:    "downloadconfig_user_id_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{DownloadConfigsColumns[13], DownloadConfigsColumns[12]},
+				Columns: []*schema.Column{DownloadConfigsColumns[14], DownloadConfigsColumns[13]},
 			},
 		},
 	}
