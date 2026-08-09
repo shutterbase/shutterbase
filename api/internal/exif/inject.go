@@ -142,7 +142,7 @@ func buildMetadata(image *ent.Image) map[string]any {
 	if u := image.Edges.User; u != nil {
 		fullName := fmt.Sprintf("%s %s", u.FirstName, u.LastName)
 		byLineTitle := u.CopyrightTag
-		if byLineTitle != "" {
+		if prefix != "" && byLineTitle != "" {
 			byLineTitle = prefix + byLineTitle
 		}
 		m["IPTC:By-lineTitle"] = byLineTitle

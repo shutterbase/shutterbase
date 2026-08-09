@@ -569,6 +569,11 @@ func (_u *ProjectUpdate) check() error {
 			return &ValidationError{Name: "copyrightReference", err: fmt.Errorf(`ent: validator failed for field "Project.copyrightReference": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.CopyrightTagPrefix(); ok {
+		if err := project.CopyrightTagPrefixValidator(v); err != nil {
+			return &ValidationError{Name: "copyrightTagPrefix", err: fmt.Errorf(`ent: validator failed for field "Project.copyrightTagPrefix": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.LocationName(); ok {
 		if err := project.LocationNameValidator(v); err != nil {
 			return &ValidationError{Name: "locationName", err: fmt.Errorf(`ent: validator failed for field "Project.locationName": %w`, err)}
@@ -1538,6 +1543,11 @@ func (_u *ProjectUpdateOne) check() error {
 	if v, ok := _u.mutation.CopyrightReference(); ok {
 		if err := project.CopyrightReferenceValidator(v); err != nil {
 			return &ValidationError{Name: "copyrightReference", err: fmt.Errorf(`ent: validator failed for field "Project.copyrightReference": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.CopyrightTagPrefix(); ok {
+		if err := project.CopyrightTagPrefixValidator(v); err != nil {
+			return &ValidationError{Name: "copyrightTagPrefix", err: fmt.Errorf(`ent: validator failed for field "Project.copyrightTagPrefix": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.LocationName(); ok {

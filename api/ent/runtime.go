@@ -359,6 +359,10 @@ func init() {
 	projectDescCopyrightReference := projectFields[3].Descriptor()
 	// project.CopyrightReferenceValidator is a validator for the "copyrightReference" field. It is called by the builders before save.
 	project.CopyrightReferenceValidator = projectDescCopyrightReference.Validators[0].(func(string) error)
+	// projectDescCopyrightTagPrefix is the schema descriptor for copyrightTagPrefix field.
+	projectDescCopyrightTagPrefix := projectFields[4].Descriptor()
+	// project.CopyrightTagPrefixValidator is a validator for the "copyrightTagPrefix" field. It is called by the builders before save.
+	project.CopyrightTagPrefixValidator = projectDescCopyrightTagPrefix.Validators[0].(func(string) error)
 	// projectDescLocationName is the schema descriptor for locationName field.
 	projectDescLocationName := projectFields[5].Descriptor()
 	// project.LocationNameValidator is a validator for the "locationName" field. It is called by the builders before save.

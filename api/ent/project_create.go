@@ -408,6 +408,11 @@ func (_c *ProjectCreate) check() error {
 			return &ValidationError{Name: "copyrightReference", err: fmt.Errorf(`ent: validator failed for field "Project.copyrightReference": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.CopyrightTagPrefix(); ok {
+		if err := project.CopyrightTagPrefixValidator(v); err != nil {
+			return &ValidationError{Name: "copyrightTagPrefix", err: fmt.Errorf(`ent: validator failed for field "Project.copyrightTagPrefix": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.LocationName(); !ok {
 		return &ValidationError{Name: "locationName", err: errors.New(`ent: missing required field "Project.locationName"`)}
 	}

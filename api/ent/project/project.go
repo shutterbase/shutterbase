@@ -159,6 +159,8 @@ var (
 	CopyrightValidator func(string) error
 	// CopyrightReferenceValidator is a validator for the "copyrightReference" field. It is called by the builders before save.
 	CopyrightReferenceValidator func(string) error
+	// CopyrightTagPrefixValidator is a validator for the "copyrightTagPrefix" field. It is called by the builders before save.
+	CopyrightTagPrefixValidator func(string) error
 	// LocationNameValidator is a validator for the "locationName" field. It is called by the builders before save.
 	LocationNameValidator func(string) error
 	// LocationCodeValidator is a validator for the "locationCode" field. It is called by the builders before save.
