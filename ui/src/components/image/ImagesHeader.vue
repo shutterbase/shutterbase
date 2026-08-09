@@ -23,6 +23,19 @@
           <QuestionMarkCircleIcon class="h-5 w-5" />
         </button>
 
+        <!-- slideshow over the current (filtered) view -->
+        <button
+          v-if="showFilter && totalImageCount > 0"
+          type="button"
+          title="Start slideshow"
+          data-testid="start-slideshow"
+          class="hidden sm:inline-flex h-8 w-8 items-center justify-center rounded-md text-primary-400 transition-colors hover:bg-primary-100 hover:text-primary-700 dark:text-primary-500 dark:hover:bg-primary-800 dark:hover:text-primary-200"
+          @click="emit('slideshow')"
+        >
+          <span class="sr-only">Start slideshow</span>
+          <PlayIcon class="h-5 w-5" />
+        </button>
+
         <!-- density / view -->
         <div v-if="showFilter" class="hidden sm:flex rounded-lg border border-primary-200 dark:border-primary-700 bg-surface dark:bg-surface-dark p-0.5">
           <button
@@ -251,6 +264,7 @@ import {
   RectangleStackIcon,
   SparklesIcon,
   ArrowUpTrayIcon,
+  PlayIcon,
 } from "@heroicons/vue/24/outline";
 import { Popover, PopoverButton, PopoverPanel, Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
 import { storeToRefs } from "pinia";
@@ -285,6 +299,7 @@ const emit = defineEmits<{
   "update:density": [Density];
   rerunAi: [];
   uploadFilter: [string | null];
+  slideshow: [];
 }>();
 
 const { activeProject, preferredImageSortOrder, projectTags } = storeToRefs(useUserStore());

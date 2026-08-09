@@ -1,0 +1,43 @@
+import { test, expect } from "@playwright/test";
+import { loginAs } from "./helpers";
+
+// Slideshow over the current grid view: setup dialog -> playing overlay with
+// controls; images auto-advance on the configured show time.
+test.describe("slideshow", () => {
+  test("configures, plays, pauses and exits", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/images");
+    await expect(page.getByTestId("start-slideshow")).toBeVisible();
+    await page.getByTestId("start-slideshow").click();
+
+    // setup phase with config; use a short show time so auto-advance is testable
+    await expect(page.getByTestId("slideshow-setup")).toBeVisible();
+    await page.getByTestId("slideshow-show-seconds").fill("1");
+    await page.getByTestId("slideshow-start").click();
+
+    const position = page.getByTestId("slideshow-position");
+    await expect(position).toContainText("1 /");
+    // auto-advances past the first slide (1s show + transition)
+    await expect(position).not.toContainText("1 /", { timeout: 10_000 });
+
+    // pause freezes the position
+    await page.getByTestId("slideshow-overlay").hover();
+    await page.getByTestId("slideshow-play-pause").click();
+    const frozen = await position.textContent();
+    await page.waitForTimeout(2500);
+    expect(await position.textContent()).toBe(frozen);
+
+    // exit returns to the grid
+    await page.getByTestId("slideshow-exit").click();
+    await expect(page.getByTestId("slideshow-overlay")).toHaveCount(0);
+  });
+
+  test("escape closes the slideshow", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/images");
+    await page.getByTestId("start-slideshow").click();
+    await expect(page.getByTestId("slideshow-setup")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("slideshow-overlay")).toHaveCount(0);
+  });
+});
