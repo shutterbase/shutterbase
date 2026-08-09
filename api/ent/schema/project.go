@@ -20,8 +20,10 @@ func (Project) Fields() []ent.Field {
 		field.String("copyright").NotEmpty().StructTag(`json:"copyright"`),
 		field.String("copyrightReference").NotEmpty().StructTag(`json:"copyrightReference"`),
 		// Prepended to copyright-tag-derived values at EXIF export only (e.g. "by_");
-		// normal tag handling shows the tag without the prefix.
-		field.String("copyrightTagPrefix").Optional().StructTag(`json:"copyrightTagPrefix"`),
+		// normal tag handling shows the tag without the prefix. MaxLen keeps the
+		// combined By-lineTitle within reach of the 32-byte IPTC-IIM cap and maps
+		// oversized input to a clean 400 (same pattern as the #90 name cap).
+		field.String("copyrightTagPrefix").MaxLen(20).Optional().StructTag(`json:"copyrightTagPrefix"`),
 		field.String("locationName").NotEmpty().StructTag(`json:"locationName"`),
 		field.String("locationCode").NotEmpty().StructTag(`json:"locationCode"`),
 		field.String("locationCity").NotEmpty().StructTag(`json:"locationCity"`),

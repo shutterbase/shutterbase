@@ -76,6 +76,42 @@ func TestBuildMetadataCopyrightTagPrefix(t *testing.T) {
 	}
 }
 
+func TestBuildMetadataPrefixWithEmptyCopyrightTag(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			User:    &ent.User{CopyrightTag: ""},
+			Project: &ent.Project{CopyrightTagPrefix: "by_"},
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("autocross", imagetag.TypeManual, intPtr(1))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	if !reflect.DeepEqual(m["IPTC:Keywords"], []string{"autocross"}) {
+		t.Fatalf("IPTC:Keywords = %v, want [autocross]", m["IPTC:Keywords"])
+	}
+	if m["IPTC:By-lineTitle"] != "" {
+		t.Fatalf("By-lineTitle = %v, want empty (a bare prefix must never render)", m["IPTC:By-lineTitle"])
+	}
+}
+
+func TestBuildMetadataPrefixWithoutEdges(t *testing.T) {
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: tag("autocross", imagetag.TypeManual, intPtr(1))}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	if !reflect.DeepEqual(m["IPTC:Keywords"], []string{"autocross"}) {
+		t.Fatalf("IPTC:Keywords = %v, want [autocross]", m["IPTC:Keywords"])
+	}
+	if _, ok := m["IPTC:By-lineTitle"]; ok {
+		t.Fatal("By-lineTitle must be absent without a User edge")
+	}
+}
+
 func TestBuildMetadataNoPrefixLeavesTagsUntouched(t *testing.T) {
 	image := &ent.Image{
 		Edges: ent.ImageEdges{
