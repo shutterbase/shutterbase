@@ -76,11 +76,14 @@
         class="absolute inset-0 flex items-center justify-center transition-opacity ease-linear"
         :style="{ opacity: slide.index === current ? 1 : 0, transitionDuration: `${config.transitionSeconds}s` }"
       >
+        <!-- kb class stays on the slide through its fade-out as "previous" —
+             stripping it while visible cancels the animation and snaps the
+             transform back to identity mid-crossfade -->
         <img
           :src="slideSrc(slide.image)"
           :alt="slide.image.computedFileName"
           class="h-full w-full object-contain"
-          :class="config.kenBurns !== 'off' && slide.index === current ? `kb kb-${kenBurnsVariant(slide.index)}` : ''"
+          :class="config.kenBurns !== 'off' ? `kb kb-${kenBurnsVariant(slide.index)}` : ''"
           :style="kenBurnsStyle"
           @error="onSlideError(slide.image)"
         />
@@ -229,21 +232,39 @@ function scheduleAdvance() {
   timer = setTimeout(advance, (config.value.showSeconds + config.value.transitionSeconds) * 1000);
 }
 
-async function advance() {
-  const next = nextSlideIndex(current.value, props.images.length, config.value.loop);
-  if (next === null) {
+// navToken cancels an in-flight decode-gated navigation: pause and any newer
+// navigation bump it, so a superseded advance can never land afterwards.
+let navToken = 0;
+
+// Every path onto the screen funnels through goTo: decode-gate the target,
+// then show it — auto-advance, manual next AND previous all get the same
+// "never show an undecoded slide" guarantee.
+async function goTo(index: number | null) {
+  if (index === null) {
     emit("close");
     return;
   }
-  // Stability over punctuality: never put an undecoded image on screen.
-  const target = props.images[next];
+  if (index === current.value) {
+    // single-image show (loop wraps onto itself): nothing to change, keep the
+    // timer alive. The Ken Burns run stays static here — the DOM node never
+    // remounts — which is acceptable for a one-image slideshow.
+    scheduleAdvance();
+    return;
+  }
+  const token = ++navToken;
+  const target = props.images[index];
   const src = target ? slideSrc(target) : "";
   if (src && !loaded.has(src)) {
     waiting.value = true;
     await preload(target);
-    waiting.value = false;
+    if (token === navToken) waiting.value = false;
   }
-  show(next);
+  if (token !== navToken) return; // superseded by pause or a newer navigation
+  show(index);
+}
+
+function advance() {
+  void goTo(nextSlideIndex(current.value, props.images.length, config.value.loop));
 }
 
 function show(index: number) {
@@ -253,43 +274,55 @@ function show(index: number) {
   scheduleAdvance();
 }
 
-function start() {
+async function start() {
   // The number inputs can yield NaN/0/negatives — clamped here, a bad show time
   // would otherwise turn the advance timer into a busy loop.
   const clamp = (v: unknown, min: number, max: number, fallback: number) => {
     const n = Number(v);
     return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
   };
-  config.value.showSeconds = clamp(config.value.showSeconds, 1, 300, DEFAULT_SLIDESHOW_CONFIG.showSeconds);
+  config.value.showSeconds = clamp(config.value.showSeconds, 1, 120, DEFAULT_SLIDESHOW_CONFIG.showSeconds);
   config.value.transitionSeconds = clamp(config.value.transitionSeconds, 0, 10, DEFAULT_SLIDESHOW_CONFIG.transitionSeconds);
   phase.value = "playing";
-  void preload(props.images[0]);
-  fillPreloadWindow();
-  scheduleAdvance();
   // Best effort: a browser may reject fullscreen without a fresh user gesture.
   document.documentElement.requestFullscreen?.().catch(() => undefined);
+  // The first slide is decode-gated like every later one; the buffering chip
+  // covers the wait.
+  waiting.value = true;
+  await preload(props.images[0]);
+  waiting.value = false;
+  fillPreloadWindow();
+  scheduleAdvance();
 }
 
 function togglePause() {
   paused.value = !paused.value;
-  if (paused.value) clearTimer();
-  else scheduleAdvance();
+  if (paused.value) {
+    clearTimer();
+    navToken++; // cancel an advance that is already past its timer, mid-preload
+  } else {
+    scheduleAdvance();
+  }
 }
 
 function goNext() {
   clearTimer();
-  void advance();
+  advance();
 }
 
 function goPrevious() {
   clearTimer();
-  show(previousSlideIndex(current.value, props.images.length, config.value.loop));
+  void goTo(previousSlideIndex(current.value, props.images.length, config.value.loop));
 }
 
-// more images may have arrived while we were at the end of the loaded list
+// more images may have arrived while we were at the end of the loaded list —
+// and the list can also shrink (image deleted from the grid underneath).
 watch(
   () => props.images.length,
-  () => fillPreloadWindow(),
+  (length) => {
+    if (current.value >= length && length > 0) current.value = length - 1;
+    fillPreloadWindow();
+  },
 );
 
 // --- controls / keyboard ----------------------------------------------------
