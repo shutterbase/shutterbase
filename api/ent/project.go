@@ -34,6 +34,8 @@ type Project struct {
 	Copyright string `json:"copyright"`
 	// CopyrightReference holds the value of the "copyrightReference" field.
 	CopyrightReference string `json:"copyrightReference"`
+	// CopyrightTagPrefix holds the value of the "copyrightTagPrefix" field.
+	CopyrightTagPrefix string `json:"copyrightTagPrefix"`
 	// LocationName holds the value of the "locationName" field.
 	LocationName string `json:"locationName"`
 	// LocationCode holds the value of the "locationCode" field.
@@ -147,7 +149,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case project.FieldUploadReviewEnabled:
 			values[i] = new(sql.NullBool)
-		case project.FieldID, project.FieldName, project.FieldDescription, project.FieldCopyright, project.FieldCopyrightReference, project.FieldLocationName, project.FieldLocationCode, project.FieldLocationCity, project.FieldAiSystemMessage:
+		case project.FieldID, project.FieldName, project.FieldDescription, project.FieldCopyright, project.FieldCopyrightReference, project.FieldCopyrightTagPrefix, project.FieldLocationName, project.FieldLocationCode, project.FieldLocationCity, project.FieldAiSystemMessage:
 			values[i] = new(sql.NullString)
 		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldStartAt, project.FieldEndAt:
 			values[i] = new(sql.NullTime)
@@ -221,6 +223,12 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field copyrightReference", values[i])
 			} else if value.Valid {
 				_m.CopyrightReference = value.String
+			}
+		case project.FieldCopyrightTagPrefix:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field copyrightTagPrefix", values[i])
+			} else if value.Valid {
+				_m.CopyrightTagPrefix = value.String
 			}
 		case project.FieldLocationName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -364,6 +372,9 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("copyrightReference=")
 	builder.WriteString(_m.CopyrightReference)
+	builder.WriteString(", ")
+	builder.WriteString("copyrightTagPrefix=")
+	builder.WriteString(_m.CopyrightTagPrefix)
 	builder.WriteString(", ")
 	builder.WriteString("locationName=")
 	builder.WriteString(_m.LocationName)

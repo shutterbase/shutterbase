@@ -396,6 +396,7 @@ var (
 		{Name: "description", Type: field.TypeString},
 		{Name: "copyright", Type: field.TypeString},
 		{Name: "copyright_reference", Type: field.TypeString},
+		{Name: "copyright_tag_prefix", Type: field.TypeString, Nullable: true},
 		{Name: "location_name", Type: field.TypeString},
 		{Name: "location_code", Type: field.TypeString},
 		{Name: "location_city", Type: field.TypeString},

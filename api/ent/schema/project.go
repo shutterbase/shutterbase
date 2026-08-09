@@ -19,6 +19,9 @@ func (Project) Fields() []ent.Field {
 		field.String("description").NotEmpty().StructTag(`json:"description"`),
 		field.String("copyright").NotEmpty().StructTag(`json:"copyright"`),
 		field.String("copyrightReference").NotEmpty().StructTag(`json:"copyrightReference"`),
+		// Prepended to copyright-tag-derived values at EXIF export only (e.g. "by_");
+		// normal tag handling shows the tag without the prefix.
+		field.String("copyrightTagPrefix").Optional().StructTag(`json:"copyrightTagPrefix"`),
 		field.String("locationName").NotEmpty().StructTag(`json:"locationName"`),
 		field.String("locationCode").NotEmpty().StructTag(`json:"locationCode"`),
 		field.String("locationCity").NotEmpty().StructTag(`json:"locationCity"`),

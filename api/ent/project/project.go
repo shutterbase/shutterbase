@@ -30,6 +30,8 @@ const (
 	FieldCopyright = "copyright"
 	// FieldCopyrightReference holds the string denoting the copyrightreference field in the database.
 	FieldCopyrightReference = "copyright_reference"
+	// FieldCopyrightTagPrefix holds the string denoting the copyrighttagprefix field in the database.
+	FieldCopyrightTagPrefix = "copyright_tag_prefix"
 	// FieldLocationName holds the string denoting the locationname field in the database.
 	FieldLocationName = "location_name"
 	// FieldLocationCode holds the string denoting the locationcode field in the database.
@@ -122,6 +124,7 @@ var Columns = []string{
 	FieldDescription,
 	FieldCopyright,
 	FieldCopyrightReference,
+	FieldCopyrightTagPrefix,
 	FieldLocationName,
 	FieldLocationCode,
 	FieldLocationCity,
@@ -216,6 +219,11 @@ func ByCopyright(opts ...sql.OrderTermOption) OrderOption {
 // ByCopyrightReference orders the results by the copyrightReference field.
 func ByCopyrightReference(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCopyrightReference, opts...).ToFunc()
+}
+
+// ByCopyrightTagPrefix orders the results by the copyrightTagPrefix field.
+func ByCopyrightTagPrefix(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCopyrightTagPrefix, opts...).ToFunc()
 }
 
 // ByLocationName orders the results by the locationName field.

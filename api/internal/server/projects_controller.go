@@ -21,6 +21,7 @@ func projectResponse(p *ent.Project) gin.H {
 		"description":         p.Description,
 		"copyright":           p.Copyright,
 		"copyrightReference":  p.CopyrightReference,
+		"copyrightTagPrefix":  p.CopyrightTagPrefix,
 		"locationName":        p.LocationName,
 		"locationCode":        p.LocationCode,
 		"locationCity":        p.LocationCity,
@@ -105,6 +106,7 @@ type createProjectPayload struct {
 	Description         string  `json:"description" binding:"required"`
 	Copyright           string  `json:"copyright" binding:"required"`
 	CopyrightReference  string  `json:"copyrightReference" binding:"required"`
+	CopyrightTagPrefix  *string `json:"copyrightTagPrefix"`
 	LocationName        string  `json:"locationName" binding:"required"`
 	LocationCode        string  `json:"locationCode" binding:"required"`
 	LocationCity        string  `json:"locationCity" binding:"required"`
@@ -132,6 +134,7 @@ func (s *Server) createProject(c *gin.Context) {
 		Description:         payload.Description,
 		Copyright:           payload.Copyright,
 		CopyrightReference:  payload.CopyrightReference,
+		CopyrightTagPrefix:  payload.CopyrightTagPrefix,
 		LocationName:        payload.LocationName,
 		LocationCode:        payload.LocationCode,
 		LocationCity:        payload.LocationCity,
@@ -151,6 +154,7 @@ type updateProjectPayload struct {
 	Description         *string `json:"description"`
 	Copyright           *string `json:"copyright"`
 	CopyrightReference  *string `json:"copyrightReference"`
+	CopyrightTagPrefix  *string `json:"copyrightTagPrefix"`
 	LocationName        *string `json:"locationName"`
 	LocationCode        *string `json:"locationCode"`
 	LocationCity        *string `json:"locationCity"`
@@ -197,6 +201,7 @@ func (s *Server) updateProject(c *gin.Context) {
 		Description:         payload.Description,
 		Copyright:           payload.Copyright,
 		CopyrightReference:  payload.CopyrightReference,
+		CopyrightTagPrefix:  payload.CopyrightTagPrefix,
 		LocationName:        payload.LocationName,
 		LocationCode:        payload.LocationCode,
 		LocationCity:        payload.LocationCity,

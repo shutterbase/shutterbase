@@ -360,19 +360,19 @@ func init() {
 	// project.CopyrightReferenceValidator is a validator for the "copyrightReference" field. It is called by the builders before save.
 	project.CopyrightReferenceValidator = projectDescCopyrightReference.Validators[0].(func(string) error)
 	// projectDescLocationName is the schema descriptor for locationName field.
-	projectDescLocationName := projectFields[4].Descriptor()
+	projectDescLocationName := projectFields[5].Descriptor()
 	// project.LocationNameValidator is a validator for the "locationName" field. It is called by the builders before save.
 	project.LocationNameValidator = projectDescLocationName.Validators[0].(func(string) error)
 	// projectDescLocationCode is the schema descriptor for locationCode field.
-	projectDescLocationCode := projectFields[5].Descriptor()
+	projectDescLocationCode := projectFields[6].Descriptor()
 	// project.LocationCodeValidator is a validator for the "locationCode" field. It is called by the builders before save.
 	project.LocationCodeValidator = projectDescLocationCode.Validators[0].(func(string) error)
 	// projectDescLocationCity is the schema descriptor for locationCity field.
-	projectDescLocationCity := projectFields[6].Descriptor()
+	projectDescLocationCity := projectFields[7].Descriptor()
 	// project.LocationCityValidator is a validator for the "locationCity" field. It is called by the builders before save.
 	project.LocationCityValidator = projectDescLocationCity.Validators[0].(func(string) error)
 	// projectDescUploadReviewEnabled is the schema descriptor for uploadReviewEnabled field.
-	projectDescUploadReviewEnabled := projectFields[8].Descriptor()
+	projectDescUploadReviewEnabled := projectFields[9].Descriptor()
 	// project.DefaultUploadReviewEnabled holds the default value on creation for the uploadReviewEnabled field.
 	project.DefaultUploadReviewEnabled = projectDescUploadReviewEnabled.Default.(bool)
 	// projectDescID is the schema descriptor for id field.
