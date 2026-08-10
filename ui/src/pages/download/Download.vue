@@ -286,6 +286,7 @@ import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { DownloadConfigCreate, DownloadConfigUpdate } from "src/api/downloadConfigs";
 import { useUserStore } from "src/stores/user-store";
 import { DownloadConfig, Image, ImageTag } from "src/types/api";
+import { tagLabel } from "src/util/tagOrder";
 import { ensurePermission, getStoredDirHandle, storeDirHandle } from "src/util/dirHandleStore";
 import {
   collectExistingFiles,
@@ -370,7 +371,8 @@ async function loadCardMeta(list: DownloadConfig[]) {
 }
 
 function tagName(id: string): string {
-  return projectTags.value.find((t) => t.id === id)?.name ?? id;
+  const tag = projectTags.value.find((t) => t.id === id);
+  return tag ? tagLabel(tag) : id;
 }
 const formatDateTime = (iso: string) => DateTime.fromISO(iso).toLocaleString(DateTime.DATETIME_SHORT);
 // Overall data progress = completed files + everything the workers have

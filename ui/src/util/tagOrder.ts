@@ -6,6 +6,13 @@ import { EmbeddedTag, ImageTagAssignment } from "src/types/api";
 export type TagCategory = "template" | "manual" | "custom" | "ai";
 export const TAG_CATEGORIES: TagCategory[] = ["template", "manual", "custom", "ai"];
 
+// tagLabel is what the UI renders for a tag: the optional displayName when
+// set, otherwise the name. Matching, exports, and hotkey bindings always use
+// the name itself.
+export function tagLabel(tag: { name: string; displayName?: string }): string {
+  return tag.displayName || tag.name;
+}
+
 export function tagCategory(assignment: ImageTagAssignment): TagCategory {
   if (assignment.type === "inferred") return "ai";
   switch (assignment.tag.type) {

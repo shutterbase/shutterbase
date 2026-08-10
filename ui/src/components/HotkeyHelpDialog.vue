@@ -80,6 +80,7 @@ import { useRouter } from "vue-router";
 import { emitter } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
 import { CONTEXT_LABELS, HOTKEY_ACTIONS, HotkeyContext, actionKeys, effectiveTagBindings, formatCombo, pushHotkeyContext, useHotkeyAction } from "src/util/hotkeys";
+import { tagLabel } from "src/util/tagOrder";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -126,7 +127,14 @@ const sections = computed(() => {
   })).filter((section) => section.entries.length > 0);
 });
 
-const tagEntries = computed(() => Object.entries(effectiveTagBindings(userStore.user?.hotkeys)).map(([combo, tagName]) => ({ combo, tagName })));
+// Bindings are stored by tag name; render the tag's display label when the
+// project tag is loaded, the stored name otherwise.
+const tagEntries = computed(() =>
+  Object.entries(effectiveTagBindings(userStore.user?.hotkeys)).map(([combo, tagName]) => {
+    const tag = userStore.projectTags?.find((t) => t.name === tagName);
+    return { combo, tagName: tag ? tagLabel(tag) : tagName };
+  }),
+);
 
 function goToSettings() {
   open.value = false;

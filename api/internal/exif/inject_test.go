@@ -76,6 +76,25 @@ func TestBuildMetadataComboTagsSplitAtExport(t *testing.T) {
 	}
 }
 
+// The displayName is a UI-only label: export always splits the NAME's segments,
+// no matter what the display name says.
+func TestBuildMetadataComboTagIgnoresDisplayName(t *testing.T) {
+	combo := tag("autocross|DV", imagetag.TypeManual, intPtr(1))
+	combo.DisplayName = "Autocross (Driverless)"
+	image := &ent.Image{
+		Edges: ent.ImageEdges{
+			ImageTagAssignments: []*ent.ImageTagAssignment{
+				{Edges: ent.ImageTagAssignmentEdges{ImageTag: combo}},
+			},
+		},
+	}
+	m := buildMetadata(image)
+	want := []string{"autocross", "DV"}
+	if !reflect.DeepEqual(m["IPTC:Keywords"], want) {
+		t.Fatalf("IPTC:Keywords = %v, want %v (displayName must never reach the export)", m["IPTC:Keywords"], want)
+	}
+}
+
 func TestBuildMetadataComboTagCannotSmuggleInternal(t *testing.T) {
 	image := &ent.Image{
 		Edges: ent.ImageEdges{

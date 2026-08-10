@@ -83,6 +83,7 @@ func (r *Repository) EnsureImageTag(ctx context.Context, projectID, name, descri
 
 type CreateImageTagParameters struct {
 	Name        string
+	DisplayName string
 	Description string
 	IsAlbum     *bool
 	Order       *int
@@ -93,6 +94,7 @@ type CreateImageTagParameters struct {
 func (r *Repository) CreateImageTag(ctx context.Context, parameters *CreateImageTagParameters) (*ent.ImageTag, error) {
 	create := r.Client.ImageTag.Create().
 		SetName(parameters.Name).
+		SetDisplayName(parameters.DisplayName).
 		SetDescription(parameters.Description).
 		SetType(parameters.Type).
 		SetProjectID(parameters.ProjectID).
@@ -118,6 +120,7 @@ func (r *Repository) CreateImageTag(ctx context.Context, parameters *CreateImage
 
 type UpdateImageTagParameters struct {
 	Name        *string
+	DisplayName *string
 	Description *string
 	IsAlbum     *bool
 	// Order: nil = untouched; pointer to 0 = clear (0 is not a valid rank).
@@ -144,6 +147,10 @@ func (r *Repository) UpdateImageTag(ctx context.Context, id string, parameters *
 	if parameters.Name != nil && item.Name != *parameters.Name {
 		update.SetName(*parameters.Name)
 		st.SetFieldChanged(imagetag.FieldName, item.Name, *parameters.Name)
+	}
+	if parameters.DisplayName != nil && item.DisplayName != *parameters.DisplayName {
+		update.SetDisplayName(*parameters.DisplayName)
+		st.SetFieldChanged(imagetag.FieldDisplayName, item.DisplayName, *parameters.DisplayName)
 	}
 	if parameters.Description != nil && item.Description != *parameters.Description {
 		update.SetDescription(*parameters.Description)

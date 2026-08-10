@@ -3,6 +3,7 @@ import { api } from "src/api";
 import { emitter } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
 import { canEditImageTag } from "src/pages/upload/uploadUtil";
+import { tagLabel } from "src/util/tagOrder";
 
 // Tag-removal permission and mutation, shared by the sidebar badge list and
 // the zen-mode tag bar so both mirror the server rules and never offer a 403.
@@ -30,7 +31,7 @@ export async function removeTagAssignment(item: ImageWithTagsType | null, tagAss
   try {
     await api.imageTagAssignments.remove(tagAssignment.id);
     emitter.emit(`notification`, {
-      headline: `Tag ${tagAssignment.tag.name} removed`,
+      headline: `Tag ${tagLabel(tagAssignment.tag)} removed`,
       type: "success",
     });
     if (item) {
@@ -42,7 +43,7 @@ export async function removeTagAssignment(item: ImageWithTagsType | null, tagAss
     }
   } catch (error: any) {
     emitter.emit(`notification`, {
-      headline: `Error removing tag ${tagAssignment.tag.name}`,
+      headline: `Error removing tag ${tagLabel(tagAssignment.tag)}`,
       type: "error",
     });
   }

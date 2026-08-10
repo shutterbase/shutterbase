@@ -6,11 +6,12 @@
     :role="removable ? 'button' : undefined"
     :tabindex="removable ? 0 : undefined"
     :class="[`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset`, tagColor, removableClasses()]"
-    >{{ tagAssignment.tag.name }}</span
+    >{{ tagLabel(tagAssignment.tag) }}</span
   >
 </template>
 <script lang="ts" setup>
 import { ImageTagAssignmentType } from "src/types/custom";
+import { tagLabel } from "src/util/tagOrder";
 import { computed } from "vue";
 
 interface Props {

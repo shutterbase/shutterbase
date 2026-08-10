@@ -29,6 +29,8 @@ type ImageTag struct {
 	UpdatedBy *uuid.UUID `json:"updatedBy,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name"`
+	// DisplayName holds the value of the "displayName" field.
+	DisplayName string `json:"displayName,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description"`
 	// IsAlbum holds the value of the "isAlbum" field.
@@ -98,7 +100,7 @@ func (*ImageTag) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case imagetag.FieldOrder:
 			values[i] = new(sql.NullInt64)
-		case imagetag.FieldID, imagetag.FieldName, imagetag.FieldDescription, imagetag.FieldType, imagetag.FieldProjectID:
+		case imagetag.FieldID, imagetag.FieldName, imagetag.FieldDisplayName, imagetag.FieldDescription, imagetag.FieldType, imagetag.FieldProjectID:
 			values[i] = new(sql.NullString)
 		case imagetag.FieldCreatedAt, imagetag.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -154,6 +156,12 @@ func (_m *ImageTag) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field name", values[i])
 			} else if value.Valid {
 				_m.Name = value.String
+			}
+		case imagetag.FieldDisplayName:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field displayName", values[i])
+			} else if value.Valid {
+				_m.DisplayName = value.String
 			}
 		case imagetag.FieldDescription:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -255,6 +263,9 @@ func (_m *ImageTag) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)
+	builder.WriteString(", ")
+	builder.WriteString("displayName=")
+	builder.WriteString(_m.DisplayName)
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(_m.Description)

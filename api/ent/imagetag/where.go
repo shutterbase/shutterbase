@@ -91,6 +91,11 @@ func Name(v string) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldName, v))
 }
 
+// DisplayName applies equality check predicate on the "displayName" field. It's identical to DisplayNameEQ.
+func DisplayName(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEQ(FieldDisplayName, v))
+}
+
 // Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
 func Description(v string) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldDescription, v))
@@ -354,6 +359,81 @@ func NameEqualFold(v string) predicate.ImageTag {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldContainsFold(FieldName, v))
+}
+
+// DisplayNameEQ applies the EQ predicate on the "displayName" field.
+func DisplayNameEQ(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEQ(FieldDisplayName, v))
+}
+
+// DisplayNameNEQ applies the NEQ predicate on the "displayName" field.
+func DisplayNameNEQ(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNEQ(FieldDisplayName, v))
+}
+
+// DisplayNameIn applies the In predicate on the "displayName" field.
+func DisplayNameIn(vs ...string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldIn(FieldDisplayName, vs...))
+}
+
+// DisplayNameNotIn applies the NotIn predicate on the "displayName" field.
+func DisplayNameNotIn(vs ...string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNotIn(FieldDisplayName, vs...))
+}
+
+// DisplayNameGT applies the GT predicate on the "displayName" field.
+func DisplayNameGT(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldGT(FieldDisplayName, v))
+}
+
+// DisplayNameGTE applies the GTE predicate on the "displayName" field.
+func DisplayNameGTE(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldGTE(FieldDisplayName, v))
+}
+
+// DisplayNameLT applies the LT predicate on the "displayName" field.
+func DisplayNameLT(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldLT(FieldDisplayName, v))
+}
+
+// DisplayNameLTE applies the LTE predicate on the "displayName" field.
+func DisplayNameLTE(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldLTE(FieldDisplayName, v))
+}
+
+// DisplayNameContains applies the Contains predicate on the "displayName" field.
+func DisplayNameContains(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldContains(FieldDisplayName, v))
+}
+
+// DisplayNameHasPrefix applies the HasPrefix predicate on the "displayName" field.
+func DisplayNameHasPrefix(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldHasPrefix(FieldDisplayName, v))
+}
+
+// DisplayNameHasSuffix applies the HasSuffix predicate on the "displayName" field.
+func DisplayNameHasSuffix(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldHasSuffix(FieldDisplayName, v))
+}
+
+// DisplayNameIsNil applies the IsNil predicate on the "displayName" field.
+func DisplayNameIsNil() predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldIsNull(FieldDisplayName))
+}
+
+// DisplayNameNotNil applies the NotNil predicate on the "displayName" field.
+func DisplayNameNotNil() predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNotNull(FieldDisplayName))
+}
+
+// DisplayNameEqualFold applies the EqualFold predicate on the "displayName" field.
+func DisplayNameEqualFold(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEqualFold(FieldDisplayName, v))
+}
+
+// DisplayNameContainsFold applies the ContainsFold predicate on the "displayName" field.
+func DisplayNameContainsFold(v string) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldContainsFold(FieldDisplayName, v))
 }
 
 // DescriptionEQ applies the EQ predicate on the "description" field.

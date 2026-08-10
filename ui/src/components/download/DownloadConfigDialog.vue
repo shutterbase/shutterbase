@@ -181,6 +181,7 @@ import { ArrowDownTrayIcon, TrashIcon, XMarkIcon } from "@heroicons/vue/24/outli
 import { ref, watch } from "vue";
 import SearchSelect, { SearchSelectOption } from "src/components/SearchSelect.vue";
 import { DownloadConfig, ImageTag } from "src/types/api";
+import { tagLabel } from "src/util/tagOrder";
 import { DownloadConfigCreate, DownloadConfigUpdate } from "src/api/downloadConfigs";
 
 interface Props {
@@ -251,7 +252,8 @@ watch(blacklistPick, (id) => {
 });
 
 function tagName(id: string): string {
-  return props.projectTags.find((t) => t.id === id)?.name ?? id;
+  const tag = props.projectTags.find((t) => t.id === id);
+  return tag ? tagLabel(tag) : id;
 }
 
 function save() {

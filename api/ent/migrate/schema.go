@@ -282,6 +282,7 @@ var (
 		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "name", Type: field.TypeString},
+		{Name: "display_name", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString},
 		{Name: "is_album", Type: field.TypeBool, Default: false},
 		{Name: "order", Type: field.TypeInt, Nullable: true},
@@ -296,7 +297,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "image_tags_projects_imageTags",
-				Columns:    []*schema.Column{ImageTagsColumns[10]},
+				Columns:    []*schema.Column{ImageTagsColumns[11]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -305,12 +306,12 @@ var (
 			{
 				Name:    "imagetag_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImageTagsColumns[10]},
+				Columns: []*schema.Column{ImageTagsColumns[11]},
 			},
 			{
 				Name:    "imagetag_name_project_id",
 				Unique:  true,
-				Columns: []*schema.Column{ImageTagsColumns[5], ImageTagsColumns[10]},
+				Columns: []*schema.Column{ImageTagsColumns[5], ImageTagsColumns[11]},
 			},
 		},
 	}

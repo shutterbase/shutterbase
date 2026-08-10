@@ -74,6 +74,7 @@ async function addTag(input: ImageTagsResponse) {
 
     const response = await api.imageTags.create({
       name: input.name,
+      displayName: input.displayName,
       description: input.description,
       isAlbum: input.isAlbum,
       order: toTagOrder(input.order) || undefined,
@@ -151,6 +152,7 @@ async function editTag(input: ImageTagsResponse) {
     console.log(`Editing tag ${input.name} in project ${item.value.name}`);
     const response = await api.imageTags.update(input.id, {
       name: input.name,
+      displayName: input.displayName ?? "",
       description: input.description,
       isAlbum: input.isAlbum,
       order: toTagOrder(input.order),
@@ -199,6 +201,7 @@ function showTagEdit() {
 
 const imageTagColumns: TableColumn<ImageTagsResponse>[] = [
   { key: "name", label: "Name" },
+  { key: "displayName", label: "Display name" },
   { key: "description", label: "Description" },
   { key: "order", label: "Order" },
   { key: "type", label: "Type" },

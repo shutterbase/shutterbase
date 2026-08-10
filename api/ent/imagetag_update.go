@@ -72,6 +72,26 @@ func (_u *ImageTagUpdate) SetNillableName(v *string) *ImageTagUpdate {
 	return _u
 }
 
+// SetDisplayName sets the "displayName" field.
+func (_u *ImageTagUpdate) SetDisplayName(v string) *ImageTagUpdate {
+	_u.mutation.SetDisplayName(v)
+	return _u
+}
+
+// SetNillableDisplayName sets the "displayName" field if the given value is not nil.
+func (_u *ImageTagUpdate) SetNillableDisplayName(v *string) *ImageTagUpdate {
+	if v != nil {
+		_u.SetDisplayName(*v)
+	}
+	return _u
+}
+
+// ClearDisplayName clears the value of the "displayName" field.
+func (_u *ImageTagUpdate) ClearDisplayName() *ImageTagUpdate {
+	_u.mutation.ClearDisplayName()
+	return _u
+}
+
 // SetDescription sets the "description" field.
 func (_u *ImageTagUpdate) SetDescription(v string) *ImageTagUpdate {
 	_u.mutation.SetDescription(v)
@@ -334,6 +354,12 @@ func (_u *ImageTagUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(imagetag.FieldName, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.DisplayName(); ok {
+		_spec.SetField(imagetag.FieldDisplayName, field.TypeString, value)
+	}
+	if _u.mutation.DisplayNameCleared() {
+		_spec.ClearField(imagetag.FieldDisplayName, field.TypeString)
+	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(imagetag.FieldDescription, field.TypeString, value)
 	}
@@ -528,6 +554,26 @@ func (_u *ImageTagUpdateOne) SetNillableName(v *string) *ImageTagUpdateOne {
 	if v != nil {
 		_u.SetName(*v)
 	}
+	return _u
+}
+
+// SetDisplayName sets the "displayName" field.
+func (_u *ImageTagUpdateOne) SetDisplayName(v string) *ImageTagUpdateOne {
+	_u.mutation.SetDisplayName(v)
+	return _u
+}
+
+// SetNillableDisplayName sets the "displayName" field if the given value is not nil.
+func (_u *ImageTagUpdateOne) SetNillableDisplayName(v *string) *ImageTagUpdateOne {
+	if v != nil {
+		_u.SetDisplayName(*v)
+	}
+	return _u
+}
+
+// ClearDisplayName clears the value of the "displayName" field.
+func (_u *ImageTagUpdateOne) ClearDisplayName() *ImageTagUpdateOne {
+	_u.mutation.ClearDisplayName()
 	return _u
 }
 
@@ -822,6 +868,12 @@ func (_u *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, err 
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(imagetag.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DisplayName(); ok {
+		_spec.SetField(imagetag.FieldDisplayName, field.TypeString, value)
+	}
+	if _u.mutation.DisplayNameCleared() {
+		_spec.ClearField(imagetag.FieldDisplayName, field.TypeString)
 	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(imagetag.FieldDescription, field.TypeString, value)

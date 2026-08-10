@@ -13,6 +13,7 @@ export interface ImageTagListParams {
 
 export interface ImageTagCreate {
   name: string;
+  displayName?: string;
   description?: string;
   isAlbum?: boolean;
   order?: number; // positive rank; omit for unranked
@@ -22,6 +23,7 @@ export interface ImageTagCreate {
 
 export interface ImageTagUpdate {
   name?: string;
+  displayName?: string; // "" clears, omit leaves untouched
   description?: string;
   isAlbum?: boolean;
   order?: number; // positive rank; 0 clears, omit leaves untouched

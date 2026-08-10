@@ -25,6 +25,8 @@ const (
 	FieldUpdatedBy = "updated_by"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldDisplayName holds the string denoting the displayname field in the database.
+	FieldDisplayName = "display_name"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
 	// FieldIsAlbum holds the string denoting the isalbum field in the database.
@@ -72,6 +74,7 @@ var Columns = []string{
 	FieldCreatedBy,
 	FieldUpdatedBy,
 	FieldName,
+	FieldDisplayName,
 	FieldDescription,
 	FieldIsAlbum,
 	FieldOrder,
@@ -172,6 +175,11 @@ func ByUpdatedBy(opts ...sql.OrderTermOption) OrderOption {
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
+}
+
+// ByDisplayName orders the results by the displayName field.
+func ByDisplayName(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDisplayName, opts...).ToFunc()
 }
 
 // ByDescription orders the results by the description field.
