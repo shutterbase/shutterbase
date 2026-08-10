@@ -16,6 +16,9 @@ func (ImageTag) Mixin() []ent.Mixin {
 func (ImageTag) Fields() []ent.Field {
 	return []ent.Field{
 		field.String("name").NotEmpty().StructTag(`json:"name"`),
+		// Optional UI label; empty means "display the name". Exports and the
+		// review error tag always match on name.
+		field.String("displayName").Optional().StructTag(`json:"displayName,omitempty"`),
 		field.String("description").NotEmpty().StructTag(`json:"description"`),
 		field.Bool("isAlbum").Default(false).StructTag(`json:"isAlbum"`),
 		// Sort rank for tag application/display: lower first, ties and unset

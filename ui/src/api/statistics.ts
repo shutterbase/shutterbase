@@ -3,6 +3,7 @@ import { http } from "src/boot/axios";
 export interface TagStatistic {
   id: string;
   name: string;
+  displayName?: string;
   description: string;
   type: string;
   count: number;

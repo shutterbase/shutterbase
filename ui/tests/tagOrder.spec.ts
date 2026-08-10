@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compareTagOrder, exifKeywordAssignments, groupTagAssignments, tagCategory, toTagOrder } from "src/util/tagOrder";
+import { compareTagOrder, exifKeywordAssignments, groupTagAssignments, tagCategory, tagLabel, toTagOrder } from "src/util/tagOrder";
 import { ImageTagAssignment } from "src/types/api";
 
 function assignment(id: string, assignmentType: string, tagType: string, name: string, order?: number | null): ImageTagAssignment {
@@ -15,6 +15,14 @@ describe("tagCategory", () => {
     expect(tagCategory(assignment("2", "scheduled", "default", "quali"))).toBe("template");
     expect(tagCategory(assignment("3", "manual", "manual", "podium"))).toBe("manual");
     expect(tagCategory(assignment("4", "manual", "custom", "review"))).toBe("custom");
+  });
+});
+
+describe("tagLabel", () => {
+  it("prefers displayName, falls back to name when unset or empty", () => {
+    expect(tagLabel({ name: "20240817", displayName: "Race day" })).toBe("Race day");
+    expect(tagLabel({ name: "20240817", displayName: "" })).toBe("20240817");
+    expect(tagLabel({ name: "20240817" })).toBe("20240817");
   });
 });
 

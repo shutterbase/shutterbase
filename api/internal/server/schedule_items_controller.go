@@ -35,7 +35,7 @@ func (s *Server) scheduleItemResponse(ctx context.Context, it *ent.ScheduleItem)
 	}
 	tags := make([]gin.H, 0, len(it.Edges.Tags))
 	for _, t := range it.Edges.Tags {
-		tags = append(tags, gin.H{"id": t.ID, "name": t.Name, "type": t.Type})
+		tags = append(tags, gin.H{"id": t.ID, "name": t.Name, "displayName": t.DisplayName, "type": t.Type})
 	}
 	resp := gin.H{
 		"id":          it.ID,

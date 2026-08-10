@@ -141,7 +141,7 @@
                 >
                   <CheckIcon v-if="isSelected(tag)" class="h-3 w-3" />
                 </span>
-                <span class="truncate">{{ tag.name }}</span>
+                <span class="truncate">{{ tagLabel(tag) }}</span>
               </button>
               <p v-if="!filteredTags.length" class="px-2.5 py-6 text-center text-sm text-primary-400">No tags found</p>
             </div>
@@ -272,6 +272,7 @@ import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
 import { computed, h, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
+import { tagLabel } from "src/util/tagOrder";
 import { api } from "src/api";
 
 type Density = "gallery" | "comfortable" | "dense";
@@ -352,7 +353,7 @@ watch(selectedTags, () => emit("filterTags", selectedTags.value), { deep: true }
 const selectableTags = computed(() => projectTags.value.filter((t: ImageTag) => t.type !== "template"));
 const filteredTags = computed(() => {
   const q = tagQuery.value.toLowerCase();
-  return selectableTags.value.filter((t: ImageTag) => t.name.toLowerCase().includes(q));
+  return selectableTags.value.filter((t: ImageTag) => t.name.toLowerCase().includes(q) || tagLabel(t).toLowerCase().includes(q));
 });
 const isSelected = (tag: ImageTag) => selectedTags.value.some((t) => t.id === tag.id);
 function toggleTag(tag: ImageTag) {

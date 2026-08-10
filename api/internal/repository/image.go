@@ -141,6 +141,7 @@ func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParamete
 type TagStatistic struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
 	Type        string `json:"type"`
 	Count       int    `json:"count"`
@@ -172,7 +173,7 @@ func (r *Repository) GetProjectTagStatistics(ctx context.Context, projectID stri
 			return nil, err
 		}
 		stats = append(stats, TagStatistic{
-			ID: t.ID, Name: t.Name, Description: t.Description, Type: t.Type.String(), Count: count,
+			ID: t.ID, Name: t.Name, DisplayName: t.DisplayName, Description: t.Description, Type: t.Type.String(), Count: count,
 		})
 	}
 	return stats, nil

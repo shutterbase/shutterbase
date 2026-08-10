@@ -150,6 +150,7 @@ import { DateTime } from "luxon";
 import { computed, ref, watch } from "vue";
 import SearchSelect, { SearchSelectOption } from "src/components/SearchSelect.vue";
 import { ImageTag, ScheduleItem } from "src/types/api";
+import { tagLabel } from "src/util/tagOrder";
 import { ScheduleItemCreate, ScheduleItemUpdate } from "src/api/scheduleItems";
 
 interface Props {
@@ -230,7 +231,8 @@ watch(tagPick, (id) => {
 // tag that fell out of the selectable set (e.g. type changed) — fall back to
 // the item's own embedded tag names.
 function tagName(id: string): string {
-  return props.projectTags.find((t) => t.id === id)?.name ?? props.item?.tags.find((t) => t.id === id)?.name ?? id;
+  const tag = props.projectTags.find((t) => t.id === id) ?? props.item?.tags.find((t) => t.id === id);
+  return tag ? tagLabel(tag) : id;
 }
 
 function removeTag(id: string) {

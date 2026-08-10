@@ -255,15 +255,15 @@ func init() {
 	// imagetag.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	imagetag.NameValidator = imagetagDescName.Validators[0].(func(string) error)
 	// imagetagDescDescription is the schema descriptor for description field.
-	imagetagDescDescription := imagetagFields[1].Descriptor()
+	imagetagDescDescription := imagetagFields[2].Descriptor()
 	// imagetag.DescriptionValidator is a validator for the "description" field. It is called by the builders before save.
 	imagetag.DescriptionValidator = imagetagDescDescription.Validators[0].(func(string) error)
 	// imagetagDescIsAlbum is the schema descriptor for isAlbum field.
-	imagetagDescIsAlbum := imagetagFields[2].Descriptor()
+	imagetagDescIsAlbum := imagetagFields[3].Descriptor()
 	// imagetag.DefaultIsAlbum holds the default value on creation for the isAlbum field.
 	imagetag.DefaultIsAlbum = imagetagDescIsAlbum.Default.(bool)
 	// imagetagDescOrder is the schema descriptor for order field.
-	imagetagDescOrder := imagetagFields[3].Descriptor()
+	imagetagDescOrder := imagetagFields[4].Descriptor()
 	// imagetag.OrderValidator is a validator for the "order" field. It is called by the builders before save.
 	imagetag.OrderValidator = imagetagDescOrder.Validators[0].(func(int) error)
 	// imagetagDescID is the schema descriptor for id field.

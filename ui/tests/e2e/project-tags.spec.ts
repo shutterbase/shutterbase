@@ -46,6 +46,47 @@ test.describe.serial("project tags CRUD", () => {
     expect(errors, errors.join("\n")).toHaveLength(0);
   });
 
+  // Display name: shown wherever the tag is rendered, name is the fallback.
+  // Create with one, see it in the table; clear it via edit, see the name again.
+  test("create a tag with a display name, clear it, see the name fallback (admin)", async ({ page }) => {
+    const errors = collectJsErrors(page);
+    const NAME = "e2e-displayname-tag";
+    const DISPLAY = "E2E Pretty Label";
+    const project = await loginAs(page, "admin");
+    expect(project, "seed project should be active").not.toBeNull();
+
+    await page.goto(`/projects/${project!.id}/tags`);
+    await page.getByRole("button", { name: /Add Project Tag/i }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Name", { exact: true }).fill(NAME);
+    await dialog.getByLabel(/^Display name/).fill(DISPLAY);
+    await dialog.getByLabel("Description", { exact: true }).fill("created by e2e");
+    await dialog.getByRole("button", { name: "Save tag" }).click();
+    await expect(dialog).toBeHidden();
+
+    await page.reload();
+    const row = page.getByRole("row").filter({ hasText: NAME });
+    await expect(row, "display name must persist after reload").toContainText(DISPLAY);
+
+    // --- clear the display name ---
+    await row.getByRole("button", { name: "Edit" }).click();
+    await dialog.getByLabel(/^Display name/).fill("");
+    await dialog.getByRole("button", { name: "Save tag" }).click();
+    await expect(dialog).toBeHidden();
+    await page.reload();
+    await expect(page.getByRole("row").filter({ hasText: NAME }), "cleared display name must be gone").not.toContainText(DISPLAY);
+
+    await page
+      .getByRole("row")
+      .filter({ hasText: NAME })
+      .getByRole("button", { name: "Delete" })
+      .click();
+    await page.reload();
+    await expect(page.getByRole("row").filter({ hasText: NAME })).toHaveCount(0);
+
+    expect(errors, errors.join("\n")).toHaveLength(0);
+  });
+
   // Regression: the dialog offered type=template while the API refused it
   // outright ("template tags are not creatable via the API"), so a project admin
   // could never add $COPYRIGHT/$WEEKDAY — the "$" prefix IS how a template tag is

@@ -6569,6 +6569,7 @@ type ImageTagMutation struct {
 	createdBy             *uuid.UUID
 	updatedBy             *uuid.UUID
 	name                  *string
+	displayName           *string
 	description           *string
 	isAlbum               *bool
 	_order                *int
@@ -6896,6 +6897,55 @@ func (m *ImageTagMutation) OldName(ctx context.Context) (v string, err error) {
 // ResetName resets all changes to the "name" field.
 func (m *ImageTagMutation) ResetName() {
 	m.name = nil
+}
+
+// SetDisplayName sets the "displayName" field.
+func (m *ImageTagMutation) SetDisplayName(s string) {
+	m.displayName = &s
+}
+
+// DisplayName returns the value of the "displayName" field in the mutation.
+func (m *ImageTagMutation) DisplayName() (r string, exists bool) {
+	v := m.displayName
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDisplayName returns the old "displayName" field's value of the ImageTag entity.
+// If the ImageTag object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageTagMutation) OldDisplayName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDisplayName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDisplayName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDisplayName: %w", err)
+	}
+	return oldValue.DisplayName, nil
+}
+
+// ClearDisplayName clears the value of the "displayName" field.
+func (m *ImageTagMutation) ClearDisplayName() {
+	m.displayName = nil
+	m.clearedFields[imagetag.FieldDisplayName] = struct{}{}
+}
+
+// DisplayNameCleared returns if the "displayName" field was cleared in this mutation.
+func (m *ImageTagMutation) DisplayNameCleared() bool {
+	_, ok := m.clearedFields[imagetag.FieldDisplayName]
+	return ok
+}
+
+// ResetDisplayName resets all changes to the "displayName" field.
+func (m *ImageTagMutation) ResetDisplayName() {
+	m.displayName = nil
+	delete(m.clearedFields, imagetag.FieldDisplayName)
 }
 
 // SetDescription sets the "description" field.
@@ -7281,7 +7331,7 @@ func (m *ImageTagMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageTagMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 11)
 	if m.createdAt != nil {
 		fields = append(fields, imagetag.FieldCreatedAt)
 	}
@@ -7296,6 +7346,9 @@ func (m *ImageTagMutation) Fields() []string {
 	}
 	if m.name != nil {
 		fields = append(fields, imagetag.FieldName)
+	}
+	if m.displayName != nil {
+		fields = append(fields, imagetag.FieldDisplayName)
 	}
 	if m.description != nil {
 		fields = append(fields, imagetag.FieldDescription)
@@ -7330,6 +7383,8 @@ func (m *ImageTagMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedBy()
 	case imagetag.FieldName:
 		return m.Name()
+	case imagetag.FieldDisplayName:
+		return m.DisplayName()
 	case imagetag.FieldDescription:
 		return m.Description()
 	case imagetag.FieldIsAlbum:
@@ -7359,6 +7414,8 @@ func (m *ImageTagMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldUpdatedBy(ctx)
 	case imagetag.FieldName:
 		return m.OldName(ctx)
+	case imagetag.FieldDisplayName:
+		return m.OldDisplayName(ctx)
 	case imagetag.FieldDescription:
 		return m.OldDescription(ctx)
 	case imagetag.FieldIsAlbum:
@@ -7412,6 +7469,13 @@ func (m *ImageTagMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetName(v)
+		return nil
+	case imagetag.FieldDisplayName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDisplayName(v)
 		return nil
 	case imagetag.FieldDescription:
 		v, ok := value.(string)
@@ -7499,6 +7563,9 @@ func (m *ImageTagMutation) ClearedFields() []string {
 	if m.FieldCleared(imagetag.FieldUpdatedBy) {
 		fields = append(fields, imagetag.FieldUpdatedBy)
 	}
+	if m.FieldCleared(imagetag.FieldDisplayName) {
+		fields = append(fields, imagetag.FieldDisplayName)
+	}
 	if m.FieldCleared(imagetag.FieldOrder) {
 		fields = append(fields, imagetag.FieldOrder)
 	}
@@ -7521,6 +7588,9 @@ func (m *ImageTagMutation) ClearField(name string) error {
 		return nil
 	case imagetag.FieldUpdatedBy:
 		m.ClearUpdatedBy()
+		return nil
+	case imagetag.FieldDisplayName:
+		m.ClearDisplayName()
 		return nil
 	case imagetag.FieldOrder:
 		m.ClearOrder()
@@ -7547,6 +7617,9 @@ func (m *ImageTagMutation) ResetField(name string) error {
 		return nil
 	case imagetag.FieldName:
 		m.ResetName()
+		return nil
+	case imagetag.FieldDisplayName:
+		m.ResetDisplayName()
 		return nil
 	case imagetag.FieldDescription:
 		m.ResetDescription()

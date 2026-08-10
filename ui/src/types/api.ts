@@ -57,6 +57,7 @@ export interface EmbeddedUpload {
 export interface EmbeddedTag {
   id: string;
   name: string;
+  displayName?: string;
   type: string;
   isAlbum?: boolean;
   order?: number | null;
@@ -111,6 +112,7 @@ export type AiStatus = "pending" | "processing" | "done" | "error";
 export interface ImageTag {
   id: string;
   name: string;
+  displayName?: string; // optional UI label; empty = display the name
   description: string;
   isAlbum: boolean;
   order?: number | null; // positive rank; lower = applied/shown first, unset = last

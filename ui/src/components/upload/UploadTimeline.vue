@@ -170,6 +170,7 @@ import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { ImageTag, ScheduleItem, Upload } from "src/types/api";
 import { Image } from "src/util/fileProcessor";
+import { tagLabel } from "src/util/tagOrder";
 import {
   EditorTrack,
   TimedImage,
@@ -239,7 +240,10 @@ const imageById = computed(() => {
 
 const labels = {
   scheduleItem: (id: string) => allItems.value.find((i) => i.id === id)?.title ?? "Schedule item",
-  tag: (id: string) => projectTags.value.find((t) => t.id === id)?.name ?? "Tag",
+  tag: (id: string) => {
+    const t = projectTags.value.find((t) => t.id === id);
+    return t ? tagLabel(t) : "Tag";
+  },
 };
 
 // Seed once: persisted timeline wins; otherwise pre-populate my items when the
@@ -301,7 +305,7 @@ const itemOptions = computed<SearchSelectOption[]>(() =>
   })),
 );
 const tagLaneOptions = computed<SearchSelectOption[]>(() =>
-  addableTags.value.map((t) => ({ value: t.id, label: t.name, hint: t.type })).sort((a, b) => a.label.localeCompare(b.label)),
+  addableTags.value.map((t) => ({ value: t.id, label: tagLabel(t), hint: t.type })).sort((a, b) => a.label.localeCompare(b.label)),
 );
 watch(itemPick, (id) => {
   if (!id) return;

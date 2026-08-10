@@ -58,6 +58,7 @@ type namedRef struct {
 type tagRef struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
 	IsAlbum     bool   `json:"isAlbum"`
 	Order       *int   `json:"order,omitempty"`
@@ -172,7 +173,7 @@ func ToImageResponse(ctx context.Context, img *ent.Image, signer DownloadURLSign
 	for _, a := range img.Edges.ImageTagAssignments {
 		ref := assignmentRef{ID: a.ID, Type: a.Type.String()}
 		if t := a.Edges.ImageTag; t != nil {
-			ref.Tag = &tagRef{ID: t.ID, Name: t.Name, Description: t.Description, IsAlbum: t.IsAlbum, Order: t.Order, Type: t.Type.String()}
+			ref.Tag = &tagRef{ID: t.ID, Name: t.Name, DisplayName: t.DisplayName, Description: t.Description, IsAlbum: t.IsAlbum, Order: t.Order, Type: t.Type.String()}
 		}
 		resp.Tags = append(resp.Tags, ref)
 	}

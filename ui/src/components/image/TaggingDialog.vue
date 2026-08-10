@@ -74,7 +74,7 @@
                   >
                 </div>
                 <div class="ml-10 flex-auto truncate">
-                  <p class="text-sm font-medium text-primary-800 dark:text-primary-100 truncate">{{ tag.name }}</p>
+                  <p class="text-sm font-medium text-primary-800 dark:text-primary-100 truncate">{{ tagLabel(tag) }}</p>
                   <p class="text-sm text-primary-500 dark:text-primary-400 truncate">{{ tag.description }}</p>
                 </div>
               </li>
@@ -107,7 +107,7 @@
                 </div>
                 <TagIcon v-else class="h-6 w-6 text-primary-400 dark:text-primary-500" />
                 <div class="ml-10 flex-auto truncate">
-                  <p class="text-sm font-medium text-primary-800 dark:text-primary-100 truncate">{{ tag.name }}</p>
+                  <p class="text-sm font-medium text-primary-800 dark:text-primary-100 truncate">{{ tagLabel(tag) }}</p>
                   <p class="text-sm text-primary-500 dark:text-primary-400 truncate">{{ tag.description }}</p>
                 </div>
               </li>
@@ -149,6 +149,7 @@ import { actionKeys, formatCombo, pushHotkeyContext, useHotkeyAction } from "src
 import { Image } from "src/util/fileProcessor";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import { tagStack } from "src/pages/image/imageQueryLogic";
+import { tagLabel } from "src/util/tagOrder";
 import { api } from "src/api";
 
 interface Props {
@@ -186,6 +187,9 @@ const filteredTags = computed(() => {
       return false;
     }
     if (tag.name.toLowerCase().includes(searchText.value.toLowerCase())) {
+      return true;
+    }
+    if (tagLabel(tag).toLowerCase().includes(searchText.value.toLowerCase())) {
       return true;
     }
     if (tag.description.toLowerCase().includes(searchText.value.toLowerCase())) {

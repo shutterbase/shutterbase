@@ -24,7 +24,7 @@ func (s *Server) imageTagAssignmentResponse(ctx context.Context, a *ent.ImageTag
 		"updatedAt": a.UpdatedAt,
 	}
 	if t, err := s.Repository.GetImageTag(ctx, a.ImageTagID); err == nil {
-		out["tag"] = gin.H{"id": t.ID, "name": t.Name, "type": t.Type, "isAlbum": t.IsAlbum, "order": t.Order}
+		out["tag"] = gin.H{"id": t.ID, "name": t.Name, "displayName": t.DisplayName, "type": t.Type, "isAlbum": t.IsAlbum, "order": t.Order}
 	}
 	return out
 }

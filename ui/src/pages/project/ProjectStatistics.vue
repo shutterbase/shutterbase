@@ -16,6 +16,7 @@ import { useRoute } from "vue-router";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue";
+import { tagLabel } from "src/util/tagOrder";
 
 import { api } from "src/api";
 const route = useRoute();
@@ -57,6 +58,7 @@ function trimTagDescription(tag: ImageTagWithCount): ImageTagWithCount {
   }
   return {
     ...tag,
+    name: tagLabel(tag),
     description: description,
   };
 }

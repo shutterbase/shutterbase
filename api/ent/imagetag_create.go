@@ -86,6 +86,20 @@ func (_c *ImageTagCreate) SetName(v string) *ImageTagCreate {
 	return _c
 }
 
+// SetDisplayName sets the "displayName" field.
+func (_c *ImageTagCreate) SetDisplayName(v string) *ImageTagCreate {
+	_c.mutation.SetDisplayName(v)
+	return _c
+}
+
+// SetNillableDisplayName sets the "displayName" field if the given value is not nil.
+func (_c *ImageTagCreate) SetNillableDisplayName(v *string) *ImageTagCreate {
+	if v != nil {
+		_c.SetDisplayName(*v)
+	}
+	return _c
+}
+
 // SetDescription sets the "description" field.
 func (_c *ImageTagCreate) SetDescription(v string) *ImageTagCreate {
 	_c.mutation.SetDescription(v)
@@ -339,6 +353,10 @@ func (_c *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(imagetag.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.DisplayName(); ok {
+		_spec.SetField(imagetag.FieldDisplayName, field.TypeString, value)
+		_node.DisplayName = value
 	}
 	if value, ok := _c.mutation.Description(); ok {
 		_spec.SetField(imagetag.FieldDescription, field.TypeString, value)
