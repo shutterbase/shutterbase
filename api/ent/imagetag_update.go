@@ -120,6 +120,20 @@ func (_u *ImageTagUpdate) SetNillableIsAlbum(v *bool) *ImageTagUpdate {
 	return _u
 }
 
+// SetAiEnabled sets the "aiEnabled" field.
+func (_u *ImageTagUpdate) SetAiEnabled(v bool) *ImageTagUpdate {
+	_u.mutation.SetAiEnabled(v)
+	return _u
+}
+
+// SetNillableAiEnabled sets the "aiEnabled" field if the given value is not nil.
+func (_u *ImageTagUpdate) SetNillableAiEnabled(v *bool) *ImageTagUpdate {
+	if v != nil {
+		_u.SetAiEnabled(*v)
+	}
+	return _u
+}
+
 // SetOrder sets the "order" field.
 func (_u *ImageTagUpdate) SetOrder(v int) *ImageTagUpdate {
 	_u.mutation.ResetOrder()
@@ -366,6 +380,9 @@ func (_u *ImageTagUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.AiEnabled(); ok {
+		_spec.SetField(imagetag.FieldAiEnabled, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.Order(); ok {
 		_spec.SetField(imagetag.FieldOrder, field.TypeInt, value)
 	}
@@ -601,6 +618,20 @@ func (_u *ImageTagUpdateOne) SetIsAlbum(v bool) *ImageTagUpdateOne {
 func (_u *ImageTagUpdateOne) SetNillableIsAlbum(v *bool) *ImageTagUpdateOne {
 	if v != nil {
 		_u.SetIsAlbum(*v)
+	}
+	return _u
+}
+
+// SetAiEnabled sets the "aiEnabled" field.
+func (_u *ImageTagUpdateOne) SetAiEnabled(v bool) *ImageTagUpdateOne {
+	_u.mutation.SetAiEnabled(v)
+	return _u
+}
+
+// SetNillableAiEnabled sets the "aiEnabled" field if the given value is not nil.
+func (_u *ImageTagUpdateOne) SetNillableAiEnabled(v *bool) *ImageTagUpdateOne {
+	if v != nil {
+		_u.SetAiEnabled(*v)
 	}
 	return _u
 }
@@ -880,6 +911,9 @@ func (_u *ImageTagUpdateOne) sqlSave(ctx context.Context) (_node *ImageTag, err 
 	}
 	if value, ok := _u.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.AiEnabled(); ok {
+		_spec.SetField(imagetag.FieldAiEnabled, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Order(); ok {
 		_spec.SetField(imagetag.FieldOrder, field.TypeInt, value)

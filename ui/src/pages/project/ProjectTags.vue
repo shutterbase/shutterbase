@@ -155,6 +155,7 @@ async function editTag(input: ImageTagsResponse) {
       displayName: input.displayName ?? "",
       description: input.description,
       isAlbum: input.isAlbum,
+      aiEnabled: input.aiEnabled,
       order: toTagOrder(input.order),
       type: input.type,
     });

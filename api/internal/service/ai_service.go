@@ -424,12 +424,13 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 	return nil
 }
 
-// AvailableTagNames is the vocabulary sent to the AI server: every project tag
-// except templates (unrendered "$X" patterns are not assignable). Shared by the
-// per-ingest request and the project prime hook so both stay in sync.
+// AvailableTagNames is the vocabulary sent to the AI server: every aiEnabled
+// project tag except templates (unrendered "$X" patterns are not assignable).
+// Shared by the per-ingest request and the project prime hook so both stay in
+// sync.
 func AvailableTagNames(ctx context.Context, repo *repository.Repository, projectID string) []string {
 	tags, err := repo.Client.ImageTag.Query().
-		Where(imagetag.ProjectID(projectID), imagetag.TypeNEQ(imagetag.TypeTemplate)).
+		Where(imagetag.ProjectID(projectID), imagetag.TypeNEQ(imagetag.TypeTemplate), imagetag.AiEnabled(true)).
 		All(ctx)
 	if err != nil {
 		log.Error().Err(err).Str("project", projectID).Msg("AI: loading project tags failed")

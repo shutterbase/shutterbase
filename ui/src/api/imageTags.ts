@@ -16,6 +16,7 @@ export interface ImageTagCreate {
   displayName?: string;
   description?: string;
   isAlbum?: boolean;
+  aiEnabled?: boolean; // omit = true (AI may assign the tag)
   order?: number; // positive rank; omit for unranked
   type: string;
   projectId: string;
@@ -26,6 +27,7 @@ export interface ImageTagUpdate {
   displayName?: string; // "" clears, omit leaves untouched
   description?: string;
   isAlbum?: boolean;
+  aiEnabled?: boolean;
   order?: number; // positive rank; 0 clears, omit leaves untouched
   type?: string;
 }

@@ -21,6 +21,7 @@ func (s *Server) imageTagResponse(ctx context.Context, t *ent.ImageTag) gin.H {
 		"displayName": t.DisplayName,
 		"description": t.Description,
 		"isAlbum":     t.IsAlbum,
+		"aiEnabled":   t.AiEnabled,
 		"order":       t.Order,
 		"type":        t.Type,
 		"project":     projectRefByID(ctx, s.Repository, t.ProjectID),
@@ -105,6 +106,7 @@ type createImageTagPayload struct {
 	DisplayName string `json:"displayName"`
 	Description string `json:"description"`
 	IsAlbum     *bool  `json:"isAlbum"`
+	AiEnabled   *bool  `json:"aiEnabled"`
 	Order       *int   `json:"order"`
 	Type        string `json:"type" binding:"required"`
 	ProjectID   string `json:"projectId" binding:"required"`
@@ -153,6 +155,7 @@ func (s *Server) createImageTag(c *gin.Context) {
 		DisplayName: payload.DisplayName,
 		Description: payload.Description,
 		IsAlbum:     payload.IsAlbum,
+		AiEnabled:   payload.AiEnabled,
 		Order:       payload.Order,
 		Type:        t,
 		ProjectID:   payload.ProjectID,
@@ -174,6 +177,7 @@ func (s *Server) updateImageTag(c *gin.Context) {
 		DisplayName *string `json:"displayName"`
 		Description *string `json:"description"`
 		IsAlbum     *bool   `json:"isAlbum"`
+		AiEnabled   *bool   `json:"aiEnabled"`
 		Order       *int    `json:"order"`
 		Type        *string `json:"type"`
 	}
@@ -188,7 +192,7 @@ func (s *Server) updateImageTag(c *gin.Context) {
 	if abortGetError(c, err) {
 		return
 	}
-	params := &repository.UpdateImageTagParameters{Name: payload.Name, DisplayName: payload.DisplayName, Description: payload.Description, IsAlbum: payload.IsAlbum, Order: payload.Order}
+	params := &repository.UpdateImageTagParameters{Name: payload.Name, DisplayName: payload.DisplayName, Description: payload.Description, IsAlbum: payload.IsAlbum, AiEnabled: payload.AiEnabled, Order: payload.Order}
 	resultingType := string(existing.Type)
 	if payload.Type != nil {
 		t := imagetag.Type(*payload.Type)

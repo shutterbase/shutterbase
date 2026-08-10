@@ -6572,6 +6572,7 @@ type ImageTagMutation struct {
 	displayName           *string
 	description           *string
 	isAlbum               *bool
+	aiEnabled             *bool
 	_order                *int
 	add_order             *int
 	_type                 *imagetag.Type
@@ -7020,6 +7021,42 @@ func (m *ImageTagMutation) ResetIsAlbum() {
 	m.isAlbum = nil
 }
 
+// SetAiEnabled sets the "aiEnabled" field.
+func (m *ImageTagMutation) SetAiEnabled(b bool) {
+	m.aiEnabled = &b
+}
+
+// AiEnabled returns the value of the "aiEnabled" field in the mutation.
+func (m *ImageTagMutation) AiEnabled() (r bool, exists bool) {
+	v := m.aiEnabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiEnabled returns the old "aiEnabled" field's value of the ImageTag entity.
+// If the ImageTag object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageTagMutation) OldAiEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiEnabled: %w", err)
+	}
+	return oldValue.AiEnabled, nil
+}
+
+// ResetAiEnabled resets all changes to the "aiEnabled" field.
+func (m *ImageTagMutation) ResetAiEnabled() {
+	m.aiEnabled = nil
+}
+
 // SetOrder sets the "order" field.
 func (m *ImageTagMutation) SetOrder(i int) {
 	m._order = &i
@@ -7331,7 +7368,7 @@ func (m *ImageTagMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageTagMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 12)
 	if m.createdAt != nil {
 		fields = append(fields, imagetag.FieldCreatedAt)
 	}
@@ -7355,6 +7392,9 @@ func (m *ImageTagMutation) Fields() []string {
 	}
 	if m.isAlbum != nil {
 		fields = append(fields, imagetag.FieldIsAlbum)
+	}
+	if m.aiEnabled != nil {
+		fields = append(fields, imagetag.FieldAiEnabled)
 	}
 	if m._order != nil {
 		fields = append(fields, imagetag.FieldOrder)
@@ -7389,6 +7429,8 @@ func (m *ImageTagMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case imagetag.FieldIsAlbum:
 		return m.IsAlbum()
+	case imagetag.FieldAiEnabled:
+		return m.AiEnabled()
 	case imagetag.FieldOrder:
 		return m.Order()
 	case imagetag.FieldType:
@@ -7420,6 +7462,8 @@ func (m *ImageTagMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldDescription(ctx)
 	case imagetag.FieldIsAlbum:
 		return m.OldIsAlbum(ctx)
+	case imagetag.FieldAiEnabled:
+		return m.OldAiEnabled(ctx)
 	case imagetag.FieldOrder:
 		return m.OldOrder(ctx)
 	case imagetag.FieldType:
@@ -7490,6 +7534,13 @@ func (m *ImageTagMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetIsAlbum(v)
+		return nil
+	case imagetag.FieldAiEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiEnabled(v)
 		return nil
 	case imagetag.FieldOrder:
 		v, ok := value.(int)
@@ -7626,6 +7677,9 @@ func (m *ImageTagMutation) ResetField(name string) error {
 		return nil
 	case imagetag.FieldIsAlbum:
 		m.ResetIsAlbum()
+		return nil
+	case imagetag.FieldAiEnabled:
+		m.ResetAiEnabled()
 		return nil
 	case imagetag.FieldOrder:
 		m.ResetOrder()

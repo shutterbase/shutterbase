@@ -31,6 +31,8 @@ const (
 	FieldDescription = "description"
 	// FieldIsAlbum holds the string denoting the isalbum field in the database.
 	FieldIsAlbum = "is_album"
+	// FieldAiEnabled holds the string denoting the aienabled field in the database.
+	FieldAiEnabled = "ai_enabled"
 	// FieldOrder holds the string denoting the order field in the database.
 	FieldOrder = "order"
 	// FieldType holds the string denoting the type field in the database.
@@ -77,6 +79,7 @@ var Columns = []string{
 	FieldDisplayName,
 	FieldDescription,
 	FieldIsAlbum,
+	FieldAiEnabled,
 	FieldOrder,
 	FieldType,
 	FieldProjectID,
@@ -111,6 +114,8 @@ var (
 	DescriptionValidator func(string) error
 	// DefaultIsAlbum holds the default value on creation for the "isAlbum" field.
 	DefaultIsAlbum bool
+	// DefaultAiEnabled holds the default value on creation for the "aiEnabled" field.
+	DefaultAiEnabled bool
 	// OrderValidator is a validator for the "order" field. It is called by the builders before save.
 	OrderValidator func(int) error
 	// DefaultID holds the default value on creation for the "id" field.
@@ -190,6 +195,11 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByIsAlbum orders the results by the isAlbum field.
 func ByIsAlbum(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIsAlbum, opts...).ToFunc()
+}
+
+// ByAiEnabled orders the results by the aiEnabled field.
+func ByAiEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiEnabled, opts...).ToFunc()
 }
 
 // ByOrder orders the results by the order field.
