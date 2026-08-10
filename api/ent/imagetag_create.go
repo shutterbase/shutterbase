@@ -120,6 +120,20 @@ func (_c *ImageTagCreate) SetNillableIsAlbum(v *bool) *ImageTagCreate {
 	return _c
 }
 
+// SetAiEnabled sets the "aiEnabled" field.
+func (_c *ImageTagCreate) SetAiEnabled(v bool) *ImageTagCreate {
+	_c.mutation.SetAiEnabled(v)
+	return _c
+}
+
+// SetNillableAiEnabled sets the "aiEnabled" field if the given value is not nil.
+func (_c *ImageTagCreate) SetNillableAiEnabled(v *bool) *ImageTagCreate {
+	if v != nil {
+		_c.SetAiEnabled(*v)
+	}
+	return _c
+}
+
 // SetOrder sets the "order" field.
 func (_c *ImageTagCreate) SetOrder(v int) *ImageTagCreate {
 	_c.mutation.SetOrder(v)
@@ -242,6 +256,10 @@ func (_c *ImageTagCreate) defaults() {
 		v := imagetag.DefaultIsAlbum
 		_c.mutation.SetIsAlbum(v)
 	}
+	if _, ok := _c.mutation.AiEnabled(); !ok {
+		v := imagetag.DefaultAiEnabled
+		_c.mutation.SetAiEnabled(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := imagetag.DefaultID()
 		_c.mutation.SetID(v)
@@ -274,6 +292,9 @@ func (_c *ImageTagCreate) check() error {
 	}
 	if _, ok := _c.mutation.IsAlbum(); !ok {
 		return &ValidationError{Name: "isAlbum", err: errors.New(`ent: missing required field "ImageTag.isAlbum"`)}
+	}
+	if _, ok := _c.mutation.AiEnabled(); !ok {
+		return &ValidationError{Name: "aiEnabled", err: errors.New(`ent: missing required field "ImageTag.aiEnabled"`)}
 	}
 	if v, ok := _c.mutation.Order(); ok {
 		if err := imagetag.OrderValidator(v); err != nil {
@@ -365,6 +386,10 @@ func (_c *ImageTagCreate) createSpec() (*ImageTag, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.IsAlbum(); ok {
 		_spec.SetField(imagetag.FieldIsAlbum, field.TypeBool, value)
 		_node.IsAlbum = value
+	}
+	if value, ok := _c.mutation.AiEnabled(); ok {
+		_spec.SetField(imagetag.FieldAiEnabled, field.TypeBool, value)
+		_node.AiEnabled = value
 	}
 	if value, ok := _c.mutation.Order(); ok {
 		_spec.SetField(imagetag.FieldOrder, field.TypeInt, value)

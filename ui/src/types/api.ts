@@ -115,6 +115,7 @@ export interface ImageTag {
   displayName?: string; // optional UI label; empty = display the name
   description: string;
   isAlbum: boolean;
+  aiEnabled: boolean; // part of the AI vocabulary; false = model may not assign it
   order?: number | null; // positive rank; lower = applied/shown first, unset = last
   type: string; // template | default | manual | custom
   project: EmbeddedProject;

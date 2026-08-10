@@ -21,6 +21,9 @@ func (ImageTag) Fields() []ent.Field {
 		field.String("displayName").Optional().StructTag(`json:"displayName,omitempty"`),
 		field.String("description").NotEmpty().StructTag(`json:"description"`),
 		field.Bool("isAlbum").Default(false).StructTag(`json:"isAlbum"`),
+		// Part of the vocabulary sent to the AI server; off = the model may not
+		// assign this tag (see service.AvailableTagNames).
+		field.Bool("aiEnabled").Default(true).StructTag(`json:"aiEnabled"`),
 		// Sort rank for tag application/display: lower first, ties and unset
 		// tags alphabetical, unset after all ranked tags.
 		field.Int("order").Optional().Nillable().Positive().StructTag(`json:"order,omitempty"`),

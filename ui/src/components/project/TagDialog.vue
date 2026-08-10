@@ -160,5 +160,6 @@ const editTagFields: EditField<ImageTagsResponse>[] = [
   { key: "description", label: "Description", type: EditFieldType.TEXT },
   { key: "order", label: "Order (lower first, empty = last)", type: EditFieldType.TEXT },
   { key: "type", label: "Type", type: EditFieldType.SELECT, options: ["template", "default", "manual", "custom"] },
+  { key: "aiEnabled", label: "AI tagging", type: EditFieldType.BOOLEAN, hint: "AI may assign this tag" },
 ];
 </script>

@@ -106,6 +106,11 @@ func IsAlbum(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldIsAlbum, v))
 }
 
+// AiEnabled applies equality check predicate on the "aiEnabled" field. It's identical to AiEnabledEQ.
+func AiEnabled(v bool) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEQ(FieldAiEnabled, v))
+}
+
 // Order applies equality check predicate on the "order" field. It's identical to OrderEQ.
 func Order(v int) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldEQ(FieldOrder, v))
@@ -509,6 +514,16 @@ func IsAlbumEQ(v bool) predicate.ImageTag {
 // IsAlbumNEQ applies the NEQ predicate on the "isAlbum" field.
 func IsAlbumNEQ(v bool) predicate.ImageTag {
 	return predicate.ImageTag(sql.FieldNEQ(FieldIsAlbum, v))
+}
+
+// AiEnabledEQ applies the EQ predicate on the "aiEnabled" field.
+func AiEnabledEQ(v bool) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldEQ(FieldAiEnabled, v))
+}
+
+// AiEnabledNEQ applies the NEQ predicate on the "aiEnabled" field.
+func AiEnabledNEQ(v bool) predicate.ImageTag {
+	return predicate.ImageTag(sql.FieldNEQ(FieldAiEnabled, v))
 }
 
 // OrderEQ applies the EQ predicate on the "order" field.

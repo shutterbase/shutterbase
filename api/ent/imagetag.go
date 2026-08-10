@@ -35,6 +35,8 @@ type ImageTag struct {
 	Description string `json:"description"`
 	// IsAlbum holds the value of the "isAlbum" field.
 	IsAlbum bool `json:"isAlbum"`
+	// AiEnabled holds the value of the "aiEnabled" field.
+	AiEnabled bool `json:"aiEnabled"`
 	// Order holds the value of the "order" field.
 	Order *int `json:"order,omitempty"`
 	// Type holds the value of the "type" field.
@@ -96,7 +98,7 @@ func (*ImageTag) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case imagetag.FieldCreatedBy, imagetag.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case imagetag.FieldIsAlbum:
+		case imagetag.FieldIsAlbum, imagetag.FieldAiEnabled:
 			values[i] = new(sql.NullBool)
 		case imagetag.FieldOrder:
 			values[i] = new(sql.NullInt64)
@@ -174,6 +176,12 @@ func (_m *ImageTag) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field isAlbum", values[i])
 			} else if value.Valid {
 				_m.IsAlbum = value.Bool
+			}
+		case imagetag.FieldAiEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field aiEnabled", values[i])
+			} else if value.Valid {
+				_m.AiEnabled = value.Bool
 			}
 		case imagetag.FieldOrder:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -272,6 +280,9 @@ func (_m *ImageTag) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("isAlbum=")
 	builder.WriteString(fmt.Sprintf("%v", _m.IsAlbum))
+	builder.WriteString(", ")
+	builder.WriteString("aiEnabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.AiEnabled))
 	builder.WriteString(", ")
 	if v := _m.Order; v != nil {
 		builder.WriteString("order=")

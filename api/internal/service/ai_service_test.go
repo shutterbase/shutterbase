@@ -416,3 +416,19 @@ func TestBootRecovery(t *testing.T) {
 	assert.Equal(t, "pending", aiStatus(t, svc, stale), "stale processing row must be re-queued")
 	assert.Equal(t, "processing", aiStatus(t, svc, fresh), "fresh processing row must be left to its replica")
 }
+
+// aiEnabled=false removes a tag from the AI vocabulary; everything else stays.
+func TestAvailableTagNamesExcludesAiDisabled(t *testing.T) {
+	svc, m := newSvc(t, &StubInference{})
+	ctx := context.Background()
+
+	before := AvailableTagNames(ctx, svc.repo, m.Project)
+	require.NotEmpty(t, before)
+	disabled := before[0]
+
+	svc.repo.Client.ImageTag.UpdateOneID(m.Tags[disabled]).SetAiEnabled(false).SaveX(ctx)
+
+	after := AvailableTagNames(ctx, svc.repo, m.Project)
+	assert.NotContains(t, after, disabled)
+	assert.Len(t, after, len(before)-1)
+}

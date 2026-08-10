@@ -285,6 +285,7 @@ var (
 		{Name: "display_name", Type: field.TypeString, Nullable: true},
 		{Name: "description", Type: field.TypeString},
 		{Name: "is_album", Type: field.TypeBool, Default: false},
+		{Name: "ai_enabled", Type: field.TypeBool, Default: true},
 		{Name: "order", Type: field.TypeInt, Nullable: true},
 		{Name: "type", Type: field.TypeEnum, Enums: []string{"template", "default", "manual", "custom"}},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
@@ -297,7 +298,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "image_tags_projects_imageTags",
-				Columns:    []*schema.Column{ImageTagsColumns[11]},
+				Columns:    []*schema.Column{ImageTagsColumns[12]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -306,12 +307,12 @@ var (
 			{
 				Name:    "imagetag_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImageTagsColumns[11]},
+				Columns: []*schema.Column{ImageTagsColumns[12]},
 			},
 			{
 				Name:    "imagetag_name_project_id",
 				Unique:  true,
-				Columns: []*schema.Column{ImageTagsColumns[5], ImageTagsColumns[11]},
+				Columns: []*schema.Column{ImageTagsColumns[5], ImageTagsColumns[12]},
 			},
 		},
 	}

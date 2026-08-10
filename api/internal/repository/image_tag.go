@@ -86,6 +86,7 @@ type CreateImageTagParameters struct {
 	DisplayName string
 	Description string
 	IsAlbum     *bool
+	AiEnabled   *bool
 	Order       *int
 	Type        imagetag.Type
 	ProjectID   string
@@ -103,6 +104,9 @@ func (r *Repository) CreateImageTag(ctx context.Context, parameters *CreateImage
 		SetNillableOrder(parameters.Order)
 	if parameters.IsAlbum != nil {
 		create = create.SetIsAlbum(*parameters.IsAlbum)
+	}
+	if parameters.AiEnabled != nil {
+		create = create.SetAiEnabled(*parameters.AiEnabled)
 	}
 	item, err := create.Save(ctx)
 	if err != nil {
@@ -123,6 +127,7 @@ type UpdateImageTagParameters struct {
 	DisplayName *string
 	Description *string
 	IsAlbum     *bool
+	AiEnabled   *bool
 	// Order: nil = untouched; pointer to 0 = clear (0 is not a valid rank).
 	Order *int
 	Type  *imagetag.Type
@@ -159,6 +164,10 @@ func (r *Repository) UpdateImageTag(ctx context.Context, id string, parameters *
 	if parameters.IsAlbum != nil && item.IsAlbum != *parameters.IsAlbum {
 		update.SetIsAlbum(*parameters.IsAlbum)
 		st.SetFieldChanged(imagetag.FieldIsAlbum, item.IsAlbum, *parameters.IsAlbum)
+	}
+	if parameters.AiEnabled != nil && item.AiEnabled != *parameters.AiEnabled {
+		update.SetAiEnabled(*parameters.AiEnabled)
+		st.SetFieldChanged(imagetag.FieldAiEnabled, item.AiEnabled, *parameters.AiEnabled)
 	}
 	if parameters.Order != nil {
 		current := 0

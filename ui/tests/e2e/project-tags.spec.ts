@@ -116,4 +116,40 @@ test.describe.serial("project tags CRUD", () => {
 
     expect(errors, errors.join("\n")).toHaveLength(0);
   });
+
+  // aiEnabled: the per-tag switch that keeps a tag out of the AI vocabulary.
+  // New tags default to on; switching it off must survive a reload.
+  test("toggle a tag's AI flag off and see it persist (admin)", async ({ page }) => {
+    const errors = collectJsErrors(page);
+    const NAME = "e2e-ai-flag-tag";
+    const project = await loginAs(page, "admin");
+    expect(project, "seed project should be active").not.toBeNull();
+
+    await page.goto(`/projects/${project!.id}/tags`);
+    await page.getByRole("button", { name: /Add Project Tag/i }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Name", { exact: true }).fill(NAME);
+    await dialog.getByLabel("Description", { exact: true }).fill("created by e2e");
+    await dialog.getByRole("button", { name: "Save tag" }).click();
+    await expect(dialog).toBeHidden();
+
+    const row = page.getByRole("row").filter({ hasText: NAME });
+    await row.getByRole("button", { name: "Edit" }).click();
+    const aiCheckbox = dialog.getByLabel("AI tagging", { exact: true });
+    await expect(aiCheckbox, "a new tag must default to AI-enabled").toBeChecked();
+    await aiCheckbox.uncheck();
+    await dialog.getByRole("button", { name: "Save tag" }).click();
+    await expect(dialog).toBeHidden();
+
+    await page.reload();
+    await page.getByRole("row").filter({ hasText: NAME }).getByRole("button", { name: "Edit" }).click();
+    await expect(dialog.getByLabel("AI tagging", { exact: true }), "AI-off must persist after reload").not.toBeChecked();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+
+    await page.getByRole("row").filter({ hasText: NAME }).getByRole("button", { name: "Delete" }).click();
+    await page.reload();
+    await expect(page.getByRole("row").filter({ hasText: NAME })).toHaveCount(0);
+
+    expect(errors, errors.join("\n")).toHaveLength(0);
+  });
 });
