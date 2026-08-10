@@ -18,6 +18,14 @@ deps-logs:
 clear: down
   rm -rf sandbox/postgres sandbox/rustfs
 
+# counts lines of code, excluding generated code (ent, except the hand-written schema)
+count:
+  cloc --vcs=git --fullpath --not-match-d='api/ent/(?!schema)' .
+
+# counts lines of code including generated code
+count-all:
+  cloc --vcs=git .
+
 # pushes all changes to the main branch
 push +COMMIT_MESSAGE:
   git add .
