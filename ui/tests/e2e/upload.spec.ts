@@ -163,10 +163,10 @@ test.describe("browser upload pipeline", () => {
     try {
       await page.goto(`/uploads/${result.uploadId}/edit`);
       await page.setInputFiles("#dropzoneFile", FIXTURE);
-      // Scope to this image's own tile and match the status text exactly — a loose
-      // page-wide "error" match would pass on any unrelated copy.
+      // Scope to this image's own tile. The tile must not just error — it must
+      // name the reason (an unexplained red tile was the original bug).
       const tile = page.locator("figure").filter({ hasText: FIXTURE_NAME });
-      await expect(tile.getByText("error", { exact: true })).toBeVisible({ timeout: 30_000 });
+      await expect(tile.getByText(/no copyright tag/)).toBeVisible({ timeout: 30_000 });
     } finally {
       await page.evaluate(
         async ({ userId, restore }) => {
