@@ -1955,6 +1955,7 @@ type CameraMutation struct {
 	createdBy          *uuid.UUID
 	updatedBy          *uuid.UUID
 	name               *string
+	deletedAt          *time.Time
 	clearedFields      map[string]struct{}
 	user               *uuid.UUID
 	cleareduser        bool
@@ -2318,6 +2319,55 @@ func (m *CameraMutation) ResetUserID() {
 	m.user = nil
 }
 
+// SetDeletedAt sets the "deletedAt" field.
+func (m *CameraMutation) SetDeletedAt(t time.Time) {
+	m.deletedAt = &t
+}
+
+// DeletedAt returns the value of the "deletedAt" field in the mutation.
+func (m *CameraMutation) DeletedAt() (r time.Time, exists bool) {
+	v := m.deletedAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeletedAt returns the old "deletedAt" field's value of the Camera entity.
+// If the Camera object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CameraMutation) OldDeletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeletedAt: %w", err)
+	}
+	return oldValue.DeletedAt, nil
+}
+
+// ClearDeletedAt clears the value of the "deletedAt" field.
+func (m *CameraMutation) ClearDeletedAt() {
+	m.deletedAt = nil
+	m.clearedFields[camera.FieldDeletedAt] = struct{}{}
+}
+
+// DeletedAtCleared returns if the "deletedAt" field was cleared in this mutation.
+func (m *CameraMutation) DeletedAtCleared() bool {
+	_, ok := m.clearedFields[camera.FieldDeletedAt]
+	return ok
+}
+
+// ResetDeletedAt resets all changes to the "deletedAt" field.
+func (m *CameraMutation) ResetDeletedAt() {
+	m.deletedAt = nil
+	delete(m.clearedFields, camera.FieldDeletedAt)
+}
+
 // ClearUser clears the "user" edge to the User entity.
 func (m *CameraMutation) ClearUser() {
 	m.cleareduser = true
@@ -2541,7 +2591,7 @@ func (m *CameraMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CameraMutation) Fields() []string {
-	fields := make([]string, 0, 6)
+	fields := make([]string, 0, 7)
 	if m.createdAt != nil {
 		fields = append(fields, camera.FieldCreatedAt)
 	}
@@ -2559,6 +2609,9 @@ func (m *CameraMutation) Fields() []string {
 	}
 	if m.user != nil {
 		fields = append(fields, camera.FieldUserID)
+	}
+	if m.deletedAt != nil {
+		fields = append(fields, camera.FieldDeletedAt)
 	}
 	return fields
 }
@@ -2580,6 +2633,8 @@ func (m *CameraMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case camera.FieldUserID:
 		return m.UserID()
+	case camera.FieldDeletedAt:
+		return m.DeletedAt()
 	}
 	return nil, false
 }
@@ -2601,6 +2656,8 @@ func (m *CameraMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldName(ctx)
 	case camera.FieldUserID:
 		return m.OldUserID(ctx)
+	case camera.FieldDeletedAt:
+		return m.OldDeletedAt(ctx)
 	}
 	return nil, fmt.Errorf("unknown Camera field %s", name)
 }
@@ -2652,6 +2709,13 @@ func (m *CameraMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetUserID(v)
 		return nil
+	case camera.FieldDeletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeletedAt(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Camera field %s", name)
 }
@@ -2688,6 +2752,9 @@ func (m *CameraMutation) ClearedFields() []string {
 	if m.FieldCleared(camera.FieldUpdatedBy) {
 		fields = append(fields, camera.FieldUpdatedBy)
 	}
+	if m.FieldCleared(camera.FieldDeletedAt) {
+		fields = append(fields, camera.FieldDeletedAt)
+	}
 	return fields
 }
 
@@ -2707,6 +2774,9 @@ func (m *CameraMutation) ClearField(name string) error {
 		return nil
 	case camera.FieldUpdatedBy:
 		m.ClearUpdatedBy()
+		return nil
+	case camera.FieldDeletedAt:
+		m.ClearDeletedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Camera nullable field %s", name)
@@ -2733,6 +2803,9 @@ func (m *CameraMutation) ResetField(name string) error {
 		return nil
 	case camera.FieldUserID:
 		m.ResetUserID()
+		return nil
+	case camera.FieldDeletedAt:
+		m.ResetDeletedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown Camera field %s", name)

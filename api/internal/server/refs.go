@@ -32,7 +32,7 @@ func cameraRefByID(ctx context.Context, repo *repository.Repository, id string) 
 	if id == "" {
 		return nil
 	}
-	cam, err := repo.GetCamera(ctx, id)
+	cam, err := repo.GetCameraIncludingDeleted(ctx, id)
 	if err != nil {
 		return nil
 	}

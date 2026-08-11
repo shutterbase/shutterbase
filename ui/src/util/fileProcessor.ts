@@ -6,6 +6,7 @@ import { API_BASE } from "src/boot/axios";
 import { api } from "src/api";
 import { useUserStore } from "src/stores/user-store";
 import { getLogLevelString, debug, info, error } from "./logger";
+import { errorHeadline } from "./errorDisplay";
 import { showNotificationToast } from "src/boot/mitt";
 import { Upload, Image as BackendImage } from "src/types/api";
 import { parseBackendTime } from "src/util/dateTimeUtil";
@@ -109,8 +110,8 @@ export class FileProcessor {
         this.setState(image, ImageStatus.LOADED);
         this.processLoadedImage(image);
       })
-      .catch(() => {
-        this.setState(image, ImageStatus.ERROR);
+      .catch((err) => {
+        this.fail(image, err);
       });
   };
 
@@ -121,8 +122,8 @@ export class FileProcessor {
         this.setState(image, ImageStatus.UPLOADED);
         this.processUploadedImage(image);
       })
-      .catch(() => {
-        this.setState(image, ImageStatus.ERROR);
+      .catch((err) => {
+        this.fail(image, err);
       });
   };
 
@@ -132,9 +133,26 @@ export class FileProcessor {
       .then(() => {
         this.setState(image, ImageStatus.DONE);
       })
-      .catch(() => {
-        this.setState(image, ImageStatus.ERROR);
+      .catch((err) => {
+        this.fail(image, err);
       });
+  };
+
+  // Every failure funnels through here: the tile shows the reason, the log
+  // keeps it, and the first image failing for a given reason raises a toast —
+  // batch-wide problems (no copyright tag, no time offset) toast once, not
+  // once per file.
+  private toastedReasons = new Set<string>();
+
+  private fail = (image: Image, err: any): void => {
+    const reason = String(err?.message ?? err ?? "unknown error").replace(/^Error:\s*/, "");
+    image.errorMessage = reason;
+    error(`${image.originalFileName}: ${reason}`);
+    if (!this.toastedReasons.has(reason)) {
+      this.toastedReasons.add(reason);
+      showNotificationToast({ headline: `${image.originalFileName}: ${reason}`, type: "error" });
+    }
+    this.setState(image, ImageStatus.ERROR);
   };
 
   private getNextImage = (status: ImageStatus): Image | null => {
@@ -160,34 +178,26 @@ export class FileProcessor {
     info(`Image ${image.originalFileName} - ${oldStatus} => ${status}`);
   };
 
-  private loadImage = (image: Image): Promise<void> => {
-    return new Promise(async (resolve, reject) => {
-      if (image.file == null) {
-        error(`File object of ${image.originalFileName} is null`);
-        reject();
-        return;
-      }
-      const data = await fileUtil.loadFile(image.file);
-      if (data == null) {
-        error("Failed to load file");
-        reject();
-      }
-      image.data = data;
-      resolve();
+  // Plain async (no Promise executor): a rejection from loadFile must reach the
+  // caller's .catch — inside an async executor it would strand the tile in LOADING.
+  private loadImage = async (image: Image): Promise<void> => {
+    if (image.file == null) {
+      throw new Error("file handle is gone — remove the tile and add the file again");
+    }
+    image.data = await fileUtil.loadFile(image.file).catch(() => {
+      throw new Error("could not read the file — it may have moved or be unreadable");
     });
   };
 
   private processImage = (image: Image): Promise<void> => {
     return new Promise(async (resolve, reject) => {
       if (image.data == null) {
-        error(`Data of ${image.originalFileName} is null`);
-        reject();
+        reject(new Error("file data is missing — remove the tile and add the file again"));
         return;
       }
 
       if (this.timeOffsets.value.length == 0) {
-        error("No time offsets available");
-        reject();
+        reject(new Error("this camera has no time offset yet — photograph the time-sync QR code first"));
         return;
       }
 
@@ -196,8 +206,7 @@ export class FileProcessor {
       // still worth refusing here rather than after the S3 upload.
       const copyrightTag = useUserStore().user?.copyrightTag;
       if (copyrightTag == null || copyrightTag == "") {
-        error("No copyright tag available");
-        reject();
+        reject(new Error("your profile has no copyright tag — add one in your profile settings, then retry the upload"));
         return;
       }
 
@@ -227,13 +236,9 @@ export class FileProcessor {
 
         resolve();
       } catch (err: any) {
-        // surface the reason to the human, not just the console — e.g. the
-        // hard timestamp rule: "image has no EXIF capture time"
-        const reason = String(err?.message ?? err).replace(/^Error:\s*/, "");
-        image.errorMessage = reason;
-        showNotificationToast({ headline: `${image.originalFileName}: ${reason}`, type: "error" });
-        error(`Failed to process image: ${err}`);
-        reject();
+        // WASM errors name their failure mode (e.g. the hard timestamp rule:
+        // "image has no EXIF capture time") — fail() shows them verbatim.
+        reject(err);
         return;
       }
     });
@@ -264,8 +269,9 @@ export class FileProcessor {
           resolve();
         })
         .catch((err) => {
-          error(`Failed to create image in backend: ${err}`);
-          reject();
+          // API failures (duplicate image, upload no longer accepts images, …)
+          // surface with the server's message, not a bare error tile.
+          reject(new Error(errorHeadline(err)));
         });
     });
   };

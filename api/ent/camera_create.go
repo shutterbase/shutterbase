@@ -93,6 +93,20 @@ func (_c *CameraCreate) SetUserID(v uuid.UUID) *CameraCreate {
 	return _c
 }
 
+// SetDeletedAt sets the "deletedAt" field.
+func (_c *CameraCreate) SetDeletedAt(v time.Time) *CameraCreate {
+	_c.mutation.SetDeletedAt(v)
+	return _c
+}
+
+// SetNillableDeletedAt sets the "deletedAt" field if the given value is not nil.
+func (_c *CameraCreate) SetNillableDeletedAt(v *time.Time) *CameraCreate {
+	if v != nil {
+		_c.SetDeletedAt(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *CameraCreate) SetID(v string) *CameraCreate {
 	_c.mutation.SetID(v)
@@ -287,6 +301,10 @@ func (_c *CameraCreate) createSpec() (*Camera, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Name(); ok {
 		_spec.SetField(camera.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := _c.mutation.DeletedAt(); ok {
+		_spec.SetField(camera.FieldDeletedAt, field.TypeTime, value)
+		_node.DeletedAt = &value
 	}
 	if nodes := _c.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

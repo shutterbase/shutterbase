@@ -22,11 +22,20 @@
     <div class="my-8 border-t border-primary-200 dark:border-primary-800"></div>
     <div class="mx-auto max-w-2xl space-y-16 sm:space-y-20 lg:mx-0 lg:max-w-none">
       <div v-for="camera in items" :key="camera.id">
-        <CameraEdit :item="camera" @edit-save="saveItem" />
+        <CameraEdit :item="camera" @edit-save="saveItem" @delete="deleteCandidate = camera" />
         <CameraTimeOffsets :camera="camera" />
       </div>
     </div>
   </main>
+  <ModalMessage
+    :show="!!deleteCandidate"
+    :type="MessageType.CONFIRM_WARNING"
+    headline="Delete camera"
+    :message="`Delete '${deleteCandidate?.name}'? Photos taken with it and their time corrections are kept — the camera just disappears from your list.`"
+    confirmText="Delete"
+    @closed="deleteCandidate = null"
+    @confirmed="confirmDelete"
+  />
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 
@@ -35,6 +44,7 @@ import { Ref, computed, onMounted, ref, watch } from "vue";
 import { api } from "src/api";
 import { CamerasResponse, TimeOffsetsResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
+import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 import CameraEdit, { CameraEditData } from "src/components/user/CameraEdit.vue";
 import CameraTimeOffsets from "src/components/user/CameraTimeOffsets.vue";
 import { storeToRefs } from "pinia";
@@ -87,6 +97,23 @@ async function saveItem(item: CamerasResponse, editData: CameraEditData) {
     showNotificationToast({ headline: `${capitalize(ITEM_NAME)} saved`, type: "success" });
   } catch (error: any) {
     item = rollbackData;
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+const deleteCandidate: Ref<ITEM_TYPE | null> = ref(null);
+
+async function confirmDelete() {
+  const candidate = deleteCandidate.value;
+  deleteCandidate.value = null;
+  if (!candidate) return;
+
+  try {
+    await api.cameras.remove(candidate.id);
+    items.value = items.value.filter((i) => i.id !== candidate.id);
+    showNotificationToast({ headline: `${capitalize(ITEM_NAME)} deleted`, type: "success" });
+  } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
   }

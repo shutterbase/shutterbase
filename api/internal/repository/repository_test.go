@@ -282,6 +282,33 @@ func TestUserCRUDUUID(t *testing.T) {
 	require.NoError(t, repo.DeleteUser(ctx, u.ID))
 }
 
+// PocketBase-hook parity: a new user without an explicit copyright tag gets
+// their last name as the default; an explicit tag always wins.
+func TestCreateUserDefaultsCopyrightTagToLastName(t *testing.T) {
+	ctx := context.Background()
+	repo := testRepo(t)
+
+	defaulted, err := repo.CreateUser(ctx, &repository.CreateUserParameters{
+		Username: "trinity", FirstName: "Trinity", LastName: "Moss",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Moss", defaulted.CopyrightTag)
+
+	emptied, err := repo.CreateUser(ctx, &repository.CreateUserParameters{
+		Username: "smith", FirstName: "Agent", LastName: "Smith",
+		CopyrightTag: util.StringPointer(""),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Smith", emptied.CopyrightTag)
+
+	explicit, err := repo.CreateUser(ctx, &repository.CreateUserParameters{
+		Username: "oracle", FirstName: "The", LastName: "Oracle",
+		CopyrightTag: util.StringPointer("ORCL"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "ORCL", explicit.CopyrightTag)
+}
+
 // GetUploadMetrics runs a hand-built join through the ent SQL builder — the one
 // query in the repository that is not fully typed. This pins its behavior
 // against a real database (an aliasing bug here produced a runtime SQL error

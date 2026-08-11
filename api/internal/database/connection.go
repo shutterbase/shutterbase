@@ -103,6 +103,9 @@ func (d *Connection) initPostgres() error {
 	if err := ensureGINIndex(context.Background(), db); err != nil {
 		log.Panic().Err(err).Msg("failed to ensure images.imageTags GIN index")
 	}
+	if err := ensureCameraSoftDeleteIndex(context.Background(), db, d.Options.Schema); err != nil {
+		log.Panic().Err(err).Msg("failed to ensure partial camera name index")
+	}
 	if err := backfillScheduleItemTags(context.Background(), db, d.Options.Schema); err != nil {
 		log.Panic().Err(err).Msg("failed to backfill schedule_item_tags join table")
 	}
@@ -132,6 +135,47 @@ func ensureGINIndex(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("failed to create GIN fallback index: %w", err)
 	}
 	log.Warn().Msg("ent auto-migrate omitted jsonb_path_ops opclass; installed fallback GIN index image_image_tags")
+	return nil
+}
+
+// ensureCameraSoftDeleteIndex guarantees the (name, user_id) unique index is
+// the partial one (WHERE deleted_at IS NULL). Fresh DBs and current ent
+// versions get it from auto-migrate; this verifies the predicate, swaps a
+// pre-soft-delete strict index, and recreates a missing index (e.g. after a
+// crashed earlier swap). The swap is transactional so a failure mid-way never
+// leaves the table without uniqueness. Unqualified DDL resolves via the DSN's
+// search_path to the same schema the inspection filters on.
+func ensureCameraSoftDeleteIndex(ctx context.Context, db *sql.DB, schema string) error {
+	if schema == "" {
+		schema = "public"
+	}
+	var def string
+	err := db.QueryRowContext(ctx,
+		`SELECT indexdef FROM pg_indexes WHERE schemaname = $1 AND tablename = 'cameras' AND indexname = 'camera_name_user_id'`,
+		schema).Scan(&def)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("failed to inspect camera name index: %w", err)
+	}
+	if strings.Contains(strings.ToLower(def), "deleted_at is null") {
+		return nil
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin camera index swap: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DROP INDEX IF EXISTS camera_name_user_id`); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("failed to drop strict camera name index: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`CREATE UNIQUE INDEX camera_name_user_id ON cameras (name, user_id) WHERE deleted_at IS NULL`); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("failed to create partial camera name index: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit camera index swap: %w", err)
+	}
+	log.Info().Msg("installed soft-delete partial camera name index")
 	return nil
 }
 

@@ -89,6 +89,7 @@ var (
 		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
 		{Name: "name", Type: field.TypeString},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true},
 		{Name: "user_id", Type: field.TypeUUID},
 	}
 	// CamerasTable holds the schema information for the "cameras" table.
@@ -99,7 +100,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "cameras_users_cameras",
-				Columns:    []*schema.Column{CamerasColumns[6]},
+				Columns:    []*schema.Column{CamerasColumns[7]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -108,12 +109,15 @@ var (
 			{
 				Name:    "camera_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{CamerasColumns[6]},
+				Columns: []*schema.Column{CamerasColumns[7]},
 			},
 			{
 				Name:    "camera_name_user_id",
 				Unique:  true,
-				Columns: []*schema.Column{CamerasColumns[5], CamerasColumns[6]},
+				Columns: []*schema.Column{CamerasColumns[5], CamerasColumns[7]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "deleted_at IS NULL",
+				},
 			},
 		},
 	}
