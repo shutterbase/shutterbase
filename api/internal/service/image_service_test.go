@@ -152,6 +152,40 @@ func TestDateTagHourOffsetRollover(t *testing.T) {
 	assert.NotContains(t, tags, "20250613", "must not tag the literal capture day")
 }
 
+// Derived default tags mirror their template's order: inherited on create, and
+// re-synced on reuse when the template has been re-ranked since.
+func TestDefaultTagsInheritTemplateOrder(t *testing.T) {
+	ctx := context.Background()
+	svc, _, m, repo := newImageSvc(t)
+
+	tmpl, err := repo.Client.ImageTag.Create().
+		SetName("$PROJECT").SetDescription("tmpl").SetType(imagetag.TypeTemplate).
+		SetProjectID(m.Project).SetOrder(3).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc.createForTest(t, m, "DSC_0001.jpg", capturedNoon(t))
+	tag := defaultTagNames(t, repo, m.Project)["Formula Student Test"]
+	require.NotNil(t, tag)
+	require.NotNil(t, tag.Order)
+	assert.Equal(t, 3, *tag.Order, "created derived tag inherits template order")
+
+	// Re-rank the template; the existing derived tag syncs on the next image.
+	_, err = tmpl.Update().SetOrder(7).Save(ctx)
+	require.NoError(t, err)
+	svc.createForTest(t, m, "DSC_0002.jpg", capturedNoon(t))
+	tag = defaultTagNames(t, repo, m.Project)["Formula Student Test"]
+	require.NotNil(t, tag.Order)
+	assert.Equal(t, 7, *tag.Order, "derived tag re-synced to template order")
+
+	// Clearing the template's order clears the derived tag's too.
+	_, err = tmpl.Update().ClearOrder().Save(ctx)
+	require.NoError(t, err)
+	svc.createForTest(t, m, "DSC_0003.jpg", capturedNoon(t))
+	tag = defaultTagNames(t, repo, m.Project)["Formula Student Test"]
+	assert.Nil(t, tag.Order, "derived tag order cleared with template")
+}
+
 // Found-or-create: a second image on the same project/day reuses the same default
 // tag rows rather than creating duplicates.
 // The reported bug: a photo shot at 10:30 in Berlin was named "..._08-30-00_..."

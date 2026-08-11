@@ -219,7 +219,7 @@ func (s *ImageService) addDefaultTags(ctx context.Context, image *ent.Image, pro
 		if name == "" {
 			continue // unrenderable (e.g. $DATE with no capture time, or malformed) — skip.
 		}
-		tag, err := s.findOrCreateDefaultTag(ctx, project.ID, name)
+		tag, err := s.findOrCreateDefaultTag(ctx, project.ID, name, tmpl.Order)
 		if err != nil {
 			return err
 		}
@@ -274,11 +274,24 @@ func (s *ImageService) shiftedCapture(corrected *time.Time) (time.Time, bool) {
 	return corrected.In(s.location()).Add(time.Duration(s.dateTagHourOffset) * time.Hour), true
 }
 
-func (s *ImageService) findOrCreateDefaultTag(ctx context.Context, projectID, name string) (*ent.ImageTag, error) {
+// findOrCreateDefaultTag keeps the derived tag's order mirroring its template's
+// (nil ≡ 0 ≡ unranked), so re-ranking a template propagates on the next upload.
+func (s *ImageService) findOrCreateDefaultTag(ctx context.Context, projectID, name string, order *int) (*ent.ImageTag, error) {
 	existing, err := s.repo.Client.ImageTag.Query().
 		Where(imagetag.ProjectID(projectID), imagetag.TypeEQ(imagetag.TypeDefault), imagetag.NameEQ(name)).
 		Only(ctx)
 	if err == nil {
+		want, have := 0, 0
+		if order != nil {
+			want = *order
+		}
+		if existing.Order != nil {
+			have = *existing.Order
+		}
+		if want != have {
+			// UpdateImageTag's Order convention: pointer to 0 clears the rank.
+			return s.repo.UpdateImageTag(ctx, existing.ID, &repository.UpdateImageTagParameters{Order: &want})
+		}
 		return existing, nil
 	}
 	if !ent.IsNotFound(err) {
@@ -289,6 +302,7 @@ func (s *ImageService) findOrCreateDefaultTag(ctx context.Context, projectID, na
 		Description: fmt.Sprintf("default tag %q", name),
 		Type:        imagetag.TypeDefault,
 		ProjectID:   projectID,
+		Order:       order,
 	})
 }
 
