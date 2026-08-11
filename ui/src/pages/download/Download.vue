@@ -222,6 +222,7 @@
             <span v-if="config.blockedImageIds.length"> · {{ config.blockedImageIds.length }} blocked</span>
             <span v-if="config.deltaSubfolder"> · delta subfolder</span>
             <span v-if="config.groupByDate"> · by date</span>
+            <span v-if="config.reviewedOnly"> · reviewed only</span>
           </p>
           <p class="mt-1 flex items-center gap-1 text-xs text-primary-500 dark:text-primary-400">
             <FolderIcon class="h-3.5 w-3.5 flex-shrink-0" />
@@ -266,6 +267,7 @@
       :create="dialogCreate"
       :config="dialogConfig"
       :project-tags="projectTags"
+      :review-enabled="reviewEnabled"
       @closed="dialogOpen = false"
       @save="saveConfig"
       @deleted="deleteConfig"
@@ -315,7 +317,9 @@ interface SyncResultState {
 const syncProgress = ref<({ configName: string } & ReconcileProgress) | null>(null);
 const syncResult = ref<SyncResultState | null>(null);
 const userStore = useUserStore();
-const { activeProjectId } = storeToRefs(userStore);
+const { activeProjectId, activeProject } = storeToRefs(userStore);
+// The reviewed-only filter is meaningless without the review flow.
+const reviewEnabled = computed(() => !!activeProject.value?.uploadReviewEnabled);
 
 const supported = isDirectoryPickerSupported();
 const configs = ref<DownloadConfig[]>([]);

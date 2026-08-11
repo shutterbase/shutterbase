@@ -11,7 +11,9 @@ import (
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/auditlog"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/seed"
@@ -337,14 +339,31 @@ func TestGetUploadMetrics(t *testing.T) {
 	assert.Equal(t, 1, metrics[up.ID].TagCount)
 	assert.InDelta(t, 1.0/float64(len(m.Images)), metrics[up.ID].TagsPerImage, 0.0001)
 
+	// errorCount is live state: it follows the review error tag on and off.
+	errorTag := repo.Client.ImageTag.Create().
+		SetName(authorization.ReviewErrorTagName).SetDescription("tagging error").SetType(imagetag.TypeCustom).SetProjectID(m.Project).SaveX(ctx)
+	assignment, _, err := repo.CreateImageTagAssignment(ctx, &repository.CreateImageTagAssignmentParameters{
+		ImageID: m.Images[0], ImageTagID: errorTag.ID, Type: imagetagassignment.TypeManual,
+	})
+	require.NoError(t, err)
+
+	metrics, err = repo.GetUploadMetrics(ctx, []*ent.Upload{up})
+	require.NoError(t, err)
+	assert.Equal(t, 1, metrics[up.ID].ErrorCount)
+
+	require.NoError(t, repo.DeleteImageTagAssignment(ctx, assignment.ID))
+	metrics, err = repo.GetUploadMetrics(ctx, []*ent.Upload{up})
+	require.NoError(t, err)
+	assert.Equal(t, 0, metrics[up.ID].ErrorCount, "clearing the tag lowers the count again")
+
 	// An empty set must not build a query at all.
 	empty, err := repo.GetUploadMetrics(ctx, nil)
 	require.NoError(t, err)
 	assert.Empty(t, empty)
 }
 
-// The active-tagging accumulator and the distinct-error ledger both read-modify-
-// write the upload row; assert they land and stay idempotent.
+// The active-tagging accumulator read-modify-writes the upload row; assert the
+// idle-gap heuristic lands.
 func TestUploadTaggingMetricAccumulation(t *testing.T) {
 	ctx := context.Background()
 	repo, m := seededRepo(t)
@@ -357,12 +376,4 @@ func TestUploadTaggingMetricAccumulation(t *testing.T) {
 	up, err := repo.GetUpload(ctx, m.Upload)
 	require.NoError(t, err)
 	assert.Equal(t, 20, up.TaggingSeconds, "the three-hour break is not working time")
-
-	require.NoError(t, repo.TrackUploadTaggingError(ctx, m.Upload, m.Images[0]))
-	require.NoError(t, repo.TrackUploadTaggingError(ctx, m.Upload, m.Images[0]))
-	require.NoError(t, repo.TrackUploadTaggingError(ctx, m.Upload, m.Images[1]))
-
-	up, err = repo.GetUpload(ctx, m.Upload)
-	require.NoError(t, err)
-	assert.Equal(t, []string{m.Images[0], m.Images[1]}, up.ErrorImageIds, "distinct images only")
 }

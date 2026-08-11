@@ -105,11 +105,6 @@ func TestUploadReviewFlow(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden, assign(editor, errTag.ID))
 		assert.Equal(t, http.StatusCreated, assign(padmin, errTag.ID))
 
-		// Flagging is remembered on the upload even after the tag is cleared.
-		reloaded, err := c.Upload.Get(ctx, up.ID)
-		require.NoError(t, err)
-		assert.Equal(t, []string{img.ID}, reloaded.ErrorImageIds)
-
 		// A submitted upload takes no further images from the photographer.
 		assert.Equal(t, http.StatusConflict, status(t, editor, http.MethodPost, "/api/v1/images", map[string]any{
 			"fileName": "late.jpg", "storageId": "reviewe2eimg0002", "size": 10,
@@ -129,7 +124,9 @@ func TestUploadReviewFlow(t *testing.T) {
 		metrics, ok := body["metrics"].(map[string]any)
 		require.True(t, ok, "the metrics block is serialized")
 		assert.Equal(t, float64(2), metrics["reviewCycles"], "both submissions counted")
-		assert.Equal(t, float64(1), metrics["errorCount"], "one distinct tagging error, across cycles")
+		// errorCount is live state, not a ledger: the previous cycle's error tag
+		// is gone, so nothing is flagged any more.
+		assert.Equal(t, float64(0), metrics["errorCount"])
 		assert.NotNil(t, metrics["tagsPerImage"])
 	})
 }

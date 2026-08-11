@@ -34,6 +34,9 @@ func (DownloadConfig) Fields() []ent.Field {
 		// "YYYYMMDD Weekday" event-day folders derived from the date tag (PR #89).
 		field.Bool("deltaSubfolder").Default(false).StructTag(`json:"deltaSubfolder"`),
 		field.Bool("groupByDate").Default(false).StructTag(`json:"groupByDate"`),
+		// reviewedOnly drops every image whose upload has not reached "reviewed"
+		// yet — work in progress never lands in the delivery folder.
+		field.Bool("reviewedOnly").Default(false).StructTag(`json:"reviewedOnly"`),
 		field.String("folderStructure").Default("default").StructTag(`json:"folderStructure"`),
 		field.Time("lastDownloadAt").Optional().Nillable().StructTag(`json:"lastDownloadAt"`),
 		field.String("project_id").StructTag(`json:"-"`),

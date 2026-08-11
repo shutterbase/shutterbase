@@ -51,8 +51,6 @@ func (Upload) Fields() []ent.Field {
 		// over every review cycle.
 		field.Int("timeToReadySeconds").NonNegative().Default(0).StructTag(`json:"timeToReadySeconds"`),
 		field.Time("cycleStartedAt").Optional().Nillable().StructTag(`json:"cycleStartedAt,omitempty"`),
-		// Images that carried the review error tag at ANY time, across cycles.
-		field.JSON("errorImageIds", []string{}).Optional().Default([]string{}).StructTag(`json:"errorImageIds"`),
 		// Persisted editor state of the tagging timeline; the applied
 		// "scheduled" tag assignments are derived from it server-side.
 		field.JSON("timeline", []TimelineTrack{}).Optional().Default([]TimelineTrack{}).StructTag(`json:"timeline"`),

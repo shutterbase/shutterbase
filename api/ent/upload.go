@@ -51,8 +51,6 @@ type Upload struct {
 	TimeToReadySeconds int `json:"timeToReadySeconds"`
 	// CycleStartedAt holds the value of the "cycleStartedAt" field.
 	CycleStartedAt *time.Time `json:"cycleStartedAt,omitempty"`
-	// ErrorImageIds holds the value of the "errorImageIds" field.
-	ErrorImageIds []string `json:"errorImageIds"`
 	// Timeline holds the value of the "timeline" field.
 	Timeline []schema.TimelineTrack `json:"timeline"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -125,7 +123,7 @@ func (*Upload) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case upload.FieldCreatedBy, upload.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case upload.FieldErrorImageIds, upload.FieldTimeline:
+		case upload.FieldTimeline:
 			values[i] = new([]byte)
 		case upload.FieldReviewCycles, upload.FieldTaggingSeconds, upload.FieldTimeToReadySeconds:
 			values[i] = new(sql.NullInt64)
@@ -244,14 +242,6 @@ func (_m *Upload) assignValues(columns []string, values []any) error {
 				_m.CycleStartedAt = new(time.Time)
 				*_m.CycleStartedAt = value.Time
 			}
-		case upload.FieldErrorImageIds:
-			if value, ok := values[i].(*[]byte); !ok {
-				return fmt.Errorf("unexpected type %T for field errorImageIds", values[i])
-			} else if value != nil && len(*value) > 0 {
-				if err := json.Unmarshal(*value, &_m.ErrorImageIds); err != nil {
-					return fmt.Errorf("unmarshal field errorImageIds: %w", err)
-				}
-			}
 		case upload.FieldTimeline:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field timeline", values[i])
@@ -365,9 +355,6 @@ func (_m *Upload) String() string {
 		builder.WriteString("cycleStartedAt=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
-	builder.WriteString(", ")
-	builder.WriteString("errorImageIds=")
-	builder.WriteString(fmt.Sprintf("%v", _m.ErrorImageIds))
 	builder.WriteString(", ")
 	builder.WriteString("timeline=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Timeline))

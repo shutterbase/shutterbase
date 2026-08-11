@@ -766,16 +766,6 @@ func CycleStartedAtNotNil() predicate.Upload {
 	return predicate.Upload(sql.FieldNotNull(FieldCycleStartedAt))
 }
 
-// ErrorImageIdsIsNil applies the IsNil predicate on the "errorImageIds" field.
-func ErrorImageIdsIsNil() predicate.Upload {
-	return predicate.Upload(sql.FieldIsNull(FieldErrorImageIds))
-}
-
-// ErrorImageIdsNotNil applies the NotNil predicate on the "errorImageIds" field.
-func ErrorImageIdsNotNil() predicate.Upload {
-	return predicate.Upload(sql.FieldNotNull(FieldErrorImageIds))
-}
-
 // TimelineIsNil applies the IsNil predicate on the "timeline" field.
 func TimelineIsNil() predicate.Upload {
 	return predicate.Upload(sql.FieldIsNull(FieldTimeline))

@@ -149,6 +149,18 @@
                       >
                     </span>
                   </label>
+                  <label v-if="reviewEnabled" class="flex items-start gap-2.5">
+                    <input
+                      v-model="draft.reviewedOnly"
+                      type="checkbox"
+                      data-testid="reviewed-only"
+                      class="mt-0.5 h-4 w-4 rounded border-primary-300 text-accent-600 focus:ring-accent-500"
+                    />
+                    <span>
+                      <span class="block text-sm font-medium text-primary-700 dark:text-primary-200">Include only reviewed images</span>
+                      <span class="block text-xs text-primary-500 dark:text-primary-400">Photos whose upload has not been reviewed yet are skipped.</span>
+                    </span>
+                  </label>
                 </div>
               </div>
               <!-- footer -->
@@ -189,6 +201,7 @@ interface Props {
   create: boolean;
   config?: DownloadConfig | null;
   projectTags: ImageTag[];
+  reviewEnabled: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), { config: null });
@@ -199,7 +212,7 @@ const emit = defineEmits<{
   deleted: [];
 }>();
 
-const draft = ref({ name: "", whitelistTagIds: [] as string[], blacklistTagIds: [] as string[], deltaSubfolder: false });
+const draft = ref({ name: "", whitelistTagIds: [] as string[], blacklistTagIds: [] as string[], deltaSubfolder: false, reviewedOnly: false });
 const blockedText = ref("");
 // folderChoice folds folderStructure + groupByDate into one strategy select —
 // the two backing fields are mutually exclusive by construction.
@@ -215,13 +228,14 @@ watch(
         whitelistTagIds: [...props.config.whitelistTagIds],
         blacklistTagIds: [...props.config.blacklistTagIds],
         deltaSubfolder: props.config.deltaSubfolder,
+        reviewedOnly: props.config.reviewedOnly,
       };
       blockedText.value = props.config.blockedImageIds.join("\n");
       if (props.config.folderStructure === "weekday") folderChoice.value = "weekday";
       else if (props.config.groupByDate) folderChoice.value = "date";
       else folderChoice.value = "none";
     } else {
-      draft.value = { name: "", whitelistTagIds: [], blacklistTagIds: [], deltaSubfolder: false };
+      draft.value = { name: "", whitelistTagIds: [], blacklistTagIds: [], deltaSubfolder: false, reviewedOnly: false };
       blockedText.value = "";
       folderChoice.value = "none";
     }
@@ -266,6 +280,7 @@ function save() {
       .map((line) => line.trim())
       .filter((line) => line !== ""),
     deltaSubfolder: draft.value.deltaSubfolder,
+    reviewedOnly: draft.value.reviewedOnly,
     groupByDate: folderChoice.value === "date",
     // always sent explicitly — an omitted field would keep a stale "weekday"
     // on the server when switching back to date/none

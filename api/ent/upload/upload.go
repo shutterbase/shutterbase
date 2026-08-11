@@ -44,8 +44,6 @@ const (
 	FieldTimeToReadySeconds = "time_to_ready_seconds"
 	// FieldCycleStartedAt holds the string denoting the cyclestartedat field in the database.
 	FieldCycleStartedAt = "cycle_started_at"
-	// FieldErrorImageIds holds the string denoting the errorimageids field in the database.
-	FieldErrorImageIds = "error_image_ids"
 	// FieldTimeline holds the string denoting the timeline field in the database.
 	FieldTimeline = "timeline"
 	// EdgeProject holds the string denoting the project edge name in mutations.
@@ -105,7 +103,6 @@ var Columns = []string{
 	FieldLastTagActivityAt,
 	FieldTimeToReadySeconds,
 	FieldCycleStartedAt,
-	FieldErrorImageIds,
 	FieldTimeline,
 }
 
@@ -140,8 +137,6 @@ var (
 	DefaultTimeToReadySeconds int
 	// TimeToReadySecondsValidator is a validator for the "timeToReadySeconds" field. It is called by the builders before save.
 	TimeToReadySecondsValidator func(int) error
-	// DefaultErrorImageIds holds the default value on creation for the "errorImageIds" field.
-	DefaultErrorImageIds []string
 	// DefaultTimeline holds the default value on creation for the "timeline" field.
 	DefaultTimeline []schema.TimelineTrack
 	// DefaultID holds the default value on creation for the "id" field.

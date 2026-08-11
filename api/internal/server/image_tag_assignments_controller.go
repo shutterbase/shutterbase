@@ -184,11 +184,6 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 		return
 	}
 	if created {
-		if authorization.IsReviewErrorTag(tag.Name) {
-			// Remembered even after the tag is cleared, so the "distinct errors
-			// ever" count survives every review cycle.
-			_ = s.Repository.TrackUploadTaggingError(c.Request.Context(), up.ID, img.ID)
-		}
 		s.recordTaggingActivity(c, up)
 	}
 	status := http.StatusOK // idempotent: existing pair -> 200

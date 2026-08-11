@@ -134,6 +134,7 @@ var (
 		{Name: "blocked_image_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "delta_subfolder", Type: field.TypeBool, Default: false},
 		{Name: "group_by_date", Type: field.TypeBool, Default: false},
+		{Name: "reviewed_only", Type: field.TypeBool, Default: false},
 		{Name: "folder_structure", Type: field.TypeString, Default: "default"},
 		{Name: "last_download_at", Type: field.TypeTime, Nullable: true},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
@@ -147,13 +148,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "download_configs_projects_downloadConfigs",
-				Columns:    []*schema.Column{DownloadConfigsColumns[13]},
+				Columns:    []*schema.Column{DownloadConfigsColumns[14]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "download_configs_users_downloadConfigs",
-				Columns:    []*schema.Column{DownloadConfigsColumns[14]},
+				Columns:    []*schema.Column{DownloadConfigsColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -162,12 +163,12 @@ var (
 			{
 				Name:    "downloadconfig_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{DownloadConfigsColumns[13]},
+				Columns: []*schema.Column{DownloadConfigsColumns[14]},
 			},
 			{
 				Name:    "downloadconfig_user_id_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{DownloadConfigsColumns[14], DownloadConfigsColumns[13]},
+				Columns: []*schema.Column{DownloadConfigsColumns[15], DownloadConfigsColumns[14]},
 			},
 		},
 	}
@@ -587,7 +588,6 @@ var (
 		{Name: "last_tag_activity_at", Type: field.TypeTime, Nullable: true},
 		{Name: "time_to_ready_seconds", Type: field.TypeInt, Default: 0},
 		{Name: "cycle_started_at", Type: field.TypeTime, Nullable: true},
-		{Name: "error_image_ids", Type: field.TypeJSON, Nullable: true},
 		{Name: "timeline", Type: field.TypeJSON, Nullable: true},
 		{Name: "camera_id", Type: field.TypeString, Size: 15},
 		{Name: "project_id", Type: field.TypeString, Size: 15},
@@ -601,19 +601,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "uploads_cameras_uploads",
-				Columns:    []*schema.Column{UploadsColumns[14]},
+				Columns:    []*schema.Column{UploadsColumns[13]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "uploads_projects_uploads",
-				Columns:    []*schema.Column{UploadsColumns[15]},
+				Columns:    []*schema.Column{UploadsColumns[14]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "uploads_users_uploads",
-				Columns:    []*schema.Column{UploadsColumns[16]},
+				Columns:    []*schema.Column{UploadsColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -622,22 +622,22 @@ var (
 			{
 				Name:    "upload_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[15]},
+				Columns: []*schema.Column{UploadsColumns[14]},
 			},
 			{
 				Name:    "upload_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[16]},
+				Columns: []*schema.Column{UploadsColumns[15]},
 			},
 			{
 				Name:    "upload_camera_id",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[14]},
+				Columns: []*schema.Column{UploadsColumns[13]},
 			},
 			{
 				Name:    "upload_project_id_state",
 				Unique:  false,
-				Columns: []*schema.Column{UploadsColumns[15], UploadsColumns[6]},
+				Columns: []*schema.Column{UploadsColumns[14], UploadsColumns[6]},
 			},
 		},
 	}

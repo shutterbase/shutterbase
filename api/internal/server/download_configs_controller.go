@@ -24,6 +24,7 @@ func downloadConfigResponse(cfg *ent.DownloadConfig) gin.H {
 		"blockedImageIds": cfg.BlockedImageIds,
 		"deltaSubfolder":  cfg.DeltaSubfolder,
 		"groupByDate":     cfg.GroupByDate,
+		"reviewedOnly":    cfg.ReviewedOnly,
 		"folderStructure": cfg.FolderStructure,
 		"lastDownloadAt":  cfg.LastDownloadAt,
 		"projectId":       cfg.ProjectID,
@@ -81,6 +82,7 @@ type createDownloadConfigPayload struct {
 	BlockedImageIds []string `json:"blockedImageIds"`
 	DeltaSubfolder  bool     `json:"deltaSubfolder"`
 	GroupByDate     bool     `json:"groupByDate"`
+	ReviewedOnly    bool     `json:"reviewedOnly"`
 	FolderStructure string   `json:"folderStructure"`
 }
 
@@ -108,6 +110,7 @@ func (s *Server) createDownloadConfig(c *gin.Context) {
 		BlockedImageIds: payload.BlockedImageIds,
 		DeltaSubfolder:  payload.DeltaSubfolder,
 		GroupByDate:     payload.GroupByDate,
+		ReviewedOnly:    payload.ReviewedOnly,
 		FolderStructure: payload.FolderStructure,
 	})
 	if abortDownloadConfigMutationError(c, err) {
@@ -141,6 +144,7 @@ func (s *Server) updateDownloadConfig(c *gin.Context) {
 		BlockedImageIds *[]string  `json:"blockedImageIds"`
 		DeltaSubfolder  *bool      `json:"deltaSubfolder"`
 		GroupByDate     *bool      `json:"groupByDate"`
+		ReviewedOnly    *bool      `json:"reviewedOnly"`
 		LastDownloadAt  *time.Time `json:"lastDownloadAt"`
 		FolderStructure *string    `json:"folderStructure"`
 	}
@@ -162,6 +166,7 @@ func (s *Server) updateDownloadConfig(c *gin.Context) {
 		BlockedImageIds: payload.BlockedImageIds,
 		DeltaSubfolder:  payload.DeltaSubfolder,
 		GroupByDate:     payload.GroupByDate,
+		ReviewedOnly:    payload.ReviewedOnly,
 		LastDownloadAt:  payload.LastDownloadAt,
 		FolderStructure: payload.FolderStructure,
 	})

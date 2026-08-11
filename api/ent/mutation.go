@@ -2984,6 +2984,7 @@ type DownloadConfigMutation struct {
 	appendblockedImageIds []string
 	deltaSubfolder        *bool
 	groupByDate           *bool
+	reviewedOnly          *bool
 	folderStructure       *string
 	lastDownloadAt        *time.Time
 	clearedFields         map[string]struct{}
@@ -3573,6 +3574,42 @@ func (m *DownloadConfigMutation) ResetGroupByDate() {
 	m.groupByDate = nil
 }
 
+// SetReviewedOnly sets the "reviewedOnly" field.
+func (m *DownloadConfigMutation) SetReviewedOnly(b bool) {
+	m.reviewedOnly = &b
+}
+
+// ReviewedOnly returns the value of the "reviewedOnly" field in the mutation.
+func (m *DownloadConfigMutation) ReviewedOnly() (r bool, exists bool) {
+	v := m.reviewedOnly
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReviewedOnly returns the old "reviewedOnly" field's value of the DownloadConfig entity.
+// If the DownloadConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DownloadConfigMutation) OldReviewedOnly(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReviewedOnly is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReviewedOnly requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReviewedOnly: %w", err)
+	}
+	return oldValue.ReviewedOnly, nil
+}
+
+// ResetReviewedOnly resets all changes to the "reviewedOnly" field.
+func (m *DownloadConfigMutation) ResetReviewedOnly() {
+	m.reviewedOnly = nil
+}
+
 // SetFolderStructure sets the "folderStructure" field.
 func (m *DownloadConfigMutation) SetFolderStructure(s string) {
 	m.folderStructure = &s
@@ -3818,7 +3855,7 @@ func (m *DownloadConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DownloadConfigMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.createdAt != nil {
 		fields = append(fields, downloadconfig.FieldCreatedAt)
 	}
@@ -3848,6 +3885,9 @@ func (m *DownloadConfigMutation) Fields() []string {
 	}
 	if m.groupByDate != nil {
 		fields = append(fields, downloadconfig.FieldGroupByDate)
+	}
+	if m.reviewedOnly != nil {
+		fields = append(fields, downloadconfig.FieldReviewedOnly)
 	}
 	if m.folderStructure != nil {
 		fields = append(fields, downloadconfig.FieldFolderStructure)
@@ -3889,6 +3929,8 @@ func (m *DownloadConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.DeltaSubfolder()
 	case downloadconfig.FieldGroupByDate:
 		return m.GroupByDate()
+	case downloadconfig.FieldReviewedOnly:
+		return m.ReviewedOnly()
 	case downloadconfig.FieldFolderStructure:
 		return m.FolderStructure()
 	case downloadconfig.FieldLastDownloadAt:
@@ -3926,6 +3968,8 @@ func (m *DownloadConfigMutation) OldField(ctx context.Context, name string) (ent
 		return m.OldDeltaSubfolder(ctx)
 	case downloadconfig.FieldGroupByDate:
 		return m.OldGroupByDate(ctx)
+	case downloadconfig.FieldReviewedOnly:
+		return m.OldReviewedOnly(ctx)
 	case downloadconfig.FieldFolderStructure:
 		return m.OldFolderStructure(ctx)
 	case downloadconfig.FieldLastDownloadAt:
@@ -4012,6 +4056,13 @@ func (m *DownloadConfigMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetGroupByDate(v)
+		return nil
+	case downloadconfig.FieldReviewedOnly:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReviewedOnly(v)
 		return nil
 	case downloadconfig.FieldFolderStructure:
 		v, ok := value.(string)
@@ -4158,6 +4209,9 @@ func (m *DownloadConfigMutation) ResetField(name string) error {
 		return nil
 	case downloadconfig.FieldGroupByDate:
 		m.ResetGroupByDate()
+		return nil
+	case downloadconfig.FieldReviewedOnly:
+		m.ResetReviewedOnly()
 		return nil
 	case downloadconfig.FieldFolderStructure:
 		m.ResetFolderStructure()
@@ -15037,8 +15091,6 @@ type UploadMutation struct {
 	timeToReadySeconds    *int
 	addtimeToReadySeconds *int
 	cycleStartedAt        *time.Time
-	errorImageIds         *[]string
-	appenderrorImageIds   []string
 	timeline              *[]schema.TimelineTrack
 	appendtimeline        []schema.TimelineTrack
 	clearedFields         map[string]struct{}
@@ -15776,71 +15828,6 @@ func (m *UploadMutation) ResetCycleStartedAt() {
 	delete(m.clearedFields, upload.FieldCycleStartedAt)
 }
 
-// SetErrorImageIds sets the "errorImageIds" field.
-func (m *UploadMutation) SetErrorImageIds(s []string) {
-	m.errorImageIds = &s
-	m.appenderrorImageIds = nil
-}
-
-// ErrorImageIds returns the value of the "errorImageIds" field in the mutation.
-func (m *UploadMutation) ErrorImageIds() (r []string, exists bool) {
-	v := m.errorImageIds
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldErrorImageIds returns the old "errorImageIds" field's value of the Upload entity.
-// If the Upload object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *UploadMutation) OldErrorImageIds(ctx context.Context) (v []string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldErrorImageIds is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldErrorImageIds requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldErrorImageIds: %w", err)
-	}
-	return oldValue.ErrorImageIds, nil
-}
-
-// AppendErrorImageIds adds s to the "errorImageIds" field.
-func (m *UploadMutation) AppendErrorImageIds(s []string) {
-	m.appenderrorImageIds = append(m.appenderrorImageIds, s...)
-}
-
-// AppendedErrorImageIds returns the list of values that were appended to the "errorImageIds" field in this mutation.
-func (m *UploadMutation) AppendedErrorImageIds() ([]string, bool) {
-	if len(m.appenderrorImageIds) == 0 {
-		return nil, false
-	}
-	return m.appenderrorImageIds, true
-}
-
-// ClearErrorImageIds clears the value of the "errorImageIds" field.
-func (m *UploadMutation) ClearErrorImageIds() {
-	m.errorImageIds = nil
-	m.appenderrorImageIds = nil
-	m.clearedFields[upload.FieldErrorImageIds] = struct{}{}
-}
-
-// ErrorImageIdsCleared returns if the "errorImageIds" field was cleared in this mutation.
-func (m *UploadMutation) ErrorImageIdsCleared() bool {
-	_, ok := m.clearedFields[upload.FieldErrorImageIds]
-	return ok
-}
-
-// ResetErrorImageIds resets all changes to the "errorImageIds" field.
-func (m *UploadMutation) ResetErrorImageIds() {
-	m.errorImageIds = nil
-	m.appenderrorImageIds = nil
-	delete(m.clearedFields, upload.FieldErrorImageIds)
-}
-
 // SetTimeline sets the "timeline" field.
 func (m *UploadMutation) SetTimeline(st []schema.TimelineTrack) {
 	m.timeline = &st
@@ -16075,7 +16062,7 @@ func (m *UploadMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UploadMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 15)
 	if m.createdAt != nil {
 		fields = append(fields, upload.FieldCreatedAt)
 	}
@@ -16118,9 +16105,6 @@ func (m *UploadMutation) Fields() []string {
 	if m.cycleStartedAt != nil {
 		fields = append(fields, upload.FieldCycleStartedAt)
 	}
-	if m.errorImageIds != nil {
-		fields = append(fields, upload.FieldErrorImageIds)
-	}
 	if m.timeline != nil {
 		fields = append(fields, upload.FieldTimeline)
 	}
@@ -16160,8 +16144,6 @@ func (m *UploadMutation) Field(name string) (ent.Value, bool) {
 		return m.TimeToReadySeconds()
 	case upload.FieldCycleStartedAt:
 		return m.CycleStartedAt()
-	case upload.FieldErrorImageIds:
-		return m.ErrorImageIds()
 	case upload.FieldTimeline:
 		return m.Timeline()
 	}
@@ -16201,8 +16183,6 @@ func (m *UploadMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldTimeToReadySeconds(ctx)
 	case upload.FieldCycleStartedAt:
 		return m.OldCycleStartedAt(ctx)
-	case upload.FieldErrorImageIds:
-		return m.OldErrorImageIds(ctx)
 	case upload.FieldTimeline:
 		return m.OldTimeline(ctx)
 	}
@@ -16312,13 +16292,6 @@ func (m *UploadMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCycleStartedAt(v)
 		return nil
-	case upload.FieldErrorImageIds:
-		v, ok := value.([]string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetErrorImageIds(v)
-		return nil
 	case upload.FieldTimeline:
 		v, ok := value.([]schema.TimelineTrack)
 		if !ok {
@@ -16407,9 +16380,6 @@ func (m *UploadMutation) ClearedFields() []string {
 	if m.FieldCleared(upload.FieldCycleStartedAt) {
 		fields = append(fields, upload.FieldCycleStartedAt)
 	}
-	if m.FieldCleared(upload.FieldErrorImageIds) {
-		fields = append(fields, upload.FieldErrorImageIds)
-	}
 	if m.FieldCleared(upload.FieldTimeline) {
 		fields = append(fields, upload.FieldTimeline)
 	}
@@ -16438,9 +16408,6 @@ func (m *UploadMutation) ClearField(name string) error {
 		return nil
 	case upload.FieldCycleStartedAt:
 		m.ClearCycleStartedAt()
-		return nil
-	case upload.FieldErrorImageIds:
-		m.ClearErrorImageIds()
 		return nil
 	case upload.FieldTimeline:
 		m.ClearTimeline()
@@ -16494,9 +16461,6 @@ func (m *UploadMutation) ResetField(name string) error {
 		return nil
 	case upload.FieldCycleStartedAt:
 		m.ResetCycleStartedAt()
-		return nil
-	case upload.FieldErrorImageIds:
-		m.ResetErrorImageIds()
 		return nil
 	case upload.FieldTimeline:
 		m.ResetTimeline()

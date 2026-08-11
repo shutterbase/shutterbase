@@ -172,8 +172,12 @@ func init() {
 	downloadconfigDescGroupByDate := downloadconfigFields[5].Descriptor()
 	// downloadconfig.DefaultGroupByDate holds the default value on creation for the groupByDate field.
 	downloadconfig.DefaultGroupByDate = downloadconfigDescGroupByDate.Default.(bool)
+	// downloadconfigDescReviewedOnly is the schema descriptor for reviewedOnly field.
+	downloadconfigDescReviewedOnly := downloadconfigFields[6].Descriptor()
+	// downloadconfig.DefaultReviewedOnly holds the default value on creation for the reviewedOnly field.
+	downloadconfig.DefaultReviewedOnly = downloadconfigDescReviewedOnly.Default.(bool)
 	// downloadconfigDescFolderStructure is the schema descriptor for folderStructure field.
-	downloadconfigDescFolderStructure := downloadconfigFields[6].Descriptor()
+	downloadconfigDescFolderStructure := downloadconfigFields[7].Descriptor()
 	// downloadconfig.DefaultFolderStructure holds the default value on creation for the folderStructure field.
 	downloadconfig.DefaultFolderStructure = downloadconfigDescFolderStructure.Default.(string)
 	// downloadconfigDescID is the schema descriptor for id field.
@@ -538,12 +542,8 @@ func init() {
 	upload.DefaultTimeToReadySeconds = uploadDescTimeToReadySeconds.Default.(int)
 	// upload.TimeToReadySecondsValidator is a validator for the "timeToReadySeconds" field. It is called by the builders before save.
 	upload.TimeToReadySecondsValidator = uploadDescTimeToReadySeconds.Validators[0].(func(int) error)
-	// uploadDescErrorImageIds is the schema descriptor for errorImageIds field.
-	uploadDescErrorImageIds := uploadFields[10].Descriptor()
-	// upload.DefaultErrorImageIds holds the default value on creation for the errorImageIds field.
-	upload.DefaultErrorImageIds = uploadDescErrorImageIds.Default.([]string)
 	// uploadDescTimeline is the schema descriptor for timeline field.
-	uploadDescTimeline := uploadFields[11].Descriptor()
+	uploadDescTimeline := uploadFields[10].Descriptor()
 	// upload.DefaultTimeline holds the default value on creation for the timeline field.
 	upload.DefaultTimeline = uploadDescTimeline.Default.([]schema.TimelineTrack)
 	// uploadDescID is the schema descriptor for id field.

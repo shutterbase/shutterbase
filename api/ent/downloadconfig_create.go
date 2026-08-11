@@ -131,6 +131,20 @@ func (_c *DownloadConfigCreate) SetNillableGroupByDate(v *bool) *DownloadConfigC
 	return _c
 }
 
+// SetReviewedOnly sets the "reviewedOnly" field.
+func (_c *DownloadConfigCreate) SetReviewedOnly(v bool) *DownloadConfigCreate {
+	_c.mutation.SetReviewedOnly(v)
+	return _c
+}
+
+// SetNillableReviewedOnly sets the "reviewedOnly" field if the given value is not nil.
+func (_c *DownloadConfigCreate) SetNillableReviewedOnly(v *bool) *DownloadConfigCreate {
+	if v != nil {
+		_c.SetReviewedOnly(*v)
+	}
+	return _c
+}
+
 // SetFolderStructure sets the "folderStructure" field.
 func (_c *DownloadConfigCreate) SetFolderStructure(v string) *DownloadConfigCreate {
 	_c.mutation.SetFolderStructure(v)
@@ -258,6 +272,10 @@ func (_c *DownloadConfigCreate) defaults() {
 		v := downloadconfig.DefaultGroupByDate
 		_c.mutation.SetGroupByDate(v)
 	}
+	if _, ok := _c.mutation.ReviewedOnly(); !ok {
+		v := downloadconfig.DefaultReviewedOnly
+		_c.mutation.SetReviewedOnly(v)
+	}
 	if _, ok := _c.mutation.FolderStructure(); !ok {
 		v := downloadconfig.DefaultFolderStructure
 		_c.mutation.SetFolderStructure(v)
@@ -289,6 +307,9 @@ func (_c *DownloadConfigCreate) check() error {
 	}
 	if _, ok := _c.mutation.GroupByDate(); !ok {
 		return &ValidationError{Name: "groupByDate", err: errors.New(`ent: missing required field "DownloadConfig.groupByDate"`)}
+	}
+	if _, ok := _c.mutation.ReviewedOnly(); !ok {
+		return &ValidationError{Name: "reviewedOnly", err: errors.New(`ent: missing required field "DownloadConfig.reviewedOnly"`)}
 	}
 	if _, ok := _c.mutation.FolderStructure(); !ok {
 		return &ValidationError{Name: "folderStructure", err: errors.New(`ent: missing required field "DownloadConfig.folderStructure"`)}
@@ -384,6 +405,10 @@ func (_c *DownloadConfigCreate) createSpec() (*DownloadConfig, *sqlgraph.CreateS
 	if value, ok := _c.mutation.GroupByDate(); ok {
 		_spec.SetField(downloadconfig.FieldGroupByDate, field.TypeBool, value)
 		_node.GroupByDate = value
+	}
+	if value, ok := _c.mutation.ReviewedOnly(); ok {
+		_spec.SetField(downloadconfig.FieldReviewedOnly, field.TypeBool, value)
+		_node.ReviewedOnly = value
 	}
 	if value, ok := _c.mutation.FolderStructure(); ok {
 		_spec.SetField(downloadconfig.FieldFolderStructure, field.TypeString, value)

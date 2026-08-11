@@ -28,8 +28,14 @@ export function downloadFileName(image: Pick<Image, "computedFileName">): string
 
 // isExcluded: blacklist tags OR-exclude; blocked entries match the image id
 // or its computed file name (users paste file names, like the CLI blocklist).
-export function isExcluded(image: Pick<Image, "id" | "computedFileName" | "imageTags">, config: Pick<DownloadConfig, "blacklistTagIds" | "blockedImageIds">): boolean {
+// reviewedOnly additionally drops everything whose upload is not reviewed yet —
+// fails closed when the upload is missing from the payload.
+export function isExcluded(
+  image: Pick<Image, "id" | "computedFileName" | "imageTags"> & Partial<Pick<Image, "upload">>,
+  config: Pick<DownloadConfig, "blacklistTagIds" | "blockedImageIds"> & Partial<Pick<DownloadConfig, "reviewedOnly">>,
+): boolean {
   if (config.blockedImageIds.includes(image.id) || config.blockedImageIds.includes(image.computedFileName)) return true;
+  if (config.reviewedOnly && image.upload?.state !== "reviewed") return true;
   return config.blacklistTagIds.some((tagId) => (image.imageTags ?? []).includes(tagId));
 }
 
@@ -42,8 +48,8 @@ export function isExcluded(image: Pick<Image, "id" | "computedFileName" | "image
 export type ImageStatus = "excluded" | "new" | "changed" | "present";
 
 export function classifyImage(
-  image: Pick<Image, "id" | "computedFileName" | "imageTags" | "updatedAt">,
-  config: Pick<DownloadConfig, "blacklistTagIds" | "blockedImageIds" | "lastDownloadAt">,
+  image: Pick<Image, "id" | "computedFileName" | "imageTags" | "updatedAt"> & Partial<Pick<Image, "upload">>,
+  config: Pick<DownloadConfig, "blacklistTagIds" | "blockedImageIds" | "lastDownloadAt"> & Partial<Pick<DownloadConfig, "reviewedOnly">>,
   existingFiles: Set<string>,
 ): ImageStatus {
   if (isExcluded(image, config)) return "excluded";

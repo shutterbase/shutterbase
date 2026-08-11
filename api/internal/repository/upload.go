@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"slices"
 	"time"
 
 	"entgo.io/ent/dialect"
@@ -12,9 +11,11 @@ import (
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/image"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/upload"
+	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
 
@@ -263,22 +264,6 @@ func (r *Repository) RecordTaggingActivity(ctx context.Context, uploadID string,
 	return err
 }
 
-// TrackUploadTaggingError remembers that imageID carried the review error tag,
-// so the count survives the tag being cleared and every later review cycle.
-func (r *Repository) TrackUploadTaggingError(ctx context.Context, uploadID, imageID string) error {
-	err := r.mutateUpload(ctx, uploadID, func(item *ent.Upload, update *ent.UploadUpdateOne) bool {
-		if slices.Contains(item.ErrorImageIds, imageID) {
-			return false
-		}
-		update.SetErrorImageIds(append(slices.Clone(item.ErrorImageIds), imageID))
-		return true
-	})
-	if err != nil {
-		log.Error().Err(err).Str("upload", uploadID).Msg("error tracking upload tagging error")
-	}
-	return err
-}
-
 // UploadMetrics is the per-upload tagging performance block (§4.9). Rates are
 // derived, not stored, so they always match the current image/tag counts.
 type UploadMetrics struct {
@@ -289,7 +274,8 @@ type UploadMetrics struct {
 	ImagesPerSecond    float64 `json:"imagesPerSecond"`
 	TimeToReadySeconds int     `json:"timeToReadySeconds"`
 	ReviewCycles       int     `json:"reviewCycles"`
-	ErrorCount         int     `json:"errorCount"`
+	// Images of this upload that carry the review error tag right now.
+	ErrorCount int `json:"errorCount"`
 	// AI detection progress: counts of this upload's images by queue state
 	// (in-flight = pending + processing). Zero-valued on AI-less projects.
 	AiDone     int `json:"aiDone"`
@@ -309,7 +295,6 @@ func (r *Repository) GetUploadMetrics(ctx context.Context, uploads []*ent.Upload
 			TaggingSeconds:     up.TaggingSeconds,
 			TimeToReadySeconds: up.TimeToReadySeconds,
 			ReviewCycles:       up.ReviewCycles,
-			ErrorCount:         len(up.ErrorImageIds),
 		}
 	}
 	if len(ids) == 0 {
@@ -341,6 +326,28 @@ func (r *Repository) GetUploadMetrics(ctx context.Context, uploads []*ent.Upload
 	for id, count := range tagCounts {
 		if m, ok := out[id]; ok {
 			m.TagCount = count
+		}
+	}
+
+	// Live error count: images currently carrying the reserved "error" tag.
+	// Clearing the tag lowers it again — it is a state, not a history.
+	var errorCounts []struct {
+		UploadID string `json:"upload_id"`
+		Count    int    `json:"count"`
+	}
+	if err := r.Client.Image.Query().
+		Where(image.UploadIDIn(ids...), image.HasImageTagAssignmentsWith(
+			imagetagassignment.HasImageTagWith(imagetag.NameEqualFold(authorization.ReviewErrorTagName)),
+		)).
+		GroupBy(image.FieldUploadID).
+		Aggregate(ent.Count()).
+		Scan(ctx, &errorCounts); err != nil {
+		log.Error().Err(err).Msg("error counting upload tagging errors")
+		return nil, err
+	}
+	for _, row := range errorCounts {
+		if m, ok := out[row.UploadID]; ok {
+			m.ErrorCount = row.Count
 		}
 	}
 
