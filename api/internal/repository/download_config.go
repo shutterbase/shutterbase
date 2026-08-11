@@ -42,6 +42,7 @@ type CreateDownloadConfigParameters struct {
 	BlockedImageIds []string
 	DeltaSubfolder  bool
 	GroupByDate     bool
+	ReviewedOnly    bool
 	FolderStructure string
 }
 
@@ -59,6 +60,7 @@ func (r *Repository) CreateDownloadConfig(ctx context.Context, parameters *Creat
 		SetBlockedImageIds(uniqueStrings(parameters.BlockedImageIds)).
 		SetDeltaSubfolder(parameters.DeltaSubfolder).
 		SetGroupByDate(parameters.GroupByDate).
+		SetReviewedOnly(parameters.ReviewedOnly).
 		SetCreatedBy(util.GetActorID(ctx)).
 		SetUpdatedBy(util.GetActorID(ctx)).
 		SetFolderStructure(parameters.FolderStructure).
@@ -83,6 +85,7 @@ type UpdateDownloadConfigParameters struct {
 	BlockedImageIds *[]string
 	DeltaSubfolder  *bool
 	GroupByDate     *bool
+	ReviewedOnly    *bool
 	FolderStructure *string
 	LastDownloadAt  *time.Time
 }
@@ -120,6 +123,9 @@ func (r *Repository) UpdateDownloadConfig(ctx context.Context, id string, parame
 	}
 	if parameters.GroupByDate != nil {
 		update.SetGroupByDate(*parameters.GroupByDate)
+	}
+	if parameters.ReviewedOnly != nil {
+		update.SetReviewedOnly(*parameters.ReviewedOnly)
 	}
 	if parameters.FolderStructure != nil {
 		update.SetFolderStructure(*parameters.FolderStructure)

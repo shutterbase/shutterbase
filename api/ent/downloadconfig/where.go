@@ -101,6 +101,11 @@ func GroupByDate(v bool) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldEQ(FieldGroupByDate, v))
 }
 
+// ReviewedOnly applies equality check predicate on the "reviewedOnly" field. It's identical to ReviewedOnlyEQ.
+func ReviewedOnly(v bool) predicate.DownloadConfig {
+	return predicate.DownloadConfig(sql.FieldEQ(FieldReviewedOnly, v))
+}
+
 // FolderStructure applies equality check predicate on the "folderStructure" field. It's identical to FolderStructureEQ.
 func FolderStructure(v string) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldEQ(FieldFolderStructure, v))
@@ -414,6 +419,16 @@ func GroupByDateEQ(v bool) predicate.DownloadConfig {
 // GroupByDateNEQ applies the NEQ predicate on the "groupByDate" field.
 func GroupByDateNEQ(v bool) predicate.DownloadConfig {
 	return predicate.DownloadConfig(sql.FieldNEQ(FieldGroupByDate, v))
+}
+
+// ReviewedOnlyEQ applies the EQ predicate on the "reviewedOnly" field.
+func ReviewedOnlyEQ(v bool) predicate.DownloadConfig {
+	return predicate.DownloadConfig(sql.FieldEQ(FieldReviewedOnly, v))
+}
+
+// ReviewedOnlyNEQ applies the NEQ predicate on the "reviewedOnly" field.
+func ReviewedOnlyNEQ(v bool) predicate.DownloadConfig {
+	return predicate.DownloadConfig(sql.FieldNEQ(FieldReviewedOnly, v))
 }
 
 // FolderStructureEQ applies the EQ predicate on the "folderStructure" field.

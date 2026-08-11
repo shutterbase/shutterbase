@@ -53,6 +53,15 @@ describe("isExcluded", () => {
   it("tolerates images without denormalized tags", () => {
     expect(isExcluded({ ...image, imageTags: undefined as unknown as string[] }, config)).toBe(false);
   });
+  it("keeps unreviewed images unless reviewedOnly is set", () => {
+    expect(isExcluded({ ...image, upload: { id: "up1", name: "u", state: "ready" } }, config)).toBe(false);
+  });
+  it("excludes everything but reviewed uploads when reviewedOnly is set", () => {
+    const reviewedOnly = { ...config, reviewedOnly: true };
+    expect(isExcluded({ ...image, upload: { id: "up1", name: "u", state: "reviewed" } }, reviewedOnly)).toBe(false);
+    expect(isExcluded({ ...image, upload: { id: "up1", name: "u", state: "ready" } }, reviewedOnly)).toBe(true);
+    expect(isExcluded(image, reviewedOnly)).toBe(true); // no upload in the payload -> fails closed
+  });
 });
 
 describe("classifyImage", () => {

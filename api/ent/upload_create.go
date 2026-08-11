@@ -190,12 +190,6 @@ func (_c *UploadCreate) SetNillableCycleStartedAt(v *time.Time) *UploadCreate {
 	return _c
 }
 
-// SetErrorImageIds sets the "errorImageIds" field.
-func (_c *UploadCreate) SetErrorImageIds(v []string) *UploadCreate {
-	_c.mutation.SetErrorImageIds(v)
-	return _c
-}
-
 // SetTimeline sets the "timeline" field.
 func (_c *UploadCreate) SetTimeline(v []schema.TimelineTrack) *UploadCreate {
 	_c.mutation.SetTimeline(v)
@@ -304,10 +298,6 @@ func (_c *UploadCreate) defaults() {
 	if _, ok := _c.mutation.TimeToReadySeconds(); !ok {
 		v := upload.DefaultTimeToReadySeconds
 		_c.mutation.SetTimeToReadySeconds(v)
-	}
-	if _, ok := _c.mutation.ErrorImageIds(); !ok {
-		v := upload.DefaultErrorImageIds
-		_c.mutation.SetErrorImageIds(v)
 	}
 	if _, ok := _c.mutation.Timeline(); !ok {
 		v := upload.DefaultTimeline
@@ -468,10 +458,6 @@ func (_c *UploadCreate) createSpec() (*Upload, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CycleStartedAt(); ok {
 		_spec.SetField(upload.FieldCycleStartedAt, field.TypeTime, value)
 		_node.CycleStartedAt = &value
-	}
-	if value, ok := _c.mutation.ErrorImageIds(); ok {
-		_spec.SetField(upload.FieldErrorImageIds, field.TypeJSON, value)
-		_node.ErrorImageIds = value
 	}
 	if value, ok := _c.mutation.Timeline(); ok {
 		_spec.SetField(upload.FieldTimeline, field.TypeJSON, value)

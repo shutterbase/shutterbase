@@ -34,6 +34,8 @@ const (
 	FieldDeltaSubfolder = "delta_subfolder"
 	// FieldGroupByDate holds the string denoting the groupbydate field in the database.
 	FieldGroupByDate = "group_by_date"
+	// FieldReviewedOnly holds the string denoting the reviewedonly field in the database.
+	FieldReviewedOnly = "reviewed_only"
 	// FieldFolderStructure holds the string denoting the folderstructure field in the database.
 	FieldFolderStructure = "folder_structure"
 	// FieldLastDownloadAt holds the string denoting the lastdownloadat field in the database.
@@ -77,6 +79,7 @@ var Columns = []string{
 	FieldBlockedImageIds,
 	FieldDeltaSubfolder,
 	FieldGroupByDate,
+	FieldReviewedOnly,
 	FieldFolderStructure,
 	FieldLastDownloadAt,
 	FieldProjectID,
@@ -112,6 +115,8 @@ var (
 	DefaultDeltaSubfolder bool
 	// DefaultGroupByDate holds the default value on creation for the "groupByDate" field.
 	DefaultGroupByDate bool
+	// DefaultReviewedOnly holds the default value on creation for the "reviewedOnly" field.
+	DefaultReviewedOnly bool
 	// DefaultFolderStructure holds the default value on creation for the "folderStructure" field.
 	DefaultFolderStructure string
 	// DefaultID holds the default value on creation for the "id" field.
@@ -161,6 +166,11 @@ func ByDeltaSubfolder(opts ...sql.OrderTermOption) OrderOption {
 // ByGroupByDate orders the results by the groupByDate field.
 func ByGroupByDate(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldGroupByDate, opts...).ToFunc()
+}
+
+// ByReviewedOnly orders the results by the reviewedOnly field.
+func ByReviewedOnly(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReviewedOnly, opts...).ToFunc()
 }
 
 // ByFolderStructure orders the results by the folderStructure field.

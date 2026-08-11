@@ -41,6 +41,8 @@ type DownloadConfig struct {
 	DeltaSubfolder bool `json:"deltaSubfolder"`
 	// GroupByDate holds the value of the "groupByDate" field.
 	GroupByDate bool `json:"groupByDate"`
+	// ReviewedOnly holds the value of the "reviewedOnly" field.
+	ReviewedOnly bool `json:"reviewedOnly"`
 	// FolderStructure holds the value of the "folderStructure" field.
 	FolderStructure string `json:"folderStructure"`
 	// LastDownloadAt holds the value of the "lastDownloadAt" field.
@@ -97,7 +99,7 @@ func (*DownloadConfig) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case downloadconfig.FieldWhitelistTagIds, downloadconfig.FieldBlacklistTagIds, downloadconfig.FieldBlockedImageIds:
 			values[i] = new([]byte)
-		case downloadconfig.FieldDeltaSubfolder, downloadconfig.FieldGroupByDate:
+		case downloadconfig.FieldDeltaSubfolder, downloadconfig.FieldGroupByDate, downloadconfig.FieldReviewedOnly:
 			values[i] = new(sql.NullBool)
 		case downloadconfig.FieldID, downloadconfig.FieldName, downloadconfig.FieldFolderStructure, downloadconfig.FieldProjectID:
 			values[i] = new(sql.NullString)
@@ -193,6 +195,12 @@ func (_m *DownloadConfig) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field groupByDate", values[i])
 			} else if value.Valid {
 				_m.GroupByDate = value.Bool
+			}
+		case downloadconfig.FieldReviewedOnly:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field reviewedOnly", values[i])
+			} else if value.Valid {
+				_m.ReviewedOnly = value.Bool
 			}
 		case downloadconfig.FieldFolderStructure:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -298,6 +306,9 @@ func (_m *DownloadConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("groupByDate=")
 	builder.WriteString(fmt.Sprintf("%v", _m.GroupByDate))
+	builder.WriteString(", ")
+	builder.WriteString("reviewedOnly=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ReviewedOnly))
 	builder.WriteString(", ")
 	builder.WriteString("folderStructure=")
 	builder.WriteString(_m.FolderStructure)

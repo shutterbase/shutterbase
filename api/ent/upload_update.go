@@ -234,24 +234,6 @@ func (_u *UploadUpdate) ClearCycleStartedAt() *UploadUpdate {
 	return _u
 }
 
-// SetErrorImageIds sets the "errorImageIds" field.
-func (_u *UploadUpdate) SetErrorImageIds(v []string) *UploadUpdate {
-	_u.mutation.SetErrorImageIds(v)
-	return _u
-}
-
-// AppendErrorImageIds appends value to the "errorImageIds" field.
-func (_u *UploadUpdate) AppendErrorImageIds(v []string) *UploadUpdate {
-	_u.mutation.AppendErrorImageIds(v)
-	return _u
-}
-
-// ClearErrorImageIds clears the value of the "errorImageIds" field.
-func (_u *UploadUpdate) ClearErrorImageIds() *UploadUpdate {
-	_u.mutation.ClearErrorImageIds()
-	return _u
-}
-
 // SetTimeline sets the "timeline" field.
 func (_u *UploadUpdate) SetTimeline(v []schema.TimelineTrack) *UploadUpdate {
 	_u.mutation.SetTimeline(v)
@@ -478,17 +460,6 @@ func (_u *UploadUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.CycleStartedAtCleared() {
 		_spec.ClearField(upload.FieldCycleStartedAt, field.TypeTime)
-	}
-	if value, ok := _u.mutation.ErrorImageIds(); ok {
-		_spec.SetField(upload.FieldErrorImageIds, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedErrorImageIds(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, upload.FieldErrorImageIds, value)
-		})
-	}
-	if _u.mutation.ErrorImageIdsCleared() {
-		_spec.ClearField(upload.FieldErrorImageIds, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Timeline(); ok {
 		_spec.SetField(upload.FieldTimeline, field.TypeJSON, value)
@@ -852,24 +823,6 @@ func (_u *UploadUpdateOne) ClearCycleStartedAt() *UploadUpdateOne {
 	return _u
 }
 
-// SetErrorImageIds sets the "errorImageIds" field.
-func (_u *UploadUpdateOne) SetErrorImageIds(v []string) *UploadUpdateOne {
-	_u.mutation.SetErrorImageIds(v)
-	return _u
-}
-
-// AppendErrorImageIds appends value to the "errorImageIds" field.
-func (_u *UploadUpdateOne) AppendErrorImageIds(v []string) *UploadUpdateOne {
-	_u.mutation.AppendErrorImageIds(v)
-	return _u
-}
-
-// ClearErrorImageIds clears the value of the "errorImageIds" field.
-func (_u *UploadUpdateOne) ClearErrorImageIds() *UploadUpdateOne {
-	_u.mutation.ClearErrorImageIds()
-	return _u
-}
-
 // SetTimeline sets the "timeline" field.
 func (_u *UploadUpdateOne) SetTimeline(v []schema.TimelineTrack) *UploadUpdateOne {
 	_u.mutation.SetTimeline(v)
@@ -1126,17 +1079,6 @@ func (_u *UploadUpdateOne) sqlSave(ctx context.Context) (_node *Upload, err erro
 	}
 	if _u.mutation.CycleStartedAtCleared() {
 		_spec.ClearField(upload.FieldCycleStartedAt, field.TypeTime)
-	}
-	if value, ok := _u.mutation.ErrorImageIds(); ok {
-		_spec.SetField(upload.FieldErrorImageIds, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.AppendedErrorImageIds(); ok {
-		_spec.AddModifier(func(u *sql.UpdateBuilder) {
-			sqljson.Append(u, upload.FieldErrorImageIds, value)
-		})
-	}
-	if _u.mutation.ErrorImageIdsCleared() {
-		_spec.ClearField(upload.FieldErrorImageIds, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.Timeline(); ok {
 		_spec.SetField(upload.FieldTimeline, field.TypeJSON, value)

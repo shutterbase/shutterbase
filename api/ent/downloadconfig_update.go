@@ -154,6 +154,20 @@ func (_u *DownloadConfigUpdate) SetNillableGroupByDate(v *bool) *DownloadConfigU
 	return _u
 }
 
+// SetReviewedOnly sets the "reviewedOnly" field.
+func (_u *DownloadConfigUpdate) SetReviewedOnly(v bool) *DownloadConfigUpdate {
+	_u.mutation.SetReviewedOnly(v)
+	return _u
+}
+
+// SetNillableReviewedOnly sets the "reviewedOnly" field if the given value is not nil.
+func (_u *DownloadConfigUpdate) SetNillableReviewedOnly(v *bool) *DownloadConfigUpdate {
+	if v != nil {
+		_u.SetReviewedOnly(*v)
+	}
+	return _u
+}
+
 // SetFolderStructure sets the "folderStructure" field.
 func (_u *DownloadConfigUpdate) SetFolderStructure(v string) *DownloadConfigUpdate {
 	_u.mutation.SetFolderStructure(v)
@@ -361,6 +375,9 @@ func (_u *DownloadConfigUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if value, ok := _u.mutation.GroupByDate(); ok {
 		_spec.SetField(downloadconfig.FieldGroupByDate, field.TypeBool, value)
 	}
+	if value, ok := _u.mutation.ReviewedOnly(); ok {
+		_spec.SetField(downloadconfig.FieldReviewedOnly, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.FolderStructure(); ok {
 		_spec.SetField(downloadconfig.FieldFolderStructure, field.TypeString, value)
 	}
@@ -566,6 +583,20 @@ func (_u *DownloadConfigUpdateOne) SetGroupByDate(v bool) *DownloadConfigUpdateO
 func (_u *DownloadConfigUpdateOne) SetNillableGroupByDate(v *bool) *DownloadConfigUpdateOne {
 	if v != nil {
 		_u.SetGroupByDate(*v)
+	}
+	return _u
+}
+
+// SetReviewedOnly sets the "reviewedOnly" field.
+func (_u *DownloadConfigUpdateOne) SetReviewedOnly(v bool) *DownloadConfigUpdateOne {
+	_u.mutation.SetReviewedOnly(v)
+	return _u
+}
+
+// SetNillableReviewedOnly sets the "reviewedOnly" field if the given value is not nil.
+func (_u *DownloadConfigUpdateOne) SetNillableReviewedOnly(v *bool) *DownloadConfigUpdateOne {
+	if v != nil {
+		_u.SetReviewedOnly(*v)
 	}
 	return _u
 }
@@ -806,6 +837,9 @@ func (_u *DownloadConfigUpdateOne) sqlSave(ctx context.Context) (_node *Download
 	}
 	if value, ok := _u.mutation.GroupByDate(); ok {
 		_spec.SetField(downloadconfig.FieldGroupByDate, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ReviewedOnly(); ok {
+		_spec.SetField(downloadconfig.FieldReviewedOnly, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.FolderStructure(); ok {
 		_spec.SetField(downloadconfig.FieldFolderStructure, field.TypeString, value)
