@@ -26,6 +26,8 @@ const (
 	FieldName = "name"
 	// FieldUserID holds the string denoting the user_id field in the database.
 	FieldUserID = "user_id"
+	// FieldDeletedAt holds the string denoting the deletedat field in the database.
+	FieldDeletedAt = "deleted_at"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeTimeOffsets holds the string denoting the timeoffsets edge name in mutations.
@@ -75,6 +77,7 @@ var Columns = []string{
 	FieldUpdatedBy,
 	FieldName,
 	FieldUserID,
+	FieldDeletedAt,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -138,6 +141,11 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByUserID orders the results by the user_id field.
 func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUserID, opts...).ToFunc()
+}
+
+// ByDeletedAt orders the results by the deletedAt field.
+func ByDeletedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeletedAt, opts...).ToFunc()
 }
 
 // ByUserField orders the results by user field.

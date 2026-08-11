@@ -15,6 +15,15 @@
           Create Time Offset
         </button>
         <button
+          v-if="!edit"
+          type="button"
+          :aria-label="`Delete ${item.name}`"
+          class="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-error-300 bg-error-50 px-4 py-2 text-sm font-medium text-error-700 transition-colors hover:bg-error-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface dark:border-error-800/70 dark:bg-error-950/40 dark:text-error-300 dark:hover:bg-error-950/70 dark:focus-visible:ring-offset-primary-950"
+          @click="emit('delete')"
+        >
+          Delete
+        </button>
+        <button
           v-if="edit"
           type="button"
           class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-primary-200 bg-surface px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:border-primary-600 dark:hover:text-white"
@@ -75,6 +84,7 @@ const emit = defineEmits<{
   editAbort: [];
   editSave: [CamerasResponse, CameraEditData];
   editStart: [];
+  delete: [];
 }>();
 
 const edit = ref(false);

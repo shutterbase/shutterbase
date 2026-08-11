@@ -31,6 +31,8 @@ type Camera struct {
 	Name string `json:"name"`
 	// UserID holds the value of the "user_id" field.
 	UserID uuid.UUID `json:"-"`
+	// DeletedAt holds the value of the "deletedAt" field.
+	DeletedAt *time.Time `json:"-"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the CameraQuery when eager-loading is set.
 	Edges        CameraEdges `json:"edges"`
@@ -99,7 +101,7 @@ func (*Camera) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case camera.FieldID, camera.FieldName:
 			values[i] = new(sql.NullString)
-		case camera.FieldCreatedAt, camera.FieldUpdatedAt:
+		case camera.FieldCreatedAt, camera.FieldUpdatedAt, camera.FieldDeletedAt:
 			values[i] = new(sql.NullTime)
 		case camera.FieldUserID:
 			values[i] = new(uuid.UUID)
@@ -161,6 +163,13 @@ func (_m *Camera) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field user_id", values[i])
 			} else if value != nil {
 				_m.UserID = *value
+			}
+		case camera.FieldDeletedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field deletedAt", values[i])
+			} else if value.Valid {
+				_m.DeletedAt = new(time.Time)
+				*_m.DeletedAt = value.Time
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -239,6 +248,11 @@ func (_m *Camera) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("user_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.UserID))
+	builder.WriteString(", ")
+	if v := _m.DeletedAt; v != nil {
+		builder.WriteString("deletedAt=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

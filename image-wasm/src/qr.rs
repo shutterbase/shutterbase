@@ -30,15 +30,21 @@ pub fn decode(image: &DynamicImage) -> Result<String> {
     let grids = prepared.detect_grids();
 
     match grids.as_slice() {
-        [] => Err(Error::msg("no QR code found")),
+        [] => Err(Error::msg(
+            "no QR code found — make sure the whole QR code is in the photo, in focus and well lit",
+        )),
         [grid] => {
-            let (_meta, content) = grid
-                .decode()
-                .map_err(|e| Error::msg(format!("QR decode failed: {e}")))?;
+            // Keep rqrr's exact error (e.g. the ECC failure on blurry shots) and
+            // append what the photographer can actually do about it.
+            let (_meta, content) = grid.decode().map_err(|e| {
+                Error::msg(format!(
+                    "QR decode failed: {e} — the photo is likely blurry, too dark, or the code too small; retake it sharper and closer"
+                ))
+            })?;
             Ok(content)
         }
         many => Err(Error::msg(format!(
-            "expected exactly one QR code, found {}",
+            "expected exactly one QR code, found {} — photograph only the QR code on this page",
             many.len()
         ))),
     }
@@ -55,6 +61,8 @@ mod tests {
         assert_eq!(decode(&image).expect("decode"), "1719500000");
     }
 
+    // The failure must name the problem — an empty message once shipped as a
+    // blank error dialog on the time-offset page.
     #[test]
     fn decode_errors_when_no_qr_present() {
         let blank = DynamicImage::ImageLuma8(image::GrayImage::from_pixel(
@@ -62,6 +70,7 @@ mod tests {
             256,
             image::Luma([255]),
         ));
-        assert!(decode(&blank).is_err());
+        let err = decode(&blank).unwrap_err().to_string();
+        assert!(err.contains("no QR code found"), "got: {err}");
     }
 }

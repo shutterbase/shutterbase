@@ -96,6 +96,11 @@ func UserID(v uuid.UUID) predicate.Camera {
 	return predicate.Camera(sql.FieldEQ(FieldUserID, v))
 }
 
+// DeletedAt applies equality check predicate on the "deletedAt" field. It's identical to DeletedAtEQ.
+func DeletedAt(v time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldEQ(FieldDeletedAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "createdAt" field.
 func CreatedAtEQ(v time.Time) predicate.Camera {
 	return predicate.Camera(sql.FieldEQ(FieldCreatedAt, v))
@@ -359,6 +364,56 @@ func UserIDIn(vs ...uuid.UUID) predicate.Camera {
 // UserIDNotIn applies the NotIn predicate on the "user_id" field.
 func UserIDNotIn(vs ...uuid.UUID) predicate.Camera {
 	return predicate.Camera(sql.FieldNotIn(FieldUserID, vs...))
+}
+
+// DeletedAtEQ applies the EQ predicate on the "deletedAt" field.
+func DeletedAtEQ(v time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldEQ(FieldDeletedAt, v))
+}
+
+// DeletedAtNEQ applies the NEQ predicate on the "deletedAt" field.
+func DeletedAtNEQ(v time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldNEQ(FieldDeletedAt, v))
+}
+
+// DeletedAtIn applies the In predicate on the "deletedAt" field.
+func DeletedAtIn(vs ...time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldIn(FieldDeletedAt, vs...))
+}
+
+// DeletedAtNotIn applies the NotIn predicate on the "deletedAt" field.
+func DeletedAtNotIn(vs ...time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldNotIn(FieldDeletedAt, vs...))
+}
+
+// DeletedAtGT applies the GT predicate on the "deletedAt" field.
+func DeletedAtGT(v time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldGT(FieldDeletedAt, v))
+}
+
+// DeletedAtGTE applies the GTE predicate on the "deletedAt" field.
+func DeletedAtGTE(v time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldGTE(FieldDeletedAt, v))
+}
+
+// DeletedAtLT applies the LT predicate on the "deletedAt" field.
+func DeletedAtLT(v time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldLT(FieldDeletedAt, v))
+}
+
+// DeletedAtLTE applies the LTE predicate on the "deletedAt" field.
+func DeletedAtLTE(v time.Time) predicate.Camera {
+	return predicate.Camera(sql.FieldLTE(FieldDeletedAt, v))
+}
+
+// DeletedAtIsNil applies the IsNil predicate on the "deletedAt" field.
+func DeletedAtIsNil() predicate.Camera {
+	return predicate.Camera(sql.FieldIsNull(FieldDeletedAt))
+}
+
+// DeletedAtNotNil applies the NotNil predicate on the "deletedAt" field.
+func DeletedAtNotNil() predicate.Camera {
+	return predicate.Camera(sql.FieldNotNull(FieldDeletedAt))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.

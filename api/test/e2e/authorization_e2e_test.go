@@ -157,6 +157,8 @@ func TestAuthorizationMatrix(t *testing.T) {
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
 		camID := decodeBody(t, resp)["id"].(string)
 		assert.Equal(t, http.StatusNoContent, status(t, editor, http.MethodDelete, "/api/v1/cameras/"+camID, nil))
+		// the API delete is a soft delete — hard-wipe the row so S2 seed counts stay green.
+		_ = c.Camera.DeleteOneID(camID).Exec(ctx)
 	})
 	t.Run("owner can delete own upload", func(t *testing.T) {
 		resp := doJSON(t, editor, http.MethodPost, "/api/v1/uploads", map[string]any{

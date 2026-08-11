@@ -140,7 +140,7 @@ func (s *Server) updateCamera(c *gin.Context) {
 }
 
 func (s *Server) deleteCamera(c *gin.Context) {
-	// authz (S8): admin or owner; cascades time_offsets.
+	// authz (S8): admin or owner. Soft delete — images/uploads keep the ref.
 	id, ok := getIdParam(c)
 	if !ok {
 		return
@@ -152,10 +152,7 @@ func (s *Server) deleteCamera(c *gin.Context) {
 	if !allow(c, authorization.CanModifyCamera(authUser(c), cam)) {
 		return
 	}
-	if err := s.Repository.DeleteCamera(c.Request.Context(), id); err != nil {
-		if abortGetError(c, err) {
-			return
-		}
+	if err := s.Repository.DeleteCamera(c.Request.Context(), id); abortMutationError(c, err) {
 		return
 	}
 	c.Status(http.StatusNoContent)

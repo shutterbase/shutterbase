@@ -121,8 +121,12 @@ func (r *Repository) CreateUser(ctx context.Context, parameters *CreateUserParam
 	if parameters.PasswordHash != nil {
 		create = create.SetPasswordHash(*parameters.PasswordHash)
 	}
-	if parameters.CopyrightTag != nil {
+	if parameters.CopyrightTag != nil && *parameters.CopyrightTag != "" {
 		create = create.SetCopyrightTag(*parameters.CopyrightTag)
+	} else {
+		// PocketBase-hook parity: a new user's copyright tag defaults to their
+		// last name, so photographers can upload without touching their profile.
+		create = create.SetCopyrightTag(parameters.LastName)
 	}
 	if parameters.Email != nil {
 		create = create.SetEmail(*parameters.Email)

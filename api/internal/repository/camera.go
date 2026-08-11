@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -18,12 +19,19 @@ var cameraSortFields = map[string]string{
 	"updatedAt": camera.FieldUpdatedAt,
 }
 
+// GetCamera resolves live cameras only — soft-deleted ones read as not found.
 func (r *Repository) GetCamera(ctx context.Context, id string) (*ent.Camera, error) {
-	item, err := r.Client.Camera.Query().Where(camera.IDEQ(id)).Only(ctx)
+	item, err := r.Client.Camera.Query().Where(camera.IDEQ(id), camera.DeletedAtIsNil()).Only(ctx)
 	if err != nil && !ent.IsNotFound(err) {
 		log.Error().Err(err).Msg("error getting camera")
 	}
 	return item, err
+}
+
+// GetCameraIncludingDeleted resolves a camera even after soft deletion — image
+// and upload serialization must keep naming the camera that shot them.
+func (r *Repository) GetCameraIncludingDeleted(ctx context.Context, id string) (*ent.Camera, error) {
+	return r.Client.Camera.Get(ctx, id)
 }
 
 type GetCameraParameters struct {
@@ -33,7 +41,7 @@ type GetCameraParameters struct {
 }
 
 func (r *Repository) GetCameras(ctx context.Context, parameters *GetCameraParameters) ([]*ent.Camera, int, error) {
-	predicates := []predicate.Camera{}
+	predicates := []predicate.Camera{camera.DeletedAtIsNil()}
 	if parameters.UserID != nil {
 		predicates = append(predicates, camera.UserID(*parameters.UserID))
 	}
@@ -131,8 +139,14 @@ func (r *Repository) UpdateCamera(ctx context.Context, id string, parameters *Up
 	return item, nil
 }
 
+// DeleteCamera soft-deletes: images and uploads keep their camera reference
+// and the camera's time offsets stay live for EXIF time correction. The
+// partial unique index frees the name for reuse.
 func (r *Repository) DeleteCamera(ctx context.Context, id string) error {
-	if err := r.Client.Camera.DeleteOneID(id).Exec(ctx); err != nil {
+	if err := r.Client.Camera.UpdateOneID(id).
+		SetDeletedAt(time.Now()).
+		SetUpdatedBy(util.GetActorID(ctx)).
+		Exec(ctx); err != nil {
 		log.Error().Err(err).Msg("error deleting camera")
 		return err
 	}

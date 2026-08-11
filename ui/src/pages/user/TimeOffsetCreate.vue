@@ -197,18 +197,24 @@ async function getCamera() {
   }
 }
 
+function showError(error: any) {
+  unexpectedError.value = error;
+  showUnexpectedErrorMessage.value = true;
+}
+
 async function handleFiles(files: File[]) {
-  console.log(files);
   if (files.length !== 1) {
-    console.log("Only one file can be uploaded");
+    showError(new Error(`upload exactly one photo of the QR code (got ${files.length} files)`));
     return;
   }
-  const data = await fileUtil.loadFile(files[0]);
-  if (data == null) {
-    console.log("Failed to load file");
+  // loadFile rejects on failure (it never resolves null) — catch, don't null-check.
+  let data: ArrayBuffer;
+  try {
+    data = await fileUtil.loadFile(files[0]);
+  } catch {
+    showError(new Error(`could not read the file '${files[0].name}' — it may be corrupt or unreadable`));
     return;
   }
-  console.log(data);
   try {
     await init();
     const imageMetadata = await get_image_metadata(data);
@@ -228,10 +234,10 @@ async function handleFiles(files: File[]) {
       showBigOffsetWarning.value = true;
     }
   } catch (error: any) {
-    console.log("Failed to get image metadata");
-    console.log(error);
-    unexpectedError.value = error;
-    showUnexpectedErrorMessage.value = true;
+    // WASM errors (unreadable image, no/blurry QR, ECC failure, missing EXIF
+    // time) arrive as js Errors whose message names the failure — show it.
+    console.error(error);
+    showError(error);
     return;
   }
 }

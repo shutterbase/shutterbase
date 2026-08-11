@@ -87,6 +87,26 @@ func (_u *CameraUpdate) SetNillableUserID(v *uuid.UUID) *CameraUpdate {
 	return _u
 }
 
+// SetDeletedAt sets the "deletedAt" field.
+func (_u *CameraUpdate) SetDeletedAt(v time.Time) *CameraUpdate {
+	_u.mutation.SetDeletedAt(v)
+	return _u
+}
+
+// SetNillableDeletedAt sets the "deletedAt" field if the given value is not nil.
+func (_u *CameraUpdate) SetNillableDeletedAt(v *time.Time) *CameraUpdate {
+	if v != nil {
+		_u.SetDeletedAt(*v)
+	}
+	return _u
+}
+
+// ClearDeletedAt clears the value of the "deletedAt" field.
+func (_u *CameraUpdate) ClearDeletedAt() *CameraUpdate {
+	_u.mutation.ClearDeletedAt()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *CameraUpdate) SetUser(v *User) *CameraUpdate {
 	return _u.SetUserID(v.ID)
@@ -286,6 +306,12 @@ func (_u *CameraUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(camera.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeletedAt(); ok {
+		_spec.SetField(camera.FieldDeletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DeletedAtCleared() {
+		_spec.ClearField(camera.FieldDeletedAt, field.TypeTime)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -525,6 +551,26 @@ func (_u *CameraUpdateOne) SetNillableUserID(v *uuid.UUID) *CameraUpdateOne {
 	return _u
 }
 
+// SetDeletedAt sets the "deletedAt" field.
+func (_u *CameraUpdateOne) SetDeletedAt(v time.Time) *CameraUpdateOne {
+	_u.mutation.SetDeletedAt(v)
+	return _u
+}
+
+// SetNillableDeletedAt sets the "deletedAt" field if the given value is not nil.
+func (_u *CameraUpdateOne) SetNillableDeletedAt(v *time.Time) *CameraUpdateOne {
+	if v != nil {
+		_u.SetDeletedAt(*v)
+	}
+	return _u
+}
+
+// ClearDeletedAt clears the value of the "deletedAt" field.
+func (_u *CameraUpdateOne) ClearDeletedAt() *CameraUpdateOne {
+	_u.mutation.ClearDeletedAt()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *CameraUpdateOne) SetUser(v *User) *CameraUpdateOne {
 	return _u.SetUserID(v.ID)
@@ -754,6 +800,12 @@ func (_u *CameraUpdateOne) sqlSave(ctx context.Context) (_node *Camera, err erro
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(camera.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeletedAt(); ok {
+		_spec.SetField(camera.FieldDeletedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DeletedAtCleared() {
+		_spec.ClearField(camera.FieldDeletedAt, field.TypeTime)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
