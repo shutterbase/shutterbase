@@ -87,7 +87,7 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 	assert.Len(t, m.Users, 5)   // admin, user, projectAdmin/Editor/Viewer
 	assert.Len(t, m.Roles, 3)   // projectAdmin/Editor/Viewer
 	assert.Len(t, m.Cameras, 2) // fresh + stale
-	assert.Len(t, m.Tags, 3)    // template + manual + default
+	assert.Len(t, m.Tags, 4)    // template + manual + default + internal
 	assert.Len(t, m.Offsets, 2) // fresh + stale
 	assert.Len(t, m.Images, 3)
 	assert.Equal(t, 37, m.DriftSeconds)

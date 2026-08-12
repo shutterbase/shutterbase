@@ -160,7 +160,18 @@ test("upload detail page shows timeline and tile grid", async ({ page }) => {
   await page.getByRole("option", { name: /Podium/ }).click();
   const removeLane = page.getByRole("button", { name: "Remove lane Podium" });
   await expect(removeLane).toBeVisible();
-  await removeLane.click();
+
+  // Applied lanes must come back labelled: the persisted timeline carries only
+  // tag ids, so a reload that seeds before the tag list arrives used to render
+  // every lane as the generic "Tag" placeholder.
+  await page.getByRole("button", { name: "Apply tags" }).click();
+  await expect(page.getByText(/Tags applied/)).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Remove lane Podium" })).toBeVisible();
+
+  // Drop the lane again and apply, so the upload is left as seeded.
+  await page.getByRole("button", { name: "Remove lane Podium" }).click();
+  await page.getByRole("button", { name: "Apply tags" }).click();
   await expect(page.getByRole("button", { name: "Remove lane Podium" })).toHaveCount(0);
 
   expect(errors, errors.join("\n")).toHaveLength(0);

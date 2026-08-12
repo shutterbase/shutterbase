@@ -183,7 +183,8 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 	}
 	m.Offsets["stale"] = staleOffset.ID
 
-	// Image tags: template + manual + default.
+	// Image tags: template + manual + default + the reserved "internal" marker
+	// (kept out of EXIF exports and of the slideshow).
 	for _, spec := range []struct {
 		name, desc string
 		typ        imagetag.Type
@@ -191,6 +192,7 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 		{"$DATE", "date template tag", imagetag.TypeTemplate},
 		{"Podium", "manual tag", imagetag.TypeManual},
 		{"Default", "auto-applied tag", imagetag.TypeDefault},
+		{"internal", "reserved management tag", imagetag.TypeManual},
 	} {
 		t, err := client.ImageTag.Create().
 			SetName(spec.name).
@@ -250,6 +252,19 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 			SetImageTagID(defaultTag).
 			Save(ctx); err != nil {
 			return nil, fmt.Errorf("assign default tag to image %d: %w", i, err)
+		}
+
+		// The last image is internal: it stays in the gallery but never reaches
+		// a slideshow or an EXIF export. The LAST one on purpose — Images[0] is
+		// the fixture the repository tests pin exact tag lists on.
+		if i == 2 {
+			if _, err := client.ImageTagAssignment.Create().
+				SetType(imagetagassignment.TypeManual).
+				SetImageID(img.ID).
+				SetImageTagID(m.Tags["internal"]).
+				Save(ctx); err != nil {
+				return nil, fmt.Errorf("assign internal tag to image %d: %w", i, err)
+			}
 		}
 	}
 

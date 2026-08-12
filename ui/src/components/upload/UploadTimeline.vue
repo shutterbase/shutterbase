@@ -213,10 +213,13 @@ async function loadContext() {
     myItems.value = mine.items;
     allItems.value = all.items;
     projectTags.value = tags.items;
-    seedTracks();
   } catch {
     // The timeline is an enhancement on this page — the upload itself must
     // keep working without it, so context errors stay silent.
+  } finally {
+    // Seed even when the context failed: unlabelled lanes beat no lanes.
+    contextLoaded = true;
+    seedTracks();
   }
 }
 
@@ -227,6 +230,10 @@ const selectedKey = ref<string | null>(null);
 const dirty = ref(false);
 const applying = ref(false);
 let seeded = false;
+// Lane labels are resolved once, at seed time. The image list usually beats
+// loadContext, so seeding before it lands froze every persisted lane on its
+// "Tag"/"Schedule item" placeholder and dropped newly assigned schedule items.
+let contextLoaded = false;
 
 const timedImages = computed<TimedImage[]>(() =>
   props.images.filter((i) => i.id && i.correctedTime).map((i) => ({ id: i.id as string, time: (i.correctedTime as DateTime).toMillis() })),
@@ -249,6 +256,7 @@ const labels = {
 // Seed once: persisted timeline wins; otherwise pre-populate my items when the
 // first timed images exist. Re-seeds when images arrive later (fresh upload).
 function seedTracks() {
+  if (!contextLoaded) return;
   if (seeded && tracks.value.length > 0) return;
   const initial = initialTracks(props.upload.timeline, myItems.value, timedImages.value, labels);
   if (initial.length > 0) {
@@ -331,7 +339,7 @@ function addItemLane(item: ScheduleItem) {
 }
 
 function addTagLane(tag: ImageTag) {
-  tracks.value = addTagTrack(tracks.value, tag.id, tag.name, window_.value);
+  tracks.value = addTagTrack(tracks.value, tag.id, tagLabel(tag), window_.value);
   selectedKey.value = tracks.value[tracks.value.length - 1].key;
   markDirty();
 }

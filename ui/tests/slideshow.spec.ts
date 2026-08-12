@@ -1,5 +1,25 @@
 import { describe, it, expect } from "vitest";
-import { kenBurnsVariant, nextSlideIndex, previousSlideIndex, preloadIndices, shouldFetchMore } from "src/util/slideshow";
+import { isInternalImage, kenBurnsVariant, nextSlideIndex, previousSlideIndex, preloadIndices, shouldFetchMore } from "src/util/slideshow";
+
+describe("isInternalImage (never shown in a slideshow)", () => {
+  const image = (...names: string[]) => ({ tags: names.map((name) => ({ tag: { name } })) });
+
+  it("matches the reserved tag regardless of case", () => {
+    expect(isInternalImage(image("internal"))).toBe(true);
+    expect(isInternalImage(image("podium", "Internal"))).toBe(true);
+  });
+
+  it("matches it as a combo part, like the EXIF export", () => {
+    expect(isInternalImage(image("trip|internal"))).toBe(true);
+    expect(isInternalImage(image("internal | wip"))).toBe(true);
+  });
+
+  it("leaves everything else playable", () => {
+    expect(isInternalImage(image("podium", "autocross|DV"))).toBe(false);
+    expect(isInternalImage(image("internally"))).toBe(false);
+    expect(isInternalImage({})).toBe(false);
+  });
+});
 
 describe("preloadIndices (decode-ahead window)", () => {
   it("returns the next headroom indices", () => {

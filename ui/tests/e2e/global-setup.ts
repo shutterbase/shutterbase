@@ -1,7 +1,8 @@
 import { chromium, FullConfig } from "@playwright/test";
 
 // Reseed the backend to a known fixture before the suite runs, so every spec
-// starts from the deterministic seed state (1 project, 3 tags, 1 upload, 3 images,
+// starts from the deterministic seed state (1 project, 4 tags, 1 upload, 3 images
+// of which the newest is tagged "internal",
 // 2 cameras, 5 personas). See api/internal/seed/seed.go.
 export default async function globalSetup(config: FullConfig) {
   const base = config.projects[0]?.use?.baseURL || "http://localhost:9000";
