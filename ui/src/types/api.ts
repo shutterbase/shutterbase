@@ -232,6 +232,7 @@ export interface UploadMetrics {
   timeToReadySeconds: number;
   reviewCycles: number;
   errorCount: number;
+  rejectedCount: number;
   aiDone: number;
   aiInFlight: number;
   aiError: number;

@@ -3,11 +3,21 @@
 // offers an action that would come back 403.
 import { UploadState } from "src/types/api";
 
-// Reserved per-project tag a reviewer puts on an image with a tagging error.
+// Reserved per-project tags only a reviewer may assign: a tagging error found
+// during review, and the image itself being rejected.
 export const REVIEW_ERROR_TAG = "error";
+export const REVIEW_REJECTED_TAG = "rejected";
 
 export function isReviewErrorTag(name: string): boolean {
   return name.toLowerCase() === REVIEW_ERROR_TAG;
+}
+
+export function isReviewRejectedTag(name: string): boolean {
+  return name.toLowerCase() === REVIEW_REJECTED_TAG;
+}
+
+export function isReviewerOnlyTag(name: string): boolean {
+  return isReviewErrorTag(name) || isReviewRejectedTag(name);
 }
 
 export const UPLOAD_STATES: UploadState[] = ["open", "ready", "reviewed"];
@@ -39,12 +49,12 @@ export interface TagEditContext {
 }
 
 // Mirrors authorization.CanAssignTag: with the review flow on, a non-reviewer
-// loses the error tag entirely, and every non-custom ("official", exported) tag
-// once the upload has been submitted.
+// loses the reserved review tags entirely, and every non-custom ("official",
+// exported) tag once the upload has been submitted.
 export function canEditTag(ctx: TagEditContext): boolean {
   if (!ctx.isEditor) return false;
   if (!ctx.reviewEnabled || ctx.isReviewer) return true;
-  if (isReviewErrorTag(ctx.tagName)) return false;
+  if (isReviewerOnlyTag(ctx.tagName)) return false;
   return !isUploadSubmitted(ctx.uploadState) || ctx.tagType === "custom";
 }
 

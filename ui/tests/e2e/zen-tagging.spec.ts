@@ -106,6 +106,38 @@ test.describe("detail view keyboard flow", () => {
     await expect(transformed).toHaveAttribute("style", /scale\(1\)/);
   });
 
+  test("a zoomed image pans half a stage past the old bound, clearing the sidebar", async ({ page }) => {
+    const hero = page.locator("figure img").first();
+    const transformed = hero.locator("xpath=..");
+    await hero.dblclick();
+    await expect(transformed).toHaveAttribute("style", /scale\(2\.5\)/);
+
+    // The stage is where the image is clipped while zoomed; the img keeps its
+    // frozen fitted size, so the scaled width is that times the zoom.
+    const stage = await hero.evaluate((img: HTMLImageElement) => ({
+      width: (img.closest(".overflow-hidden") as HTMLElement).clientWidth,
+      scaledWidth: img.offsetWidth * 2.5,
+    }));
+
+    // drag right, repeatedly and well past the old bound. The stage spans the
+    // full window, so every press can start at the same point — kept clear of
+    // the sidebar, which sits above the stage and would swallow the pointer.
+    const { width, height } = page.viewportSize() ?? { width: 1440, height: 900 };
+    for (let i = 0; i < 4; i++) {
+      await page.mouse.move(width * 0.35, height / 2);
+      await page.mouse.down();
+      await page.mouse.move(width - 40, height / 2, { steps: 8 });
+      await page.mouse.up();
+    }
+
+    // Panning used to stop where the content still covered the stage; it now
+    // runs half a stage further, so the image can be dragged out from under the
+    // detail sidebar.
+    const translateX = (style: string | null) => Number(/translate\((-?[\d.]+)px/.exec(style ?? "")?.[1] ?? NaN);
+    const oldBound = Math.max(0, stage.width - stage.scaledWidth);
+    await expect.poll(async () => translateX(await transformed.getAttribute("style"))).toBeCloseTo(oldBound + stage.width / 2, 0);
+  });
+
   test("switching images resets zoom, unless ctrl/cmd is held", async ({ page }) => {
     const hero = page.locator("figure img").first();
     const transformed = hero.locator("xpath=..");

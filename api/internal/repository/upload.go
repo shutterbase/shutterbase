@@ -274,8 +274,9 @@ type UploadMetrics struct {
 	ImagesPerSecond    float64 `json:"imagesPerSecond"`
 	TimeToReadySeconds int     `json:"timeToReadySeconds"`
 	ReviewCycles       int     `json:"reviewCycles"`
-	// Images of this upload that carry the review error tag right now.
-	ErrorCount int `json:"errorCount"`
+	// Images of this upload that carry a reserved review tag right now.
+	ErrorCount    int `json:"errorCount"`
+	RejectedCount int `json:"rejectedCount"`
 	// AI detection progress: counts of this upload's images by queue state
 	// (in-flight = pending + processing). Zero-valued on AI-less projects.
 	AiDone     int `json:"aiDone"`
@@ -329,25 +330,23 @@ func (r *Repository) GetUploadMetrics(ctx context.Context, uploads []*ent.Upload
 		}
 	}
 
-	// Live error count: images currently carrying the reserved "error" tag.
-	// Clearing the tag lowers it again — it is a state, not a history.
-	var errorCounts []struct {
-		UploadID string `json:"upload_id"`
-		Count    int    `json:"count"`
-	}
-	if err := r.Client.Image.Query().
-		Where(image.UploadIDIn(ids...), image.HasImageTagAssignmentsWith(
-			imagetagassignment.HasImageTagWith(imagetag.NameEqualFold(authorization.ReviewErrorTagName)),
-		)).
-		GroupBy(image.FieldUploadID).
-		Aggregate(ent.Count()).
-		Scan(ctx, &errorCounts); err != nil {
-		log.Error().Err(err).Msg("error counting upload tagging errors")
+	errorCounts, err := r.reservedTagCountsByUpload(ctx, ids, authorization.ReviewErrorTagName)
+	if err != nil {
 		return nil, err
 	}
-	for _, row := range errorCounts {
-		if m, ok := out[row.UploadID]; ok {
-			m.ErrorCount = row.Count
+	for id, count := range errorCounts {
+		if m, ok := out[id]; ok {
+			m.ErrorCount = count
+		}
+	}
+
+	rejectedCounts, err := r.reservedTagCountsByUpload(ctx, ids, authorization.ReviewRejectedTagName)
+	if err != nil {
+		return nil, err
+	}
+	for id, count := range rejectedCounts {
+		if m, ok := out[id]; ok {
+			m.RejectedCount = count
 		}
 	}
 
@@ -386,6 +385,31 @@ func (r *Repository) GetUploadMetrics(ctx context.Context, uploads []*ent.Upload
 		if m.TaggingSeconds > 0 {
 			m.ImagesPerSecond = float64(m.ImageCount) / float64(m.TaggingSeconds)
 		}
+	}
+	return out, nil
+}
+
+// reservedTagCountsByUpload counts the images per upload that carry the named
+// reserved review tag right now. Live state, not a ledger: clearing the tag
+// lowers the count again.
+func (r *Repository) reservedTagCountsByUpload(ctx context.Context, ids []string, tagName string) (map[string]int, error) {
+	var counts []struct {
+		UploadID string `json:"upload_id"`
+		Count    int    `json:"count"`
+	}
+	if err := r.Client.Image.Query().
+		Where(image.UploadIDIn(ids...), image.HasImageTagAssignmentsWith(
+			imagetagassignment.HasImageTagWith(imagetag.NameEqualFold(tagName)),
+		)).
+		GroupBy(image.FieldUploadID).
+		Aggregate(ent.Count()).
+		Scan(ctx, &counts); err != nil {
+		log.Error().Err(err).Str("tag", tagName).Msg("error counting reserved review tag")
+		return nil, err
+	}
+	out := make(map[string]int, len(counts))
+	for _, row := range counts {
+		out[row.UploadID] = row.Count
 	}
 	return out, nil
 }

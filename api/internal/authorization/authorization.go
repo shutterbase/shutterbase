@@ -333,14 +333,39 @@ func CanCreateUpload(u *ent.User, projectID string) bool {
 
 // --- Upload review flow (project.uploadReviewEnabled) ---
 
-// ReviewErrorTagName is the reserved per-project tag a projectAdmin puts on an
-// image to mark a tagging error. It is a "custom" tag (never exported), but
-// unlike other custom tags only a projectAdmin may add or remove it.
-const ReviewErrorTagName = "error"
+const (
+	// ReviewErrorTagName marks a tagging error found during review.
+	ReviewErrorTagName = "error"
+	// ReviewRejectedTagName marks the image itself as rejected.
+	ReviewRejectedTagName = "rejected"
+)
+
+// ReviewerOnlyTags are the reserved per-project tags materialized when a project
+// opts into the review flow. They are "custom" tags (never exported), but unlike
+// other custom tags only a projectAdmin may assign, remove or rename them.
+var ReviewerOnlyTags = []struct{ Name, Description string }{
+	{ReviewErrorTagName, "Tagging error found during upload review"},
+	{ReviewRejectedTagName, "Image rejected during upload review"},
+}
 
 // IsReviewErrorTag reports whether a tag name is the reserved error tag.
 func IsReviewErrorTag(name string) bool {
 	return strings.EqualFold(name, ReviewErrorTagName)
+}
+
+// IsReviewRejectedTag reports whether a tag name is the reserved rejected tag.
+func IsReviewRejectedTag(name string) bool {
+	return strings.EqualFold(name, ReviewRejectedTagName)
+}
+
+// IsReviewerOnlyTag reports whether a tag name is one of the reserved review tags.
+func IsReviewerOnlyTag(name string) bool {
+	for _, t := range ReviewerOnlyTags {
+		if strings.EqualFold(name, t.Name) {
+			return true
+		}
+	}
+	return false
 }
 
 // isProjectAdmin: global admin or projectAdmin of this project — the reviewer
@@ -366,7 +391,7 @@ func CanTransitionUpload(u *ent.User, up *ent.Upload, next upload.State) bool {
 // CanAssignTag reports whether u may create or delete an assignment of tag on
 // img. Base rule is CanManageImageTagAssignment; with the review flow enabled a
 // non-reviewer additionally loses
-//   - the error tag entirely (only a projectAdmin flags/clears errors), and
+//   - the reserved review tags entirely (only a projectAdmin flags/clears them), and
 //   - every non-custom ("official", i.e. exported) tag once the upload left the
 //     open state — custom tags stay editable because they are never exported.
 func CanAssignTag(u *ent.User, img *ent.Image, up *ent.Upload, tag *ent.ImageTag, reviewEnabled bool) bool {
@@ -379,7 +404,7 @@ func CanAssignTag(u *ent.User, img *ent.Image, up *ent.Upload, tag *ent.ImageTag
 	if !reviewEnabled || isProjectAdmin(u, img.ProjectID) {
 		return true
 	}
-	if IsReviewErrorTag(tag.Name) {
+	if IsReviewerOnlyTag(tag.Name) {
 		return false
 	}
 	return up.State == upload.StateOpen || tag.Type == imagetag.TypeCustom

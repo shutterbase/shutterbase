@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -146,7 +147,21 @@ func (s *Server) createProject(c *gin.Context) {
 	if abortMutationError(c, err) {
 		return
 	}
+	if p.UploadReviewEnabled {
+		s.ensureReviewTags(c.Request.Context(), p.ID)
+	}
 	c.JSON(http.StatusCreated, projectResponse(p))
+}
+
+// ensureReviewTags materializes the reserved review tags the moment a project
+// opts in, so a reviewer can flag images without first hand-creating them.
+// Idempotent — a repeat on every project write is free.
+func (s *Server) ensureReviewTags(ctx context.Context, projectID string) {
+	for _, t := range authorization.ReviewerOnlyTags {
+		if _, err := s.Repository.EnsureImageTag(ctx, projectID, t.Name, t.Description, imagetag.TypeCustom); err != nil {
+			log.Error().Err(err).Str("project", projectID).Str("tag", t.Name).Msg("failed to ensure review tag")
+		}
+	}
 }
 
 type updateProjectPayload struct {
@@ -213,13 +228,8 @@ func (s *Server) updateProject(c *gin.Context) {
 	if abortMutationError(c, err) {
 		return
 	}
-	// Materialize the reserved review error tag the moment a project opts in, so
-	// a reviewer can flag images without first hand-creating the tag.
 	if p.UploadReviewEnabled {
-		if _, err := s.Repository.EnsureImageTag(c.Request.Context(), p.ID,
-			authorization.ReviewErrorTagName, "Tagging error found during upload review", imagetag.TypeCustom); err != nil {
-			log.Error().Err(err).Str("project", p.ID).Msg("failed to ensure review error tag")
-		}
+		s.ensureReviewTags(c.Request.Context(), p.ID)
 	}
 	// Keep the AI server's prompt + tag vocabulary current (fire-and-forget;
 	// every ingest carries the same payload, so this is a freshness hint).
