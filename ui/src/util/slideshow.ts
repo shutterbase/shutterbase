@@ -21,6 +21,18 @@ export const DEFAULT_SLIDESHOW_CONFIG: SlideshowConfig = {
 /** How many upcoming images are kept decoded ahead of the one on screen. */
 export const PRELOAD_HEADROOM = 5;
 
+/** Reserved management tag: these shots never leave the house. */
+export const INTERNAL_TAG = "internal";
+
+/**
+ * Images marked internal are never shown in a slideshow. Combo tags
+ * ("trip|internal") are checked per part, exactly like the EXIF keyword export
+ * (api/internal/exif/inject.go) — the marker cannot be smuggled in as a part.
+ */
+export function isInternalImage(image: { tags?: { tag?: { name?: string } }[] }): boolean {
+  return (image.tags ?? []).some((assignment) => (assignment.tag?.name ?? "").split("|").some((part) => part.trim().toLowerCase() === INTERNAL_TAG));
+}
+
 /** Indices to have preloaded for `current` (the next `headroom` loaded images). */
 export function preloadIndices(current: number, loadedCount: number, headroom: number = PRELOAD_HEADROOM): number[] {
   const indices: number[] = [];

@@ -1,10 +1,13 @@
 <template>
-  <div class="fixed inset-0 z-50 bg-black" data-testid="slideshow-overlay" @mousemove="showControls" @click="showControls">
+  <!-- overflow-hidden: the Ken Burns transform scales past the viewport, and a
+       slideshow must never grow a scrollbar (the document scroll is locked
+       below for the same reason) -->
+  <div class="fixed inset-0 z-50 overflow-hidden bg-black" data-testid="slideshow-overlay" @mousemove="showControls" @click="showControls">
     <!-- setup phase: configure, then start -->
     <div v-if="phase === 'setup'" class="flex h-full items-center justify-center px-4">
-      <div class="w-full max-w-md rounded-xl border border-primary-800 bg-primary-950 p-6" data-testid="slideshow-setup" @click.stop>
+      <div class="max-h-full w-full max-w-md overflow-y-auto rounded-xl border border-primary-800 bg-primary-950 p-6" data-testid="slideshow-setup" @click.stop>
         <h2 class="display text-xl text-white">Slideshow</h2>
-        <p class="mt-1 text-sm text-primary-400">{{ totalCount.toLocaleString() }} images in the current view</p>
+        <p class="mt-1 text-sm text-primary-400">{{ playableTotal.toLocaleString() }} images in the current view</p>
 
         <div class="mt-5 space-y-4">
           <label class="block">
@@ -109,8 +112,8 @@
         <button type="button" class="text-primary-300 hover:text-white" title="Next" @click="goNext">
           <ForwardIcon class="h-5 w-5" />
         </button>
-        <span class="min-w-0 flex-1 truncate text-center font-data text-sm text-primary-200">{{ images[current]?.computedFileName }}</span>
-        <span class="label-mono-sm shrink-0 text-primary-400" data-testid="slideshow-position">{{ current + 1 }} / {{ totalCount.toLocaleString() }}</span>
+        <span class="min-w-0 flex-1 truncate text-center font-data text-sm text-primary-200">{{ slides[current]?.computedFileName }}</span>
+        <span class="label-mono-sm shrink-0 text-primary-400" data-testid="slideshow-position">{{ current + 1 }} / {{ playableTotal.toLocaleString() }}</span>
         <button type="button" class="shrink-0 text-primary-300 hover:text-white" title="Exit slideshow" data-testid="slideshow-exit" @click="emit('close')">
           <XMarkIcon class="h-6 w-6" />
         </button>
@@ -121,11 +124,20 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { useStorage } from "@vueuse/core";
+import { useScrollLock, useStorage } from "@vueuse/core";
 import { PlayIcon, PauseIcon, ForwardIcon, BackwardIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import { ImageWithTagsType } from "src/types/custom";
 import { devPlaceholder } from "src/util/devPlaceholder";
-import { DEFAULT_SLIDESHOW_CONFIG, SlideshowConfig, kenBurnsVariant, nextSlideIndex, previousSlideIndex, preloadIndices, shouldFetchMore } from "src/util/slideshow";
+import {
+  DEFAULT_SLIDESHOW_CONFIG,
+  SlideshowConfig,
+  isInternalImage,
+  kenBurnsVariant,
+  nextSlideIndex,
+  previousSlideIndex,
+  preloadIndices,
+  shouldFetchMore,
+} from "src/util/slideshow";
 
 const props = defineProps<{
   images: ImageWithTagsType[];
@@ -145,17 +157,26 @@ const current = ref(0);
 const paused = ref(false);
 const waiting = ref(false);
 
+// THE playlist. Internal images are dropped here, once, so no path onto the
+// screen — auto-advance, manual navigation, preload — can reach one. `current`
+// indexes this list, never props.images.
+const slides = computed(() => props.images.filter((image) => !isInternalImage(image)));
+
+// props.totalCount counts the unfiltered view; discount the internal images
+// seen so far. An estimate while paging, exact once everything is loaded.
+const playableTotal = computed(() => Math.max(slides.value.length, props.totalCount - (props.images.length - slides.value.length)));
+
 // Current + previous slide stay mounted so the crossfade has both layers.
 const previous = ref<number | null>(null);
 const visibleSlides = computed(() => {
-  const slides: { index: number; image: ImageWithTagsType }[] = [];
-  if (previous.value !== null && previous.value !== current.value && props.images[previous.value]) {
-    slides.push({ index: previous.value, image: props.images[previous.value] });
+  const layers: { index: number; image: ImageWithTagsType }[] = [];
+  if (previous.value !== null && previous.value !== current.value && slides.value[previous.value]) {
+    layers.push({ index: previous.value, image: slides.value[previous.value] });
   }
-  if (props.images[current.value]) {
-    slides.push({ index: current.value, image: props.images[current.value] });
+  if (slides.value[current.value]) {
+    layers.push({ index: current.value, image: slides.value[current.value] });
   }
-  return slides;
+  return layers;
 });
 
 // Ken Burns runs slightly longer than the slide is on screen so it never halts visibly.
@@ -207,10 +228,10 @@ function preload(image: ImageWithTagsType | undefined): Promise<void> {
 }
 
 function fillPreloadWindow() {
-  for (const index of preloadIndices(current.value, props.images.length)) {
-    void preload(props.images[index]);
+  for (const index of preloadIndices(current.value, slides.value.length)) {
+    void preload(slides.value[index]);
   }
-  if (shouldFetchMore(current.value, props.images.length, props.totalCount)) {
+  if (shouldFetchMore(current.value, slides.value.length, playableTotal.value)) {
     emit("needMore");
   }
 }
@@ -252,7 +273,7 @@ async function goTo(index: number | null) {
     return;
   }
   const token = ++navToken;
-  const target = props.images[index];
+  const target = slides.value[index];
   const src = target ? slideSrc(target) : "";
   if (src && !loaded.has(src)) {
     waiting.value = true;
@@ -263,8 +284,21 @@ async function goTo(index: number | null) {
   show(index);
 }
 
+// A page can be all-internal, so "nothing to advance to" means "the next page
+// has not arrived yet" as long as the server still has images — ending the show
+// there would cut it short. The buffering chip covers the wait; the watch below
+// resumes.
+const stalled = ref(false);
+
 function advance() {
-  void goTo(nextSlideIndex(current.value, props.images.length, config.value.loop));
+  const next = nextSlideIndex(current.value, slides.value.length, config.value.loop);
+  if (next === null && props.images.length < props.totalCount) {
+    stalled.value = true;
+    waiting.value = true;
+    fillPreloadWindow(); // keeps the pages coming
+    return;
+  }
+  void goTo(next);
 }
 
 function show(index: number) {
@@ -287,10 +321,10 @@ async function start() {
   // Best effort: a browser may reject fullscreen without a fresh user gesture.
   document.documentElement.requestFullscreen?.().catch(() => undefined);
   // The first slide is decode-gated like every later one; the buffering chip
-  // covers the wait.
+  // covers the wait — and stays up when the first page held nothing playable.
   waiting.value = true;
-  await preload(props.images[0]);
-  waiting.value = false;
+  await preload(slides.value[0]);
+  waiting.value = slides.value.length === 0;
   fillPreloadWindow();
   scheduleAdvance();
 }
@@ -313,16 +347,24 @@ function goNext() {
 
 function goPrevious() {
   clearTimer();
-  void goTo(previousSlideIndex(current.value, props.images.length, config.value.loop));
+  void goTo(previousSlideIndex(current.value, slides.value.length, config.value.loop));
 }
 
 // more images may have arrived while we were at the end of the loaded list —
 // and the list can also shrink (image deleted from the grid underneath).
+// Watched on the RAW list: an all-internal page leaves the playlist length
+// unchanged, and that is exactly when the next page has to be requested.
 watch(
   () => props.images.length,
-  (length) => {
+  () => {
+    const length = slides.value.length;
     if (current.value >= length && length > 0) current.value = length - 1;
     fillPreloadWindow();
+    if (stalled.value && length > 0) {
+      stalled.value = false;
+      waiting.value = false;
+      scheduleAdvance(); // slides[current] is on screen now; time the next hop
+    }
   },
 );
 
@@ -354,8 +396,14 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
+// The overlay is fixed, but the grid underneath still owns the document
+// scrollbar — it would sit there next to the show, and arrow keys would move
+// the page behind it. Locked for as long as the slideshow is up.
+const documentScrollLocked = useScrollLock(document.body);
+
 onMounted(() => {
   window.addEventListener("keydown", onKeydown);
+  documentScrollLocked.value = true;
   showControls();
 });
 
@@ -363,6 +411,7 @@ onBeforeUnmount(() => {
   clearTimer();
   if (controlsTimer) clearTimeout(controlsTimer);
   window.removeEventListener("keydown", onKeydown);
+  documentScrollLocked.value = false;
   if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
 });
 </script>

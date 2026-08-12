@@ -37,6 +37,36 @@ test.describe("slideshow", () => {
     await expect(page.getByTestId("slideshow-overlay")).toHaveCount(0);
   });
 
+  // The seed has 3 images, the last one tagged "internal" — the grid shows all
+  // three, the slideshow only ever counts and plays two.
+  test("skips internal images", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/images");
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(3);
+    await page.getByTestId("start-slideshow").click();
+    await expect(page.getByTestId("slideshow-setup")).toContainText("2 images in the current view");
+    await page.getByTestId("slideshow-start").click();
+    await expect(page.getByTestId("slideshow-position")).toContainText("1 / 2");
+  });
+
+  test("never puts a scrollbar on the page", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/images");
+    await page.getByTestId("start-slideshow").click();
+    // strong pan & zoom scales the slide past the viewport — the classic way to
+    // grow a scrollbar
+    await page.getByRole("button", { name: "Strong" }).click();
+    await page.getByTestId("slideshow-start").click();
+    await expect(page.getByTestId("slideshow-position")).toBeVisible();
+
+    const viewport = await page.evaluate(() => ({
+      verticalScrollbar: window.innerWidth - document.documentElement.clientWidth,
+      horizontalScrollbar: window.innerHeight - document.documentElement.clientHeight,
+      documentOverflow: getComputedStyle(document.body).overflow,
+    }));
+    expect(viewport).toEqual({ verticalScrollbar: 0, horizontalScrollbar: 0, documentOverflow: "hidden" });
+  });
+
   test("escape closes the slideshow", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/images");

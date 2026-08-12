@@ -326,9 +326,10 @@ func TestGetUploadMetrics(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, metrics, up.ID)
 	assert.Equal(t, len(m.Images), metrics[up.ID].ImageCount, "every seeded image counts")
-	assert.Equal(t, 0, metrics[up.ID].TagCount, "seed applies no manual tags")
+	baseline := metrics[up.ID].TagCount
+	assert.Equal(t, 1, baseline, "the seed applies one manual tag: internal, on the last image")
 
-	// One manual assignment on one image -> counted, and the derived rate follows.
+	// One more manual assignment on one image -> counted, and the derived rate follows.
 	_, _, err = repo.CreateImageTagAssignment(ctx, &repository.CreateImageTagAssignmentParameters{
 		ImageID: m.Images[0], ImageTagID: m.Tags["Podium"], Type: imagetagassignment.TypeManual,
 	})
@@ -336,8 +337,8 @@ func TestGetUploadMetrics(t *testing.T) {
 
 	metrics, err = repo.GetUploadMetrics(ctx, []*ent.Upload{up})
 	require.NoError(t, err)
-	assert.Equal(t, 1, metrics[up.ID].TagCount)
-	assert.InDelta(t, 1.0/float64(len(m.Images)), metrics[up.ID].TagsPerImage, 0.0001)
+	assert.Equal(t, baseline+1, metrics[up.ID].TagCount)
+	assert.InDelta(t, float64(baseline+1)/float64(len(m.Images)), metrics[up.ID].TagsPerImage, 0.0001)
 
 	// errorCount / rejectedCount are live state: they follow the reserved review
 	// tags on and off, and are counted independently of each other.
