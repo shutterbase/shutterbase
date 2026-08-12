@@ -12,6 +12,7 @@
 <script lang="ts" setup>
 import { ImageTagAssignmentType } from "src/types/custom";
 import { tagLabel } from "src/util/tagOrder";
+import { isReviewRejectedTag } from "src/util/uploadReview";
 import { computed } from "vue";
 
 interface Props {
@@ -22,30 +23,19 @@ const props = withDefaults(defineProps<Props>(), {
   removable: false,
 });
 
-const tagType = props.tagAssignment.tag.type;
-
 const emit = defineEmits<{
   remove: [ImageTagAssignmentType];
 }>();
 
-/*
-export enum ImageTagsTypeOptions {
-	"default" = "default",
-	"manual" = "manual",
-	"custom" = "custom",
-}
-
-export enum ImageTagAssignmentsTypeOptions {
-	"manual" = "manual",
-	"inferred" = "inferred",
-	"default" = "default",
-}
-*/
-
 // tag colours mapped onto the design tokens (default → accent, manual → success,
 // custom → warning). The tag name is always rendered, so colour is never the sole signal.
 const tagColor = computed(() => {
-  switch (tagType) {
+  const tag = props.tagAssignment.tag;
+  // the rejected verdict reads as a stop sign, not as a tag category
+  if (isReviewRejectedTag(tag.name)) {
+    return "bg-error-500/10 text-error-700 ring-error-500/40 dark:bg-error-500/15 dark:text-error-300 dark:ring-error-400/30";
+  }
+  switch (tag.type) {
     case "default":
       return "bg-accent-500/10 text-accent-700 ring-accent-500/30 dark:bg-accent-500/15 dark:text-accent-200 dark:ring-accent-400/30";
     case "manual":

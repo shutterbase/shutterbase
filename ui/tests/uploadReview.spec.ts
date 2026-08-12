@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canEditTag, canAddImages, allowedTransitions, formatDuration, formatTaggingRate, isReviewErrorTag } from "src/util/uploadReview";
+import { canEditTag, canAddImages, allowedTransitions, formatDuration, formatTaggingRate, isReviewErrorTag, isReviewRejectedTag, isReviewerOnlyTag } from "src/util/uploadReview";
 
 // These rules must stay in lockstep with api/internal/authorization — the server
 // is authoritative, so a divergence here means the UI offers 403s.
@@ -21,10 +21,17 @@ describe("canEditTag", () => {
     expect(canEditTag({ ...base, uploadState: "ready", tagType: "custom", tagName: "todo" })).toBe(true);
   });
 
-  it("reserves the error tag for the reviewer in every state", () => {
-    expect(canEditTag({ ...base, uploadState: "open", tagType: "custom", tagName: "error" })).toBe(false);
-    expect(canEditTag({ ...base, uploadState: "open", tagType: "custom", tagName: "Error", isReviewer: true })).toBe(true);
+  it("reserves the review tags for the reviewer in every state", () => {
+    for (const tagName of ["error", "rejected"]) {
+      for (const uploadState of ["open", "ready", "reviewed"] as const) {
+        expect(canEditTag({ ...base, uploadState, tagType: "custom", tagName })).toBe(false);
+        expect(canEditTag({ ...base, uploadState, tagType: "custom", tagName, isReviewer: true })).toBe(true);
+      }
+    }
+    expect(canEditTag({ ...base, uploadState: "open", tagType: "custom", tagName: "Rejected" })).toBe(false);
     expect(isReviewErrorTag("ERROR")).toBe(true);
+    expect(isReviewRejectedTag("Rejected")).toBe(true);
+    expect(isReviewerOnlyTag("rejects")).toBe(false);
   });
 
   it("never freezes the reviewer", () => {

@@ -95,15 +95,17 @@ func TestUploadReviewFlow(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, assign(editor, custom.ID), "custom tags stay editable")
 		assert.Equal(t, http.StatusCreated, assign(padmin, m.Tags["Podium"]), "the reviewer is never frozen")
 
-		// The error tag is the reviewer's alone — in every state.
-		errTag, err := c.ImageTag.Create().
-			SetName("error").SetDescription("review error").SetType(imagetag.TypeCustom).
-			SetProjectID(proj).Save(ctx)
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = c.ImageTag.DeleteOneID(errTag.ID).Exec(ctx) })
+		// The reserved review tags are the reviewer's alone — in every state.
+		for _, name := range []string{"error", "rejected"} {
+			reserved, err := c.ImageTag.Create().
+				SetName(name).SetDescription("reserved review tag").SetType(imagetag.TypeCustom).
+				SetProjectID(proj).Save(ctx)
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = c.ImageTag.DeleteOneID(reserved.ID).Exec(ctx) })
 
-		assert.Equal(t, http.StatusForbidden, assign(editor, errTag.ID))
-		assert.Equal(t, http.StatusCreated, assign(padmin, errTag.ID))
+			assert.Equal(t, http.StatusForbidden, assign(editor, reserved.ID), name)
+			assert.Equal(t, http.StatusCreated, assign(padmin, reserved.ID), name)
+		}
 
 		// A submitted upload takes no further images from the photographer.
 		assert.Equal(t, http.StatusConflict, status(t, editor, http.MethodPost, "/api/v1/images", map[string]any{
@@ -127,6 +129,7 @@ func TestUploadReviewFlow(t *testing.T) {
 		// errorCount is live state, not a ledger: the previous cycle's error tag
 		// is gone, so nothing is flagged any more.
 		assert.Equal(t, float64(0), metrics["errorCount"])
+		assert.Equal(t, float64(0), metrics["rejectedCount"])
 		assert.NotNil(t, metrics["tagsPerImage"])
 	})
 }

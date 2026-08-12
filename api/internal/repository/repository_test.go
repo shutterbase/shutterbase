@@ -339,22 +339,32 @@ func TestGetUploadMetrics(t *testing.T) {
 	assert.Equal(t, 1, metrics[up.ID].TagCount)
 	assert.InDelta(t, 1.0/float64(len(m.Images)), metrics[up.ID].TagsPerImage, 0.0001)
 
-	// errorCount is live state: it follows the review error tag on and off.
+	// errorCount / rejectedCount are live state: they follow the reserved review
+	// tags on and off, and are counted independently of each other.
 	errorTag := repo.Client.ImageTag.Create().
 		SetName(authorization.ReviewErrorTagName).SetDescription("tagging error").SetType(imagetag.TypeCustom).SetProjectID(m.Project).SaveX(ctx)
+	rejectedTag := repo.Client.ImageTag.Create().
+		SetName(authorization.ReviewRejectedTagName).SetDescription("rejected").SetType(imagetag.TypeCustom).SetProjectID(m.Project).SaveX(ctx)
 	assignment, _, err := repo.CreateImageTagAssignment(ctx, &repository.CreateImageTagAssignmentParameters{
 		ImageID: m.Images[0], ImageTagID: errorTag.ID, Type: imagetagassignment.TypeManual,
+	})
+	require.NoError(t, err)
+	rejectedAssignment, _, err := repo.CreateImageTagAssignment(ctx, &repository.CreateImageTagAssignmentParameters{
+		ImageID: m.Images[1], ImageTagID: rejectedTag.ID, Type: imagetagassignment.TypeManual,
 	})
 	require.NoError(t, err)
 
 	metrics, err = repo.GetUploadMetrics(ctx, []*ent.Upload{up})
 	require.NoError(t, err)
 	assert.Equal(t, 1, metrics[up.ID].ErrorCount)
+	assert.Equal(t, 1, metrics[up.ID].RejectedCount)
 
 	require.NoError(t, repo.DeleteImageTagAssignment(ctx, assignment.ID))
+	require.NoError(t, repo.DeleteImageTagAssignment(ctx, rejectedAssignment.ID))
 	metrics, err = repo.GetUploadMetrics(ctx, []*ent.Upload{up})
 	require.NoError(t, err)
 	assert.Equal(t, 0, metrics[up.ID].ErrorCount, "clearing the tag lowers the count again")
+	assert.Equal(t, 0, metrics[up.ID].RejectedCount)
 
 	// An empty set must not build a query at all.
 	empty, err := repo.GetUploadMetrics(ctx, nil)

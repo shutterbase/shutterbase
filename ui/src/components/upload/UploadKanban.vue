@@ -162,6 +162,9 @@ function metricsFor(upload: Upload): Metric[] {
   if (m.errorCount > 0) {
     out.push({ label: "Tagging errors", value: `${m.errorCount}`, alert: true });
   }
+  if (m.rejectedCount > 0) {
+    out.push({ label: "Rejected", value: `${m.rejectedCount}`, alert: true });
+  }
   const aiTotal = (m.aiDone ?? 0) + (m.aiInFlight ?? 0) + (m.aiError ?? 0);
   if (aiTotal > 0) {
     out.push({

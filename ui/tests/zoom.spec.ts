@@ -21,22 +21,31 @@ describe("zoomAt", () => {
     expect(zoomAt(zoomed, 0, 0, 0.5, W, H)).toEqual(ZOOM_RESET);
   });
 
-  it("clamps offsets so the content always covers the viewport", () => {
-    // zooming at the bottom-right corner pins the content's corner there
+  it("keeps the cursor anchor when zooming at a corner", () => {
+    // zooming at the bottom-right corner pulls the content's corner there
     const state = zoomAt(ZOOM_RESET, W, H, 2, W, H);
     expect(state.tx).toBe(W * (1 - 2));
     expect(state.ty).toBe(H * (1 - 2));
   });
+
+  it("lets either image edge reach the viewport centre", () => {
+    const zoomed = zoomAt(ZOOM_RESET, 200, 150, 2, W, H); // scaled content 800×600
+    expect(panBy(zoomed, 10_000, 0, W, H).tx).toBe(W / 2); // left edge at the centre
+    expect(panBy(zoomed, -10_000, 0, W, H).tx + W * 2).toBe(W / 2); // right edge at the centre
+    expect(panBy(zoomed, 0, 10_000, W, H).ty).toBe(H / 2);
+    expect(panBy(zoomed, 0, -10_000, W, H).ty + H * 2).toBe(H / 2);
+  });
 });
 
 describe("zoomAt with content smaller than the stage", () => {
-  it("lets the scaled content move within the stage but never outside it", () => {
+  it("moves within the stage plus the pan slack", () => {
     // fitted image 200×100 in a 400×300 stage, zoomed 2× → scaled 400×200
     const zoomed = zoomAt(ZOOM_RESET, 0, 0, 2, W, H, 200, 100);
     expect(zoomed.scale).toBe(2);
-    expect(zoomed.tx).toBe(0); // scaled width equals the stage → pinned
-    expect(panBy(zoomed, 0, 10_000, W, H, 200, 100).ty).toBe(100); // parks at the stage bottom edge
-    expect(panBy(zoomed, 0, -10_000, W, H, 200, 100).ty).toBe(0);
+    expect(zoomed.tx).toBe(0); // scaled width equals the stage → nothing to pan into
+    // bottom edge of the stage (100) plus half a stage height of slack
+    expect(panBy(zoomed, 0, 10_000, W, H, 200, 100).ty).toBe(100 + H / 2);
+    expect(panBy(zoomed, 0, -10_000, W, H, 200, 100).ty).toBe(-H / 2);
   });
 });
 
@@ -47,10 +56,10 @@ describe("panBy", () => {
     expect(moved.tx).toBe(zoomed.tx - 10);
     expect(moved.ty).toBe(zoomed.ty - 10);
     const pinned = panBy(zoomed, 10_000, 10_000, W, H);
-    expect(pinned.tx).toBe(0);
-    expect(pinned.ty).toBe(0);
+    expect(pinned.tx).toBe(W / 2);
+    expect(pinned.ty).toBe(H / 2);
     const pinnedFar = panBy(zoomed, -10_000, -10_000, W, H);
-    expect(pinnedFar.tx).toBe(W * (1 - 2));
-    expect(pinnedFar.ty).toBe(H * (1 - 2));
+    expect(pinnedFar.tx).toBe(W * (1 - 2) - W / 2);
+    expect(pinnedFar.ty).toBe(H * (1 - 2) - H / 2);
   });
 });

@@ -48,6 +48,7 @@ func TestCanAssignTag(t *testing.T) {
 	official := tag("Race", imagetag.TypeManual)
 	custom := tag("todo", imagetag.TypeCustom)
 	errTag := tag(ReviewErrorTagName, imagetag.TypeCustom)
+	rejectedTag := tag(ReviewRejectedTagName, imagetag.TypeCustom)
 
 	open := up(owner, upload.StateOpen)
 	ready := up(owner, upload.StateReady)
@@ -67,12 +68,18 @@ func TestCanAssignTag(t *testing.T) {
 		assert.True(t, CanAssignTag(owner, img, submitted, custom, true))
 	}
 
-	// the error tag is the reviewer's alone, in every state
-	for _, state := range []*ent.Upload{open, ready, reviewed} {
-		assert.False(t, CanAssignTag(owner, img, state, errTag, true))
-		assert.True(t, CanAssignTag(reviewer, img, state, errTag, true))
+	// the reserved review tags are the reviewer's alone, in every state
+	for _, reserved := range []*ent.ImageTag{errTag, rejectedTag} {
+		for _, state := range []*ent.Upload{open, ready, reviewed} {
+			assert.False(t, CanAssignTag(owner, img, state, reserved, true), reserved.Name)
+			assert.True(t, CanAssignTag(reviewer, img, state, reserved, true), reserved.Name)
+		}
 	}
 	assert.True(t, IsReviewErrorTag("Error"), "the reserved name is case-insensitive")
+	assert.True(t, IsReviewRejectedTag("Rejected"))
+	assert.True(t, IsReviewerOnlyTag("ERROR"))
+	assert.True(t, IsReviewerOnlyTag("rejected"))
+	assert.False(t, IsReviewerOnlyTag("rejects"))
 
 	// the reviewer is never frozen out
 	assert.True(t, CanAssignTag(reviewer, img, reviewed, official, true))
