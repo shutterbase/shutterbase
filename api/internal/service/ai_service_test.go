@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	entimage "github.com/shutterbase/shutterbase/ent/image"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/repository"
@@ -415,6 +416,28 @@ func TestBootRecovery(t *testing.T) {
 	cancel() // dispatcher exits; recovery already ran synchronously
 	assert.Equal(t, "pending", aiStatus(t, svc, stale), "stale processing row must be re-queued")
 	assert.Equal(t, "processing", aiStatus(t, svc, fresh), "fresh processing row must be left to its replica")
+}
+
+// Custom tags are invisible to AI: never in the vocabulary (even with
+// aiEnabled=true), and never assigned even when the AI server returns their
+// exact name (the FSG26 car_79/car_72 incident).
+func TestCustomTagsInvisibleToAI(t *testing.T) {
+	t.Setenv("SESSION_SECRET_KEY", "x")
+	require.NoError(t, util.InitConfig())
+	svc, m := newSvc(t, &StubInference{Tags: []string{"car_99"}})
+	ctx := context.Background()
+	img := m.Images[0]
+
+	custom := svc.repo.Client.ImageTag.Create().
+		SetName("car_99").SetDescription("Custom tag 'car_99'").
+		SetType(imagetag.TypeCustom).SetProjectID(m.Project).
+		SaveX(ctx)
+
+	assert.NotContains(t, AvailableTagNames(ctx, svc.repo, m.Project), "car_99")
+
+	require.NoError(t, svc.process(ctx, img))
+	assert.Equal(t, 0, inferredCount(t, svc, img, custom.ID), "AI must never assign a custom tag")
+	assert.Equal(t, "done", aiStatus(t, svc, img))
 }
 
 // aiEnabled=false removes a tag from the AI vocabulary; everything else stays.

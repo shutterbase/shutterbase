@@ -55,6 +55,15 @@ type namedRef struct {
 	Name string `json:"name"`
 }
 
+// projectRef carries the review flag so the gallery can decide per image —
+// not per active project — whether the reserved verdict tags mean anything
+// (cross-project person search shows images from other projects).
+type projectRef struct {
+	ID                  string `json:"id"`
+	Name                string `json:"name"`
+	UploadReviewEnabled bool   `json:"uploadReviewEnabled"`
+}
+
 type tagRef struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
@@ -94,7 +103,7 @@ type ImageResponse struct {
 	StorageID           string                 `json:"storageId"`
 	User                *userRef               `json:"user"`
 	Camera              *namedRef              `json:"camera"`
-	Project             *namedRef              `json:"project"`
+	Project             *projectRef            `json:"project"`
 	Upload              *uploadRef             `json:"upload"`
 	Tags                []assignmentRef        `json:"tags"`
 	ImageTags           []string               `json:"imageTags"`
@@ -163,7 +172,7 @@ func ToImageResponse(ctx context.Context, img *ent.Image, signer DownloadURLSign
 		resp.Camera = &namedRef{ID: c.ID, Name: c.Name}
 	}
 	if p := img.Edges.Project; p != nil {
-		resp.Project = &namedRef{ID: p.ID, Name: p.Name}
+		resp.Project = &projectRef{ID: p.ID, Name: p.Name, UploadReviewEnabled: p.UploadReviewEnabled}
 	}
 	if up := img.Edges.Upload; up != nil {
 		resp.Upload = &uploadRef{ID: up.ID, Name: up.Name, State: up.State.String()}

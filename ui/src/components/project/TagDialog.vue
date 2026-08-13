@@ -154,12 +154,18 @@ const createTagFields: CreateField<ImageTagsResponse>[] = [
   { key: "type", label: "Type", type: CreateFieldType.SELECT, options: ["template", "default", "manual", "custom"], optionsDefault: "manual" },
 ];
 
-const editTagFields: EditField<ImageTagsResponse>[] = [
-  { key: "name", label: "Name", type: EditFieldType.TEXT },
-  { key: "displayName", label: "Display name (optional, shown instead of the name)", type: EditFieldType.TEXT },
-  { key: "description", label: "Description", type: EditFieldType.TEXT },
-  { key: "order", label: "Order (lower first, empty = last)", type: EditFieldType.TEXT },
-  { key: "type", label: "Type", type: EditFieldType.SELECT, options: ["template", "default", "manual", "custom"] },
-  { key: "aiEnabled", label: "AI tagging", type: EditFieldType.BOOLEAN, hint: "AI may assign this tag" },
-];
+const editTagFields = computed<EditField<ImageTagsResponse>[]>(() => {
+  const fields: EditField<ImageTagsResponse>[] = [
+    { key: "name", label: "Name", type: EditFieldType.TEXT },
+    { key: "displayName", label: "Display name (optional, shown instead of the name)", type: EditFieldType.TEXT },
+    { key: "description", label: "Description", type: EditFieldType.TEXT },
+    { key: "order", label: "Order (lower first, empty = last)", type: EditFieldType.TEXT },
+    { key: "type", label: "Type", type: EditFieldType.SELECT, options: ["template", "default", "manual", "custom"] },
+  ];
+  // custom tags are never in the AI vocabulary, so the toggle would be a lie
+  if (item.value.type !== "custom") {
+    fields.push({ key: "aiEnabled", label: "AI tagging", type: EditFieldType.BOOLEAN, hint: "AI may assign this tag" });
+  }
+  return fields;
+});
 </script>

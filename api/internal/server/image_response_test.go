@@ -47,7 +47,7 @@ func TestToImageResponseMapShape(t *testing.T) {
 		Edges: ent.ImageEdges{
 			User:    &ent.User{ID: uuid.New(), FirstName: "Ada", LastName: "Lovelace", CopyrightTag: "© Ada"},
 			Camera:  &ent.Camera{ID: "cam1", Name: "Fresh"},
-			Project: &ent.Project{ID: "prj1", Name: "FSG"},
+			Project: &ent.Project{ID: "prj1", Name: "FSG", UploadReviewEnabled: true},
 			Upload:  &ent.Upload{ID: "upl1", Name: "Batch 1"},
 		},
 	}
@@ -60,6 +60,7 @@ func TestToImageResponseMapShape(t *testing.T) {
 	assert.Equal(t, "Ada", resp.User.FirstName)
 	assert.Equal(t, "Fresh", resp.Camera.Name)
 	assert.Equal(t, "FSG", resp.Project.Name)
+	assert.True(t, resp.Project.UploadReviewEnabled, "gallery needs the per-image review flag")
 	assert.Equal(t, "Batch 1", resp.Upload.Name)
 	assert.NotNil(t, resp.ExifData) // empty exif serializes as {} not null
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { canEditTag, canAddImages, allowedTransitions, formatDuration, formatTaggingRate, isReviewErrorTag, isReviewRejectedTag, isReviewerOnlyTag } from "src/util/uploadReview";
+import { canEditTag, canAddImages, allowedTransitions, formatDuration, formatTaggingRate, isReviewErrorTag, isReviewRejectedTag, isReviewerOnlyTag, reviewVerdicts } from "src/util/uploadReview";
 
 // These rules must stay in lockstep with api/internal/authorization — the server
 // is authoritative, so a divergence here means the UI offers 403s.
@@ -73,5 +73,21 @@ describe("metric formatting", () => {
   it("pairs images per second with the readable per-minute rate", () => {
     expect(formatTaggingRate(0)).toBe("–");
     expect(formatTaggingRate(0.0833)).toBe("0.083 img/s (5.0/min)");
+  });
+});
+
+describe("reviewVerdicts", () => {
+  const tags = (...names: string[]) => names.map((name) => ({ tag: { name } }));
+
+  it("flags the reserved verdict tags, case-insensitively", () => {
+    expect(reviewVerdicts({ reviewEnabled: true, tags: tags("Race", "Rejected") })).toEqual({ rejected: true, error: false });
+    expect(reviewVerdicts({ reviewEnabled: true, tags: tags("error") })).toEqual({ rejected: false, error: true });
+    expect(reviewVerdicts({ reviewEnabled: true, tags: tags("error", "rejected") })).toEqual({ rejected: true, error: true });
+  });
+
+  it("stays silent without the review flow, or without tags", () => {
+    expect(reviewVerdicts({ reviewEnabled: false, tags: tags("error", "rejected") })).toEqual({ rejected: false, error: false });
+    expect(reviewVerdicts({ reviewEnabled: true })).toEqual({ rejected: false, error: false });
+    expect(reviewVerdicts({ reviewEnabled: true, tags: [{ tag: null }] })).toEqual({ rejected: false, error: false });
   });
 });

@@ -229,3 +229,6 @@ yarn-error.log
 
 
 # End of https://www.toptal.com/developers/gitignore/api/vue,vuejs,visualstudiocode,webstorm+all,goland+all,go
+
+# Claude Code worktrees (parked feature branches live here)
+.claude/worktrees/

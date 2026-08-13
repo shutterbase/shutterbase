@@ -20,9 +20,17 @@
       <PhotoIcon class="h-8 w-8 text-primary-300 dark:text-primary-700" />
     </div>
 
-    <!-- selection check -->
-    <div v-if="selected" class="absolute right-2 top-2 rounded-full bg-accent-600 p-1 shadow-sm">
-      <CheckIcon class="h-3.5 w-3.5 text-white" />
+    <!-- review verdicts (rejected / tagging error) and the selection check -->
+    <div class="absolute right-2 top-2 flex items-center gap-1">
+      <div v-if="verdicts.rejected" title="Rejected" class="rounded-full bg-primary-950/70 p-1 shadow-sm">
+        <NoSymbolIcon class="h-4 w-4 text-error-400" />
+      </div>
+      <div v-if="verdicts.error" title="Tagging error" class="rounded-full bg-primary-950/70 p-1 shadow-sm">
+        <ExclamationTriangleIcon class="h-4 w-4 text-warning-400" />
+      </div>
+      <div v-if="selected" class="rounded-full bg-accent-600 p-1 shadow-sm">
+        <CheckIcon class="h-3.5 w-3.5 text-white" />
+      </div>
     </div>
 
     <!-- AI detection status -->
@@ -62,7 +70,8 @@ import { aiBadgeLabel, aiBadgeTitle } from "src/util/aiDetection";
 import { ImageWithTagsType } from "src/types/custom";
 import { devPlaceholder } from "src/util/devPlaceholder";
 import { computed, ref } from "vue";
-import { ArrowPathIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, PhotoIcon, SparklesIcon } from "@heroicons/vue/24/solid";
+import { reviewVerdicts } from "src/util/uploadReview";
+import { ArrowPathIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, NoSymbolIcon, PhotoIcon, SparklesIcon } from "@heroicons/vue/24/solid";
 
 type Density = "gallery" | "comfortable" | "dense";
 
@@ -87,6 +96,11 @@ const emit = defineEmits<{
 }>();
 
 const capturedAt = computed(() => dateTimeUtil.dateTimeFromBackend(props.image.capturedAtCorrected));
+
+// per-image, not per-active-project: cross-project person search shows
+// foreign images whose own project decides whether verdict tags mean anything
+const verdicts = computed(() => reviewVerdicts({ reviewEnabled: !!props.image.project?.uploadReviewEnabled, tags: props.image.tags }));
+
 const aiLabel = computed(() => aiBadgeLabel(props.image.aiStatus, props.aiPosition));
 const aiTitle = computed(() => aiBadgeTitle(props.image.aiStatus, props.aiPosition, props.image.aiError));
 
