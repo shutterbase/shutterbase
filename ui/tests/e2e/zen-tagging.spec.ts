@@ -57,16 +57,24 @@ test.describe("detail view keyboard flow", () => {
   });
 
   test("searching for an already-applied tag shows the green applied state", async ({ page }) => {
-    // seeded images carry the Default tag; applied tags leave the result list,
-    // so this search must land in the "Already applied" state, not "No matching tags"
+    // a fresh unique custom tag: earlier suite runs leave tags behind (e.g. the
+    // date tag description 'default tag "…"'), so only a Date.now() name is
+    // guaranteed to match nothing but itself
+    const uniq = `e2e-applied-${Date.now()}`;
     await page.keyboard.press("t");
     const search = page.getByPlaceholder("Search tag...");
     await expect(search).toBeVisible();
-    await search.fill("Default");
+    await search.fill(uniq);
+    await page.getByRole("button", { name: /Create custom tag/ }).click();
+    await expect(visibleBadge(page, uniq)).toHaveCount(1); // created AND applied
+
+    // the dialog stays open with a cleared search box; searching the now-applied
+    // tag must land in the green "Already applied" state, not "No matching tags"
+    await search.fill(uniq);
     await expect(page.getByText("Already applied", { exact: true })).toBeVisible();
-    await expect(page.locator('li:has-text("Default")')).toBeVisible();
+    await expect(page.locator(`li:has-text("${uniq}")`)).toBeVisible();
     await expect(page.getByText("No matching tags")).toHaveCount(0);
-    // creating a same-named custom tag stays available
+    // creating another same-named custom tag stays available
     await expect(page.getByRole("button", { name: /Create custom tag/ })).toBeVisible();
     await page.keyboard.press("Escape");
   });
