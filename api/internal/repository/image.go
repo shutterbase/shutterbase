@@ -63,16 +63,15 @@ type GetImageParameters struct {
 	PaginationParameters *PaginationParameters
 }
 
-// GetImages is the gallery query (SPEC §4.3). projectId is required; tagId AND-match
-// runs over the GIN(jsonb_path_ops) index via a single containment; orientation
-// excludes rows with null width/height. Edges are eager-loaded for serialization.
-func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParameters) ([]*ent.Image, int, error) {
+// buildImagePredicates turns the shared gallery filter (SPEC §4.3) into ent
+// predicates — one source of truth for GetImages and GetImageTagFacets.
+func buildImagePredicates(parameters *GetImageParameters) ([]predicate.Image, error) {
 	var predicates []predicate.Image
 	if len(parameters.ProjectIDs) > 0 {
 		predicates = []predicate.Image{image.ProjectIDIn(parameters.ProjectIDs...)}
 	} else {
 		if parameters.ProjectID == "" {
-			return nil, 0, ErrMissingProject
+			return nil, ErrMissingProject
 		}
 		predicates = []predicate.Image{image.ProjectID(parameters.ProjectID)}
 	}
@@ -122,8 +121,19 @@ func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParamete
 				s.Where(sql.ColumnsGT(s.C(image.FieldWidth), s.C(image.FieldHeight)))
 			})
 		default:
-			return nil, 0, ErrInvalidOrientation
+			return nil, ErrInvalidOrientation
 		}
+	}
+	return predicates, nil
+}
+
+// GetImages is the gallery query (SPEC §4.3). projectId is required; tagId AND-match
+// runs over the GIN(jsonb_path_ops) index via a single containment; orientation
+// excludes rows with null width/height. Edges are eager-loaded for serialization.
+func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParameters) ([]*ent.Image, int, error) {
+	predicates, err := buildImagePredicates(parameters)
+	if err != nil {
+		return nil, 0, err
 	}
 	where := image.And(predicates...)
 
@@ -146,6 +156,47 @@ func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParamete
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+// GetImageTagFacets returns the filter's own match count plus, per project tag,
+// how many of those matches also carry the tag — i.e. the result size if the tag
+// were added as an include filter. Tags matching zero images are omitted.
+// ponytail: one count query per tag over the GIN index, same shape as
+// GetProjectTagStatistics — switch both to a single GROUP BY over
+// jsonb_array_elements_text if tag or image counts make this measurably slow.
+func (r *Repository) GetImageTagFacets(ctx context.Context, parameters *GetImageParameters) (int, map[string]int, error) {
+	predicates, err := buildImagePredicates(parameters)
+	if err != nil {
+		return 0, nil, err
+	}
+	where := image.And(predicates...)
+	total, err := r.Client.Image.Query().Where(where).Count(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("error counting images for tag facets")
+		return 0, nil, err
+	}
+	tags, err := r.Client.ImageTag.Query().Where(imagetag.ProjectID(parameters.ProjectID)).All(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("error loading project tags for facets")
+		return 0, nil, err
+	}
+	facets := make(map[string]int, len(tags))
+	for _, t := range tags {
+		tagID := t.ID
+		count, err := r.Client.Image.Query().
+			Where(where, func(s *sql.Selector) {
+				s.Where(sqljson.ValueContains(image.FieldImageTags, []string{tagID}))
+			}).
+			Count(ctx)
+		if err != nil {
+			log.Error().Err(err).Str("tag", tagID).Msg("error counting tag facet")
+			return 0, nil, err
+		}
+		if count > 0 {
+			facets[tagID] = count
+		}
+	}
+	return total, facets, nil
 }
 
 // TagStatistic is one row of GetProjectTagStatistics.

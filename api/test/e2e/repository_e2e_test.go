@@ -146,6 +146,51 @@ func TestGetImagesExcludeTags(t *testing.T) {
 	require.NoError(t, r.DeleteImageTagAssignment(ctx, a.ID))
 }
 
+func TestGetImageTagFacets(t *testing.T) {
+	ctx := context.Background()
+	r := repo(t)
+	m := stack.Manifest
+
+	podium := m.Tags["Podium"]
+	defaultTag := m.Tags["Default"]
+
+	// Baseline: 3 seed images, all carrying Default, none carrying Podium.
+	total, facets, err := r.GetImageTagFacets(ctx, &repository.GetImageParameters{ProjectID: m.Project})
+	require.NoError(t, err)
+	assert.Equal(t, 3, total)
+	assert.Equal(t, 3, facets[defaultTag])
+	assert.NotContains(t, facets, podium, "zero-count tags are omitted")
+
+	// Podium on one image: an exclude filter drops it from total and facets.
+	_, _, err = r.CreateImageTagAssignment(ctx, &repository.CreateImageTagAssignmentParameters{
+		ImageID: m.Images[0], ImageTagID: podium, Type: imagetagassignment.TypeManual,
+	})
+	require.NoError(t, err)
+
+	total, facets, err = r.GetImageTagFacets(ctx, &repository.GetImageParameters{
+		ProjectID: m.Project, ExcludeTagIDs: []string{podium},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, total)
+	assert.Equal(t, 2, facets[defaultTag])
+	assert.NotContains(t, facets, podium)
+
+	// Facets under an include filter count within the narrowed set.
+	total, facets, err = r.GetImageTagFacets(ctx, &repository.GetImageParameters{
+		ProjectID: m.Project, TagIDs: []string{podium},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, total)
+	assert.Equal(t, 1, facets[defaultTag])
+	assert.Equal(t, 1, facets[podium])
+
+	// cleanup: remove the extra assignment so later tests see the seed baseline.
+	a := stack.DB.Client.ImageTagAssignment.Query().
+		Where(imagetagassignment.ImageID(m.Images[0]), imagetagassignment.ImageTagID(podium)).
+		OnlyX(ctx)
+	require.NoError(t, r.DeleteImageTagAssignment(ctx, a.ID))
+}
+
 func TestGetImagesOrientationNullExclusion(t *testing.T) {
 	ctx := context.Background()
 	r := repo(t)

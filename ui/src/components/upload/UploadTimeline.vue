@@ -53,7 +53,7 @@
       </div>
 
       <!-- lanes -->
-      <div v-for="tr in tracks" :key="tr.key" class="flex items-center gap-2 py-1.5" @click="selectedKey = tr.key">
+      <div v-for="tr in tracks" :key="tr.key" class="flex cursor-pointer items-center gap-2 py-1.5" @click="selectTrack(tr)">
         <div class="flex w-34 flex-shrink-0 items-center gap-1.5 overflow-hidden" style="width: 8.5rem">
           <component :is="tr.scheduleItemId ? CalendarDaysIcon : TagIcon" class="h-3.5 w-3.5 flex-shrink-0 text-primary-400" />
           <span class="min-w-0 flex-1 truncate text-xs font-medium text-primary-700 dark:text-primary-200" :title="tr.label">{{ tr.label }}</span>
@@ -85,7 +85,7 @@
             :style="barStyle(tr)"
             tabindex="0"
             @keydown="onKeydown(tr, $event)"
-            @click.stop="selectedKey = tr.key"
+            @click.stop="selectTrack(tr)"
           >
             <span class="pointer-events-none absolute inset-x-2 top-1/2 -translate-y-1/2 truncate font-medium">
               {{ formatTime(tr.start) }}–{{ formatTime(tr.end) }} · {{ coveredCount(tr) }} photos
@@ -374,6 +374,14 @@ const laneEls = new Map<string, HTMLElement>();
 function registerLane(key: string, el: HTMLElement | null) {
   if (el) laneEls.set(key, el);
   else laneEls.delete(key);
+}
+
+// Keyboard in/out nudging listens on the FOCUSED bar, so selecting must also
+// focus it: the bar can be too narrow to hit, and Safari never focuses a
+// tabindex div on click anyway — the row/label click is the reliable target.
+function selectTrack(track: EditorTrack) {
+  selectedKey.value = track.key;
+  laneEls.get(track.key)?.querySelector<HTMLElement>("[tabindex]")?.focus({ preventScroll: true });
 }
 
 function startDrag(track: EditorTrack, edge: "start" | "end", event: PointerEvent) {
