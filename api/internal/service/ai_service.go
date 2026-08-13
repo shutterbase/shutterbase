@@ -383,8 +383,11 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 		if name == "" || name == "none" {
 			continue
 		}
+		// TypeNEQ custom: hard invariant, independent of the vocabulary — even a
+		// misbehaving AI server echoing a custom tag's name must never assign it.
 		tag, err := s.repo.Client.ImageTag.Query().
-			Where(imagetag.ProjectID(project.ID), imagetag.NameEQ(name)).
+			Where(imagetag.ProjectID(project.ID), imagetag.NameEQ(name),
+				imagetag.TypeNEQ(imagetag.TypeCustom)).
 			Only(ctx)
 		if err != nil {
 			// no matching project tag (or lookup error) -> nothing to link.
@@ -425,12 +428,16 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 }
 
 // AvailableTagNames is the vocabulary sent to the AI server: every aiEnabled
-// project tag except templates (unrendered "$X" patterns are not assignable).
+// project tag except templates (unrendered "$X" patterns are not assignable)
+// and custom tags (personal/unofficial, never exported — AI must never assign
+// them; FSG26 had AI mass-assigning a photographer's custom car_79/car_72).
 // Shared by the per-ingest request and the project prime hook so both stay in
 // sync.
 func AvailableTagNames(ctx context.Context, repo *repository.Repository, projectID string) []string {
 	tags, err := repo.Client.ImageTag.Query().
-		Where(imagetag.ProjectID(projectID), imagetag.TypeNEQ(imagetag.TypeTemplate), imagetag.AiEnabled(true)).
+		Where(imagetag.ProjectID(projectID),
+			imagetag.TypeNotIn(imagetag.TypeTemplate, imagetag.TypeCustom),
+			imagetag.AiEnabled(true)).
 		All(ctx)
 	if err != nil {
 		log.Error().Err(err).Str("project", projectID).Msg("AI: loading project tags failed")

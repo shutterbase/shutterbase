@@ -31,7 +31,7 @@ export const useUserStore = defineStore("user", {
   actions: {
     setProject(project: EmbeddedProject) {
       this.activeProjectId = project.id;
-      this.activeProject = { id: project.id, name: project.name };
+      this.activeProject = { id: project.id, name: project.name, uploadReviewEnabled: project.uploadReviewEnabled };
       this.projectTags = [];
       this.tagStack = [];
       this.loadProjectTags();

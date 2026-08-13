@@ -20,6 +20,14 @@ export function isReviewerOnlyTag(name: string): boolean {
   return isReviewErrorTag(name) || isReviewRejectedTag(name);
 }
 
+// Grid-view verdict markers: which reserved review tags an image carries. Off
+// entirely without the review flow — a project may own a plain custom tag
+// coincidentally named "error".
+export function reviewVerdicts(input: { reviewEnabled: boolean; tags?: { tag?: { name: string } | null }[] }): { rejected: boolean; error: boolean } {
+  const names = input.reviewEnabled ? (input.tags ?? []).map((a) => a.tag?.name ?? "") : [];
+  return { rejected: names.some(isReviewRejectedTag), error: names.some(isReviewErrorTag) };
+}
+
 export const UPLOAD_STATES: UploadState[] = ["open", "ready", "reviewed"];
 
 export const UPLOAD_STATE_LABEL: Record<UploadState, string> = {
