@@ -188,6 +188,7 @@ import {
   searchText,
   updateSearchText,
   filterTags,
+  excludeFilterTags,
   updateFilterTags,
   aspectRatioFilter,
   updateAspectRatioFilter,
@@ -303,7 +304,7 @@ async function applyRoute(initial = false) {
     displayMode.value = DisplayMode.GRID;
     nextTick(() => {
       if (imageIndex.value !== -1) scrollToSelectedImage();
-      if (imagesHeader.value) imagesHeader.value.setFilteredTags(filterTags.value);
+      if (imagesHeader.value) imagesHeader.value.setFilteredTags(filterTags.value, excludeFilterTags.value);
     });
   }
 }
@@ -358,7 +359,7 @@ watch(preferredImageSortOrder, () => {
   loadImages(true);
 });
 watch(searchText, reloadDebounced);
-watch(filterTags, reloadDebounced);
+watch([filterTags, excludeFilterTags], reloadDebounced);
 watch(aspectRatioFilter, reloadDebounced);
 
 // Hotkey wiring: the images context and its handlers are only active while

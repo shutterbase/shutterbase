@@ -125,24 +125,53 @@
                 class="h-8 w-full rounded-md border border-primary-200 bg-surface-muted px-2.5 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-primary-900 dark:text-primary-100"
               />
             </div>
-            <div class="scrollbar-tool max-h-64 overflow-y-auto p-1">
+            <!-- active filters: pinned above the list, immune to the text filter -->
+            <div v-if="selectedTags.length" class="flex flex-wrap gap-1.5 border-b border-primary-100 p-2 dark:border-primary-800">
               <button
+                v-for="entry in selectedTags"
+                :key="entry.tag.id"
+                type="button"
+                :aria-label="`Remove filter ${tagLabel(entry.tag)}`"
+                :title="entry.exclude ? 'Excluded — click to remove' : 'Included — click to remove'"
+                @click="removeTagFilter(entry)"
+                :class="[
+                  'group inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors',
+                  entry.exclude
+                    ? 'border-error-400/60 bg-error-500/10 text-error-700 hover:border-error-500 dark:border-error-400/40 dark:text-error-300'
+                    : 'border-success-400/60 bg-success-500/10 text-success-700 hover:border-success-500 dark:border-success-400/40 dark:text-success-300',
+                ]"
+              >
+                <span class="font-semibold">{{ entry.exclude ? "−" : "+" }}</span>
+                <span class="truncate">{{ tagLabel(entry.tag) }}</span>
+                <XMarkIcon class="h-3.5 w-3.5 shrink-0 opacity-60 group-hover:opacity-100" />
+              </button>
+            </div>
+            <div class="scrollbar-tool max-h-64 overflow-y-auto p-1">
+              <div
                 v-for="tag in filteredTags"
                 :key="tag.id"
-                type="button"
-                @click="toggleTag(tag)"
-                class="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-primary-700 transition-colors hover:bg-primary-100 dark:text-primary-200 dark:hover:bg-primary-800"
+                class="group flex w-full items-center gap-1 rounded-md px-2.5 py-1.5 text-left text-sm text-primary-700 transition-colors hover:bg-primary-100 dark:text-primary-200 dark:hover:bg-primary-800"
               >
-                <span
-                  :class="[
-                    'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border',
-                    isSelected(tag) ? 'border-accent-500 bg-accent-500 text-white' : 'border-primary-300 dark:border-primary-600',
-                  ]"
+                <span class="min-w-0 flex-1 truncate">{{ tagLabel(tag) }}</span>
+                <button
+                  type="button"
+                  :aria-label="`Include ${tagLabel(tag)}`"
+                  :title="`Show only images with ${tagLabel(tag)}`"
+                  @click="addTagFilter(tag, false)"
+                  class="rounded p-1 text-primary-400 transition-colors hover:bg-success-500/15 hover:text-success-600 dark:text-primary-500 dark:hover:text-success-300"
                 >
-                  <CheckIcon v-if="isSelected(tag)" class="h-3 w-3" />
-                </span>
-                <span class="truncate">{{ tagLabel(tag) }}</span>
-              </button>
+                  <MagnifyingGlassPlusIcon class="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  :aria-label="`Exclude ${tagLabel(tag)}`"
+                  :title="`Hide images with ${tagLabel(tag)}`"
+                  @click="addTagFilter(tag, true)"
+                  class="rounded p-1 text-primary-400 transition-colors hover:bg-error-500/15 hover:text-error-600 dark:text-primary-500 dark:hover:text-error-300"
+                >
+                  <MagnifyingGlassMinusIcon class="h-4 w-4" />
+                </button>
+              </div>
               <p v-if="!filteredTags.length" class="px-2.5 py-6 text-center text-sm text-primary-400">No tags found</p>
             </div>
             <div v-if="selectedTags.length" class="border-t border-primary-100 p-1 dark:border-primary-800">
@@ -252,6 +281,8 @@
 import {
   PhotoIcon,
   MagnifyingGlassIcon,
+  MagnifyingGlassPlusIcon,
+  MagnifyingGlassMinusIcon,
   QuestionMarkCircleIcon,
   XMarkIcon,
   TagIcon,
@@ -295,7 +326,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   search: [string];
-  filterTags: [ImageTag[]];
+  filterTags: [{ include: ImageTag[]; exclude: ImageTag[] }];
   aspectRatioFilter: [string];
   "update:density": [Density];
   rerunAi: [];
@@ -346,18 +377,31 @@ watch(searchText, () => emit("search", searchText.value));
 const orientation = ref<string>("neutral");
 watch(orientation, () => emit("aspectRatioFilter", orientation.value));
 
-// tags
+// tags — Grafana-style polarity filter: + narrows to images WITH the tag,
+// − drops images WITH the tag. Selected entries pin above the list.
+interface TagFilterEntry {
+  tag: ImageTag;
+  exclude: boolean;
+}
 const tagQuery = ref("");
-const selectedTags = ref<ImageTag[]>([]);
-watch(selectedTags, () => emit("filterTags", selectedTags.value), { deep: true });
+const selectedTags = ref<TagFilterEntry[]>([]);
+watch(selectedTags, () =>
+  emit("filterTags", {
+    include: selectedTags.value.filter((e) => !e.exclude).map((e) => e.tag),
+    exclude: selectedTags.value.filter((e) => e.exclude).map((e) => e.tag),
+  }),
+);
 const selectableTags = computed(() => projectTags.value.filter((t: ImageTag) => t.type !== "template"));
 const filteredTags = computed(() => {
   const q = tagQuery.value.toLowerCase();
-  return selectableTags.value.filter((t: ImageTag) => t.name.toLowerCase().includes(q) || tagLabel(t).toLowerCase().includes(q));
+  return selectableTags.value.filter((t: ImageTag) => !isSelected(t) && (t.name.toLowerCase().includes(q) || tagLabel(t).toLowerCase().includes(q)));
 });
-const isSelected = (tag: ImageTag) => selectedTags.value.some((t) => t.id === tag.id);
-function toggleTag(tag: ImageTag) {
-  selectedTags.value = isSelected(tag) ? selectedTags.value.filter((t) => t.id !== tag.id) : [...selectedTags.value, tag];
+const isSelected = (tag: ImageTag) => selectedTags.value.some((e) => e.tag.id === tag.id);
+function addTagFilter(tag: ImageTag, exclude: boolean) {
+  selectedTags.value = [...selectedTags.value, { tag, exclude }];
+}
+function removeTagFilter(entry: TagFilterEntry) {
+  selectedTags.value = selectedTags.value.filter((e) => e.tag.id !== entry.tag.id);
 }
 function clearTags() {
   selectedTags.value = [];
@@ -388,8 +432,8 @@ function onUploadSelect(id: string | null) {
 }
 
 // kept for Images.vue: re-sync selected tags when toggling grid/detail
-function setFilteredTags(tags: ImageTag[]) {
-  selectedTags.value = tags;
+function setFilteredTags(include: ImageTag[], exclude: ImageTag[]) {
+  selectedTags.value = [...include.map((tag) => ({ tag, exclude: false })), ...exclude.map((tag) => ({ tag, exclude: true }))];
 }
 defineExpose({ setFilteredTags });
 </script>

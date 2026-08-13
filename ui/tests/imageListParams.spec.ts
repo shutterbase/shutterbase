@@ -34,10 +34,18 @@ describe("buildImageListParams (UI state -> §4.3 list params)", () => {
   });
 
   it("drops the neutral orientation and empty search", () => {
-    const params = buildImageListParams({ projectId: "p1", search: "", tags: [], orientation: "neutral" });
+    const params = buildImageListParams({ projectId: "p1", search: "", tags: [], excludeTags: [], orientation: "neutral" });
     expect(params.orientation).toBeUndefined();
     expect(params.search).toBeUndefined();
     expect(params.tagId).toBeUndefined();
+    expect(params.excludeTagId).toBeUndefined();
+  });
+
+  it("maps exclude-tags independently of include-tags", () => {
+    const params = buildImageListParams({ projectId: "p1", tags: [{ id: "t1" }], excludeTags: [{ id: "t2" }, { id: "t3" }] });
+    expect(params.tagId).toEqual(["t1"]);
+    expect(params.excludeTagId).toEqual(["t2", "t3"]);
+    expect(buildImageListParams({ projectId: "p1", excludeTags: [{ id: "t2" }] }).tagId).toBeUndefined();
   });
 
   it("maps the implicit person filter and drops it when unset", () => {

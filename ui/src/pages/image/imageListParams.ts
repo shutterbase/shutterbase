@@ -7,6 +7,7 @@ export function buildImageListParams(input: {
   projectId: string;
   search?: string;
   tags?: { id: string }[];
+  excludeTags?: { id: string }[];
   personRef?: string;
   crossProject?: boolean;
   uploadId?: string;
@@ -22,6 +23,9 @@ export function buildImageListParams(input: {
   }
   if (input.tags && input.tags.length > 0) {
     params.tagId = input.tags.map((t) => t.id); // repeated -> AND
+  }
+  if (input.excludeTags && input.excludeTags.length > 0) {
+    params.excludeTagId = input.excludeTags.map((t) => t.id); // repeated -> NOT any
   }
   if (input.personRef) {
     params.personRef = input.personRef;
