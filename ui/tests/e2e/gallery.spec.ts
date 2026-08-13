@@ -42,9 +42,18 @@ test.describe("gallery toolbar", () => {
     await expect(page.getByText("Default", { exact: true })).toBeVisible();
     // $DATE is a template tag and must not appear in the filter
     await expect(page.getByText("$DATE")).toHaveCount(0);
-    // including a tag surfaces the "Clear N selected" affordance
-    await page.getByRole("button", { name: "Include Podium" }).click();
+
+    // facet counts: all 3 seed images carry Default, none carries Podium
+    const includeDefault = page.getByRole("button", { name: "Include Default" });
+    await expect(includeDefault).toContainText("3");
+    await expect(page.getByRole("button", { name: "Include Podium" })).toBeDisabled(); // would show 0 images
+    await expect(page.getByRole("button", { name: "Exclude Default" })).toBeDisabled(); // would empty the view
+
+    // including a tag surfaces the "Clear N selected" affordance…
+    await includeDefault.click();
     await expect(page.getByText(/Clear 1 selected/)).toBeVisible();
+    // …and under the active filter, tags that would empty the result disappear
+    await expect(page.getByRole("button", { name: "Include Podium" })).toHaveCount(0);
   });
 
   test("tag filter pins include/exclude chips above the list, immune to the text filter", async ({ page }) => {
@@ -66,10 +75,12 @@ test.describe("gallery toolbar", () => {
     await expect(defaultChip).toBeVisible();
 
     // chip click removes a single filter; the tag returns to the pick list
+    // (Default, not Podium: under the remaining [+Default] filter a removed
+    // Podium stays facet-hidden — 0 of the matching images carry it)
     await page.getByPlaceholder("Filter tags…").fill("");
-    await podiumChip.click();
-    await expect(podiumChip).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Include Podium" })).toBeVisible();
+    await defaultChip.click();
+    await expect(defaultChip).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Include Default" })).toBeVisible();
     await expect(page.getByText(/Clear 1 selected/)).toBeVisible();
   });
 

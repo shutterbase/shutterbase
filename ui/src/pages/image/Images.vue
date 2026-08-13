@@ -8,8 +8,10 @@
         :show-filter="displayMode === DisplayMode.GRID"
         :selection-count="imageIndices.length"
         :upload-filter="uploadFilter"
+        :tag-facets="tagFacets"
         @search="updateSearchText"
         @filter-tags="updateFilterTags"
+        @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
         @rerun-ai="rerunSelection"
         @upload-filter="setUploadFilter"
@@ -200,6 +202,8 @@ import {
   restoreGridSnapshot,
   invalidateGridSnapshot,
   resetTransientFilters,
+  tagFacets,
+  loadTagFacets,
 } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";

@@ -45,6 +45,18 @@ export async function list(params: ImageListParams): Promise<ListResponse<Image>
   return data;
 }
 
+// facets[tagId] = images the filter would still match with tagId added as an
+// include filter (zero-count tags omitted); total = matches of the filter itself.
+export interface TagFacetsResponse {
+  total: number;
+  facets: Record<string, number>;
+}
+
+export async function tagFacets(params: ImageListParams): Promise<TagFacetsResponse> {
+  const { data } = await http.get<TagFacetsResponse>("/images/tag-facets", { params, paramsSerializer: { indexes: null } });
+  return data;
+}
+
 export async function get(id: string): Promise<Image> {
   const { data } = await http.get<Image>(`/images/${id}`);
   return data;

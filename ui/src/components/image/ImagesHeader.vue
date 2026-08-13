@@ -94,8 +94,8 @@
       </div>
 
       <!-- tags filter -->
-      <Popover class="relative">
-        <PopoverButton :class="[triggerBase, selectedTags.length ? triggerActive : triggerIdle]">
+      <Popover class="relative" v-slot="{ open }">
+        <PopoverButton :class="[triggerBase, selectedTags.length ? triggerActive : triggerIdle]" @click="!open && emit('facetsNeeded', true)">
           <TagIcon class="h-[18px] w-[18px]" />
           <span>Tags</span>
           <span
@@ -115,7 +115,7 @@
           leave-to-class="opacity-0 translate-y-1"
         >
           <PopoverPanel
-            class="absolute right-0 z-30 mt-2 w-[calc(100vw-2rem)] max-w-72 origin-top-right overflow-hidden rounded-lg border border-primary-200 bg-surface shadow-xl dark:border-primary-700 dark:bg-surface-dark"
+            class="absolute right-0 z-30 mt-2 w-[calc(100vw-2rem)] max-w-80 origin-top-right overflow-hidden rounded-lg border border-primary-200 bg-surface shadow-xl dark:border-primary-700 dark:bg-surface-dark"
           >
             <div class="border-b border-primary-100 p-2 dark:border-primary-800">
               <input
@@ -148,7 +148,7 @@
             </div>
             <div class="scrollbar-tool max-h-64 overflow-y-auto p-1">
               <div
-                v-for="tag in filteredTags"
+                v-for="tag in visibleTags"
                 :key="tag.id"
                 class="group flex w-full items-center gap-1 rounded-md px-2.5 py-1.5 text-left text-sm text-primary-700 transition-colors hover:bg-primary-100 dark:text-primary-200 dark:hover:bg-primary-800"
               >
@@ -157,22 +157,26 @@
                   type="button"
                   :aria-label="`Include ${tagLabel(tag)}`"
                   :title="`Show only images with ${tagLabel(tag)}`"
+                  :disabled="includeCount(tag) === 0"
                   @click="addTagFilter(tag, false)"
-                  class="rounded p-1 text-primary-400 transition-colors hover:bg-success-500/15 hover:text-success-600 dark:text-primary-500 dark:hover:text-success-300"
+                  class="flex items-center gap-0.5 rounded p-1 text-primary-400 transition-colors hover:bg-success-500/15 hover:text-success-600 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary-400 dark:text-primary-500 dark:hover:text-success-300"
                 >
                   <MagnifyingGlassPlusIcon class="h-4 w-4" />
+                  <span v-if="includeCount(tag) !== null" class="font-data text-[10px] tabular-nums">{{ includeCount(tag) }}</span>
                 </button>
                 <button
                   type="button"
                   :aria-label="`Exclude ${tagLabel(tag)}`"
                   :title="`Hide images with ${tagLabel(tag)}`"
+                  :disabled="excludeCount(tag) === 0"
                   @click="addTagFilter(tag, true)"
-                  class="rounded p-1 text-primary-400 transition-colors hover:bg-error-500/15 hover:text-error-600 dark:text-primary-500 dark:hover:text-error-300"
+                  class="flex items-center gap-0.5 rounded p-1 text-primary-400 transition-colors hover:bg-error-500/15 hover:text-error-600 disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-primary-400 dark:text-primary-500 dark:hover:text-error-300"
                 >
                   <MagnifyingGlassMinusIcon class="h-4 w-4" />
+                  <span v-if="excludeCount(tag) !== null" class="font-data text-[10px] tabular-nums">{{ excludeCount(tag) }}</span>
                 </button>
               </div>
-              <p v-if="!filteredTags.length" class="px-2.5 py-6 text-center text-sm text-primary-400">No tags found</p>
+              <p v-if="!visibleTags.length" class="px-2.5 py-6 text-center text-sm text-primary-400">No tags found</p>
             </div>
             <div v-if="selectedTags.length" class="border-t border-primary-100 p-1 dark:border-primary-800">
               <button
@@ -303,6 +307,7 @@ import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
 import { computed, h, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
+import type { TagFacetsResponse } from "src/api/images";
 import { tagLabel } from "src/util/tagOrder";
 import { api } from "src/api";
 
@@ -316,12 +321,15 @@ interface Props {
   selectionCount?: number;
   // active upload-batch filter — route-driven, Images.vue owns the query sync
   uploadFilter?: string | null;
+  // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
+  tagFacets?: TagFacetsResponse | null;
 }
 const props = withDefaults(defineProps<Props>(), {
   totalImageCount: 0,
   density: "comfortable",
   selectionCount: 0,
   uploadFilter: null,
+  tagFacets: null,
 });
 
 const emit = defineEmits<{
@@ -332,6 +340,8 @@ const emit = defineEmits<{
   rerunAi: [];
   uploadFilter: [string | null];
   slideshow: [];
+  // true = force a refresh (popover open), false = only if the filter changed
+  facetsNeeded: [boolean];
 }>();
 
 const { activeProject, preferredImageSortOrder, projectTags } = storeToRefs(useUserStore());
@@ -385,17 +395,31 @@ interface TagFilterEntry {
 }
 const tagQuery = ref("");
 const selectedTags = ref<TagFilterEntry[]>([]);
-watch(selectedTags, () =>
+watch(selectedTags, () => {
   emit("filterTags", {
     include: selectedTags.value.filter((e) => !e.exclude).map((e) => e.tag),
     exclude: selectedTags.value.filter((e) => e.exclude).map((e) => e.tag),
-  }),
-);
+  });
+  // after filterTags, so the facet fetch reads the already-updated filter state
+  emit("facetsNeeded", false);
+});
 const selectableTags = computed(() => projectTags.value.filter((t: ImageTag) => t.type !== "template"));
 const filteredTags = computed(() => {
   const q = tagQuery.value.toLowerCase();
   return selectableTags.value.filter((t: ImageTag) => !isSelected(t) && (t.name.toLowerCase().includes(q) || tagLabel(t).toLowerCase().includes(q)));
 });
+// under an active filter, tags that would produce an empty result set disappear;
+// with no filter every tag stays offered (zero-count tags are normal pre-event)
+const visibleTags = computed(() => {
+  if (selectedTags.value.length === 0 || !props.tagFacets) return filteredTags.value;
+  return filteredTags.value.filter((t: ImageTag) => (props.tagFacets!.facets[t.id] ?? 0) > 0);
+});
+// images left when adding the tag as +/− filter; null while facets are loading
+const includeCount = (tag: ImageTag): number | null => (props.tagFacets ? (props.tagFacets.facets[tag.id] ?? 0) : null);
+const excludeCount = (tag: ImageTag): number | null => {
+  const inc = includeCount(tag);
+  return inc === null ? null : props.tagFacets!.total - inc;
+};
 const isSelected = (tag: ImageTag) => selectedTags.value.some((e) => e.tag.id === tag.id);
 function addTagFilter(tag: ImageTag, exclude: boolean) {
   selectedTags.value = [...selectedTags.value, { tag, exclude }];

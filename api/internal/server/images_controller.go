@@ -15,27 +15,29 @@ import (
 
 func (s *Server) registerImageRoutes(api *gin.RouterGroup) {
 	api.GET("/images", s.listImages)
+	api.GET("/images/tag-facets", s.listImageTagFacets)
 	api.GET("/images/:id", s.getImage)
 	api.POST("/images", s.createImage)
 	api.PUT("/images/:id", s.updateImage)
 	api.DELETE("/images/:id", s.deleteImage)
 }
 
-func (s *Server) listImages(c *gin.Context) {
+// parseImageFilterParams parses the shared gallery filter params (§4.3, minus
+// pagination) including the person-filter resolution — one source of truth for
+// the list and the tag-facets endpoints. emptyResult=true means the person
+// filter matched nothing and the caller should answer with an empty payload.
+// On ok=false the HTTP error has already been written.
+func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetImageParameters, emptyResult bool, ok bool) {
 	// authz (S8): caller must be admin or assigned to projectId, else 403.
-	pagination, ok := getPagination(c)
-	if !ok {
-		return
-	}
 	projectID := c.Query("projectId")
 	if projectID == "" {
 		apiError(c, http.StatusBadRequest, "missing_project", "projectId is required")
-		return
+		return nil, false, false
 	}
 	if !allow(c, authorization.CanViewProject(authUser(c), projectID)) {
-		return
+		return nil, false, false
 	}
-	params := &repository.GetImageParameters{ProjectID: projectID, PaginationParameters: pagination}
+	params = &repository.GetImageParameters{ProjectID: projectID}
 	if v := c.Query("uploadId"); v != "" {
 		params.UploadID = &v
 	}
@@ -46,7 +48,7 @@ func (s *Server) listImages(c *gin.Context) {
 		uid, err := uuid.Parse(v)
 		if err != nil {
 			apiError(c, http.StatusBadRequest, "invalid_user_id", "invalid userId")
-			return
+			return nil, false, false
 		}
 		params.UserID = &uid
 	}
@@ -62,14 +64,14 @@ func (s *Server) listImages(c *gin.Context) {
 	if v := c.Query("orientation"); v != "" {
 		if v != "portrait" && v != "landscape" {
 			apiError(c, http.StatusBadRequest, "invalid_orientation", "orientation must be 'portrait' or 'landscape'")
-			return
+			return nil, false, false
 		}
 		params.Orientation = &v
 	}
 	if v := c.Query("personRef"); v != "" {
-		ids, ok := s.personImageIDs(c, projectID, v)
-		if !ok {
-			return
+		ids, idsOk := s.personImageIDs(c, projectID, v)
+		if !idsOk {
+			return nil, false, false
 		}
 		// The ONE exception to the hard project filter: cross-project person
 		// search widens to every project the user may view. The requested
@@ -87,10 +89,26 @@ func (s *Server) listImages(c *gin.Context) {
 			params.ProjectIDs = append([]string{projectID}, others...)
 		}
 		if len(ids) == 0 {
-			c.JSON(http.StatusOK, ListResponse[*ImageResponse]{Limit: pagination.Limit, Offset: pagination.Offset, Total: 0, Items: []*ImageResponse{}})
-			return
+			return params, true, true
 		}
 		params.IDs = ids
+	}
+	return params, false, true
+}
+
+func (s *Server) listImages(c *gin.Context) {
+	pagination, ok := getPagination(c)
+	if !ok {
+		return
+	}
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	params.PaginationParameters = pagination
+	if emptyResult {
+		c.JSON(http.StatusOK, ListResponse[*ImageResponse]{Limit: pagination.Limit, Offset: pagination.Offset, Total: 0, Items: []*ImageResponse{}})
+		return
 	}
 
 	items, total, err := s.Repository.GetImages(c.Request.Context(), params)
@@ -102,6 +120,30 @@ func (s *Server) listImages(c *gin.Context) {
 		out = append(out, ToImageResponse(c.Request.Context(), img, s.s3Client, s.thumbnailSizes))
 	}
 	c.JSON(http.StatusOK, ListResponse[*ImageResponse]{Limit: pagination.Limit, Offset: pagination.Offset, Total: total, Items: out})
+}
+
+// TagFacetsResponse backs the tag filter popover: facets[tagId] = images the
+// current filter would still match with tagId added as an include filter
+// (zero-count tags omitted); total = matches of the filter itself.
+type TagFacetsResponse struct {
+	Total  int            `json:"total"`
+	Facets map[string]int `json:"facets"`
+}
+
+func (s *Server) listImageTagFacets(c *gin.Context) {
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	if emptyResult {
+		c.JSON(http.StatusOK, TagFacetsResponse{Facets: map[string]int{}})
+		return
+	}
+	total, facets, err := s.Repository.GetImageTagFacets(c.Request.Context(), params)
+	if abortRepoListError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, TagFacetsResponse{Total: total, Facets: facets})
 }
 
 func (s *Server) getImage(c *gin.Context) {

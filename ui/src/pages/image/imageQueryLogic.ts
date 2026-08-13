@@ -2,6 +2,7 @@ import { useUserStore } from "src/stores/user-store";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { api } from "src/api";
+import type { TagFacetsResponse } from "src/api/images";
 import { ImageTag } from "src/types/api";
 import { ImageWithTagsType } from "src/types/custom";
 import { buildImageListParams } from "src/pages/image/imageListParams";
@@ -189,6 +190,38 @@ export async function loadImages(reload: boolean) {
     showUnexpectedErrorMessage.value = true;
   } finally {
     if (myRequestId === requestId) loading.value = false;
+  }
+}
+
+// --- tag facets ---------------------------------------------------------------
+// Per-tag counts under the CURRENT filter, feeding the tag popover: hide tags
+// that would empty the view, show what each +/− filter would leave. Fetched on
+// popover open (force) and on selection changes; the key memo skips refetches
+// when nothing filter-relevant changed (e.g. grid ⇄ detail resync re-emits).
+
+export const tagFacets = ref<TagFacetsResponse | null>(null);
+let lastFacetsKey = "";
+
+export async function loadTagFacets(force = false) {
+  const params = buildImageListParams({
+    projectId: activeProject.value.id,
+    search: searchText.value,
+    tags: filterTags.value,
+    excludeTags: excludeFilterTags.value,
+    personRef: personFilter.value ?? undefined,
+    crossProject: personCrossProject.value,
+    uploadId: uploadFilter.value ?? undefined,
+    orientation: aspectRatioFilter.value,
+  });
+  const key = JSON.stringify(params);
+  if (!force && key === lastFacetsKey && tagFacets.value) return;
+  lastFacetsKey = key;
+  try {
+    tagFacets.value = await api.images.tagFacets(params);
+  } catch {
+    // facets are decoration — the popover degrades to the plain tag list
+    tagFacets.value = null;
+    lastFacetsKey = "";
   }
 }
 
