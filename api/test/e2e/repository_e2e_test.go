@@ -109,6 +109,43 @@ func TestGetImagesTagAndMatch(t *testing.T) {
 	require.NoError(t, r.DeleteImageTagAssignment(ctx, a.ID))
 }
 
+func TestGetImagesExcludeTags(t *testing.T) {
+	ctx := context.Background()
+	r := repo(t)
+	m := stack.Manifest
+
+	podium := m.Tags["Podium"]
+
+	// Assign Podium to one image, then exclude it -> only the other two remain.
+	_, _, err := r.CreateImageTagAssignment(ctx, &repository.CreateImageTagAssignmentParameters{
+		ImageID: m.Images[0], ImageTagID: podium, Type: imagetagassignment.TypeManual,
+	})
+	require.NoError(t, err)
+
+	items, total, err := r.GetImages(ctx, &repository.GetImageParameters{
+		ProjectID: m.Project, ExcludeTagIDs: []string{podium}, PaginationParameters: defaultPagination(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, total, "NOT imageTags @> '[podium]'")
+	for _, item := range items {
+		assert.NotEqual(t, m.Images[0], item.ID)
+	}
+
+	// include and exclude compose: Default AND NOT Podium.
+	_, total, err = r.GetImages(ctx, &repository.GetImageParameters{
+		ProjectID: m.Project, TagIDs: []string{m.Tags["Default"]}, ExcludeTagIDs: []string{podium},
+		PaginationParameters: defaultPagination(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, total)
+
+	// cleanup: remove the extra assignment so later tests see the seed baseline.
+	a := stack.DB.Client.ImageTagAssignment.Query().
+		Where(imagetagassignment.ImageID(m.Images[0]), imagetagassignment.ImageTagID(podium)).
+		OnlyX(ctx)
+	require.NoError(t, r.DeleteImageTagAssignment(ctx, a.ID))
+}
+
 func TestGetImagesOrientationNullExclusion(t *testing.T) {
 	ctx := context.Background()
 	r := repo(t)

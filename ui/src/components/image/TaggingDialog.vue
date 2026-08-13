@@ -13,7 +13,7 @@
   -->
     <div v-show="shown" class="fixed inset-0 bg-primary-950/60 backdrop-blur-sm transition-opacity"></div>
 
-    <div v-show="shown" class="fixed inset-0 z-10 w-screen overflow-y-auto p-4 sm:p-6 md:p-20">
+    <div v-show="shown" class="fixed inset-0 z-10 w-screen overflow-y-auto p-4 sm:p-6 md:px-20 md:py-10">
       <!--
       Command palette, show/hide based on modal state.
 
@@ -50,8 +50,11 @@
           v-if="(filteredTags.length !== 0 && searchText !== '') || (recentTags.length !== 0 && searchText === '')"
           class="flex transform-gpu divide-x divide-primary-200 dark:divide-primary-800"
         >
-          <!-- Preview Visible: "sm:h-96" -->
-          <div class="max-h-96 min-w-0 flex-auto scroll-py-4 overflow-y-auto px-6 py-4 sm:h-96">
+          <!-- ends at ~two thirds of the viewport: taller than the old fixed h-96,
+               but the lower third stays free so the dialog never reads as a
+               takeover; the calc offsets mirror the wrapper padding plus the
+               h-12 input so the panel itself never overflows -->
+          <div class="max-h-[calc(66dvh-5rem)] min-w-0 flex-auto scroll-py-4 overflow-y-auto px-6 py-4 sm:h-[calc(66dvh-5rem)] md:h-[calc(66dvh-6rem)]">
             <!-- Default state, show/hide based on command palette state. -->
             <h2 v-if="filteredTags.length === 0 && searchText === ''" class="label-mono mb-4 mt-2 text-primary-500 dark:text-primary-400">Recent tags</h2>
             <ul v-if="filteredTags.length === 0 && searchText === ''" class="-mx-2 text-sm text-primary-700 dark:text-primary-200" id="options" role="listbox">
@@ -117,9 +120,28 @@
 
         <!-- Empty state, show/hide based on command palette state -->
         <div v-if="filteredTags.length === 0 && searchText !== ''" class="px-6 py-14 text-center text-sm sm:px-14">
-          <TagIcon class="mx-auto h-6 w-6 text-primary-400 dark:text-primary-500" />
-          <p class="mt-4 font-semibold text-primary-900 dark:text-white">No matching tags</p>
-          <p class="mt-2 text-primary-500 dark:text-primary-400">No tag matching your search could be found. Please use a different keyword or create a 'custom' tag</p>
+          <template v-if="appliedMatchingTags.length > 0">
+            <CheckCircleIcon class="mx-auto h-6 w-6 text-success-500 dark:text-success-400" />
+            <p class="mt-4 font-semibold text-primary-900 dark:text-white">Already applied</p>
+            <p class="mt-2 text-primary-500 dark:text-primary-400">
+              The matching {{ appliedMatchingTags.length === 1 ? "tag is" : "tags are" }} already applied to this image
+            </p>
+            <ul class="mt-4 flex flex-wrap justify-center gap-2">
+              <li
+                v-for="tag in appliedMatchingTags"
+                :key="tag.id"
+                class="inline-flex items-center gap-1.5 rounded-full border border-success-400/60 bg-success-500/10 px-3 py-1 text-sm font-medium text-success-700 dark:border-success-400/40 dark:text-success-300"
+              >
+                <CheckIcon class="h-4 w-4" />
+                {{ tagLabel(tag) }}
+              </li>
+            </ul>
+          </template>
+          <template v-else>
+            <TagIcon class="mx-auto h-6 w-6 text-primary-400 dark:text-primary-500" />
+            <p class="mt-4 font-semibold text-primary-900 dark:text-white">No matching tags</p>
+            <p class="mt-2 text-primary-500 dark:text-primary-400">No tag matching your search could be found. Please use a different keyword or create a 'custom' tag</p>
+          </template>
           <p
             @click="createCustomTag"
             @keydown.enter="createCustomTag"
@@ -141,7 +163,7 @@
 import { useUserStore } from "src/stores/user-store";
 import { storeToRefs } from "pinia";
 import { ImageWithTagsType } from "src/types/custom";
-import { TagIcon } from "@heroicons/vue/24/outline";
+import { CheckCircleIcon, CheckIcon, TagIcon } from "@heroicons/vue/24/outline";
 import { Ref, computed, nextTick, onUnmounted, ref, watch } from "vue";
 import { emitter } from "src/boot/mitt";
 import { debug } from "src/util/logger";
@@ -197,6 +219,18 @@ const filteredTags = computed(() => {
     }
     return false;
   });
+});
+
+// matching tags that are already on the image — without this, "No matching
+// tags" reads as "tag missing" when it is in fact already applied
+const appliedMatchingTags = computed(() => {
+  if (!props.image?.tags || searchText.value === "") {
+    return [];
+  }
+  const query = searchText.value.toLowerCase();
+  return props.image.tags
+    .map((assignment) => assignment.tag)
+    .filter((tag) => tag.name.toLowerCase().includes(query) || tagLabel(tag).toLowerCase().includes(query) || tag.description.toLowerCase().includes(query));
 });
 
 const recentTags = computed(() => {

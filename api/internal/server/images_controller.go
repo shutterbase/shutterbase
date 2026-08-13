@@ -56,6 +56,9 @@ func (s *Server) listImages(c *gin.Context) {
 	if tags := c.QueryArray("tagId"); len(tags) > 0 {
 		params.TagIDs = tags
 	}
+	if tags := c.QueryArray("excludeTagId"); len(tags) > 0 {
+		params.ExcludeTagIDs = tags
+	}
 	if v := c.Query("orientation"); v != "" {
 		if v != "portrait" && v != "landscape" {
 			apiError(c, http.StatusBadRequest, "invalid_orientation", "orientation must be 'portrait' or 'landscape'")

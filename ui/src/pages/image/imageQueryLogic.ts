@@ -46,8 +46,15 @@ export function updateSearchText(text: string) {
 }
 
 export const filterTags = ref<ImageTag[]>([]);
-export function updateFilterTags(tags: ImageTag[]) {
-  filterTags.value = tags;
+export const excludeFilterTags = ref<ImageTag[]>([]);
+export function updateFilterTags(filter: { include: ImageTag[]; exclude: ImageTag[] }) {
+  // no-op guard: the header re-emits on setFilteredTags (grid ⇄ detail resync);
+  // swapping in equal-but-new arrays would trigger the reload watcher and
+  // reset a deeply scrolled grid to page 1.
+  const same = (a: ImageTag[], b: ImageTag[]) => a.length === b.length && a.every((tag, i) => tag.id === b[i].id);
+  if (same(filter.include, filterTags.value) && same(filter.exclude, excludeFilterTags.value)) return;
+  filterTags.value = filter.include;
+  excludeFilterTags.value = filter.exclude;
 }
 
 export const aspectRatioFilter = ref("neutral");
@@ -59,10 +66,11 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
 // mount must reset them too — a value surviving here filters the grid
 // invisibly (a sticky portrait filter once shrank a 38-photo person view to 5).
 export function resetTransientFilters() {
-  if (!searchText.value && filterTags.value.length === 0 && aspectRatioFilter.value === "neutral") return;
+  if (!searchText.value && filterTags.value.length === 0 && excludeFilterTags.value.length === 0 && aspectRatioFilter.value === "neutral") return;
   invalidateGridSnapshot(); // the snapshot was taken under the filters being cleared
   searchText.value = "";
   filterTags.value = [];
+  excludeFilterTags.value = [];
   aspectRatioFilter.value = "neutral";
 }
 
@@ -144,12 +152,19 @@ export async function loadImages(reload: boolean) {
   try {
     if (reload) page.value = 1;
 
-    filtered.value = !!searchText.value || filterTags.value.length > 0 || aspectRatioFilter.value !== "neutral" || !!personFilter.value || !!uploadFilter.value;
+    filtered.value =
+      !!searchText.value ||
+      filterTags.value.length > 0 ||
+      excludeFilterTags.value.length > 0 ||
+      aspectRatioFilter.value !== "neutral" ||
+      !!personFilter.value ||
+      !!uploadFilter.value;
 
     const params = buildImageListParams({
       projectId: activeProject.value.id,
       search: searchText.value,
       tags: filterTags.value,
+      excludeTags: excludeFilterTags.value,
       personRef: personFilter.value ?? undefined,
       crossProject: personCrossProject.value,
       uploadId: uploadFilter.value ?? undefined,

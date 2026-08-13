@@ -56,6 +56,21 @@ test.describe("detail view keyboard flow", () => {
     await page.keyboard.press("Escape");
   });
 
+  test("searching for an already-applied tag shows the green applied state", async ({ page }) => {
+    // seeded images carry the Default tag; applied tags leave the result list,
+    // so this search must land in the "Already applied" state, not "No matching tags"
+    await page.keyboard.press("t");
+    const search = page.getByPlaceholder("Search tag...");
+    await expect(search).toBeVisible();
+    await search.fill("Default");
+    await expect(page.getByText("Already applied", { exact: true })).toBeVisible();
+    await expect(page.locator('li:has-text("Default")')).toBeVisible();
+    await expect(page.getByText("No matching tags")).toHaveCount(0);
+    // creating a same-named custom tag stays available
+    await expect(page.getByRole("button", { name: /Create custom tag/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+  });
+
   test("z toggles zen over either view, g stays grid/detail only", async ({ page }) => {
     const zen = page.getByTestId("zen-overlay");
     const first = imageParam(page);

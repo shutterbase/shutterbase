@@ -42,8 +42,34 @@ test.describe("gallery toolbar", () => {
     await expect(page.getByText("Default", { exact: true })).toBeVisible();
     // $DATE is a template tag and must not appear in the filter
     await expect(page.getByText("$DATE")).toHaveCount(0);
-    // toggling a tag surfaces the "Clear N selected" affordance
-    await page.getByRole("button", { name: /Podium/ }).click();
+    // including a tag surfaces the "Clear N selected" affordance
+    await page.getByRole("button", { name: "Include Podium" }).click();
+    await expect(page.getByText(/Clear 1 selected/)).toBeVisible();
+  });
+
+  test("tag filter pins include/exclude chips above the list, immune to the text filter", async ({ page }) => {
+    await page.getByRole("button", { name: "Tags" }).click();
+    await page.getByRole("button", { name: "Exclude Podium" }).click();
+    await page.getByRole("button", { name: "Include Default" }).click();
+
+    // both chips pinned; a selected tag leaves the pick list below
+    const podiumChip = page.getByRole("button", { name: "Remove filter Podium" });
+    const defaultChip = page.getByRole("button", { name: "Remove filter Default" });
+    await expect(podiumChip).toBeVisible();
+    await expect(defaultChip).toBeVisible();
+    await expect(page.getByRole("button", { name: "Include Podium" })).toHaveCount(0);
+
+    // the text filter narrows the pick list but never the pinned chips
+    await page.getByPlaceholder("Filter tags…").fill("zzz-no-such-tag");
+    await expect(page.getByText("No tags found")).toBeVisible();
+    await expect(podiumChip).toBeVisible();
+    await expect(defaultChip).toBeVisible();
+
+    // chip click removes a single filter; the tag returns to the pick list
+    await page.getByPlaceholder("Filter tags…").fill("");
+    await podiumChip.click();
+    await expect(podiumChip).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Include Podium" })).toBeVisible();
     await expect(page.getByText(/Clear 1 selected/)).toBeVisible();
   });
 

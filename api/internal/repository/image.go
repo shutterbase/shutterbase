@@ -57,6 +57,7 @@ type GetImageParameters struct {
 	UserID               *uuid.UUID
 	Search               *string
 	TagIDs               []string // repeated -> AND-match via a single jsonb @> containment
+	ExcludeTagIDs        []string // repeated -> drop images carrying ANY of these (NOT @> per id)
 	IDs                  []string // restrict to these ids (person filter); nil = no restriction
 	Orientation          *string  // "portrait" (w<h) | "landscape" (w>h); null w/h excluded
 	PaginationParameters *PaginationParameters
@@ -98,6 +99,16 @@ func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParamete
 		tagIDs := parameters.TagIDs
 		predicates = append(predicates, func(s *sql.Selector) {
 			s.Where(sqljson.ValueContains(image.FieldImageTags, tagIDs))
+		})
+	}
+	for _, excludedTagID := range parameters.ExcludeTagIDs {
+		excluded := []string{excludedTagID}
+		predicates = append(predicates, func(s *sql.Selector) {
+			// NULL imageTags must survive: NOT(NULL @> ...) is NULL, which would drop the row.
+			s.Where(sql.Or(
+				sql.IsNull(s.C(image.FieldImageTags)),
+				sql.Not(sqljson.ValueContains(image.FieldImageTags, excluded)),
+			))
 		})
 	}
 	if parameters.Orientation != nil {
