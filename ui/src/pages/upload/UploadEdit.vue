@@ -61,7 +61,20 @@
         <UploadTimeline :upload="upload" :images="displayedImages" :readonly="timelineReadonly" @applied="upload = $event" />
 
         <!-- 3. tile grid with per-tile progress -->
-        <ImageUploadGrid :images="displayedImages" :allow-edit="showUploadEdit(upload)" @remove="deleteImage" />
+        <ImageUploadGrid :images="displayedImages" :allow-edit="showUploadEdit(upload)" @remove="deleteImage">
+          <button v-if="showPause" type="button" @click="fileProcessor.pause()" :class="[transitionBase, transitionQuiet]">
+            <PauseIcon class="h-4 w-4" />
+            Pause upload
+          </button>
+          <button v-if="showResume" type="button" @click="fileProcessor.resume()" :class="[transitionBase, transitionAccent]">
+            <PlayIcon class="h-4 w-4" />
+            Resume upload
+          </button>
+          <button v-if="notUploadedCount > 0" type="button" @click="removeNotUploaded" :class="[transitionBase, transitionQuiet]">
+            <TrashIcon class="h-4 w-4" />
+            Remove not uploaded ({{ notUploadedCount }})
+          </button>
+        </ImageUploadGrid>
       </div>
     </main>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
@@ -82,10 +95,10 @@ import { showNotificationToast } from "src/boot/mitt";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import * as dateTimeUtil from "src/util/dateTimeUtil";
-import { FileProcessor, Image, newImage, newImageFromBackendImage } from "src/util/fileProcessor";
+import { FileProcessor, Image, ImageStatus, newImage, newImageFromBackendImage } from "src/util/fileProcessor";
 import { error } from "src/util/logger";
 import { showUploadEdit } from "./uploadUtil";
-import { CheckCircleIcon, ClockIcon, LockClosedIcon, PencilSquareIcon, PhotoIcon, SparklesIcon } from "@heroicons/vue/24/outline";
+import { CheckCircleIcon, ClockIcon, LockClosedIcon, PauseIcon, PencilSquareIcon, PhotoIcon, PlayIcon, SparklesIcon, TrashIcon } from "@heroicons/vue/24/outline";
 import { UPLOAD_STATE_LABEL, UPLOAD_STATE_HINT, TRANSITION_LABEL, allowedTransitions, canAddImages } from "src/util/uploadReview";
 import { AiUploadStatus } from "src/api/ai";
 import { aiUploadSummary } from "src/util/aiDetection";
@@ -128,6 +141,18 @@ const uploadForProcessor = computed(() => upload.value as UploadsResponse);
 const fileProcessor = new FileProcessor(uploadForProcessor, images, timeOffsets);
 onUnmounted(() => fileProcessor.stop());
 
+// --- pause / resume / cleanup of the local pipeline (pure client state, no API) ---
+
+const processorPaused = fileProcessor.paused;
+const notUploaded = (image: Image) => image.status === ImageStatus.PENDING || image.status === ImageStatus.ERROR;
+const notUploadedCount = computed(() => images.value.filter(notUploaded).length);
+const showPause = computed(() => !processorPaused.value && images.value.some((i) => i.status !== ImageStatus.DONE && i.status !== ImageStatus.ERROR));
+const showResume = computed(() => processorPaused.value && images.value.some((i) => i.status === ImageStatus.PENDING));
+
+function removeNotUploaded() {
+  images.value = images.value.filter((i) => !notUploaded(i));
+}
+
 async function handleFiles(fileInput: File[]) {
   for (const file of fileInput) {
     if (displayedImages.value.find((image) => image.originalFileName === file.name)) {
@@ -151,7 +176,8 @@ async function requestTimeOffsets() {
 
 async function deleteImage(item: Image): Promise<void> {
   if (!item.id) {
-    error("image cannot be deleted without an id");
+    // not persisted yet — dropping the local tile is the whole delete
+    images.value = images.value.filter((i) => i !== item);
     return;
   }
   try {

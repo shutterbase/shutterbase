@@ -26,6 +26,12 @@ export enum ImageStatus {
 }
 
 const PROCESSING_STATES = [ImageStatus.LOADING, ImageStatus.LOADED, ImageStatus.RESIZING, ImageStatus.UPLOADING, ImageStatus.UPLOADED, ImageStatus.CREATING];
+
+// States pause() may reset to PENDING. CREATING is deliberately absent: once the
+// backend create is in flight the DB row may already exist — resetting and
+// re-running would collide on the unique computedFileName/storageId. A paused
+// CREATING image finishes to DONE instead.
+const RESETTABLE_STATES = [ImageStatus.LOADING, ImageStatus.LOADED, ImageStatus.RESIZING, ImageStatus.UPLOADING, ImageStatus.UPLOADED];
 const FILE_DIMENSIONS = [256, 512, 1024, 2048];
 const PARALLEL_PROCESSING = 2;
 
@@ -63,6 +69,12 @@ export class FileProcessor {
   private timeOffsets: Ref<TimeOffsetResult[]> = ref([]);
   private interval: NodeJS.Timeout | null = null;
 
+  public readonly paused = ref(false);
+  // pause() bumps the epoch; every in-flight stage completion carries the epoch
+  // it started under and is dropped when it no longer matches — the WASM call
+  // itself cannot be aborted, so cancellation happens at the stage boundaries.
+  private epoch = 0;
+
   constructor(upload: Ref<Upload>, images: Ref<Image[]>, timeOffsets: Ref<TimeOffsetResult[]>) {
     this.upload = upload;
     this.images = images;
@@ -89,11 +101,43 @@ export class FileProcessor {
     return this.interval != null;
   }
 
+  public pause = (): void => {
+    this.paused.value = true;
+    this.epoch++;
+    for (const image of this.images.value) {
+      if (RESETTABLE_STATES.includes(image.status)) {
+        this.resetImage(image);
+      }
+    }
+  };
+
+  public resume = (): void => {
+    this.paused.value = false;
+  };
+
+  // Back to "not uploaded": keeps the file handle (needed to re-enter the
+  // pipeline) and the thumbnail (cosmetic), drops everything derived from
+  // processing so the resumed run starts clean with a fresh storageId.
+  private resetImage = (image: Image): void => {
+    this.setState(image, ImageStatus.PENDING);
+    image.progress = 0;
+    image.data = null;
+    image.storageId = undefined;
+    image.cameraTime = undefined;
+    image.correctedTime = undefined;
+    image.exifData = undefined;
+    image.width = undefined;
+    image.height = undefined;
+  };
+
   private processImages = async () => {
     this.processPendingImages();
   };
 
   private processPendingImages = (): void => {
+    if (this.paused.value) {
+      return;
+    }
     // if (this.getStateCount(ImageStatus.LOADING) != 0) {
     if (this.getStateCount(PROCESSING_STATES) >= PARALLEL_PROCESSING) {
       return;
@@ -104,26 +148,29 @@ export class FileProcessor {
       return;
     }
 
+    const epoch = this.epoch;
     this.setState(image, ImageStatus.LOADING);
     this.loadImage(image)
       .then(() => {
+        if (epoch !== this.epoch) return;
         this.setState(image, ImageStatus.LOADED);
-        this.processLoadedImage(image);
+        this.processLoadedImage(image, epoch);
       })
       .catch((err) => {
-        this.fail(image, err);
+        if (epoch === this.epoch) this.fail(image, err);
       });
   };
 
-  private processLoadedImage = (image: Image): void => {
+  private processLoadedImage = (image: Image, epoch: number): void => {
     this.setState(image, ImageStatus.RESIZING);
-    this.processImage(image)
+    this.processImage(image, epoch)
       .then(() => {
+        if (epoch !== this.epoch) return;
         this.setState(image, ImageStatus.UPLOADED);
         this.processUploadedImage(image);
       })
       .catch((err) => {
-        this.fail(image, err);
+        if (epoch === this.epoch) this.fail(image, err);
       });
   };
 
@@ -189,7 +236,7 @@ export class FileProcessor {
     });
   };
 
-  private processImage = (image: Image): Promise<void> => {
+  private processImage = (image: Image, epoch: number): Promise<void> => {
     return new Promise(async (resolve, reject) => {
       if (image.data == null) {
         reject(new Error("file data is missing — remove the tile and add the file again"));
@@ -222,10 +269,17 @@ export class FileProcessor {
 
       try {
         const processingResult: FileProcessorResult = await process_file(image.data, options, (status: ImageStatus, progress: number) => {
+          // a paused image was reset to PENDING — the unabortable WASM call
+          // must not flip it back to a progress state
+          if (epoch !== this.epoch) return;
           image.status = status;
           image.progress = progress;
         });
         debug(processingResult);
+        if (epoch !== this.epoch) {
+          resolve();
+          return;
+        }
         image.storageId = processingResult.storage_id;
         image.cameraTime = DateTime.fromSeconds(processingResult.camera_time_unix_seconds);
         image.correctedTime = DateTime.fromSeconds(processingResult.corrected_camera_time_unix_seconds);

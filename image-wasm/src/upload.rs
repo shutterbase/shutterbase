@@ -12,9 +12,7 @@ use js_sys::Uint8Array;
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{
-    Blob, Request, RequestCredentials, RequestInit, RequestMode, Response, XmlHttpRequest,
-};
+use web_sys::{Blob, Request, RequestCredentials, RequestInit, RequestMode, Response, XmlHttpRequest};
 
 #[derive(Deserialize)]
 struct UploadUrlResponse {
@@ -39,33 +37,20 @@ pub async fn get_upload_url(api_url: &str, file_name: &str, upload_id: &str) -> 
 
     let request = Request::new_with_str_and_init(&endpoint, &opts)?;
     let window = web_sys::window().ok_or_else(|| Error::msg("no window object"))?;
-    let response: Response = JsFuture::from(window.fetch_with_request(&request))
-        .await?
-        .dyn_into()?;
+    let response: Response = JsFuture::from(window.fetch_with_request(&request)).await?.dyn_into()?;
 
     if !response.ok() {
-        return Err(Error::msg(format!(
-            "upload-url request failed: HTTP {}",
-            response.status()
-        ))
-        .into());
+        return Err(Error::msg(format!("upload-url request failed: HTTP {}", response.status())).into());
     }
 
     let json = JsFuture::from(response.json()?).await?;
-    let parsed: UploadUrlResponse = serde_wasm_bindgen::from_value(json)
-        .map_err(|e| Error::msg(format!("invalid upload-url response: {e}")))?;
+    let parsed: UploadUrlResponse = serde_wasm_bindgen::from_value(json).map_err(|e| Error::msg(format!("invalid upload-url response: {e}")))?;
     Ok(parsed.url)
 }
 
 /// PUT `data` to the presigned URL, reporting progress through `callback`.
 /// Resolves only on a 2xx response; a non-2xx status or network error rejects.
-pub async fn upload_with_progress(
-    data: &[u8],
-    total_upload_size: usize,
-    offset_size: usize,
-    upload_url: String,
-    callback: &js_sys::Function,
-) -> Result<(), JsValue> {
+pub async fn upload_with_progress(data: &[u8], total_upload_size: usize, offset_size: usize, upload_url: String, callback: &js_sys::Function) -> Result<(), JsValue> {
     debug(&format!("uploading {} bytes", data.len()));
 
     let upload_fraction = data.len() as f64 / total_upload_size as f64;
@@ -89,8 +74,7 @@ pub async fn upload_with_progress(
             send(&progress_cb, Status::Uploading, offset_progress + local);
         }
     });
-    xhr.upload()?
-        .set_onprogress(Some(on_progress.as_ref().unchecked_ref()));
+    xhr.upload()?.set_onprogress(Some(on_progress.as_ref().unchecked_ref()));
     on_progress.forget();
 
     // Completion: resolve on 2xx, reject otherwise. Registered exactly once.

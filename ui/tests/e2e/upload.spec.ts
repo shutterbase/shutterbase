@@ -130,6 +130,150 @@ test.describe("browser upload pipeline", () => {
     expect(errors, "no uncaught JS errors during the upload pipeline").toEqual([]);
   });
 
+  test("pause resets in-flight tiles and resume persists exactly one image", async ({ page }) => {
+    const pipelineLog: string[] = [];
+    page.on("console", (m) => pipelineLog.push(`${m.type()}: ${m.text()}`));
+    const project = await loginAs(page, "projectEditor");
+    expect(project, "projectEditor must see the seed project").not.toBeNull();
+
+    const upload = await page.evaluate(
+      async ({ projectId, cameraName }) => {
+        const j = async (u: string) => {
+          const r = await fetch(u, { credentials: "include" });
+          const b = await r.json().catch(() => ({}));
+          return b?.items || b?.data || (Array.isArray(b) ? b : []);
+        };
+        const me = await (await fetch("/api/v1/users/me", { credentials: "include" })).json();
+        const camera = (await j("/api/v1/cameras?limit=50")).find((c: any) => c.name === cameraName);
+        if (!camera) return { error: `seed camera ${cameraName} missing` };
+        const r = await fetch("/api/v1/uploads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name: "e2e pause/resume", projectId, cameraId: camera.id, userId: me.id }),
+        });
+        if (!r.ok) return { error: `create upload: ${r.status} ${await r.text()}` };
+        return { id: (await r.json()).id };
+      },
+      { projectId: project!.id, cameraName: SEED_CAMERA },
+    );
+    expect(upload.error, "upload fixture setup").toBeUndefined();
+
+    // Same fixture as the pipeline test → same globally unique computedFileName;
+    // clear leftovers from earlier tests/runs or the resumed create 409s.
+    await page.evaluate(
+      async ({ projectId, fileName }) => {
+        const r = await fetch(`/api/v1/images?projectId=${projectId}&search=${encodeURIComponent(fileName)}&limit=50`, { credentials: "include" });
+        const b = await r.json().catch(() => ({}));
+        for (const img of b?.items || b?.data || []) {
+          if (img.fileName === fileName) await fetch(`/api/v1/images/${img.id}`, { method: "DELETE", credentials: "include" });
+        }
+      },
+      { projectId: project!.id, fileName: FIXTURE_NAME },
+    );
+
+    await page.goto(`/uploads/${upload.id}/edit`);
+    await page.setInputFiles("#dropzoneFile", FIXTURE);
+
+    // The click lands milliseconds after the drop; WASM resize + 5 S3 PUTs take
+    // seconds, so the image is still in a resettable (pre-CREATING) stage.
+    await page.getByRole("button", { name: "Pause upload" }).click();
+    const tile = page.locator("figure").filter({ hasText: FIXTURE_NAME });
+    await expect(tile.getByText("not uploaded")).toBeVisible({ timeout: 15_000 });
+
+    // Paused means paused: nothing may reach the server.
+    await page.waitForTimeout(3000);
+    const imageCount = ({ uploadId, projectId }: { uploadId: string; projectId: string }) =>
+      page.evaluate(
+        async ({ uploadId, projectId }) => {
+          const r = await fetch(`/api/v1/images?projectId=${projectId}&uploadId=${uploadId}&limit=10`, { credentials: "include" });
+          if (!r.ok) throw new Error(`images list ${r.status}`);
+          const b = await r.json().catch(() => ({}));
+          return (b?.items || b?.data || []).length;
+        },
+        { uploadId, projectId },
+      );
+    expect(await imageCount({ uploadId: upload.id, projectId: project!.id })).toBe(0);
+
+    await page.getByRole("button", { name: "Resume upload" }).click();
+
+    // Exactly one record — the resumed run re-uploads under a fresh storageId and
+    // creates once; a duplicate here means the unique-constraint guard regressed.
+    try {
+      await expect
+        .poll(() => imageCount({ uploadId: upload.id, projectId: project!.id }), {
+          message: "resumed pipeline persists the image",
+          timeout: 90_000,
+          intervals: [500, 1000, 2000],
+        })
+        .toBe(1);
+    } catch (e) {
+      throw new Error(`${(e as Error).message}\n\npipeline log:\n${pipelineLog.filter((l) => /error|ERROR|fail/i.test(l)).join("\n") || "(no errors logged)"}`);
+    }
+  });
+
+  test("not-yet-uploaded tiles can be removed singly and in bulk", async ({ page }) => {
+    const project = await loginAs(page, "projectEditor");
+    // A cleared copyright tag makes every file fail before it reaches the server —
+    // deterministic "not uploaded" tiles without racing the pipeline.
+    const result = await page.evaluate(
+      async ({ projectId, cameraName }) => {
+        const j = async (u: string) => {
+          const r = await fetch(u, { credentials: "include" });
+          const b = await r.json().catch(() => ({}));
+          return b?.items || b?.data || (Array.isArray(b) ? b : []);
+        };
+        const me = await (await fetch("/api/v1/users/me", { credentials: "include" })).json();
+        const camera = (await j("/api/v1/cameras?limit=50")).find((c: any) => c.name === cameraName);
+        const r = await fetch("/api/v1/uploads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name: "e2e remove not uploaded", projectId, cameraId: camera.id, userId: me.id }),
+        });
+        const uploadId = (await r.json()).id;
+        await fetch(`/api/v1/users/${me.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ copyrightTag: "" }),
+        });
+        return { uploadId, userId: me.id, restore: me.copyrightTag };
+      },
+      { projectId: project!.id, cameraName: SEED_CAMERA },
+    );
+
+    try {
+      await page.goto(`/uploads/${result.uploadId}/edit`);
+      await page.setInputFiles("#dropzoneFile", FIXTURE);
+      const tile = page.locator("figure").filter({ hasText: FIXTURE_NAME });
+      await expect(tile.getByText(/no copyright tag/)).toBeVisible({ timeout: 30_000 });
+
+      // single tile: hover trash drops the local tile (nothing persisted to delete)
+      await tile.hover();
+      await tile.getByRole("button", { name: `Remove ${FIXTURE_NAME}` }).click();
+      await expect(tile).toHaveCount(0);
+
+      // re-add (dedup no longer blocks it), then bulk-remove via the header button
+      await page.setInputFiles("#dropzoneFile", FIXTURE);
+      await expect(tile.getByText(/no copyright tag/)).toBeVisible({ timeout: 30_000 });
+      await page.getByRole("button", { name: /Remove not uploaded \(1\)/ }).click();
+      await expect(tile).toHaveCount(0);
+    } finally {
+      await page.evaluate(
+        async ({ userId, restore }) => {
+          await fetch(`/api/v1/users/${userId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ copyrightTag: restore }),
+          });
+        },
+        { userId: result.userId, restore: result.restore },
+      );
+    }
+  });
+
   test("refuses to process when the user has no copyright tag", async ({ page }) => {
     const project = await loginAs(page, "projectEditor");
     const result = await page.evaluate(

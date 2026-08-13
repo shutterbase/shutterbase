@@ -16,6 +16,9 @@ pub enum Error {
     #[error("exif error: {0}")]
     Exif(#[from] exif::Error),
 
+    #[error("raw decode error: {0}")]
+    Raw(#[from] rawler::RawlerError),
+
     #[error("regex error: {0}")]
     Regex(#[from] regex::Error),
 

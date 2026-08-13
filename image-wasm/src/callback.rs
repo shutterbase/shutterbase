@@ -25,9 +25,5 @@ impl Status {
 /// Invoke the JS progress callback. Errors from the JS side are ignored — a
 /// failed progress tick must never abort processing.
 pub fn send(callback: &js_sys::Function, status: Status, progress: f64) {
-    let _ = callback.call2(
-        &JsValue::NULL,
-        &JsValue::from_str(status.as_str()),
-        &JsValue::from_f64(progress),
-    );
+    let _ = callback.call2(&JsValue::NULL, &JsValue::from_str(status.as_str()), &JsValue::from_f64(progress));
 }

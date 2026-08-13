@@ -18,13 +18,13 @@
           <span class="font-semibold text-primary-700 dark:text-primary-200"
             >{{ actingUserId === camera.user.id ? "Your" : fullNamePossessive(camera.user) }} {{ camera.name }}</span
           >
-          as JPEG and upload the resulting image here.
+          and upload the resulting image here — JPEG or RAW.
         </p>
       </div>
       <div class="mt-12">
         <div class="mx-auto grid max-w-2xl grid-cols-1 items-start gap-x-8 lg:mx-0 lg:max-w-none lg:grid-cols-2">
           <QrTimeCode />
-          <FileDropzone :multiple="false" @files="handleFiles" />
+          <FileDropzone :multiple="false" :file-extensions="qrPhotoExtensions" @files="handleFiles" />
           <div v-if="timeOffsetResult" class="mt-12">
             <h2 class="display text-lg text-primary-900 dark:text-white">Time Offset</h2>
             <p class="mt-1 text-sm leading-6 text-primary-500 dark:text-primary-400">
@@ -79,8 +79,8 @@
       :show="showRawReminder"
       :type="MessageType.CONFIRM_INFO"
       headline="Before you keep shooting"
-      message="Two things now that the offset is saved: switch your camera back to RAW image quality (easy to forget after shooting the QR code in JPEG), and don't change this camera's date or time for the rest of the project — every future offset depends on the clock staying put."
-      confirmText="Yes, I've switched back to RAW"
+      message="Two things now that the offset is saved: if you shot the QR code in JPEG, switch your camera back to RAW image quality (easy to forget), and don't change this camera's date or time for the rest of the project — every future offset depends on the clock staying put."
+      confirmText="Got it"
       cancelText="Dismiss"
       @confirmed="onRawConfirmed"
       @closed="showRawReminder = false"
@@ -141,6 +141,14 @@ type TimeOffsetMetadata = {
   model: string;
   lensModel: string;
 };
+
+// RAW containers whose rawler 0.7.2 decoder implements full_image (the embedded
+// preview image-wasm/src/raw.rs reads for QR detection), plus JPEG. Formats rawler
+// merely recognises but can't read a preview from (orf, srw, iiq) are excluded —
+// offering them would accept the file and then always fail. Both cases, matching
+// the dropzone default.
+const qrPhotoBase = ["jpeg", "jpg", "cr2", "cr3", "nef", "nrw", "arw", "raf", "rw2", "dng", "pef", "mrw", "3fr"];
+const qrPhotoExtensions = [...qrPhotoBase, ...qrPhotoBase.map((e) => e.toUpperCase())];
 
 const timeOffsetResult = ref<TimeOffsetMetadata>();
 

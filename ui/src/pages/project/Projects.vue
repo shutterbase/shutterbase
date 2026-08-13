@@ -10,6 +10,17 @@
       :add-callback="() => router.push('/projects/create')"
     ></Table>
     <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
+
+    <!-- User feedback: people activated a project and didn't notice anything
+         happened. Hard to miss now. -->
+    <ModalMessage
+      :show="activatedProject !== null"
+      :type="MessageType.SUCCESS"
+      headline="Project activated"
+      :message="`'${activatedProject?.name}' is now your active project — images, uploads and tags are scoped to it.`"
+      closeText="Let's go"
+      @closed="activatedProject = null"
+    />
   </div>
 </template>
 
@@ -19,6 +30,8 @@ import Table, { TableColumn, TableRowActionType } from "src/components/Table.vue
 import { api } from "src/api";
 import { ProjectsResponse } from "src/types/pocketbase";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
+import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
+import { celebrate } from "src/util/confetti";
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { useRouter } from "vue-router";
@@ -70,13 +83,24 @@ async function requestItems() {
   }
 }
 
+const activatedProject = ref<ProjectsResponse | null>(null);
+const activating = ref(false);
+
 async function activateProject(item: ProjectsResponse) {
+  // single-flight: two overlapping activations could commit one project
+  // server-side while the slower response claims the other locally
+  if (activating.value) return;
+  activating.value = true;
   try {
     await api.users.setActiveProject(item.id);
     userStore.setProject(item);
+    activatedProject.value = item;
+    celebrate();
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
+  } finally {
+    activating.value = false;
   }
 }
 

@@ -12,6 +12,7 @@ mod exif_meta;
 mod imaging;
 mod log;
 mod qr;
+mod raw;
 mod time_offset;
 mod upload;
 
@@ -72,17 +73,12 @@ pub struct FileProcessorResult {
 /// Decode → read EXIF → compute corrected time → thumbnail at each
 /// dimension → upload original + thumbnails to S3. Reports progress via `callback`.
 #[wasm_bindgen]
-pub async fn process_file(
-    file: js_sys::ArrayBuffer,
-    options: JsValue,
-    callback: &js_sys::Function,
-) -> std::result::Result<JsValue, JsValue> {
+pub async fn process_file(file: js_sys::ArrayBuffer, options: JsValue, callback: &js_sys::Function) -> std::result::Result<JsValue, JsValue> {
     let started = js_sys::Date::now();
     send(callback, Status::Resizing, 0.0);
 
     let data = js_sys::Uint8Array::new(&file).to_vec();
-    let options: FileProcessorOptions = serde_wasm_bindgen::from_value(options)
-        .map_err(|e| Error::msg(format!("invalid processor options: {e}")))?;
+    let options: FileProcessorOptions = serde_wasm_bindgen::from_value(options).map_err(|e| Error::msg(format!("invalid processor options: {e}")))?;
 
     let source = imaging::decode(&data)?;
     let (original_width, original_height) = (source.width(), source.height());
@@ -147,7 +143,7 @@ pub async fn process_file(
 #[wasm_bindgen]
 pub async fn get_image_metadata(file: js_sys::ArrayBuffer) -> std::result::Result<JsValue, JsValue> {
     let data = js_sys::Uint8Array::new(&file).to_vec();
-    let metadata = exif_meta::read(&data)?;
+    let metadata = read_metadata(&data)?;
     Ok(serde_wasm_bindgen::to_value(&metadata)?)
 }
 
@@ -164,7 +160,7 @@ pub async fn parse_qr_code(file: js_sys::ArrayBuffer) -> std::result::Result<JsV
 pub async fn get_time_offset(file: js_sys::ArrayBuffer) -> std::result::Result<JsValue, JsValue> {
     let data = js_sys::Uint8Array::new(&file).to_vec();
     let content = decode_qr(&data)?;
-    let metadata = exif_meta::read(&data)?;
+    let metadata = read_metadata(&data)?;
     let offset = time_offset::from_qr(&metadata, &content)?;
     Ok(serde_wasm_bindgen::to_value(&offset)?)
 }
@@ -192,9 +188,20 @@ pub fn set_log_level(level: String) {
     log::set_level(&level);
 }
 
-/// Decode bytes → image → downscale → QR text.
+/// Decode bytes → image → downscale → QR text. RAW containers are read through
+/// their embedded full-size preview; everything else through the `image` crate.
 fn decode_qr(data: &[u8]) -> Result<String> {
-    let image = imaging::decode(data)?;
+    let image = if raw::is_raw(data) { raw::preview(data)? } else { imaging::decode(data)? };
     let scaled = imaging::resize_within(&image, QR_DECODE_MAX_EDGE);
     qr::decode(&scaled)
+}
+
+/// EXIF from standard images, maker metadata from RAW containers — one shape,
+/// so the time-offset math and the SPA never care which kind arrived.
+fn read_metadata(data: &[u8]) -> Result<exif_meta::ImageMetadata> {
+    if raw::is_raw(data) {
+        raw::metadata(data)
+    } else {
+        exif_meta::read(data)
+    }
 }

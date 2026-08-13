@@ -1,9 +1,12 @@
 <template>
   <section class="mt-8">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 class="text-lg font-semibold tracking-tight text-primary-900 dark:text-white">Images</h2>
         <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">{{ images.length }} in this upload — progress shows right on the tile.</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <slot />
       </div>
     </div>
 
@@ -23,7 +26,7 @@
                "sieht auf dem Image Preview, dass der grad hochgeladen wird") -->
           <div v-if="image.status !== ImageStatus.DONE" class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-primary-950/60 backdrop-blur-[1px]">
             <ExclamationTriangleIcon v-if="image.status === ImageStatus.ERROR" class="h-6 w-6 text-error-400" />
-            <template v-else>
+            <template v-else-if="image.status !== ImageStatus.PENDING">
               <span class="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
               <div class="h-1 w-2/3 overflow-hidden rounded-full bg-white/20">
                 <div class="h-full rounded-full bg-white transition-all" :style="{ width: `${image.progress}%` }"></div>
@@ -32,12 +35,15 @@
             <span v-if="image.status === ImageStatus.ERROR && image.errorMessage" class="px-2 text-center text-[10px] font-medium leading-tight text-white/90">
               {{ image.errorMessage }}
             </span>
-            <span v-else class="text-[10px] font-medium uppercase tracking-wide text-white/90">{{ image.status }}</span>
+            <span v-else class="text-[10px] font-medium uppercase tracking-wide text-white/90">
+              {{ image.status === ImageStatus.PENDING ? "not uploaded" : image.status }}
+            </span>
           </div>
 
-          <!-- remove, on hover, only once persisted -->
+          <!-- remove, on hover — persisted images (server delete) and images
+               that never made it to the server (local tile drop); never mid-pipeline -->
           <button
-            v-if="allowEdit && image.status === ImageStatus.DONE"
+            v-if="allowEdit && removable(image)"
             type="button"
             class="absolute right-1.5 top-1.5 hidden h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-primary-950/70 text-white transition-colors hover:bg-error-600 group-hover:flex"
             :aria-label="`Remove ${image.originalFileName}`"
@@ -73,6 +79,8 @@ function tileSrc(image: Image): string | undefined {
 }
 
 const fileName = (image: Image) => image.computedFileName || image.originalFileName;
+
+const removable = (image: Image) => [ImageStatus.DONE, ImageStatus.PENDING, ImageStatus.ERROR].includes(image.status);
 
 function caption(image: Image): string {
   const parts: string[] = [];
