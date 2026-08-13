@@ -13,9 +13,7 @@ use std::io::Cursor;
 
 /// Decode an in-memory image (format auto-detected).
 pub fn decode(bytes: &[u8]) -> Result<DynamicImage> {
-    let image = ImageReader::new(Cursor::new(bytes))
-        .with_guessed_format()?
-        .decode()?;
+    let image = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?.decode()?;
     Ok(image)
 }
 
@@ -40,9 +38,7 @@ mod tests {
     use image::{DynamicImage, RgbImage};
 
     fn sample(width: u32, height: u32) -> DynamicImage {
-        DynamicImage::ImageRgb8(RgbImage::from_fn(width, height, |x, y| {
-            image::Rgb([(x % 256) as u8, (y % 256) as u8, 128])
-        }))
+        DynamicImage::ImageRgb8(RgbImage::from_fn(width, height, |x, y| image::Rgb([(x % 256) as u8, (y % 256) as u8, 128])))
     }
 
     #[test]

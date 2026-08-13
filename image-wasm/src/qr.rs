@@ -24,15 +24,11 @@ pub fn generate_png(content: &str, size: usize) -> Result<Vec<u8>> {
 pub fn decode(image: &DynamicImage) -> Result<String> {
     let luma = image.to_luma8();
     let (width, height) = (luma.width() as usize, luma.height() as usize);
-    let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(width, height, |x, y| {
-        luma.get_pixel(x as u32, y as u32)[0]
-    });
+    let mut prepared = rqrr::PreparedImage::prepare_from_greyscale(width, height, |x, y| luma.get_pixel(x as u32, y as u32)[0]);
     let grids = prepared.detect_grids();
 
     match grids.as_slice() {
-        [] => Err(Error::msg(
-            "no QR code found — make sure the whole QR code is in the photo, in focus and well lit",
-        )),
+        [] => Err(Error::msg("no QR code found — make sure the whole QR code is in the photo, in focus and well lit")),
         [grid] => {
             // Keep rqrr's exact error (e.g. the ECC failure on blurry shots) and
             // append what the photographer can actually do about it.
@@ -65,11 +61,7 @@ mod tests {
     // blank error dialog on the time-offset page.
     #[test]
     fn decode_errors_when_no_qr_present() {
-        let blank = DynamicImage::ImageLuma8(image::GrayImage::from_pixel(
-            256,
-            256,
-            image::Luma([255]),
-        ));
+        let blank = DynamicImage::ImageLuma8(image::GrayImage::from_pixel(256, 256, image::Luma([255])));
         let err = decode(&blank).unwrap_err().to_string();
         assert!(err.contains("no QR code found"), "got: {err}");
     }

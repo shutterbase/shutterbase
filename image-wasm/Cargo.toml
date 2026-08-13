@@ -18,6 +18,11 @@ serde-wasm-bindgen = "0.6"
 chrono = "0.4"
 image = "0.25"
 kamadak-exif = "0.5"
+# RAW container support for the time-offset QR path. Pinned exactly: 0.7.2 is the
+# version whose wasm32 behaviour was verified on the editor branch (raw-wasm).
+# Only the embedded-preview + metadata paths are used — they run on stock rawler;
+# the full develop would need the timing patch carried on that branch.
+rawler = "=0.7.2"
 rqrr = { version = "0.10", default-features = false }
 qrcode-generator = "4"
 uuid = { version = "1", features = ["v4", "js"] }

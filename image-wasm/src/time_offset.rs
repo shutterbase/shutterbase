@@ -22,11 +22,8 @@ pub struct TimeOffsetResult {
 
 /// Offset between this camera and the server, from a photo of the server-time QR.
 pub fn from_qr(metadata: &ImageMetadata, qr_code_data: &str) -> Result<TimeOffsetResult> {
-    let server_unix = qr_code_data
-        .parse::<i64>()
-        .map_err(|_| Error::msg("QR payload is not a unix timestamp"))?;
-    let server_time = DateTime::from_timestamp(server_unix, 0)
-        .ok_or_else(|| Error::msg("server timestamp out of range"))?;
+    let server_unix = qr_code_data.parse::<i64>().map_err(|_| Error::msg("QR payload is not a unix timestamp"))?;
+    let server_time = DateTime::from_timestamp(server_unix, 0).ok_or_else(|| Error::msg("server timestamp out of range"))?;
 
     let camera_time = camera_time(metadata)?;
 
@@ -38,21 +35,14 @@ pub fn from_qr(metadata: &ImageMetadata, qr_code_data: &str) -> Result<TimeOffse
 }
 
 /// Apply the closest-in-time offset to this image's camera time.
-pub fn corrected_camera_time(
-    metadata: &ImageMetadata,
-    time_offsets: &[TimeOffsetResult],
-) -> Result<DateTime<Utc>> {
+pub fn corrected_camera_time(metadata: &ImageMetadata, time_offsets: &[TimeOffsetResult]) -> Result<DateTime<Utc>> {
     let camera_time = camera_time(metadata)?;
-    let closest = closest_offset(camera_time, time_offsets)
-        .ok_or_else(|| Error::msg("no time offset available"))?;
+    let closest = closest_offset(camera_time, time_offsets).ok_or_else(|| Error::msg("no time offset available"))?;
     Ok(camera_time + chrono::Duration::seconds(closest.time_offset))
 }
 
 /// The offset whose own camera-time is nearest to `camera_time`.
-fn closest_offset(
-    camera_time: DateTime<Utc>,
-    time_offsets: &[TimeOffsetResult],
-) -> Option<TimeOffsetResult> {
+fn closest_offset(camera_time: DateTime<Utc>, time_offsets: &[TimeOffsetResult]) -> Option<TimeOffsetResult> {
     time_offsets
         .iter()
         .filter_map(|offset| {
@@ -73,19 +63,18 @@ fn closest_offset(
 pub fn camera_time(metadata: &ImageMetadata) -> Result<DateTime<Utc>> {
     let date_time = match metadata.tags.get("DateTimeOriginal") {
         Some(value) if !value.trim().is_empty() => value.as_str(),
-        _ => return Err(Error::msg("image has no EXIF capture time (DateTimeOriginal) — images without a valid timestamp cannot be uploaded")),
+        _ => {
+            return Err(Error::msg(
+                "image has no EXIF capture time (DateTimeOriginal) — images without a valid timestamp cannot be uploaded",
+            ))
+        }
     };
 
     let local_offset = Local::now().offset().to_string();
-    let zone = metadata
-        .tags
-        .get("OffsetTimeOriginal")
-        .map(String::as_str)
-        .unwrap_or(&local_offset);
+    let zone = metadata.tags.get("OffsetTimeOriginal").map(String::as_str).unwrap_or(&local_offset);
 
     let combined = format!("{date_time}{zone}");
-    let parsed = DateTime::parse_from_str(&combined, "%Y-%m-%d %H:%M:%S%z")
-        .map_err(|_| Error::msg(format!("could not parse camera time from '{combined}'")))?;
+    let parsed = DateTime::parse_from_str(&combined, "%Y-%m-%d %H:%M:%S%z").map_err(|_| Error::msg(format!("could not parse camera time from '{combined}'")))?;
     Ok(parsed.with_timezone(&Utc))
 }
 
@@ -142,8 +131,16 @@ mod tests {
     fn corrected_time_applies_closest_offset() {
         let meta = metadata_with("2026-06-27 12:00:00", "+00:00");
         let offsets = [
-            TimeOffsetResult { time_offset: 5, server_time: 0, camera_time: 1782561600 },
-            TimeOffsetResult { time_offset: 999, server_time: 0, camera_time: 1 },
+            TimeOffsetResult {
+                time_offset: 5,
+                server_time: 0,
+                camera_time: 1782561600,
+            },
+            TimeOffsetResult {
+                time_offset: 999,
+                server_time: 0,
+                camera_time: 1,
+            },
         ];
         let corrected = corrected_camera_time(&meta, &offsets).unwrap();
         assert_eq!(corrected.timestamp(), 1782561605);
