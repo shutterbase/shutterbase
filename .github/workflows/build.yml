@@ -156,6 +156,17 @@ jobs:
       - name: golang build
         run: cd api && go build -ldflags="-s -w" -o downloader cmd/downloader/main.go
 
+  slideshow-build:
+    if: github.ref_type != 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.4"
+      - name: golang build
+        run: cd api && go build -ldflags="-s -w" -o slideshow cmd/slideshow/main.go
+
   downloader-release:
     # Binaries are release artifacts, not registry images — they are compiled
     # here on the tag. Only downloader-build (the main/PR compile check) is skipped.

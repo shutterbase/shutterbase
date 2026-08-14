@@ -7,6 +7,11 @@ import { configure } from "quasar/wrappers";
 import open from "open";
 import type { ViteDevServer } from "vite";
 
+// Overridable so shutterbase can run next to another stack holding the default
+// ports; keep in sync with the api's PORT / UI_PROXY_URL settings.
+const DEV_API_URL = process.env.DEV_API_URL ?? "http://localhost:8080";
+const DEV_UI_PORT = Number(process.env.DEV_UI_PORT ?? 9000);
+
 export default configure((/* ctx */) => {
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
@@ -70,7 +75,7 @@ export default configure((/* ctx */) => {
           name: "open-api-server",
           configureServer(server: ViteDevServer) {
             server.httpServer?.once("listening", () => {
-              open("http://localhost:8080");
+              open(DEV_API_URL);
             });
           },
         },
@@ -80,16 +85,16 @@ export default configure((/* ctx */) => {
     // Full list of options: https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devServer
     devServer: {
       // https: true
-      port: 9000, // matches api's UI_PROXY_URL default (api/internal/util/config.go)
-      open: false, // handled by the open-api-server vitePlugin above, which opens :8080 instead
+      port: DEV_UI_PORT, // matches api's UI_PROXY_URL default (api/internal/util/config.go)
+      open: false, // handled by the open-api-server vitePlugin above, which opens the API server instead
       fs: {
         allow: [".."],
       },
-      // ponytail: dev proxy to the single-binary REST backend; change target if it
-      // doesn't run on :8080 locally. Keeps cookies same-origin (no CORS).
+      // ponytail: dev proxy to the single-binary REST backend (DEV_API_URL).
+      // Keeps cookies same-origin (no CORS).
       proxy: {
-        "/api": { target: "http://127.0.0.1:8080", changeOrigin: true },
-        "/ws": { target: "http://127.0.0.1:8080", ws: true, changeOrigin: true },
+        "/api": { target: DEV_API_URL, changeOrigin: true },
+        "/ws": { target: DEV_API_URL, ws: true, changeOrigin: true },
       },
     },
 

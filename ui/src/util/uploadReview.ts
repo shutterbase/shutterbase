@@ -28,6 +28,21 @@ export function reviewVerdicts(input: { reviewEnabled: boolean; tags?: { tag?: {
   return { rejected: names.some(isReviewRejectedTag), error: names.some(isReviewErrorTag) };
 }
 
+// The rejected-stamp overlay: visible from the moment the reserved "rejected"
+// tag lands on the image on screen until the user moves to another image (or
+// the tag is removed again). Navigating onto an already-rejected image shows
+// no stamp — only the act of rejecting does.
+export interface StampedView {
+  id: string;
+  rejected: boolean;
+}
+
+export function nextStampedImageId(stamped: string | null, prev: StampedView | null, now: StampedView | null): string | null {
+  if (!now?.rejected) return null;
+  if (prev && prev.id === now.id && !prev.rejected) return now.id;
+  return stamped === now.id ? stamped : null;
+}
+
 export const UPLOAD_STATES: UploadState[] = ["open", "ready", "reviewed"];
 
 export const UPLOAD_STATE_LABEL: Record<UploadState, string> = {

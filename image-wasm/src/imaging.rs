@@ -13,7 +13,11 @@ use std::io::Cursor;
 
 /// Decode an in-memory image (format auto-detected).
 pub fn decode(bytes: &[u8]) -> Result<DynamicImage> {
-    let image = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?.decode()?;
+    let mut reader = ImageReader::new(Cursor::new(bytes)).with_guessed_format()?;
+    // The default 512 MiB decode-allocation cap rejects large panoramas and
+    // 16-bit files as "Memory limit exceeded"; the wasm32 heap is the real bound.
+    reader.no_limits();
+    let image = reader.decode()?;
     Ok(image)
 }
 
