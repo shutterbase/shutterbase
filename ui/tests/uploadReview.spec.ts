@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { canEditTag, canAddImages, allowedTransitions, formatDuration, formatTaggingRate, isReviewErrorTag, isReviewRejectedTag, isReviewerOnlyTag, reviewVerdicts } from "src/util/uploadReview";
+import {
+  canEditTag,
+  canAddImages,
+  allowedTransitions,
+  formatDuration,
+  formatTaggingRate,
+  isReviewErrorTag,
+  isReviewRejectedTag,
+  isReviewerOnlyTag,
+  nextStampedImageId,
+  reviewVerdicts,
+} from "src/util/uploadReview";
 
 // These rules must stay in lockstep with api/internal/authorization — the server
 // is authoritative, so a divergence here means the UI offers 403s.
@@ -89,5 +100,36 @@ describe("reviewVerdicts", () => {
     expect(reviewVerdicts({ reviewEnabled: false, tags: tags("error", "rejected") })).toEqual({ rejected: false, error: false });
     expect(reviewVerdicts({ reviewEnabled: true })).toEqual({ rejected: false, error: false });
     expect(reviewVerdicts({ reviewEnabled: true, tags: [{ tag: null }] })).toEqual({ rejected: false, error: false });
+  });
+});
+
+describe("nextStampedImageId", () => {
+  const view = (id: string, rejected: boolean) => ({ id, rejected });
+
+  it("stamps when the rejected tag lands on the image on screen", () => {
+    expect(nextStampedImageId(null, view("a", false), view("a", true))).toBe("a");
+  });
+
+  it("keeps the stamp while the same rejected image stays on screen", () => {
+    expect(nextStampedImageId("a", view("a", true), view("a", true))).toBe("a");
+  });
+
+  it("clears when the user moves to another image — even an already-rejected one", () => {
+    expect(nextStampedImageId("a", view("a", true), view("b", false))).toBeNull();
+    expect(nextStampedImageId("a", view("a", true), view("b", true))).toBeNull();
+  });
+
+  it("does not stamp when landing on an image that was already rejected", () => {
+    expect(nextStampedImageId(null, view("a", false), view("b", true))).toBeNull();
+    expect(nextStampedImageId(null, null, view("a", true))).toBeNull();
+  });
+
+  it("clears when the rejected tag is removed, and re-stamps on a re-apply", () => {
+    expect(nextStampedImageId("a", view("a", true), view("a", false))).toBeNull();
+    expect(nextStampedImageId(null, view("a", false), view("a", true))).toBe("a");
+  });
+
+  it("clears when no image is on screen", () => {
+    expect(nextStampedImageId("a", view("a", true), null)).toBeNull();
   });
 });

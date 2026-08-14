@@ -101,6 +101,7 @@
                 >
               </div>
             </template>
+            <RejectedStamp v-if="stampedImageId === images[imageIndex].id" />
           </ZoomableImage>
           <figcaption class="mt-3 flex items-baseline justify-center gap-4">
             <span class="truncate font-data text-sm text-primary-700 dark:text-primary-200">{{ images[imageIndex].computedFileName }}</span>
@@ -122,7 +123,9 @@
       img-class="max-h-dvh max-w-[100vw] object-contain"
       expand-class="fixed inset-0"
       @error="onHeroError(images[imageIndex])"
-    />
+    >
+      <RejectedStamp v-if="stampedImageId === images[imageIndex].id" />
+    </ZoomableImage>
     <!-- thin header: logo only; always the dark variant, zen is always on black -->
     <div class="absolute inset-x-0 top-0 flex justify-center bg-black/70 py-1">
       <img class="h-5" src="~assets/img/shutterbase-header-logo-dark.png" alt="shutterbase" />
@@ -169,6 +172,8 @@ import FilmStrip from "src/components/image/FilmStrip.vue";
 import ZoomableImage from "src/components/image/ZoomableImage.vue";
 import SlideshowOverlay from "src/components/image/SlideshowOverlay.vue";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
+import RejectedStamp from "src/components/image/RejectedStamp.vue";
+import { nextStampedImageId, reviewVerdicts } from "src/util/uploadReview";
 import { canRemoveTagAssignment, removeTagAssignment } from "src/util/imageTags";
 import { groupTagAssignments } from "src/util/tagOrder";
 import { devPlaceholder } from "src/util/devPlaceholder";
@@ -408,6 +413,20 @@ function toggleZen() {
 // All tags, not just the EXIF-exported subset — zen is primarily a tagging
 // view, so custom/AI tags must be visible too. Sidebar category order.
 const zenTags = computed(() => groupTagAssignments(images.value[imageIndex.value]?.tags ?? []).flatMap((g) => g.assignments));
+
+// Rejected stamp: slams onto the on-screen image the moment the reserved
+// "rejected" tag is applied (any path — dialog, hotkey, repeat-last) and stays
+// until the user moves to another image or leaves the detail view.
+const stampedImageId = ref<string | null>(null);
+const currentReviewView = computed(() => {
+  const image = images.value[imageIndex.value];
+  if (!image) return null;
+  return { id: image.id, rejected: reviewVerdicts({ reviewEnabled: !!image.project?.uploadReviewEnabled, tags: image.tags }).rejected };
+});
+watch(currentReviewView, (now, prev) => {
+  stampedImageId.value = nextStampedImageId(stampedImageId.value, prev ?? null, now);
+});
+watch(displayMode, () => (stampedImageId.value = null));
 
 const taggingDialog = ref<InstanceType<typeof TaggingDialog> | null>(null);
 
