@@ -225,9 +225,12 @@ func (r *Repository) GetProjectTagStatistics(ctx context.Context, projectID stri
 	stats := make([]TagStatistic, 0, len(tags))
 	for _, t := range tags {
 		tagID := t.ID
+		// Scalar containment ('["a"]' @> '"a"'), not []string: same result on
+		// Postgres, and it keeps the SQLite tier (unit tests) working — the
+		// slice form only compiles to valid SQL on Postgres.
 		count, err := r.Client.Image.Query().
 			Where(image.ProjectID(projectID), func(s *sql.Selector) {
-				s.Where(sqljson.ValueContains(image.FieldImageTags, []string{tagID}))
+				s.Where(sqljson.ValueContains(image.FieldImageTags, tagID))
 			}).
 			Count(ctx)
 		if err != nil {

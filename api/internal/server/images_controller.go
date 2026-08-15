@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -206,6 +207,10 @@ func (s *Server) createImage(c *gin.Context) {
 		ProjectID:  payload.ProjectID,
 		CameraID:   payload.CameraID,
 	})
+	if errors.Is(err, service.ErrUncomputableFileName) {
+		apiError(c, http.StatusBadRequest, "uncomputable_file_name", err.Error())
+		return
+	}
 	if abortMutationError(c, err) {
 		return
 	}

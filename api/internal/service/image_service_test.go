@@ -264,3 +264,31 @@ func TestCapturedAtCorrectedApplied(t *testing.T) {
 		"corrected = capturedAt + seed drift")
 	assert.Contains(t, reloaded.ComputedFileName, "_9999_", "computedFileName carries the frame number")
 }
+
+// CreateImage refuses an image whose canonical name can't be derived — a name
+// without four consecutive digits or a missing capture time must error, never
+// create a row with NULL computedFileName.
+func TestCreateImageRequiresComputableFileName(t *testing.T) {
+	svc, enq, m, repo := newImageSvc(t)
+	captured := capturedNoon(t)
+	before := repo.Client.Image.Query().CountX(context.Background())
+
+	base := CreateImageParameters{
+		Size: 1, CapturedAt: &captured,
+		UserID: m.Users["projectEditor"], UploadID: m.Upload, ProjectID: m.Project, CameraID: m.Cameras["fresh"],
+	}
+
+	noDigits := base
+	noDigits.FileName, noDigits.StorageID = "nodigits.jpg", "unit-nodigits"
+	_, err := svc.CreateImage(context.Background(), &noDigits)
+	require.ErrorIs(t, err, ErrUncomputableFileName)
+
+	noTime := base
+	noTime.FileName, noTime.StorageID, noTime.CapturedAt = "DSC_1234.jpg", "unit-notime", nil
+	_, err = svc.CreateImage(context.Background(), &noTime)
+	require.ErrorIs(t, err, ErrUncomputableFileName)
+
+	after := repo.Client.Image.Query().CountX(context.Background())
+	assert.Equal(t, before, after, "no image row created for a rejected create")
+	assert.Empty(t, enq.seen, "no AI enqueue for a rejected create")
+}

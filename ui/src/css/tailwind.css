@@ -46,6 +46,44 @@
   }
 }
 
+/* Chart series colors, dataviz-validated against surface (#ffffff) and
+   surface-dark (#1b2230): categorical = fixed photographer slot order (never
+   cycled, never re-assigned on filter); manual/ai = the tagging pair; heat =
+   sequential accent ramp low→high. Custom properties so html.dark switches
+   the whole set without any JS mode handling in chart components. */
+:root {
+  --chart-cat-1: #2a78d6;
+  --chart-cat-2: #eb6834;
+  --chart-cat-3: #1baf7a;
+  --chart-cat-4: #eda100;
+  --chart-cat-5: #e87ba4;
+  --chart-cat-6: #008300;
+  --chart-other: #7986a1;
+  --chart-manual: #2a78d6;
+  --chart-ai: #eb6834;
+  --chart-heat-1: #9bb4ff;
+  --chart-heat-2: #6f8dff;
+  --chart-heat-3: #4569f3;
+  --chart-heat-4: #2a41c0;
+  --chart-heat-5: #26357a;
+}
+html.dark {
+  --chart-cat-1: #3987e5;
+  --chart-cat-2: #d95926;
+  --chart-cat-3: #199e70;
+  --chart-cat-4: #c98500;
+  --chart-cat-5: #d55181;
+  --chart-cat-6: #008300;
+  --chart-other: #7986a1;
+  --chart-manual: #3987e5;
+  --chart-ai: #d95926;
+  --chart-heat-1: #3251e3;
+  --chart-heat-2: #4569f3;
+  --chart-heat-3: #6f8dff;
+  --chart-heat-4: #9bb4ff;
+  --chart-heat-5: #c1d2ff;
+}
+
 @layer components {
   /* The signature "instrument readout" voice: small, mono, wide-tracked. Used for
      section kickers, column labels, metadata captions — the camera-panel feel. */

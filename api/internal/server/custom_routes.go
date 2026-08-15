@@ -12,6 +12,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/authorization"
 	"github.com/shutterbase/shutterbase/internal/exif"
 	"github.com/shutterbase/shutterbase/internal/s3"
+	"github.com/shutterbase/shutterbase/internal/service"
 )
 
 // registerCustomRoutes wires the four endpoints PocketBase didn't give for free
@@ -139,17 +140,18 @@ func (s *Server) getStatistics(c *gin.Context) {
 		return
 	}
 
-	if cached, ok := s.tagCountCache.Get(projectID); ok {
-		c.JSON(http.StatusOK, gin.H{"tags": cached})
+	if cached, ok := s.projectStatsCache.Get(projectID); ok {
+		c.JSON(http.StatusOK, cached)
 		return
 	}
-	stats, err := s.Repository.GetProjectTagStatistics(c.Request.Context(), projectID)
+	// Day buckets in the event timezone — the wall clock photographers shoot on.
+	stats, err := s.Repository.GetProjectStatistics(c.Request.Context(), projectID, service.EventLocation())
 	if err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-	s.tagCountCache.Add(projectID, stats)
-	c.JSON(http.StatusOK, gin.H{"tags": stats})
+	s.projectStatsCache.Add(projectID, stats)
+	c.JSON(http.StatusOK, stats)
 }
 
 func (s *Server) syncImageTags(c *gin.Context) {

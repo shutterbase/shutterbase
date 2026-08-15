@@ -68,18 +68,20 @@ func TestValidResolutions(t *testing.T) {
 	}
 }
 
-// statistics LRU cache-hit: a populated TagCountCache serves the response without
+// statistics LRU cache-hit: a populated stats cache serves the response without
 // touching the repository (nil here — a miss would panic), proving the 5-min
 // cache short-circuits the DB read (SPEC §4.13).
 func TestStatisticsCacheHit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	cache := expirable.NewLRU[string, []repository.TagStatistic](16, nil, 5*time.Minute)
-	cached := []repository.TagStatistic{
-		{ID: "t1", Name: "Podium", Description: "d", Type: "manual", Count: 3},
+	cache := expirable.NewLRU[string, *repository.ProjectStatistics](16, nil, 5*time.Minute)
+	cached := &repository.ProjectStatistics{
+		Tags: []repository.TagStatistic{
+			{ID: "t1", Name: "Podium", Description: "d", Type: "manual", Count: 3},
+		},
 	}
 	cache.Add("proj1", cached)
 
-	s := &Server{tagCountCache: cache} // Repository nil: a cache miss would deref it
+	s := &Server{projectStatsCache: cache} // Repository nil: a cache miss would deref it
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -93,9 +95,7 @@ func TestStatisticsCacheHit(t *testing.T) {
 	s.getStatistics(c)
 
 	require.Equal(t, http.StatusOK, rec.Code)
-	var body struct {
-		Tags []repository.TagStatistic `json:"tags"`
-	}
+	var body repository.ProjectStatistics
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	assert.Equal(t, cached, body.Tags)
+	assert.Equal(t, cached.Tags, body.Tags)
 }

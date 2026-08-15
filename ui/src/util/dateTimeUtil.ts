@@ -32,6 +32,11 @@ export function dateTimeToBackendString(date: Date): string {
   return DateTime.fromJSDate(date).toFormat("yyyy-MM-dd HH:mm:ss");
 }
 
+/** "2026-08-11" → "Di 11.08." — compact axis/day label from a plain ISO date. */
+export function shortDayLabel(isoDate: string): string {
+  return DateTime.fromISO(isoDate).toFormat("ccc dd.LL.");
+}
+
 export function parseBackendTime(backendTime: string): Date {
   return new Date(Date.parse(backendTime));
 }
