@@ -57,18 +57,18 @@ type Server struct {
 
 	// S7 wiring: image side-effect orchestration + presigning + the background
 	// services (AI drain, WS time-tick) started in NewServer and stopped on Shutdown.
-	s3Client       *s3.S3Client
-	imageService   *service.ImageService
-	ai             *service.AIService
+	s3Client     *s3.S3Client
+	imageService *service.ImageService
+	ai           *service.AIService
 	// aiRemote is the AI server behind the pkg/aiserver contract — the source
 	// of faces / person-search / similar-image lookups. nil unless
 	// AI_PROVIDER=http (the endpoints then answer 501).
-	aiRemote       aiserver.Server
-	ws             *event.Manager
-	bus            *event.Bus
-	thumbnailSizes []int
-	tagCountCache  *expirable.LRU[string, []repository.TagStatistic]
-	bgCancel       context.CancelFunc
+	aiRemote          aiserver.Server
+	ws                *event.Manager
+	bus               *event.Bus
+	thumbnailSizes    []int
+	projectStatsCache *expirable.LRU[string, *repository.ProjectStatistics]
+	bgCancel          context.CancelFunc
 
 	// S10 hardening: CSRF allow-list + token-bucket rate limiters + the /download
 	// object-size cap.
@@ -140,9 +140,9 @@ func NewServer(options *Options) (*Server, error) {
 		aiRemote:       aiRemote,
 		thumbnailSizes: util.GetThumbnailSizes(),
 		// statistics LRU, 5-min TTL (SPEC §4.13 TagCountCache).
-		tagCountCache:    expirable.NewLRU[string, []repository.TagStatistic](256, nil, 5*time.Minute),
-		hardening:        buildHardening(options.ApiBaseURL),
-		downloadMaxBytes: int64(config.Get().Int("DOWNLOAD_MAX_OBJECT_BYTES")),
+		projectStatsCache: expirable.NewLRU[string, *repository.ProjectStatistics](256, nil, 5*time.Minute),
+		hardening:         buildHardening(options.ApiBaseURL),
+		downloadMaxBytes:  int64(config.Get().Int("DOWNLOAD_MAX_OBJECT_BYTES")),
 	}
 
 	// S10: bound simultaneous exiftool shell-outs (/download) so a burst can't

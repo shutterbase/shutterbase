@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -29,6 +30,11 @@ type Enqueuer interface {
 // verbatim from the WASM filename rule: `.*(\d{4})` — greedy prefix => the last
 // match). Used to keep the camera's frame number in the computed name.
 var last4 = regexp.MustCompile(`.*(\d{4})`)
+
+// ErrUncomputableFileName rejects a create whose canonical name can't be
+// derived — every image must carry a computedFileName (the name downloads,
+// blocklists and dedup key on), so an underivable one is a 400, not a NULL.
+var ErrUncomputableFileName = errors.New("file name must contain four consecutive digits (camera frame number) and the image must carry a capture time")
 
 const (
 	computedTimeLayout = "20060102_15-04-05" // computedFileName timestamp (event zone)
@@ -110,9 +116,14 @@ func (s *ImageService) CreateImage(ctx context.Context, params *CreateImageParam
 
 	corrected := s.correctedCaptureTime(ctx, params.CameraID, params.CapturedAt)
 
+	computed := computedFileName(params.FileName, corrected, user.CopyrightTag, s.location())
+	if computed == nil {
+		return nil, ErrUncomputableFileName
+	}
+
 	createParams := &repository.CreateImageParameters{
 		FileName:            params.FileName,
-		ComputedFileName:    computedFileName(params.FileName, corrected, user.CopyrightTag, s.location()),
+		ComputedFileName:    computed,
 		StorageID:           params.StorageID,
 		Size:                params.Size,
 		Width:               params.Width,

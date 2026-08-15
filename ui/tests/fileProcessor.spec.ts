@@ -14,7 +14,7 @@ vi.mock("src/util/fileUtil", () => ({ loadFile: vi.fn(async () => new ArrayBuffe
 
 import { process_file } from "image-wasm";
 import { api } from "src/api";
-import { FileProcessor, Image, ImageStatus, newImage } from "src/util/fileProcessor";
+import { FileProcessor, Image, ImageStatus, newImage, hasFrameNumber } from "src/util/fileProcessor";
 
 function deferred<T>() {
   let resolve!: (v: T) => void;
@@ -54,7 +54,7 @@ describe("FileProcessor pause/resume", () => {
     vi.useRealTimers();
   });
 
-  function addImage(name = "a.jpg"): Image {
+  function addImage(name = "DSC_1234.jpg"): Image {
     const image = newImage({ file: new File(["x"], name) });
     images.value!.push(image);
     return image;
@@ -136,5 +136,28 @@ describe("FileProcessor pause/resume", () => {
     await tick();
     expect(image.status).toBe(ImageStatus.PENDING);
     expect(process_file).not.toHaveBeenCalled();
+  });
+
+  // Mirror of the server rule: a name without four consecutive digits has no
+  // derivable computedFileName — the file must fail before any WASM/S3 work.
+  it("a file name without four consecutive digits fails before processing", async () => {
+    vi.mocked(process_file).mockResolvedValue(wasmResult as any);
+    const image = addImage("nodigits.jpg");
+    processor = new FileProcessor(upload, images as any, timeOffsets);
+    await tick();
+    expect(image.status).toBe(ImageStatus.ERROR);
+    expect(image.errorMessage).toContain("four consecutive digits");
+    expect(process_file).not.toHaveBeenCalled();
+    expect(api.images.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("hasFrameNumber", () => {
+  it("matches the server's last4 rule", () => {
+    expect(hasFrameNumber("DSC_1234.jpg")).toBe(true);
+    expect(hasFrameNumber("PS_04953.jpg")).toBe(true);
+    expect(hasFrameNumber("nodigits.jpg")).toBe(false);
+    expect(hasFrameNumber("IMG_123.jpg")).toBe(false); // only three digits
+    expect(hasFrameNumber("")).toBe(false);
   });
 });

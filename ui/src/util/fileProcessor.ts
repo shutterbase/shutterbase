@@ -43,6 +43,13 @@ const poolSizeLimits = {
   creating: 4,
 };
 
+// Mirrors the server's computedFileName rule (image_service.go `last4`): a file
+// name needs four consecutive digits — the camera frame number — or the API
+// rejects the create with 400.
+export function hasFrameNumber(fileName: string): boolean {
+  return /\d{4}/.test(fileName);
+}
+
 export type Image = {
   id?: string;
   storageId?: string;
@@ -145,6 +152,14 @@ export class FileProcessor {
 
     const image = this.getNextImage(ImageStatus.PENDING);
     if (image == null) {
+      return;
+    }
+
+    // Mirrors the server rule (image_service.go last4): the canonical name keeps
+    // the camera frame number, so the API rejects a name without one — fail here
+    // before wasting a resize + S3 upload on a doomed file.
+    if (!hasFrameNumber(image.originalFileName)) {
+      this.fail(image, new Error("file name must contain four consecutive digits (camera frame number)"));
       return;
     }
 
