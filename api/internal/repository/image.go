@@ -158,6 +158,37 @@ func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParamete
 	return items, total, nil
 }
 
+// GetImagePosition returns the zero-based offset of imageID within the gallery
+// query defined by parameters (same predicates and order as GetImages), or -1
+// when the image is not among the first maxScan matches — the deep-link
+// resolver then falls back to a solo detail view. An id-only bounded scan
+// sidesteps null-aware window arithmetic for the nullable sort columns.
+func (r *Repository) GetImagePosition(ctx context.Context, parameters *GetImageParameters, imageID string, maxScan int) (int, error) {
+	predicates, err := buildImagePredicates(parameters)
+	if err != nil {
+		return -1, err
+	}
+	_, _, order, err := parameters.PaginationParameters.build(imageSortFields, "capturedAtCorrected")
+	if err != nil {
+		return -1, err
+	}
+	ids, err := r.Client.Image.Query().
+		Where(image.And(predicates...)).
+		Order(order).
+		Limit(maxScan).
+		IDs(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("error scanning image position")
+		return -1, err
+	}
+	for i, id := range ids {
+		if id == imageID {
+			return i, nil
+		}
+	}
+	return -1, nil
+}
+
 // GetImageTagFacets returns the filter's own match count plus, per project tag,
 // how many of those matches also carry the tag — i.e. the result size if the tag
 // were added as an include filter. Tags matching zero images are omitted.

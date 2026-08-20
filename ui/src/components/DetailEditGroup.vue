@@ -122,6 +122,17 @@ const props = withDefaults(defineProps<Props>(), {
 const editData: UnwrapNestedRefs<EditData<T>> = reactive({} as EditData<T>);
 const hasEdits = computed(() => checkEdits());
 
+// Field transforms apply live while typing (e.g. copyright tag normalization);
+// re-triggering the watch with an already-transformed value is a no-op.
+watch(editData, () => {
+  for (const field of props.fields) {
+    const value = editData[field.key];
+    if (!field.transform || typeof value !== "string") continue;
+    const transformed = field.transform(value);
+    if (transformed !== value) editData[field.key] = transformed;
+  }
+});
+
 const emit = defineEmits<{
   editAbort: [];
   editSave: [EditData<T>];
@@ -185,6 +196,7 @@ export type Field<T> = {
   type: FieldType;
   options?: string[];
   hint?: string;
+  transform?: (value: string) => string;
 };
 
 export enum FieldType {

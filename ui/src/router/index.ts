@@ -48,14 +48,15 @@ export default route(function (/* { store, ssrContext } */) {
       }
     }
     if (!userStore.isAuthenticated) {
-      return { name: "login" };
+      // carry the target (e.g. a shared image permalink) through the login flow
+      return { name: "login", query: to.fullPath === "/" ? {} : { redirect: to.fullPath } };
     }
     // Enforce password rotation on every navigation, not just post-login
     // (Login.vue). A refresh/deep-link/restored session with forcePasswordChange
     // still set otherwise sails past this guard and 403s every API call the page
     // fires. Mirrors the backend forcePasswordChangeMiddleware.
     if (userStore.user?.forcePasswordChange && toName !== "change-password") {
-      return { name: "change-password" };
+      return { name: "change-password", query: to.fullPath === "/" ? {} : { redirect: to.fullPath } };
     }
   });
 

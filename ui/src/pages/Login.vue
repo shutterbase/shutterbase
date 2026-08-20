@@ -111,14 +111,20 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useUserStore } from "src/stores/user-store";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import { sanitizeRedirect } from "src/util/loginRedirect";
 import * as EmailValidator from "email-validator";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import CornerMarks from "src/components/CornerMarks.vue";
 import { ClockIcon, TagIcon, MagnifyingGlassIcon } from "@heroicons/vue/24/outline";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
+
+// a guard-bounced deep link (e.g. a shared image permalink) rides along as
+// ?redirect= and is honored after authentication
+const redirectTarget = () => sanitizeRedirect(route.query.redirect);
 
 const year = new Date().getFullYear();
 const features = [
@@ -154,7 +160,7 @@ async function devQuickLogin(role: string) {
     const dev = await import("src/api/dev");
     await dev.login({ role });
     await userStore.load();
-    router.push("/"); // router guard redirects to change-password if the seed user still needs it
+    router.push(redirectTarget()); // router guard redirects to change-password if the seed user still needs it
   } catch (error: any) {
     unexpectedErrorHeadline.value = "Dev login failed";
     unexpectedErrorMessage.value = error.response?.data?.message || error.message || "";
@@ -195,10 +201,10 @@ async function login() {
   try {
     const user = await userStore.login(email.value, password.value);
     if (user.forcePasswordChange) {
-      router.push({ name: "change-password" });
+      router.push({ name: "change-password", query: route.query.redirect ? { redirect: redirectTarget() } : {} });
       return;
     }
-    router.push("/");
+    router.push(redirectTarget());
   } catch (error: any) {
     const status = error.response?.status;
     if (status === 400 || status === 401) {

@@ -12,7 +12,10 @@ vi.mock("src/api", () => ({
 
 // imageQueryLogic touches the user store at import time, so pinia must be live first
 setActivePinia(createPinia());
-const { images, imageIndex, totalImageCount, nextImage, nextRow } = await import("src/pages/image/imageQueryLogic");
+const { images, imageIndex, totalImageCount, nextImage, nextRow, activeProject } = await import("src/pages/image/imageQueryLogic");
+
+// loadImages refuses to query without an active project (permalink guard)
+activeProject.value = { id: "project-1", name: "Test", uploadReviewEnabled: false };
 
 function fakeImages(count: number, offset = 0): ImageWithTagsType[] {
   return Array.from({ length: count }, (_, i) => ({ id: `img-${offset + i}`, tags: [] }) as unknown as ImageWithTagsType);

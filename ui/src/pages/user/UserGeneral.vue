@@ -180,6 +180,7 @@ import { UsersResponse } from "src/types/pocketbase";
 import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { useUserStore } from "src/stores/user-store";
+import { normalizeCopyrightTag } from "src/util/copyrightTag";
 import { CheckCircleIcon, KeyIcon, LockClosedIcon, NoSymbolIcon, ShieldCheckIcon, UserIcon } from "@heroicons/vue/24/outline";
 
 const route = useRoute();
@@ -217,7 +218,7 @@ const informationFields: Field<ITEM_TYPE>[] = [
   { key: "lastName", label: "Last name", type: FieldType.TEXT },
   { key: "username", label: "Username", type: FieldType.TEXT },
   { key: "email", label: "Email", type: FieldType.TEXT },
-  { key: "copyrightTag", label: "Copyright Tag", type: FieldType.TEXT },
+  { key: "copyrightTag", label: "Copyright Tag", type: FieldType.TEXT, transform: normalizeCopyrightTag },
 ];
 
 async function loadItem() {

@@ -48,12 +48,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { api } from "src/api";
 import PasswordRequirements from "src/components/PasswordRequirements.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import { showNotificationToast } from "src/boot/mitt";
+import { normalizeCopyrightTag } from "src/util/copyrightTag";
 
 const router = useRouter();
 
@@ -79,6 +80,14 @@ const textFields: { key: FormKey; label: string; type?: string; autocomplete?: s
   { key: "copyrightTag", label: "Copyright tag" },
   { key: "password", label: "Initial password", type: "password", autocomplete: "new-password" },
 ];
+
+watch(
+  () => form.copyrightTag,
+  (value) => {
+    const normalized = normalizeCopyrightTag(value);
+    if (normalized !== value) form.copyrightTag = normalized;
+  },
+);
 
 const pwReqs = ref<any>(null);
 const errorMessage = ref("");

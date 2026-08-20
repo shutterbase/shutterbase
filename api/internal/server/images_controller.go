@@ -17,6 +17,7 @@ import (
 func (s *Server) registerImageRoutes(api *gin.RouterGroup) {
 	api.GET("/images", s.listImages)
 	api.GET("/images/tag-facets", s.listImageTagFacets)
+	api.GET("/images/position", s.getImagePosition)
 	api.GET("/images/:id", s.getImage)
 	api.POST("/images", s.createImage)
 	api.PUT("/images/:id", s.updateImage)
@@ -121,6 +122,40 @@ func (s *Server) listImages(c *gin.Context) {
 		out = append(out, ToImageResponse(c.Request.Context(), img, s.s3Client, s.thumbnailSizes))
 	}
 	c.JSON(http.StatusOK, ListResponse[*ImageResponse]{Limit: pagination.Limit, Offset: pagination.Offset, Total: total, Items: out})
+}
+
+// imagePositionMaxScan bounds the deep-link "jump to context" scan; images
+// deeper in the collection fall back to the SPA's solo detail view.
+const imagePositionMaxScan = 2000
+
+// getImagePosition answers where one image sits under the same filter+sort the
+// gallery list uses, so a permalink recipient's SPA knows how far to load.
+// position -1 = not within the first imagePositionMaxScan matches, or the
+// current filter excludes the image entirely.
+func (s *Server) getImagePosition(c *gin.Context) {
+	imageID := c.Query("imageId")
+	if imageID == "" {
+		apiError(c, http.StatusBadRequest, "missing_image", "imageId is required")
+		return
+	}
+	pagination, ok := getPagination(c)
+	if !ok {
+		return
+	}
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	position := -1
+	if !emptyResult {
+		params.PaginationParameters = pagination
+		var err error
+		position, err = s.Repository.GetImagePosition(c.Request.Context(), params, imageID, imagePositionMaxScan)
+		if abortRepoListError(c, err) {
+			return
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"position": position})
 }
 
 // TagFacetsResponse backs the tag filter popover: facets[tagId] = images the

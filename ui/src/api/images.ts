@@ -57,6 +57,14 @@ export async function tagFacets(params: ImageListParams): Promise<TagFacetsRespo
   return data;
 }
 
+// Zero-based offset of one image under the same filter+sort `list` uses, or -1
+// when the filter excludes it / it sits beyond the server's scan bound — the
+// deep-link resolver decides jump-to-context vs. solo detail on this.
+export async function position(params: ImageListParams & { imageId: string }): Promise<number> {
+  const { data } = await http.get<{ position: number }>("/images/position", { params, paramsSerializer: { indexes: null } });
+  return data.position;
+}
+
 export async function get(id: string): Promise<Image> {
   const { data } = await http.get<Image>(`/images/${id}`);
   return data;
