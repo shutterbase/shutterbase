@@ -539,12 +539,14 @@ func parseRenderCfg(c *cli.Context) (renderCfg, error) {
 	switch c.String("ken-burns") {
 	case "subtle":
 		cfg.Scale = 1.06
+	case "medium":
+		cfg.Scale = 1.10
 	case "strong":
 		cfg.Scale = 1.14
 	case "off":
 		cfg.Scale = 1
 	default:
-		return cfg, fmt.Errorf("invalid --ken-burns %q (subtle|strong|off)", c.String("ken-burns"))
+		return cfg, fmt.Errorf("invalid --ken-burns %q (subtle|medium|strong|off)", c.String("ken-burns"))
 	}
 	if cfg.Scale == 1 {
 		cfg.Variants = []int{variantOff}
@@ -607,6 +609,9 @@ func run(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
+		if c.Bool("shuffle") {
+			rand.Shuffle(len(imgPaths), func(i, j int) { imgPaths[i], imgPaths[j] = imgPaths[j], imgPaths[i] })
+		}
 		if limit := c.Int("limit"); limit > 0 && len(imgPaths) > limit {
 			imgPaths = imgPaths[:limit]
 		}
@@ -636,6 +641,9 @@ func run(c *cli.Context) error {
 			}
 		}
 		internalSkipped := len(images) - len(kept)
+		if c.Bool("shuffle") {
+			rand.Shuffle(len(kept), func(i, j int) { kept[i], kept[j] = kept[j], kept[i] })
+		}
 		if limit := c.Int("limit"); limit > 0 && len(kept) > limit {
 			kept = kept[:limit]
 		}
@@ -739,6 +747,10 @@ func main() {
 				Name:  "limit",
 				Usage: "render at most N images in slideshow order (0 = all)",
 			},
+			&cli.BoolFlag{
+				Name:  "shuffle",
+				Usage: "randomize image order (applied before --limit, so the limit takes a random sample)",
+			},
 			&cli.StringFlag{
 				Name:  "resolution",
 				Value: "1920x1080",
@@ -762,7 +774,7 @@ func main() {
 			&cli.StringFlag{
 				Name:  "ken-burns",
 				Value: "subtle",
-				Usage: "pan/zoom intensity: subtle|strong|off",
+				Usage: "pan/zoom intensity: subtle|medium|strong|off",
 			},
 			&cli.StringFlag{
 				Name:  "ken-burns-variants",

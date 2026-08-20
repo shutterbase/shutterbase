@@ -28,11 +28,12 @@ match the output aspect ratio.
 | `--input-dir` | `SHUTTERBASE_INPUT_DIR` | — | render a local folder (`.jpg/.jpeg/.png`, sorted by filename) instead of the API |
 | `--output, -o` | `SHUTTERBASE_OUTPUT` | `slideshow.mp4` | output file |
 | `--limit` | — | all | render at most N images in slideshow order |
+| `--shuffle` | — | off | randomize image order (applied before `--limit`, so the limit takes a random sample) |
 | `--resolution` | — | `1920x1080` | output size `WIDTHxHEIGHT` |
 | `--fps` | — | `30` | frame rate |
 | `--show-seconds` | — | `6` | seconds each image is fully visible |
 | `--transition-seconds` | — | `1.5` | crossfade length, additive (0 = hard cuts) |
-| `--ken-burns` | — | `subtle` | `subtle` \| `strong` \| `off` |
+| `--ken-burns` | — | `subtle` | `subtle` \| `medium` \| `strong` \| `off` |
 | `--ken-burns-variants` | — | all | subset of `zoom-in,pan-right,zoom-out,pan-left`; one is picked randomly per image, never twice in a row |
 | `--background` | — | `blur` | `blur` \| `black` fill behind non-matching aspect ratios |
 | `--parallelism` | `SHUTTERBASE_PARALLELISM` | `min(4, cores/2)` | parallel downloads / ffmpeg runs |
