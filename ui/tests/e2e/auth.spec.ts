@@ -5,7 +5,9 @@ test.describe("authentication", () => {
   test("unauthenticated access to a protected route redirects to login", async ({ page }) => {
     await page.context().clearCookies();
     await page.goto("/images");
-    await expect(page).toHaveURL(/\/login$/);
+    // the target rides along as ?redirect= and is honored after signing in
+    await expect(page).toHaveURL(/\/login\?redirect=/);
+    expect(new URL(page.url()).searchParams.get("redirect")).toBe("/images");
     await expect(page.getByRole("button", { name: /^Sign in$/ })).toBeVisible();
   });
 
