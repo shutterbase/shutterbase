@@ -14,5 +14,6 @@ describe("sanitizeRedirect", () => {
     expect(sanitizeRedirect("https://evil.example/phish")).toBe("/");
     expect(sanitizeRedirect("//evil.example/phish")).toBe("/");
     expect(sanitizeRedirect(["/a", "/b"])).toBe("/");
+    expect(sanitizeRedirect("/logout")).toBe("/"); // would sign the user straight out again
   });
 });
