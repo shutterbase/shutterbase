@@ -9,15 +9,21 @@ function rejectedHandler() {
   return (http.interceptors.response as any).handlers[0].rejected as (e: any) => Promise<any>;
 }
 
-function stubLocation(pathname: string) {
+function stubLocation(pathname: string, search = "") {
   const assign = vi.fn();
-  Object.defineProperty(window, "location", { value: { pathname, assign }, writable: true });
+  Object.defineProperty(window, "location", { value: { pathname, search, assign }, writable: true });
   return assign;
 }
 
 describe("axios 401 interceptor", () => {
-  it("redirects to /login on a 401 when not already on the login page", async () => {
-    const assign = stubLocation("/images");
+  it("redirects to /login with the current page as ?redirect= on a 401", async () => {
+    const assign = stubLocation("/images", "?image=abc");
+    await expect(rejectedHandler()({ response: { status: 401 } })).rejects.toBeDefined();
+    expect(assign).toHaveBeenCalledWith(`/login?redirect=${encodeURIComponent("/images?image=abc")}`);
+  });
+
+  it("redirects to bare /login from the start page", async () => {
+    const assign = stubLocation("/");
     await expect(rejectedHandler()({ response: { status: 401 } })).rejects.toBeDefined();
     expect(assign).toHaveBeenCalledWith("/login");
   });
