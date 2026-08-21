@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"reflect"
+	"regexp"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -95,6 +97,18 @@ func (r *Repository) GetUsers(ctx context.Context, parameters *GetUserParameters
 	return items, total, nil
 }
 
+// The copyright tag ends up in EXIF fields and computed filenames:
+// lowercase, umlauts transliterated (ä→ae, ö→oe, ü→ue, ß→ss), and any run
+// of non-letter/digit/underscore characters (whitespace, dashes, dots, …)
+// collapsed to a single underscore.
+// Mirrored in ui/src/util/copyrightTag.ts.
+var copyrightTagSeparators = regexp.MustCompile(`[^\p{L}\p{N}_]+`)
+var copyrightTagUmlauts = strings.NewReplacer("ä", "ae", "ö", "oe", "ü", "ue", "ß", "ss")
+
+func NormalizeCopyrightTag(tag string) string {
+	return copyrightTagSeparators.ReplaceAllString(copyrightTagUmlauts.Replace(strings.ToLower(tag)), "_")
+}
+
 type CreateUserParameters struct {
 	Username            string
 	PasswordHash        *string
@@ -122,11 +136,11 @@ func (r *Repository) CreateUser(ctx context.Context, parameters *CreateUserParam
 		create = create.SetPasswordHash(*parameters.PasswordHash)
 	}
 	if parameters.CopyrightTag != nil && *parameters.CopyrightTag != "" {
-		create = create.SetCopyrightTag(*parameters.CopyrightTag)
+		create = create.SetCopyrightTag(NormalizeCopyrightTag(*parameters.CopyrightTag))
 	} else {
 		// PocketBase-hook parity: a new user's copyright tag defaults to their
 		// last name, so photographers can upload without touching their profile.
-		create = create.SetCopyrightTag(parameters.LastName)
+		create = create.SetCopyrightTag(NormalizeCopyrightTag(parameters.LastName))
 	}
 	if parameters.Email != nil {
 		create = create.SetEmail(*parameters.Email)
@@ -217,9 +231,12 @@ func (r *Repository) UpdateUser(ctx context.Context, id uuid.UUID, parameters *U
 		update.SetLastName(*parameters.LastName)
 		st.SetFieldChanged(user.FieldLastName, item.LastName, *parameters.LastName)
 	}
-	if parameters.CopyrightTag != nil && item.CopyrightTag != *parameters.CopyrightTag {
-		update.SetCopyrightTag(*parameters.CopyrightTag)
-		st.SetFieldChanged(user.FieldCopyrightTag, item.CopyrightTag, *parameters.CopyrightTag)
+	if parameters.CopyrightTag != nil {
+		tag := NormalizeCopyrightTag(*parameters.CopyrightTag)
+		if item.CopyrightTag != tag {
+			update.SetCopyrightTag(tag)
+			st.SetFieldChanged(user.FieldCopyrightTag, item.CopyrightTag, tag)
+		}
 	}
 	if parameters.Email != nil && item.Email != *parameters.Email {
 		update.SetEmail(*parameters.Email)

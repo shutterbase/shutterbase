@@ -285,7 +285,8 @@ func TestUserCRUDUUID(t *testing.T) {
 }
 
 // PocketBase-hook parity: a new user without an explicit copyright tag gets
-// their last name as the default; an explicit tag always wins.
+// their last name as the default; an explicit tag always wins. Both paths run
+// through NormalizeCopyrightTag (lowercase, separators → underscore).
 func TestCreateUserDefaultsCopyrightTagToLastName(t *testing.T) {
 	ctx := context.Background()
 	repo := testRepo(t)
@@ -294,21 +295,21 @@ func TestCreateUserDefaultsCopyrightTagToLastName(t *testing.T) {
 		Username: "trinity", FirstName: "Trinity", LastName: "Moss",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "Moss", defaulted.CopyrightTag)
+	assert.Equal(t, "moss", defaulted.CopyrightTag)
 
 	emptied, err := repo.CreateUser(ctx, &repository.CreateUserParameters{
 		Username: "smith", FirstName: "Agent", LastName: "Smith",
 		CopyrightTag: util.StringPointer(""),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "Smith", emptied.CopyrightTag)
+	assert.Equal(t, "smith", emptied.CopyrightTag)
 
 	explicit, err := repo.CreateUser(ctx, &repository.CreateUserParameters{
 		Username: "oracle", FirstName: "The", LastName: "Oracle",
 		CopyrightTag: util.StringPointer("ORCL"),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "ORCL", explicit.CopyrightTag)
+	assert.Equal(t, "orcl", explicit.CopyrightTag)
 }
 
 // GetUploadMetrics runs a hand-built join through the ent SQL builder — the one

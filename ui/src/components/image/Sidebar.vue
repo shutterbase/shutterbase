@@ -67,9 +67,12 @@
             delete
           </p>
         </template>
-        <p @click="showAllDetails = !showAllDetails" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
-          {{ showAllDetails ? "less" : "more" }}
-        </p>
+        <div class="flex gap-4">
+          <p @click="showAllDetails = !showAllDetails" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
+            {{ showAllDetails ? "less" : "more" }}
+          </p>
+          <p @click="copyPermalink" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">copy link</p>
+        </div>
       </div>
 
       <div class="border-b border-primary-200 dark:border-primary-800 pb-4">
@@ -238,6 +241,8 @@ import { appliedTimeOffset } from "src/util/dateTimeUtil";
 import { canRemoveTagAssignment, removeTagAssignment } from "src/util/imageTags";
 import { groupTagAssignments } from "src/util/tagOrder";
 import { aiPositions, aiQueueTotal } from "src/pages/image/imageQueryLogic";
+import { useRouter } from "vue-router";
+import { copyToClipboard } from "src/util/clipboard";
 
 const userStore = useUserStore();
 
@@ -254,6 +259,16 @@ const props = withDefaults(defineProps<Props>(), {});
 
 // details collapse to name + corrected capture time; "more" reveals the rest
 const showAllDetails = ref(false);
+
+// permalink: the canonical minimal deep link — no filter/sort context, so the
+// recipient's resolver (jumpToImage) decides how to present it
+const router = useRouter();
+function copyPermalink() {
+  if (!props.item) return;
+  const href = router.resolve({ name: "images", query: { image: props.item.id } }).href;
+  copyToClipboard(`${window.location.origin}${href}`);
+  showNotificationToast({ headline: "Link copied", type: "success" });
+}
 
 // Auto-shrink the name to a single line: compare the hidden measurer's width
 // (full name at base 14px) against the row minus the clipboard icon, scale the

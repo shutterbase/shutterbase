@@ -144,14 +144,36 @@ export async function triggerInfiniteScroll() {
 // dropped and a stale in-flight response is discarded.
 let requestId = 0;
 
+// shared filter/sort state → buildImageListParams input; one source of truth
+// for the list, the facets and the deep-link position queries
+function currentFilterInput() {
+  return {
+    projectId: activeProject.value.id,
+    search: searchText.value,
+    tags: filterTags.value,
+    excludeTags: excludeFilterTags.value,
+    personRef: personFilter.value ?? undefined,
+    crossProject: personCrossProject.value,
+    uploadId: uploadFilter.value ?? undefined,
+    orientation: aspectRatioFilter.value,
+    sortOrder: preferredImageSortOrder.value,
+  };
+}
+
 export async function loadImages(reload: boolean) {
+  // no active project (fresh account following a permalink) — the query is
+  // meaningless and would 400; jumpToImage switches the project first
+  if (!activeProject.value?.id) return;
   // pagination guard only: don't stack "load more" requests, but a reload
   // (new filter/search/sort) must always issue a fresh query.
   if (!reload && loading.value) return;
   const myRequestId = ++requestId;
   loading.value = true;
   try {
-    if (reload) page.value = 1;
+    if (reload) {
+      page.value = 1;
+      soloImage.value = false;
+    }
 
     filtered.value =
       !!searchText.value ||
@@ -162,15 +184,7 @@ export async function loadImages(reload: boolean) {
       !!uploadFilter.value;
 
     const params = buildImageListParams({
-      projectId: activeProject.value.id,
-      search: searchText.value,
-      tags: filterTags.value,
-      excludeTags: excludeFilterTags.value,
-      personRef: personFilter.value ?? undefined,
-      crossProject: personCrossProject.value,
-      uploadId: uploadFilter.value ?? undefined,
-      orientation: aspectRatioFilter.value,
-      sortOrder: preferredImageSortOrder.value,
+      ...currentFilterInput(),
       limit: PAGE_SIZE,
       offset: (page.value - 1) * PAGE_SIZE,
     });
@@ -193,6 +207,101 @@ export async function loadImages(reload: boolean) {
   }
 }
 
+// --- deep link / permalink resolution ------------------------------------------
+// A shared /images?image=<id> URL must open for a recipient whose loaded pages,
+// active project or filters don't contain the image. jumpToImage resolves it:
+// fetch the image (403/404 → toast), switch the active project if the link
+// points into another of the viewer's projects, ask the API where the image
+// sits under the current sort, and extend the loaded window up to it. When the
+// position is unknown (filtered out, or deeper than the server's scan bound)
+// the detail opens solo: the image alone, without grid context.
+// ponytail: solo beyond 2000 — add backward pagination if deep links into old
+// archives ever matter.
+
+const JUMP_CONTEXT_MAX = 2000;
+const LIST_MAX_LIMIT = 500; // server-side limit clamp
+
+// solo = the images array holds only the deep-linked image; leaving the detail
+// view (or any reload) restores a real grid.
+export const soloImage = ref(false);
+
+export type JumpResult = { status: "jumped" | "solo" | "unavailable"; projectSwitched: boolean };
+
+export async function jumpToImage(imageId: string): Promise<JumpResult> {
+  let img: ImageWithTagsType;
+  try {
+    img = await api.images.get(imageId);
+  } catch (error: any) {
+    showNotificationToast({
+      headline: error?.response?.status === 403 ? "You don't have access to this image's project" : "This image no longer exists",
+      type: "warning",
+    });
+    return { status: "unavailable", projectSwitched: false };
+  }
+
+  let projectSwitched = false;
+  if (img.project && img.project.id !== activeProject.value?.id) {
+    // the link points into another of the viewer's projects (non-members got
+    // the 403 above) — switch, dropping filters that belonged to the old one
+    useUserStore().setProject(img.project);
+    personFilter.value = null;
+    personCrossProject.value = false;
+    uploadFilter.value = null;
+    resetTransientFilters();
+    projectSwitched = true;
+    await loadImages(true);
+    if (images.value.some((i) => i.id === imageId)) return { status: "jumped", projectSwitched };
+  }
+
+  let position = -1;
+  try {
+    position = await api.images.position({ ...buildImageListParams(currentFilterInput()), imageId });
+  } catch {
+    // fall through to solo
+  }
+  if (position >= 0 && position < JUMP_CONTEXT_MAX) {
+    await loadImagesUntil(position + 1);
+    if (images.value.some((i) => i.id === imageId)) return { status: "jumped", projectSwitched };
+  }
+
+  images.value = [img];
+  totalImageCount.value = 1;
+  page.value = 1;
+  soloImage.value = true;
+  return { status: "solo", projectSwitched };
+}
+
+// loadImagesUntil extends the loaded window to at least count images (server
+// pages cap at LIST_MAX_LIMIT per request) so a deep-linked image gets its real
+// grid context around it. Leaves the page counter consistent for infinite scroll.
+async function loadImagesUntil(count: number) {
+  const target = Math.min(Math.ceil(count / PAGE_SIZE) * PAGE_SIZE, JUMP_CONTEXT_MAX);
+  if (images.value.length >= target) return;
+  const myRequestId = ++requestId;
+  loading.value = true;
+  try {
+    while (images.value.length < target) {
+      const params = buildImageListParams({
+        ...currentFilterInput(),
+        limit: Math.min(target - images.value.length, LIST_MAX_LIMIT),
+        offset: images.value.length,
+      });
+      const result = await api.images.list(params);
+      if (myRequestId !== requestId) return;
+      totalImageCount.value = result.total;
+      images.value.push(...result.items);
+      if (result.items.length === 0) break;
+    }
+    page.value = Math.floor(images.value.length / PAGE_SIZE) + 1;
+  } catch (error: any) {
+    if (myRequestId !== requestId) return;
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    if (myRequestId === requestId) loading.value = false;
+  }
+}
+
 // --- tag facets ---------------------------------------------------------------
 // Per-tag counts under the CURRENT filter, feeding the tag popover: hide tags
 // that would empty the view, show what each +/− filter would leave. Fetched on
@@ -203,16 +312,7 @@ export const tagFacets = ref<TagFacetsResponse | null>(null);
 let lastFacetsKey = "";
 
 export async function loadTagFacets(force = false) {
-  const params = buildImageListParams({
-    projectId: activeProject.value.id,
-    search: searchText.value,
-    tags: filterTags.value,
-    excludeTags: excludeFilterTags.value,
-    personRef: personFilter.value ?? undefined,
-    crossProject: personCrossProject.value,
-    uploadId: uploadFilter.value ?? undefined,
-    orientation: aspectRatioFilter.value,
-  });
+  const params = buildImageListParams(currentFilterInput());
   const key = JSON.stringify(params);
   if (!force && key === lastFacetsKey && tagFacets.value) return;
   lastFacetsKey = key;

@@ -60,12 +60,14 @@
 </template>
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import { sanitizeRedirect } from "src/util/loginRedirect";
 import { useUserStore } from "src/stores/user-store";
 import { showNotificationToast } from "src/boot/mitt";
 import PasswordRequirements from "src/components/PasswordRequirements.vue";
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 
 const currentPassword = ref("");
@@ -95,7 +97,7 @@ async function submit() {
       newPasswordConfirm: newPasswordConfirm.value,
     });
     showNotificationToast({ headline: "Password changed", type: "success" });
-    router.push("/");
+    router.push(sanitizeRedirect(route.query.redirect));
   } catch (error: any) {
     const code = error.response?.data?.code;
     errorMessage.value = (code && CODE_MESSAGES[code]) || error.response?.data?.message || error.response?.data?.error || "Failed to change password";

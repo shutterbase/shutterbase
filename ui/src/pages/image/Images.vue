@@ -189,7 +189,7 @@ import { faceBoxStyle } from "src/util/aiDetection";
 import { useUserStore } from "src/stores/user-store";
 import * as websocket from "src/util/websocket";
 
-import { DisplayMode, loadImages, triggerInfiniteScroll } from "./imageQueryLogic";
+import { DisplayMode, loadImages, triggerInfiniteScroll, jumpToImage, soloImage } from "./imageQueryLogic";
 import {
   preferredImageSortOrder,
   searchText,
@@ -296,11 +296,27 @@ async function applyRoute(initial = false) {
   }
 
   if (imageId) {
-    const index = images.value.findIndex((image) => image.id === imageId);
+    let index = images.value.findIndex((image) => image.id === imageId);
     if (index === -1) {
-      // deep link beyond the loaded pages (or a deleted image) — stay in the grid
-      displayMode.value = DisplayMode.GRID;
-      return;
+      // permalink beyond the loaded pages, into another project, or dead —
+      // resolve it: jump-to-context, solo detail, or an explanatory toast
+      const jump = await jumpToImage(imageId);
+      if (jump.projectSwitched || jump.status === "solo") {
+        // person/upload context params belonged to the previous view — a
+        // no-op for applyRoute since the matching refs were cleared with them
+        pushQuery((q) => {
+          delete q.person;
+          delete q.personScope;
+          delete q.upload;
+        }, true);
+      }
+      if (jump.status === "unavailable") {
+        displayMode.value = DisplayMode.GRID;
+        pushQuery((q) => delete q.image, true);
+        return;
+      }
+      index = images.value.findIndex((image) => image.id === imageId);
+      if (index === -1) return; // superseded by a newer navigation mid-flight
     }
     imageIndex.value = index;
     if (displayMode.value !== DisplayMode.DETAIL) {
@@ -309,12 +325,19 @@ async function applyRoute(initial = false) {
       imageIndices.value = [];
       displayMode.value = DisplayMode.DETAIL;
     }
-  } else if (displayMode.value !== DisplayMode.GRID) {
-    displayMode.value = DisplayMode.GRID;
-    nextTick(() => {
-      if (imageIndex.value !== -1) scrollToSelectedImage();
-      if (imagesHeader.value) imagesHeader.value.setFilteredTags(filterTags.value, excludeFilterTags.value);
-    });
+  } else {
+    if (soloImage.value) {
+      // leaving a solo detail: the one-image array is no grid — load a real one
+      imageIndex.value = -1;
+      await loadImages(true);
+    }
+    if (displayMode.value !== DisplayMode.GRID) {
+      displayMode.value = DisplayMode.GRID;
+      nextTick(() => {
+        if (imageIndex.value !== -1) scrollToSelectedImage();
+        if (imagesHeader.value) imagesHeader.value.setFilteredTags(filterTags.value, excludeFilterTags.value);
+      });
+    }
   }
 }
 

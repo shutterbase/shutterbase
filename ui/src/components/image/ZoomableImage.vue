@@ -6,7 +6,7 @@
   <div
     ref="container"
     class="overflow-hidden"
-    :class="[stageActive ? expandClass : 'relative w-fit max-w-full', zoomed ? (panning ? 'cursor-grabbing touch-none' : 'cursor-grab touch-none') : '']"
+    :class="[stageActive ? expandClass : 'relative w-fit max-w-full', zoomed ? (panning ? 'cursor-grabbing touch-none select-none' : 'cursor-grab touch-none select-none') : '']"
     @wheel.prevent="onWheel"
     @dblclick="onDblClick"
     @pointerdown="onPointerDown"
