@@ -247,6 +247,18 @@ func main() {
 				Usage:   "number of parallel downloads",
 				EnvVars: []string{"SHUTTERBASE_PARALLELISM"},
 			},
+			&cli.IntFlag{
+				Name:    "retry-count",
+				Usage:   "Number of times to retry a failed download",
+				Value:   3,
+				EnvVars: []string{"SHUTTERBASE_RETRY_COUNT"},
+			},
+			&cli.IntFlag{
+				Name:    "retry-wait",
+				Usage:   "Seconds to wait between retries",
+				Value:   5,
+				EnvVars: []string{"SHUTTERBASE_RETRY_WAIT"},
+			},
 		},
 		Commands: []*cli.Command{
 			{
@@ -432,7 +444,14 @@ func download(c *cli.Context, properties DownloadProperties) error {
 		Error  error
 	}
 
-	bar := progressbar.Default(int64(len(filteredImages)))
+	//bar := progressbar.Default(int64(len(filteredImages)))
+	bar := progressbar.NewOptions(int(len(filteredImages)),
+		progressbar.OptionSetWriter(os.Stdout), // bar goes to stdout
+		progressbar.OptionShowCount(),          // show count
+		progressbar.OptionShowIts(),            // iterations/s
+		progressbar.OptionSetWidth(69),         // nicer width
+	)
+
 	lock := sync.Mutex{}
 	incrementBar := func() {
 		lock.Lock()
@@ -460,7 +479,7 @@ func download(c *cli.Context, properties DownloadProperties) error {
 				}
 				log.Debug().Msgf("Downloading image '%s'", image.ComputedFileName)
 				incrementBar()
-				err := apiClient.downloadImage(c.Context, &image, filepath.Join(outputDir, getFileName(image.ComputedFileName)))
+				err := downloadImageWithRetry(c, apiClient, &image, filepath.Join(outputDir, getFileName(image.ComputedFileName)))
 				if err != nil {
 					log.Error().Err(err).Msgf("Failed to download image '%s'", image.ComputedFileName)
 					downloadResults <- DownloadResult{Status: DownloadStatusError, Image: image, Error: err}
@@ -508,6 +527,37 @@ func download(c *cli.Context, properties DownloadProperties) error {
 	return nil
 }
 
+func downloadImageWithRetry(c *cli.Context, client *apiClient, image *Image, outputFile string) error {
+	retries := c.Int("retry-count")
+	wait := time.Duration(c.Int("retry-wait")) * time.Second
+
+	var err error
+	for attempt := 1; attempt <= retries; attempt++ {
+		err = client.downloadImage(c.Context, image, outputFile)
+		if err == nil {
+			return nil
+		}
+
+		// cleanup: remove partial file if it exists
+		if _, statErr := os.Stat(outputFile); statErr == nil {
+			_ = os.Remove(outputFile)
+			log.Debug().Msgf("Removed partially downloaded file '%s'", outputFile)
+		}
+
+		// Log error + retry as two separate entries
+		log.Error().Err(err).Msgf("Download failed for '%s' (attempt %d/%d)",
+			image.ComputedFileName, attempt, retries)
+
+		if attempt < retries {
+			log.Warn().Msgf("Retrying in %s...", wait)
+			time.Sleep(wait)
+		}
+	}
+
+	return fmt.Errorf("failed to download '%s' after %d attempts: %w", image.ComputedFileName, retries, err)
+}
+
+
 func initLogger(c *cli.Context) error {
 	setLogOutput()
 	if c.Bool("very-verbose") {
@@ -523,7 +573,11 @@ func initLogger(c *cli.Context) error {
 
 func setLogOutput() {
 	zerolog.TimeFieldFormat = time.RFC3339Nano
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02T15:04:05.000Z"})
+	// Write logs to stderr, progressbar uses stdout
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: "2006-01-02T15:04:05.000Z",
+	})
 }
 
 func applyLogLevel(logLevel string) {
