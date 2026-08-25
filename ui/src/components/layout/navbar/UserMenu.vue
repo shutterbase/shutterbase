@@ -117,6 +117,30 @@
             </router-link>
           </li>
         </ul>
+        <ul class="py-1 text-primary-700 dark:text-primary-200">
+          <li>
+            <a
+              href="https://github.com/shutterbase/shutterbase/issues/new?template=feature_request.md"
+              target="_blank"
+              rel="noopener"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
+              <ChatBubbleLeftRightIcon class="mr-2 w-5 h-5 text-primary-400 dark:text-primary-500" />
+              Give feedback
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://github.com/shutterbase/shutterbase/issues/new?template=bug_report.md"
+              target="_blank"
+              rel="noopener"
+              class="flex cursor-pointer items-center py-2 px-4 text-sm transition-colors hover:bg-primary-100 hover:text-primary-900 dark:hover:bg-primary-800 dark:hover:text-white"
+            >
+              <BugAntIcon class="mr-2 w-5 h-5 text-primary-400 dark:text-primary-500" />
+              Report a bug
+            </a>
+          </li>
+        </ul>
         <ul class="py-1">
           <li>
             <a
@@ -139,7 +163,7 @@
 
 <script setup lang="ts">
 import { Menu, MenuButton, MenuItems } from "@headlessui/vue";
-import { CameraIcon, CloudArrowUpIcon, KeyIcon, RectangleStackIcon, UserIcon, UsersIcon } from "@heroicons/vue/24/solid";
+import { BugAntIcon, CameraIcon, ChatBubbleLeftRightIcon, CloudArrowUpIcon, KeyIcon, RectangleStackIcon, UserIcon, UsersIcon } from "@heroicons/vue/24/solid";
 import { onMounted, ref } from "vue";
 import { initFlowbite } from "flowbite";
 import { useUserStore } from "src/stores/user-store";
