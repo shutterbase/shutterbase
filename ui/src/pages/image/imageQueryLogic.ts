@@ -5,7 +5,7 @@ import { api } from "src/api";
 import type { TagFacetsResponse } from "src/api/images";
 import { ImageTag } from "src/types/api";
 import { ImageWithTagsType } from "src/types/custom";
-import { buildImageListParams } from "src/pages/image/imageListParams";
+import { applyPersonPause, buildImageListParams } from "src/pages/image/imageListParams";
 import { emitter, showNotificationToast } from "src/boot/mitt";
 import { canEditImageTag } from "src/pages/upload/uploadUtil";
 import { isReviewerOnlyTag } from "src/util/uploadReview";
@@ -85,6 +85,12 @@ export const personFilter = ref<string | null>(null);
 // hard project filter. Route-driven like the filter itself (?personScope=all).
 export const personCrossProject = ref(false);
 
+// Person-view pause: while a person filter is active, the other narrowing
+// filters (search/tags/orientation) can be suspended so the face click always
+// yields the full gallery. The "Filters" pill toggles it; it re-arms whenever
+// the person filter engages anew or is cleared (Images.vue / jumpToImage).
+export const personFiltersPaused = ref(true);
+
 // Implicit upload-batch filter: set by "view images" links on an upload or its
 // kanban card, cleared via the chip above the grid. Route-driven (?upload=)
 // like the person filter; Images.vue owns the sync.
@@ -147,7 +153,7 @@ let requestId = 0;
 // shared filter/sort state → buildImageListParams input; one source of truth
 // for the list, the facets and the deep-link position queries
 function currentFilterInput() {
-  return {
+  const input = {
     projectId: activeProject.value.id,
     search: searchText.value,
     tags: filterTags.value,
@@ -158,6 +164,7 @@ function currentFilterInput() {
     orientation: aspectRatioFilter.value,
     sortOrder: preferredImageSortOrder.value,
   };
+  return personFilter.value && personFiltersPaused.value ? applyPersonPause(input) : input;
 }
 
 export async function loadImages(reload: boolean) {
@@ -247,6 +254,7 @@ export async function jumpToImage(imageId: string): Promise<JumpResult> {
     personFilter.value = null;
     personCrossProject.value = false;
     uploadFilter.value = null;
+    personFiltersPaused.value = true;
     resetTransientFilters();
     projectSwitched = true;
     await loadImages(true);

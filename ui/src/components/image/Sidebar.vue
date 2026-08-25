@@ -19,12 +19,11 @@
       <div class="border-b border-primary-200 dark:border-primary-800 py-4 space-y-2">
         <div>
           <p class="label-mono text-primary-500 dark:text-primary-400">Name</p>
-          <p ref="nameRow" class="mt-0.5 flex items-center gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
-            <span class="truncate whitespace-nowrap" :style="nameStyle">{{ item.computedFileName }}</span>
-            <!-- invisible measurer: full name width at base size, immune to the
-                 shrink applied to the visible span (no feedback loop) -->
-            <span ref="nameMeasure" aria-hidden="true" class="invisible absolute whitespace-pre font-data text-sm">{{ item.computedFileName }}</span>
-            <Clipboard class="h-4 shrink-0" :text="item.computedFileName" />
+          <!-- fixed two-row block: long names wrap, box height never changes,
+               so nothing beneath shifts when navigating between images -->
+          <p class="mt-0.5 flex h-10 items-start gap-1.5 font-data text-sm text-primary-800 dark:text-primary-100">
+            <span class="min-w-0 flex-1 break-words line-clamp-2" :title="item.computedFileName">{{ item.computedFileName }}</span>
+            <Clipboard class="mt-0.5 h-4 shrink-0" :text="item.computedFileName" />
           </p>
         </div>
         <div>
@@ -226,7 +225,7 @@ import { ImageWithTagsType } from "src/types/custom";
 import { dateTimeFromBackend } from "src/util/dateTimeUtil";
 import ImageTagBadge from "src/components/image/ImageTagBadge.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed } from "vue";
 import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 import { emitter, showNotificationToast } from "src/boot/mitt";
 import { downloadImage } from "src/util/download";
@@ -270,28 +269,6 @@ function copyPermalink() {
   showNotificationToast({ headline: "Link copied", type: "success" });
 }
 
-// Auto-shrink the name to a single line: compare the hidden measurer's width
-// (full name at base 14px) against the row minus the clipboard icon, scale the
-// font down proportionally. Floor at 9px — below that truncation takes over.
-const nameRow = ref<HTMLElement | null>(null);
-const nameMeasure = ref<HTMLElement | null>(null);
-const nameStyle = ref<{ fontSize?: string }>({});
-function fitName() {
-  const row = nameRow.value;
-  const measure = nameMeasure.value;
-  if (!row || !measure) return;
-  const available = row.clientWidth - 24; // ponytail: clipboard icon + gap, static
-  const full = measure.offsetWidth;
-  nameStyle.value = full > available ? { fontSize: `${Math.max((available / full) * 14, 9)}px` } : {};
-}
-watch(() => props.item?.computedFileName, fitName, { flush: "post" });
-let nameResizeObserver: ResizeObserver | null = null;
-onMounted(() => {
-  fitName();
-  nameResizeObserver = new ResizeObserver(fitName);
-  if (nameRow.value) nameResizeObserver.observe(nameRow.value);
-});
-onUnmounted(() => nameResizeObserver?.disconnect());
 const appliedOffset = computed(() => {
   if (!props.item?.capturedAt || !props.item?.capturedAtCorrected) return null;
   return appliedTimeOffset(props.item.capturedAt, props.item.capturedAtCorrected);
