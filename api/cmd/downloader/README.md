@@ -57,11 +57,13 @@ tags is excluded.
 
 ### Retries
 
-Failed downloads are retried automatically. The number of attempts is configured
-via `--retry-count` (default 3), the wait between attempts in seconds via
-`--retry-wait` (default 5). Both flags can also be supplied through the
-environment variables `SHUTTERBASE_RETRY_COUNT` and `SHUTTERBASE_RETRY_WAIT`.
-Partially written files are removed before each retry.
+Failed downloads are retried automatically. The number of attempts per image is
+configured via `--retry-count` (default 3, minimum 1), the wait between attempts
+in seconds via `--retry-wait` (default 5). Both flags can also be supplied through
+the environment variables `SHUTTERBASE_RETRY_COUNT` and `SHUTTERBASE_RETRY_WAIT`.
+Downloads stream into a `<file>.part` sidecar and are renamed into place on
+success, so a failed attempt never leaves a truncated image behind and never
+touches an existing file.
 
 ```
 ./downloader --url https://shutterbase.fsg.one/api/v1 --api-key <keyId.secret> --project qagr042y62aeptz --whitelist vbo --retry-count 5 --retry-wait 10 download full
