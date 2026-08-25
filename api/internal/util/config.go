@@ -115,7 +115,7 @@ func InitConfig() error {
 		config.String("AI_HTTP_ENDPOINT").Default(""),
 		// Serve the faces/person/merge proxies from a deterministic in-process
 		// fake clustered over the local database — DEV testing without an AI
-		// server. Ignored when a real AI_PROVIDER=http remote is configured.
+		// server. Only honored with AI_PROVIDER=stub.
 		config.Bool("AI_FAKE_SERVER").Default(false),
 		// Thumbnail rendition sent to inference; must be one of THUMBNAIL_SIZES.
 		// 512 keeps OpenAI token cost down; the fsai contract wants 2048.

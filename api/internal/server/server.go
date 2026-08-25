@@ -129,7 +129,10 @@ func NewServer(options *Options) (*Server, error) {
 	if h, ok := inference.(*service.HTTPInference); ok {
 		aiRemote = h.Client
 	}
-	if aiRemote == nil && config.Get().Bool("AI_FAKE_SERVER") {
+	// DEV fake, only next to the stub inference: with a real provider the
+	// proxies' mere presence would also unlock scoped reruns (aiRerunNumbers)
+	// that only the http provider honors — a full paid rerun in disguise.
+	if _, stub := inference.(*service.StubInference); stub && config.Get().Bool("AI_FAKE_SERVER") {
 		aiRemote = NewFakeAIRemote(repo.Client)
 	}
 

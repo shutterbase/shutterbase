@@ -108,10 +108,12 @@ func (s *fakeAIRemote) PersonImages(ctx context.Context, projectID, personRef st
 	if err != nil {
 		return resp, err
 	}
-	members := make([]string, 0, len(all))
+	// membership follows every face an image exposes, not just its own cluster,
+	// so clicking a secondary face lands on a gallery that contains the source
+	members := make([]aiserver.PersonImage, 0, len(all))
 	for _, id := range all {
-		if fakeCluster(id) == cluster {
-			members = append(members, id)
+		if face, ok := fakeFaceOf(id, fakePersonRef(cluster)); ok {
+			members = append(members, face)
 		}
 	}
 	resp.Total = len(members)
@@ -119,12 +121,17 @@ func (s *fakeAIRemote) PersonImages(ctx context.Context, projectID, personRef st
 	if start >= len(members) {
 		return resp, nil
 	}
-	end := min(start+pageSize, len(members))
-	for _, id := range members[start:end] {
-		x, y, w, hh := fakeFaceBox(id, 0)
-		resp.Items = append(resp.Items, aiserver.PersonImage{ImageRef: id, X: x, Y: y, W: w, H: hh})
-	}
+	resp.Items = members[start:min(start+pageSize, len(members))]
 	return resp, nil
+}
+
+func fakeFaceOf(imageRef, personRef string) (aiserver.PersonImage, bool) {
+	for _, f := range fakeFacesFor(imageRef) {
+		if f.PersonRef == personRef {
+			return aiserver.PersonImage{ImageRef: imageRef, X: f.X, Y: f.Y, W: f.W, H: f.H}, true
+		}
+	}
+	return aiserver.PersonImage{}, false
 }
 
 func (s *fakeAIRemote) Similar(_ context.Context, _, _ string, _, _ int) (aiserver.SimilarResponse, error) {
@@ -134,7 +141,7 @@ func (s *fakeAIRemote) Similar(_ context.Context, _, _ string, _, _ int) (aiserv
 func (s *fakeAIRemote) Persons(ctx context.Context, projectIDs []string, page, pageSize int) (aiserver.PersonsResponse, error) {
 	type tally struct {
 		count  int
-		sample string
+		sample aiserver.PersonImage
 	}
 	counts := map[string]*tally{}
 	for _, pid := range projectIDs {
@@ -143,15 +150,13 @@ func (s *fakeAIRemote) Persons(ctx context.Context, projectIDs []string, page, p
 			return aiserver.PersonsResponse{}, err
 		}
 		for _, ref := range refs {
-			key := fakePersonRef(fakeCluster(ref))
-			t, ok := counts[key]
-			if !ok {
-				t = &tally{}
-				counts[key] = t
-			}
-			t.count++
-			if t.sample == "" {
-				t.sample = ref
+			for _, f := range fakeFacesFor(ref) {
+				t, ok := counts[f.PersonRef]
+				if !ok {
+					t = &tally{sample: aiserver.PersonImage{ImageRef: ref, X: f.X, Y: f.Y, W: f.W, H: f.H}}
+					counts[f.PersonRef] = t
+				}
+				t.count++
 			}
 		}
 	}
@@ -173,13 +178,7 @@ func (s *fakeAIRemote) Persons(ctx context.Context, projectIDs []string, page, p
 	}
 	end := min(start+pageSize, len(keys))
 	for _, key := range keys[start:end] {
-		t := counts[key]
-		x, y, w, hh := fakeFaceBox(t.sample, 0)
-		resp.Items = append(resp.Items, aiserver.PersonEntry{
-			PersonRef: key,
-			Count:     t.count,
-			Sample:    aiserver.PersonImage{ImageRef: t.sample, X: x, Y: y, W: w, H: hh},
-		})
+		resp.Items = append(resp.Items, aiserver.PersonEntry{PersonRef: key, Count: counts[key].count, Sample: counts[key].sample})
 	}
 	return resp, nil
 }

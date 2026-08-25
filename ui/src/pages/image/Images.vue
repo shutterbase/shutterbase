@@ -46,7 +46,7 @@
             :title="
               personFiltersPaused
                 ? 'Search, tag and orientation filters are paused for this person — click to apply them again'
-                : 'Showing all photos of this person — click to re-apply your search, tag and orientation filters'
+                : 'Search, tag and orientation filters are applied — click to pause them and see all photos of this person'
             "
             @click="togglePersonFilters()"
           >
