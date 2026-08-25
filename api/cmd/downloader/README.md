@@ -54,3 +54,15 @@ tags is excluded.
 ```
 ./downloader --url https://shutterbase.fsg.one/api/v1 --api-key <keyId.secret> --project qagr042y62aeptz --whitelist vbo --blacklist internal,review download delta
 ```
+
+### Retries
+
+Failed downloads are retried automatically. The number of attempts is configured
+via `--retry-count` (default 3), the wait between attempts in seconds via
+`--retry-wait` (default 5). Both flags can also be supplied through the
+environment variables `SHUTTERBASE_RETRY_COUNT` and `SHUTTERBASE_RETRY_WAIT`.
+Partially written files are removed before each retry.
+
+```
+./downloader --url https://shutterbase.fsg.one/api/v1 --api-key <keyId.secret> --project qagr042y62aeptz --whitelist vbo --retry-count 5 --retry-wait 10 download full
+```
