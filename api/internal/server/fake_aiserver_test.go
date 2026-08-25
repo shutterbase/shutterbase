@@ -4,27 +4,18 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/shutterbase/shutterbase/internal/database"
-	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/seed"
 	"github.com/shutterbase/shutterbase/pkg/aiserver"
 )
 
 func newFakeAIRemote(t *testing.T) (aiserver.Server, *seed.Manifest) {
 	t.Helper()
-	conn, err := database.NewConnection(&database.Options{DatabaseType: "sqlite", File: t.TempDir() + "/fakeai.db"})
-	require.NoError(t, err)
-	t.Cleanup(func() { conn.Close() })
-	repo, err := repository.NewRepository(&repository.Options{DatabaseConnection: conn})
-	require.NoError(t, err)
-	m, err := seed.Seed(context.Background(), repo.Client, time.Now())
-	require.NoError(t, err)
-	return NewFakeAIRemote(repo.Client), m
+	s, m := newAITestServer(t)
+	return NewFakeAIRemote(s.Repository.Client), m
 }
 
 func TestFakeAIFacesRoundTrip(t *testing.T) {
@@ -44,15 +35,17 @@ func TestFakeAIFacesRoundTrip(t *testing.T) {
 		assert.LessOrEqual(t, f.Y+f.H, 1.0)
 	}
 
-	ref := faces.Faces[0].PersonRef
-	page, err := remote.PersonImages(ctx, m.Project, ref, 0, 100, false)
-	require.NoError(t, err)
-	require.Positive(t, page.Total)
-	assert.Contains(t, refsOf(page.Items), imageID)
-	cluster, ok := parseFakePersonRef(ref)
-	require.True(t, ok)
-	for _, item := range page.Items {
-		assert.Equal(t, cluster, fakeCluster(item.ImageRef))
+	// every face on the image — primary and secondary — leads to a gallery
+	// that contains the image itself, and only images carrying that person
+	for _, face := range faces.Faces {
+		page, err := remote.PersonImages(ctx, m.Project, face.PersonRef, 0, 100, false)
+		require.NoError(t, err)
+		require.Positive(t, page.Total)
+		assert.Contains(t, refsOf(page.Items), imageID)
+		for _, item := range page.Items {
+			_, ok := fakeFaceOf(item.ImageRef, face.PersonRef)
+			assert.True(t, ok, "%s listed under %s without such a face", item.ImageRef, face.PersonRef)
+		}
 	}
 
 	again, err := remote.Faces(ctx, m.Project, imageID)
@@ -108,7 +101,9 @@ func TestFakeAIPersonsRanked(t *testing.T) {
 
 	expected := map[string]int{}
 	for _, id := range m.Images {
-		expected[fakePersonRef(fakeCluster(id))]++
+		for _, f := range fakeFacesFor(id) {
+			expected[f.PersonRef]++
+		}
 	}
 
 	persons, err := remote.Persons(ctx, []string{m.Project}, 0, 50)
@@ -125,9 +120,8 @@ func TestFakeAIPersonsRanked(t *testing.T) {
 			assert.LessOrEqual(t, entry.Count, prev)
 		}
 		prev = entry.Count
-		clusterIdx, ok := parseFakePersonRef(entry.PersonRef)
-		require.True(t, ok)
-		assert.Equal(t, clusterIdx, fakeCluster(entry.Sample.ImageRef))
+		_, ok = fakeFaceOf(entry.Sample.ImageRef, entry.PersonRef)
+		assert.True(t, ok, "sample of %s does not carry that person", entry.PersonRef)
 	}
 }
 
