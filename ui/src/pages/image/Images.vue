@@ -36,6 +36,23 @@
             all my projects
           </button>
           <button
+            v-if="personFilter && hasPausableFilters"
+            :class="[
+              'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
+              personFiltersPaused
+                ? 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200'
+                : 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300',
+            ]"
+            :title="
+              personFiltersPaused
+                ? 'Search, tag and orientation filters are paused for this person — click to apply them again'
+                : 'Showing all photos of this person — click to re-apply your search, tag and orientation filters'
+            "
+            @click="togglePersonFilters()"
+          >
+            Filters
+          </button>
+          <button
             v-if="isProjectAdminOrHigher"
             class="label-mono-sm cursor-pointer rounded-full border border-primary-300 px-3 py-1 text-primary-500 transition-colors hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200"
             title="Review face clusters similar to this person and merge them"
@@ -202,6 +219,7 @@ import {
   filtered,
   personFilter,
   personCrossProject,
+  personFiltersPaused,
   uploadFilter,
   snapshotGrid,
   restoreGridSnapshot,
@@ -257,6 +275,14 @@ const togglePersonScope = () =>
     else q.personScope = "all";
   });
 
+// "Filters" pill: pause/resume the other narrowing filters while a person
+// filter is active. Pure in-memory state — leaving the person view re-arms it.
+const hasPausableFilters = computed(() => !!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral");
+function togglePersonFilters() {
+  personFiltersPaused.value = !personFiltersPaused.value;
+  loadImages(true);
+}
+
 // "similar faces": person-scoped merge review on the People page; back
 // returns here and remounts the grid, so fresh merges show up immediately.
 const isProjectAdminOrHigher = useUserStore().isProjectAdminOrHigher();
@@ -276,6 +302,7 @@ async function applyRoute(initial = false) {
       personFilter.value = person;
       personCrossProject.value = crossProject;
       uploadFilter.value = uploadId;
+      personFiltersPaused.value = true;
       imageIndex.value = -1;
       imageIndices.value = [];
       multiselectStart.value = null;
@@ -285,6 +312,7 @@ async function applyRoute(initial = false) {
       personFilter.value = null;
       personCrossProject.value = false;
       uploadFilter.value = null;
+      personFiltersPaused.value = true;
       const scrollY = initial ? null : restoreGridSnapshot();
       if (scrollY === null) {
         await loadImages(true);
