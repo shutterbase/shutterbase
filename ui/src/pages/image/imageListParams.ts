@@ -1,6 +1,15 @@
 import { SORT_ORDER } from "src/components/image/sortOrder";
 import type { ImageListParams } from "src/api/images";
 
+type ImageFilterInput = Parameters<typeof buildImageListParams>[0];
+
+// Person-view pause: while browsing one person's photos the other narrowing
+// criteria (search text, include/exclude tags, aspect ratio) are suspended so
+// a face click always yields the full gallery. Upload context passes through.
+export function applyPersonPause(input: ImageFilterInput): ImageFilterInput {
+  return { ...input, search: "", tags: [], excludeTags: [], orientation: "neutral" };
+}
+
 // Pure mapping of UI filter/sort state onto the typed list contract (§4.3).
 // Kept SFC- and store-free so it is trivially unit-testable.
 export function buildImageListParams(input: {

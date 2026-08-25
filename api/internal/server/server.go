@@ -129,6 +129,9 @@ func NewServer(options *Options) (*Server, error) {
 	if h, ok := inference.(*service.HTTPInference); ok {
 		aiRemote = h.Client
 	}
+	if aiRemote == nil && config.Get().Bool("AI_FAKE_SERVER") {
+		aiRemote = NewFakeAIRemote(repo.Client)
+	}
 
 	s := &Server{
 		Engine:         engine,
