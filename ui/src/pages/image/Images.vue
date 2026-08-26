@@ -69,20 +69,22 @@
           >
             all my projects
           </button>
+        </div>
+        <div v-if="(personFilter || rangeScopeAll) && hasPausableFilters" class="mt-6 flex flex-wrap items-center gap-3">
           <button
-            v-if="personFilter && hasPausableFilters"
             :class="[
               'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
               personFiltersPaused
                 ? 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200'
                 : 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300',
             ]"
+            data-testid="filters-pill"
             :title="
               personFiltersPaused
-                ? 'Search, tag and orientation filters are paused for this person — click to apply them again'
-                : 'Search, tag and orientation filters are applied — click to pause them and see all photos of this person'
+                ? 'Search, tag and orientation filters are paused — click to apply them again'
+                : 'Search, tag and orientation filters are applied — click to pause them'
             "
-            @click="togglePersonFilters()"
+            @click="toggleFiltersPaused()"
           >
             Filters
           </button>
@@ -269,6 +271,7 @@ import {
   timeFromFilter,
   timeToFilter,
   timeRangeSuspended,
+  rangeScopeAll,
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
@@ -325,11 +328,15 @@ const setTimeRange = (from: string | null, to: string | null) =>
     else delete q.from;
     if (to) q.to = to;
     else delete q.to;
+    // a manual range edit leaves the timespan context — combining is the point
+    delete q.rangeScope;
   });
 
 // #117: from a photo to the gallery of its timespan — "unknown car here, what
 // happened around it?" Chronological reading order via OLDEST_FIRST; browser
 // back returns to the exact previous view (route-driven like every filter).
+// rangeScope=all makes this a CONTEXT view like the face lookup: all photos in
+// the window, other narrowing filters auto-paused behind the Filters pill.
 const TIMESPAN_MINUTES = 15;
 function showTimespanAround(minutes = TIMESPAN_MINUTES) {
   const item = images.value[imageIndex.value];
@@ -341,6 +348,7 @@ function showTimespanAround(minutes = TIMESPAN_MINUTES) {
   pushQuery((q) => {
     q.from = new Date(t - minutes * 60_000).toISOString();
     q.to = new Date(t + minutes * 60_000).toISOString();
+    q.rangeScope = "all";
     delete q.image;
     delete q.person;
     delete q.personScope;
@@ -366,12 +374,16 @@ const togglePersonScope = () =>
     else q.personScope = "all";
   });
 
-// "Filters" pill: pause/resume the other narrowing filters while a person
-// filter is active. Pure in-memory state — leaving the person view re-arms it.
-const hasPausableFilters = computed(
-  () => !!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral" || !!timeFromFilter.value || !!timeToFilter.value,
-);
-function togglePersonFilters() {
+// "Filters" pill: pause/resume the other narrowing filters while an implicit
+// context is active (person view or timespan view). Pure in-memory state —
+// re-entering the context re-arms it.
+const othersSet = computed(() => !!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral");
+const hasPausableFilters = computed(() => {
+  // timespan view: the range itself defines the context, only the others pause
+  if (rangeScopeAll.value) return othersSet.value;
+  return !!personFilter.value && (othersSet.value || !!timeFromFilter.value || !!timeToFilter.value);
+});
+function toggleFiltersPaused() {
   personFiltersPaused.value = !personFiltersPaused.value;
   loadImages(true);
 }
@@ -398,17 +410,22 @@ async function applyRoute(initial = false) {
   const ask = (route.query.ask as string) || null;
   const imageId = (route.query.image as string) || null;
 
-// Time range (?from=/?to=): assign before any load so a combined
-  // person/upload change picks the new bounds up in the same reload; an
-  // isolated range change reloads here.
+  // Time range (?from=/?to=) + timespan context (?rangeScope=all): assign
+  // before any load so a combined person/upload change picks the new bounds up
+  // in the same reload; an isolated range/scope change reloads here. Entering
+  // the context auto-pauses the other narrowing filters, like a face click.
   const from = (route.query.from as string) || null;
   const to = (route.query.to as string) || null;
+  const scope = route.query.rangeScope === "all" && !!(from || to);
   const timeChanged = from !== timeFromFilter.value || to !== timeToFilter.value;
-  if (timeChanged) {
+  const scopeChanged = scope !== rangeScopeAll.value;
+  if (timeChanged || scopeChanged) {
     timeFromFilter.value = from;
     timeToFilter.value = to;
+    rangeScopeAll.value = scope;
     // a cleared or newly entered window always starts applying again
     if (!from && !to) timeRangeSuspended.value = false;
+    if (scope) personFiltersPaused.value = true;
   }
 
   if (initial || person !== personFilter.value || crossProject !== personCrossProject.value || uploadId !== uploadFilter.value || ask !== askFilter.value) {
@@ -439,8 +456,8 @@ async function applyRoute(initial = false) {
         window.scrollTo({ top: scrollY, behavior: "instant" as ScrollBehavior });
       }
     }
-  } else if (timeChanged) {
-    // only the range moved: one reload, no snapshot churn
+  } else if (timeChanged || scopeChanged) {
+    // only the range/scope moved: one reload, no snapshot churn
     invalidateGridSnapshot();
     imageIndex.value = -1;
     await loadImages(true);
