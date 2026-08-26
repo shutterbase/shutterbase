@@ -303,6 +303,28 @@ func (s *Server) updateUpload(c *gin.Context) {
 	if abortMutationError(c, err) {
 		return
 	}
+	// MQTT: publish state transition events for WLED / smart-home integration.
+	if payload.State != nil {
+		oldState := existing.State
+		newState := up.State
+		eventName := ""
+		switch {
+		case oldState == "open" && newState == "ready":
+			eventName = "ready"
+		case oldState == "ready" && newState == "reviewed":
+			eventName = "approved"
+		case (oldState == "ready" || oldState == "reviewed") && newState == "open":
+			eventName = "rejected"
+		}
+		if eventName != "" {
+			s.mqtt.Publish(up.ProjectID+"/upload/"+up.ID+"/"+eventName, gin.H{
+				"uploadName": up.Name,
+				"oldState":   oldState,
+				"newState":   newState,
+				"userId":     authUser(c).ID,
+			})
+		}
+	}
 	s.respondUpload(c, http.StatusOK, up)
 }
 

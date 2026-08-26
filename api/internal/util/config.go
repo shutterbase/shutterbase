@@ -144,6 +144,14 @@ func InitConfig() error {
 		// Self-signup (S15). A signed-up account is always created inactive and
 		// has to be activated by a platform admin before it can log in.
 		config.Bool("SELF_SIGNUP_ENABLED").Default(true),
+
+		// MQTT (WLED integration). When MQTT_BROKER is empty the publisher is
+		// a no-op — zero overhead, no connection attempted.
+		config.String("MQTT_BROKER").Default(""),
+		config.String("MQTT_CLIENT_ID").Default("shutterbase"),
+		config.String("MQTT_USERNAME").Default(""),
+		config.String("MQTT_PASSWORD").Sensitive().Default(""),
+		config.String("MQTT_TOPIC_PREFIX").Default("shutterbase"),
 	})
 	return err
 }

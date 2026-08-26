@@ -185,6 +185,14 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 	}
 	if created {
 		s.recordTaggingActivity(c, up)
+		// MQTT: publish image-rejected event when the reserved "rejected" tag is assigned.
+		if tag.Name == authorization.ReviewRejectedTagName {
+			s.mqtt.Publish(up.ProjectID+"/upload/"+up.ID+"/image-rejected", gin.H{
+				"fileName":  img.ComputedFileName,
+				"imageId":   img.ID,
+				"rejectedBy": authUser(c).ID,
+			})
+		}
 	}
 	status := http.StatusOK // idempotent: existing pair -> 200
 	if created {

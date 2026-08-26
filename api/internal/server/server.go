@@ -23,6 +23,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/database"
 	"github.com/shutterbase/shutterbase/internal/event"
 	"github.com/shutterbase/shutterbase/internal/exif"
+	"github.com/shutterbase/shutterbase/internal/mqtt"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/s3"
 	"github.com/shutterbase/shutterbase/internal/server/spa"
@@ -74,6 +75,10 @@ type Server struct {
 	// object-size cap.
 	hardening        *hardening
 	downloadMaxBytes int64
+
+	// MQTT publisher for WLED / smart-home integration. nil when MQTT_BROKER
+	// is not configured — every Publish call is a no-op in that case.
+	mqtt *mqtt.Client
 }
 
 func NewServer(options *Options) (*Server, error) {
@@ -149,6 +154,13 @@ func NewServer(options *Options) (*Server, error) {
 		projectStatsCache: expirable.NewLRU[string, *repository.ProjectStatistics](256, nil, 5*time.Minute),
 		hardening:         buildHardening(options.ApiBaseURL),
 		downloadMaxBytes:  int64(config.Get().Int("DOWNLOAD_MAX_OBJECT_BYTES")),
+		mqtt: mqtt.New(&mqtt.Options{
+			Broker:      config.Get().String("MQTT_BROKER"),
+			ClientID:    config.Get().String("MQTT_CLIENT_ID"),
+			Username:    config.Get().String("MQTT_USERNAME"),
+			Password:    config.Get().String("MQTT_PASSWORD"),
+			TopicPrefix: config.Get().String("MQTT_TOPIC_PREFIX"),
+		}),
 	}
 
 	// S10: bound simultaneous exiftool shell-outs (/download) so a burst can't
@@ -341,6 +353,9 @@ func (s *Server) Run() error {
 func (s *Server) Shutdown(ctx context.Context) {
 	if s.bgCancel != nil {
 		s.bgCancel()
+	}
+	if s.mqtt != nil {
+		s.mqtt.Close()
 	}
 	if s.httpServer != nil {
 		if err := s.httpServer.Shutdown(ctx); err != nil {
