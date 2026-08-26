@@ -9,15 +9,61 @@
         :selection-count="imageIndices.length"
         :upload-filter="uploadFilter"
         :tag-facets="tagFacets"
+        :time-from="timeFromFilter"
+        :time-to="timeToFilter"
+        :time-bounds="timeBounds"
         @search="updateSearchText"
         @filter-tags="updateFilterTags"
         @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
+        @time-range="setTimeRange"
+        @time-bounds-needed="loadTimeBounds"
         @rerun-ai="rerunSelection"
         @upload-filter="setUploadFilter"
         @slideshow="slideshowActive = true"
       />
       <div v-if="displayMode === DisplayMode.GRID">
+        <div v-if="rangeScopeAll && (timeFromFilter || timeToFilter)" class="mt-6 flex flex-wrap items-center gap-3" data-testid="time-range-chip-row">
+          <span
+            :class="[
+              'label-mono-sm inline-flex items-center gap-2 rounded-full border px-3 py-1 transition-opacity',
+              timeRangeSuspended
+                ? 'border-primary-300 bg-transparent text-primary-400 opacity-70 dark:border-primary-700 dark:text-primary-500'
+                : 'border-accent-400/60 bg-accent-500/10 text-accent-600 dark:text-accent-300',
+            ]"
+            data-testid="time-range-chip"
+          >
+            {{ timeRangeLabel }}
+            <button
+              class="cursor-pointer transition-colors hover:text-accent-400"
+              :title="timeRangeSuspended ? 'Re-apply this time range' : 'Temporarily disable this time range'"
+              data-testid="time-range-toggle"
+              @click="toggleTimeRangeSuspension()"
+            >
+              <PlayIcon v-if="timeRangeSuspended" class="h-3.5 w-3.5" />
+              <PauseIcon v-else class="h-3.5 w-3.5" />
+            </button>
+            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear time range" @click="setTimeRange(null, null)">×</button>
+          </span>
+          <button
+            v-if="rangeScopeAll && hasPausableFilters"
+            :class="[
+              'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
+              filtersPaused
+                ? 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200'
+                : 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300',
+            ]"
+            data-testid="filters-pill"
+            :title="
+              filtersPaused
+                ? 'Search, tag and orientation filters are paused — click to apply them again'
+                : 'Search, tag and orientation filters are applied — click to pause them'
+            "
+            @click="toggleFiltersPaused()"
+          >
+            Filters
+          </button>
+        </div>
         <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
           <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
             photos of one person
@@ -36,19 +82,20 @@
             all my projects
           </button>
           <button
-            v-if="personFilter && hasPausableFilters"
+            v-if="hasPausableFilters"
             :class="[
               'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
-              personFiltersPaused
+              filtersPaused
                 ? 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200'
                 : 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300',
             ]"
+            data-testid="filters-pill"
             :title="
-              personFiltersPaused
-                ? 'Search, tag and orientation filters are paused for this person — click to apply them again'
-                : 'Search, tag and orientation filters are applied — click to pause them and see all photos of this person'
+              filtersPaused
+                ? 'Search, tag and orientation filters are paused — click to apply them again'
+                : 'Search, tag and orientation filters are applied — click to pause them'
             "
-            @click="togglePersonFilters()"
+            @click="toggleFiltersPaused()"
           >
             Filters
           </button>
@@ -85,7 +132,7 @@
          the whole page scroll. -->
     <div v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1 && images[imageIndex]" class="w-full px-4 sm:px-6 lg:px-8">
       <div class="mx-auto mt-4 flex max-w-screen-2xl flex-col-reverse gap-6 lg:flex-row">
-        <Sidebar :item="images[imageIndex]" />
+        <Sidebar :item="images[imageIndex]" @show-timespan="showTimespanAround()" />
         <figure class="min-w-0 flex-1">
           <!-- zoomed, the image breaks out of the column into a viewport-wide
                stage that spares only the header bar (top-16) and the film
@@ -180,6 +227,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import ImageGridTile from "src/components/image/ImageGridTile.vue";
+import { PauseIcon, PlayIcon } from "@heroicons/vue/24/outline";
 import ImagesHeader, { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
 import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
@@ -219,14 +267,21 @@ import {
   filtered,
   personFilter,
   personCrossProject,
-  personFiltersPaused,
+  filtersPaused,
   uploadFilter,
+  timeFromFilter,
+  timeToFilter,
+  timeRangeSuspended,
+  rangeScopeAll,
+  TIMESPAN_MINUTES,
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
   resetTransientFilters,
   tagFacets,
   loadTagFacets,
+  timeBounds,
+  loadTimeBounds,
 } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
@@ -269,17 +324,77 @@ const setUploadFilter = (id: string | null) =>
     if (id) q.upload = id;
     else delete q.upload;
   });
+const setTimeRange = (from: string | null, to: string | null) =>
+  pushQuery((q) => {
+    if (from) q.from = from;
+    else delete q.from;
+    if (to) q.to = to;
+    else delete q.to;
+    // a manual range edit leaves the timespan context — combining is the point
+    delete q.rangeScope;
+  });
+
+// #117: from a photo to the gallery of its timespan — "unknown car here, what
+// happened around it?" Chronological reading order via OLDEST_FIRST; browser
+// back returns to the exact previous view (route-driven like every filter).
+// rangeScope=all makes this a CONTEXT view like the face lookup: all photos in
+// the window, other narrowing filters auto-paused behind the Filters pill.
+function showTimespanAround(minutes = TIMESPAN_MINUTES) {
+  const item = images.value[imageIndex.value];
+  if (!item?.capturedAtCorrected) return;
+  const t = new Date(item.capturedAtCorrected).getTime();
+  if (preferredImageSortOrder.value !== SORT_ORDER.OLDEST_FIRST) {
+    preferredImageSortOrder.value = SORT_ORDER.OLDEST_FIRST;
+  }
+  pushQuery((q) => {
+    q.from = new Date(t - minutes * 60_000).toISOString();
+    q.to = new Date(t + minutes * 60_000).toISOString();
+    q.rangeScope = "all";
+    delete q.image;
+    delete q.person;
+    delete q.personScope;
+    delete q.upload;
+  });
+}
+
+// chip label for the active range; dates shown only when the window spans days
+const timeRangeLabel = computed(() => {
+  const f = timeFromFilter.value ? new Date(timeFromFilter.value) : null;
+  const t = timeToFilter.value ? new Date(timeToFilter.value) : null;
+  if (!f && !t) return "";
+  const hm = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const day = (d: Date) => d.toLocaleDateString([], { day: "2-digit", month: "short" });
+  if (f && t) {
+    return f.toDateString() === t.toDateString() ? `${day(f)} · ${hm(f)} – ${hm(t)}` : `${day(f)} ${hm(f)} – ${day(t)} ${hm(t)}`;
+  }
+  return f ? `${day(f)} ${hm(f)} →` : `→ ${day(t!)} ${hm(t!)}`;
+});
 const togglePersonScope = () =>
   pushQuery((q) => {
     if (q.personScope === "all") delete q.personScope;
     else q.personScope = "all";
   });
 
-// "Filters" pill: pause/resume the other narrowing filters while a person
-// filter is active. Pure in-memory state — leaving the person view re-arms it.
-const hasPausableFilters = computed(() => !!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral");
-function togglePersonFilters() {
-  personFiltersPaused.value = !personFiltersPaused.value;
+// "Filters" pill: pause/resume the other narrowing filters while an implicit
+// context is active (person view or timespan view). Pure in-memory state —
+// re-entering the context re-arms it.
+const othersSet = computed(() => !!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral");
+const hasPausableFilters = computed(() => {
+  // timespan view: the range itself defines the context, only the others pause
+  if (rangeScopeAll.value) return othersSet.value;
+  return !!personFilter.value && (othersSet.value || !!timeFromFilter.value || !!timeToFilter.value);
+});
+function toggleFiltersPaused() {
+  filtersPaused.value = !filtersPaused.value;
+  loadImages(true);
+}
+
+// Chip-level suspend for the time range: keep the window values, stop applying
+// them — the face feature's Filters-pill semantics, scoped to this one filter.
+function toggleTimeRangeSuspension() {
+  timeRangeSuspended.value = !timeRangeSuspended.value;
+  invalidateGridSnapshot();
+  imageIndex.value = -1;
   loadImages(true);
 }
 
@@ -295,6 +410,24 @@ async function applyRoute(initial = false) {
   const uploadId = (route.query.upload as string) || null;
   const imageId = (route.query.image as string) || null;
 
+  // Time range (?from=/?to=) + timespan context (?rangeScope=all): assign
+  // before any load so a combined person/upload change picks the new bounds up
+  // in the same reload; an isolated range/scope change reloads here. Entering
+  // the context auto-pauses the other narrowing filters, like a face click.
+  const from = (route.query.from as string) || null;
+  const to = (route.query.to as string) || null;
+  const scope = route.query.rangeScope === "all" && !!(from || to);
+  const timeChanged = from !== timeFromFilter.value || to !== timeToFilter.value;
+  const scopeChanged = scope !== rangeScopeAll.value;
+  if (timeChanged || scopeChanged) {
+    timeFromFilter.value = from;
+    timeToFilter.value = to;
+    rangeScopeAll.value = scope;
+    // a cleared or newly entered window always starts applying again
+    if (!from && !to) timeRangeSuspended.value = false;
+    if (scope) filtersPaused.value = true;
+  }
+
   if (initial || person !== personFilter.value || crossProject !== personCrossProject.value || uploadId !== uploadFilter.value) {
     if (person || uploadId) {
       // entering an implicit filter from the unfiltered grid: remember where we were
@@ -302,7 +435,7 @@ async function applyRoute(initial = false) {
       personFilter.value = person;
       personCrossProject.value = crossProject;
       uploadFilter.value = uploadId;
-      personFiltersPaused.value = true;
+      filtersPaused.value = true;
       imageIndex.value = -1;
       imageIndices.value = [];
       multiselectStart.value = null;
@@ -312,7 +445,7 @@ async function applyRoute(initial = false) {
       personFilter.value = null;
       personCrossProject.value = false;
       uploadFilter.value = null;
-      personFiltersPaused.value = true;
+      filtersPaused.value = true;
       const scrollY = initial ? null : restoreGridSnapshot();
       if (scrollY === null) {
         await loadImages(true);
@@ -321,6 +454,11 @@ async function applyRoute(initial = false) {
         window.scrollTo({ top: scrollY, behavior: "instant" as ScrollBehavior });
       }
     }
+  } else if (timeChanged || scopeChanged) {
+    // only the range/scope moved: one reload, no snapshot churn
+    invalidateGridSnapshot();
+    imageIndex.value = -1;
+    await loadImages(true);
   }
 
   if (imageId) {
@@ -408,7 +546,10 @@ window.addEventListener("scroll", onScroll);
 // before the watchers below exist, so the reset itself never queues a reload
 resetTransientFilters();
 
-onMounted(() => applyRoute(true));
+onMounted(() => {
+  applyRoute(true);
+  loadTimeBounds();
+});
 // any other filter/sort change makes the saved unfiltered-grid position stale
 const reloadDebounced = useDebounceFn(() => {
   invalidateGridSnapshot();

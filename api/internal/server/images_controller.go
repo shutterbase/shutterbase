@@ -18,6 +18,7 @@ func (s *Server) registerImageRoutes(api *gin.RouterGroup) {
 	api.GET("/images", s.listImages)
 	api.GET("/images/tag-facets", s.listImageTagFacets)
 	api.GET("/images/position", s.getImagePosition)
+	api.GET("/images/time-bounds", s.getImageTimeBounds)
 	api.GET("/images/:id", s.getImage)
 	api.POST("/images", s.createImage)
 	api.PUT("/images/:id", s.updateImage)
@@ -70,6 +71,19 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		}
 		params.Orientation = &v
 	}
+	// Inclusive capturedAtCorrected bounds as RFC3339 (the SPA sends
+	// date.toISOString()); either side alone is an open-ended range.
+	from, fromOk := parseTimeParam(c, "from")
+	to, toOk := parseTimeParam(c, "to")
+	if !fromOk || !toOk {
+		return nil, false, false
+	}
+	if from != nil && to != nil && from.After(*to) {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", "from must not be after to")
+		return nil, false, false
+	}
+	params.FromCapturedAtCorrected = from
+	params.ToCapturedAtCorrected = to
 	if v := c.Query("personRef"); v != "" {
 		ids, idsOk := s.personImageIDs(c, projectID, v)
 		if !idsOk {
@@ -96,6 +110,21 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		params.IDs = ids
 	}
 	return params, false, true
+}
+
+// parseTimeParam reads an optional RFC3339 query parameter. Missing/empty →
+// (nil, true). Malformed → 400 invalid_time_range and (nil, false).
+func parseTimeParam(c *gin.Context, name string) (*time.Time, bool) {
+	v := c.Query(name)
+	if v == "" {
+		return nil, true
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", name+" must be an RFC3339 timestamp")
+		return nil, false
+	}
+	return &t, true
 }
 
 func (s *Server) listImages(c *gin.Context) {
@@ -156,6 +185,31 @@ func (s *Server) getImagePosition(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"position": position})
+}
+
+// ImageTimeBoundsResponse backs the Time popover's slider: the [min,max]
+// capturedAtCorrected span of everything matching the filter. The repository
+// always strips the time-range bounds themselves — the range being edited must
+// not shift its own domain.
+type ImageTimeBoundsResponse struct {
+	Min *time.Time `json:"min"`
+	Max *time.Time `json:"max"`
+}
+
+func (s *Server) getImageTimeBounds(c *gin.Context) {
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	if emptyResult {
+		c.JSON(http.StatusOK, ImageTimeBoundsResponse{})
+		return
+	}
+	bounds, err := s.Repository.GetImageTimeBounds(c.Request.Context(), params)
+	if abortRepoListError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, ImageTimeBoundsResponse{Min: bounds.Min, Max: bounds.Max})
 }
 
 // TagFacetsResponse backs the tag filter popover: facets[tagId] = images the

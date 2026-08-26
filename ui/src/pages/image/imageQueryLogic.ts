@@ -63,16 +63,56 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
   aspectRatioFilter.value = aspectRatioState;
 }
 
+// Inclusive capturedAtCorrected bounds as ISO strings (null = open side).
+// Route-driven like the person/upload filters (?from=/?to=) so the browser
+// history walks through range states and links can share a window; Images.vue
+// owns the sync.
+export const timeFromFilter = ref<string | null>(null);
+export const timeToFilter = ref<string | null>(null);
+
+// Standalone suspend for the time range — keep the window values, stop
+// applying them. Session-only on purpose (mirrors `filtersPaused`): a
+// reload re-arms the range, and browser-back does not walk suspension states.
+export const timeRangeSuspended = ref(false);
+
+// Half-width of the "show gallery around this photo" window (#117), shared by
+// the detail action and its sidebar affordance.
+export const TIMESPAN_MINUTES = 15;
+
+// Narrowing-filter pause for IMPLICIT CONTEXT views (face lookup / timespan):
+// entering one auto-pauses everything that would narrow the context away —
+// except the context-defining filter itself. The Filters pill re-applies them.
+// Session-only like the rest of the pause machinery.
+export const filtersPaused = ref(true);
+
+// Timespan context view (?rangeScope=all next to ?from=/?to=): show ALL photos
+// in the window regardless of search/tags/orientation. Route-driven so
+// browser-back leaves the context cleanly. Set by the detail view's
+// "show ±N min" action; manual popover ranges deliberately do NOT set it
+// (there combining with other filters is the point). Images.vue owns the sync.
+export const rangeScopeAll = ref(false);
+
 // The ImagesHeader owns these controls and remounts clean, so a fresh Images
 // mount must reset them too — a value surviving here filters the grid
 // invisibly (a sticky portrait filter once shrank a 38-photo person view to 5).
 export function resetTransientFilters() {
-  if (!searchText.value && filterTags.value.length === 0 && excludeFilterTags.value.length === 0 && aspectRatioFilter.value === "neutral") return;
+  if (
+    !searchText.value &&
+    filterTags.value.length === 0 &&
+    excludeFilterTags.value.length === 0 &&
+    aspectRatioFilter.value === "neutral" &&
+    !timeFromFilter.value &&
+    !timeToFilter.value
+  )
+    return;
   invalidateGridSnapshot(); // the snapshot was taken under the filters being cleared
   searchText.value = "";
   filterTags.value = [];
   excludeFilterTags.value = [];
   aspectRatioFilter.value = "neutral";
+  timeFromFilter.value = null;
+  timeToFilter.value = null;
+  timeRangeSuspended.value = false;
 }
 
 // Implicit person filter: set by clicking a face box in the detail view,
@@ -84,12 +124,6 @@ export const personFilter = ref<string | null>(null);
 // Cross-project scope for the person filter — the grid's ONE exception to the
 // hard project filter. Route-driven like the filter itself (?personScope=all).
 export const personCrossProject = ref(false);
-
-// Person-view pause: while a person filter is active, the other narrowing
-// filters (search/tags/orientation) can be suspended so the face click always
-// yields the full gallery. The "Filters" pill toggles it; it re-arms whenever
-// the person filter engages anew or is cleared (Images.vue / jumpToImage).
-export const personFiltersPaused = ref(true);
 
 // Implicit upload-batch filter: set by "view images" links on an upload or its
 // kanban card, cleared via the chip above the grid. Route-driven (?upload=)
@@ -162,9 +196,29 @@ function currentFilterInput() {
     crossProject: personCrossProject.value,
     uploadId: uploadFilter.value ?? undefined,
     orientation: aspectRatioFilter.value,
+    timeFrom: timeFromFilter.value ?? undefined,
+    timeTo: timeToFilter.value ?? undefined,
     sortOrder: preferredImageSortOrder.value,
   };
-  return personFilter.value && personFiltersPaused.value ? applyPersonPause(input) : input;
+  // Person-view pause: suspend ALL narrowing filters including the time range
+  // (tested shape via applyPersonPause).
+  if (personFilter.value && filtersPaused.value) {
+    return applyPersonPause(input);
+  }
+  // Timespan context view (?rangeScope=all): while paused, the other narrowing
+  // filters suspend but the window stays — the range IS the context here. The
+  // Filters pill un-pauses, combining the window with search/tags/orientation.
+  if (rangeScopeAll.value) {
+    if (filtersPaused.value) {
+      return { ...input, search: "", tags: [], excludeTags: [], orientation: "neutral" };
+    }
+    return input;
+  }
+  // Chip-level toggle: suspend only the window.
+  if (timeRangeSuspended.value) {
+    return { ...input, timeFrom: undefined, timeTo: undefined };
+  }
+  return input;
 }
 
 export async function loadImages(reload: boolean) {
@@ -182,11 +236,13 @@ export async function loadImages(reload: boolean) {
       soloImage.value = false;
     }
 
+    // mirrors currentFilterInput: only count filters that are actually APPLIED
+    // (a paused person view, a paused timespan context and a suspended range don't narrow)
+    const pauseOthers = (personFilter.value && filtersPaused.value) || (rangeScopeAll.value && filtersPaused.value);
+    const rangeApplied = (!!timeFromFilter.value || !!timeToFilter.value) && !(personFilter.value && filtersPaused.value) && !timeRangeSuspended.value;
     filtered.value =
-      !!searchText.value ||
-      filterTags.value.length > 0 ||
-      excludeFilterTags.value.length > 0 ||
-      aspectRatioFilter.value !== "neutral" ||
+      (!pauseOthers && (!!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral")) ||
+      rangeApplied ||
       !!personFilter.value ||
       !!uploadFilter.value;
 
@@ -254,7 +310,7 @@ export async function jumpToImage(imageId: string): Promise<JumpResult> {
     personFilter.value = null;
     personCrossProject.value = false;
     uploadFilter.value = null;
-    personFiltersPaused.value = true;
+    filtersPaused.value = true;
     resetTransientFilters();
     projectSwitched = true;
     await loadImages(true);
@@ -330,6 +386,28 @@ export async function loadTagFacets(force = false) {
     // facets are decoration — the popover degrades to the plain tag list
     tagFacets.value = null;
     lastFacetsKey = "";
+  }
+}
+
+// Slider domain for the Time popover: [earliest, latest] capturedAtCorrected
+// under the filter MINUS the time range itself (the range being edited must not
+// shift its own domain). Fetched on popover open; key memo like the facets.
+export const timeBounds = ref<{ min: string | null; max: string | null } | null>(null);
+let lastBoundsKey = "";
+
+export async function loadTimeBounds() {
+  if (!activeProject.value?.id) return;
+  const { timeFrom: _f, timeTo: _t, ...rest } = currentFilterInput();
+  const params = buildImageListParams(rest);
+  const key = JSON.stringify(params);
+  if (key === lastBoundsKey && timeBounds.value) return;
+  lastBoundsKey = key;
+  try {
+    timeBounds.value = await api.images.timeBounds(params);
+  } catch {
+    // bounds are decoration — the popover degrades to manual inputs only
+    timeBounds.value = null;
+    lastBoundsKey = "";
   }
 }
 

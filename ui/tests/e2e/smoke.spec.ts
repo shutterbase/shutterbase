@@ -6,6 +6,9 @@ import { loginAs, seedProjectId, meId, collectJsErrors } from "./helpers";
 // This is the migration's render gate — a broken import/template surfaces here.
 test.describe.serial("smoke", () => {
   test("every route renders without JS errors (admin)", async ({ page }) => {
+    // ~22 routes × (networkidle + paint wait) sit near the default 30s even on
+    // a quiet machine; parallel workers sharing the dev backend push it over.
+    test.setTimeout(120_000);
     const errors = collectJsErrors(page);
     await loginAs(page, "admin");
     const pid = await seedProjectId(page);

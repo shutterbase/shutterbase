@@ -28,7 +28,20 @@
         </div>
         <div>
           <p class="label-mono text-primary-500 dark:text-primary-400">Corrected capture time</p>
-          <p class="mt-0.5 font-data text-sm text-primary-800 dark:text-primary-100">{{ dateTimeFromBackend(item.capturedAtCorrected) }}</p>
+          <p class="mt-0.5 flex items-center gap-2 font-data text-sm text-primary-800 dark:text-primary-100">
+            <span>{{ dateTimeFromBackend(item.capturedAtCorrected) }}</span>
+            <!-- #117: jump to the gallery around this moment, next to the value it derives from -->
+            <button
+              v-if="item.capturedAtCorrected"
+              class="inline-flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-1 py-0.5 text-xs font-sans text-accent-600 transition-colors hover:bg-primary-100 hover:text-accent-400 dark:text-accent-300 dark:hover:bg-primary-800 dark:hover:text-accent-200"
+              title="Show all photos around this time"
+              data-testid="show-timespan"
+              @click="emit('showTimespan')"
+            >
+              <ClockIcon class="h-3.5 w-3.5" />
+              ±{{ TIMESPAN_MINUTES }} min
+            </button>
+          </p>
         </div>
         <div>
           <p class="label-mono text-primary-500 dark:text-primary-400">Updated</p>
@@ -239,6 +252,7 @@ import { officialTagsFrozen } from "src/pages/upload/uploadUtil";
 import { appliedTimeOffset } from "src/util/dateTimeUtil";
 import { canRemoveTagAssignment, removeTagAssignment } from "src/util/imageTags";
 import { groupTagAssignments } from "src/util/tagOrder";
+import { TIMESPAN_MINUTES } from "src/pages/image/imageQueryLogic";
 import { aiPositions, aiQueueTotal } from "src/pages/image/imageQueryLogic";
 import { useRouter } from "vue-router";
 import { copyToClipboard } from "src/util/clipboard";
@@ -255,6 +269,12 @@ interface Props {
   item: ImageWithTagsType | null;
 }
 const props = withDefaults(defineProps<Props>(), {});
+
+const emit = defineEmits<{
+  // jump to the gallery around this photo's corrected capture time (Images.vue
+  // owns the query write)
+  showTimespan: [];
+}>();
 
 // details collapse to name + corrected capture time; "more" reveals the rest
 const showAllDetails = ref(false);

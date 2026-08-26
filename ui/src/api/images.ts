@@ -12,6 +12,8 @@ export interface ImageListParams {
   personRef?: string; // implicit person filter (AI face clustering handle)
   crossProject?: "true"; // person filter only: search every viewable project
   orientation?: "portrait" | "landscape";
+  from?: string; // inclusive RFC3339 bound on capturedAtCorrected
+  to?: string;
   limit?: number;
   offset?: number;
   sort?: string;
@@ -54,6 +56,19 @@ export interface TagFacetsResponse {
 
 export async function tagFacets(params: ImageListParams): Promise<TagFacetsResponse> {
   const { data } = await http.get<TagFacetsResponse>("/images/tag-facets", { params, paramsSerializer: { indexes: null } });
+  return data;
+}
+
+// [earliest, latest] capturedAtCorrected under the filter, EXCLUDING the time
+// range itself — the Time popover's slider domain. Either side null when no
+// matching image has a corrected capture time.
+export interface ImageTimeBounds {
+  min: string | null;
+  max: string | null;
+}
+
+export async function timeBounds(params: ImageListParams): Promise<ImageTimeBounds> {
+  const { data } = await http.get<ImageTimeBounds>("/images/time-bounds", { params, paramsSerializer: { indexes: null } });
   return data;
 }
 
