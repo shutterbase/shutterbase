@@ -82,3 +82,22 @@ export function timeOffsetUpToDate(timeOffset: TimeOffset): boolean {
   const serverTime = parseBackendTime(timeOffset.serverTime);
   return DateTime.fromJSDate(serverTime) > DateTime.now().minus({ hours: 24 });
 }
+
+/**
+ * ISO string → value for `<input type="datetime-local">` (local wall clock,
+ * minute precision). Empty string for null/invalid, as the input expects.
+ */
+export function isoToLocalInput(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** `<input type="datetime-local">` value → ISO string (UTC), null when empty/invalid. */
+export function localInputToIso(value?: string | null): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}

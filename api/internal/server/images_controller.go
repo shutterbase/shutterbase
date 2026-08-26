@@ -71,8 +71,11 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		}
 		params.Orientation = &v
 	}
-	// Semantic "ask" filter: the AI server ranks the project's images by their
+// Semantic "ask" filter: the AI server ranks the project's images by their
 	// description; the grid then shows that id set under its normal sort.
+	//
+	// Must stay BEFORE the personRef block below, which intersects its own ids
+	// against params.IDs — so ask sets params.IDs and person refines it.
 	if v := strings.TrimSpace(c.Query("ask")); v != "" {
 		ids, idsOk := s.askImageIDs(c, projectID, v)
 		if !idsOk {
@@ -83,6 +86,20 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		}
 		params.IDs = ids
 	}
+	// Inclusive capturedAtCorrected bounds as RFC3339 (the SPA sends
+	// date.toISOString()); either side alone is an open-ended range. Disjoint
+	// from the ask/person id narrowing above, so the order between them is free.
+	from, fromOk := parseTimeParam(c, "from")
+	to, toOk := parseTimeParam(c, "to")
+	if !fromOk || !toOk {
+		return nil, false, false
+	}
+	if from != nil && to != nil && from.After(*to) {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", "from must not be after to")
+		return nil, false, false
+	}
+	params.FromCapturedAtCorrected = from
+	params.ToCapturedAtCorrected = to
 	if v := c.Query("personRef"); v != "" {
 		ids, idsOk := s.personImageIDs(c, projectID, v)
 		if !idsOk {
@@ -112,6 +129,21 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		params.IDs = ids
 	}
 	return params, false, true
+}
+
+// parseTimeParam reads an optional RFC3339 query parameter. Missing/empty →
+// (nil, true). Malformed → 400 invalid_time_range and (nil, false).
+func parseTimeParam(c *gin.Context, name string) (*time.Time, bool) {
+	v := c.Query(name)
+	if v == "" {
+		return nil, true
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", name+" must be an RFC3339 timestamp")
+		return nil, false
+	}
+	return &t, true
 }
 
 func (s *Server) listImages(c *gin.Context) {
