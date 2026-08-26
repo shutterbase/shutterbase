@@ -356,7 +356,7 @@ import { Popover, PopoverButton, PopoverPanel, Listbox, ListboxButton, ListboxOp
 import { storeToRefs } from "pinia";
 import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
-import { computed, h, ref, watch } from "vue";
+import { computed, h, nextTick, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
 import type { TagFacetsResponse } from "src/api/images";
 import { tagLabel } from "src/util/tagOrder";
@@ -447,20 +447,27 @@ watch(orientation, () => emit("aspectRatioFilter", orientation.value));
 
 // time range — props are the source of truth (route-driven in Images.vue);
 // the datetime-local inputs work in local wall clock, so convert both ways.
-// The prop watchers are inequality-guarded: an emit round-trips through the
-// route back into props, and re-writing the inputs would emit again.
+// A props->locals sync must NOT echo back out as an emit: the round trip goes
+// through Images.vue's setTimeRange, which is a USER-EDIT writer (it drops
+// ?rangeScope=). The flag marks exactly one inbound sync as non-emitting.
 const fromLocal = ref(isoToLocalInput(props.timeFrom));
 const toLocal = ref(isoToLocalInput(props.timeTo));
+let syncingFromProps = false;
 watch(
   () => [props.timeFrom, props.timeTo],
   ([f, t]) => {
     const fLocal = isoToLocalInput(f);
     const tLocal = isoToLocalInput(t);
-    if (fLocal !== fromLocal.value) fromLocal.value = fLocal;
-    if (tLocal !== toLocal.value) toLocal.value = tLocal;
+    if (fLocal !== fromLocal.value || tLocal !== toLocal.value) {
+      syncingFromProps = true;
+      fromLocal.value = fLocal;
+      toLocal.value = tLocal;
+      nextTick(() => (syncingFromProps = false));
+    }
   },
 );
 watch([fromLocal, toLocal], () => {
+  if (syncingFromProps) return;
   emit("timeRange", localInputToIso(fromLocal.value), localInputToIso(toLocal.value));
 });
 

@@ -131,3 +131,66 @@ test.describe("time range on/off", () => {
     await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
   });
 });
+
+// The ±15 min action is a CONTEXT view like the face lookup: it shows ALL
+// photos in the window (?rangeScope=all), auto-pausing search/tags/orientation
+// behind the Filters pill — while a manually picked range keeps combining.
+test.describe("timespan context view", () => {
+  let errors: string[];
+  test.beforeEach(async ({ page }) => {
+    errors = collectJsErrors(page);
+  });
+  test.afterEach(() => {
+    expect(errors, errors.join("\n")).toHaveLength(0);
+  });
+
+  test("show ±15 min ignores other filters until the Filters pill re-applies them", async ({ page }) => {
+    const project = await loginAs(page, "admin");
+    const all = await fetchImages(page, project!.id);
+    const first = midnightCluster(all)[0];
+
+    // narrow to one photo via search…
+    await page.goto("/images");
+    await page.getByPlaceholder("Search images").fill("FSG_9000");
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(1);
+
+    // …open it and jump to its timespan
+    await page.locator('[id^="grid-tile-"]').first().click();
+    await expect(page.getByText("Image Tags")).toBeVisible();
+    await page.getByTestId("show-timespan").click();
+
+    // context view: every photo within ±15 min, not just the searched one
+    const url = new URL(page.url());
+    expect(url.searchParams.get("rangeScope")).toBe("all");
+    expect(url.searchParams.get("image")).toBeNull();
+    const from = new Date(url.searchParams.get("from")!);
+    const to = new Date(url.searchParams.get("to")!);
+    const inWindow = all.filter((i) => {
+      if (!i.capturedAtCorrected) return false;
+      const c = new Date(i.capturedAtCorrected).getTime();
+      return c >= from.getTime() && c <= to.getTime();
+    }).length;
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(inWindow);
+    await expect(page.getByTestId("filters-pill")).toBeVisible();
+
+    // the pill re-applies the paused narrowing filters (search still set);
+    // assert the pill's own state flip first — tile counts lag behind on the wire
+    const pill = page.getByTestId("filters-pill");
+    const pausedClass = /border-primary-300/;
+    await pill.click();
+    await expect(pill).not.toHaveClass(pausedClass);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(1);
+
+    await pill.click();
+    await expect(pill).toHaveClass(pausedClass);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(inWindow);
+
+    // clearing the chip leaves context mode entirely — the (paused) search
+    // filter applies again on its own terms
+    await page.getByTestId("time-range-chip").getByRole("button", { name: "×" }).click();
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(1);
+    await expect(page.getByTestId("time-range-chip")).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).searchParams.get("rangeScope")).toBeNull();
+    await expect(page.getByPlaceholder("Search images")).toHaveValue("FSG_9000");
+  });
+});
