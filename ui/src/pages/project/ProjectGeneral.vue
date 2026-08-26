@@ -163,6 +163,19 @@
                 Topics: <code class="font-mono">{{ mqttForm.topicPrefix || 'shutterbase' }}/{projectId}/upload/{uploadId}/{event}</code>
               </p>
             </div>
+            <div>
+              <label for="mqtt-wledtopic" class="block text-sm text-primary-600 dark:text-primary-400">WLED Device Topic</label>
+              <input
+                id="mqtt-wledtopic"
+                v-model="mqttForm.wledDeviceTopic"
+                type="text"
+                placeholder="wled/device1"
+                class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+              />
+              <p class="mt-1 text-xs text-primary-400 dark:text-primary-500">
+                Optional. When set, preset commands are also published to <code class="font-mono">{{ mqttForm.wledDeviceTopic || 'wled/device1' }}/api</code> for direct WLED control.
+              </p>
+            </div>
           </div>
 
           <!-- Event Toggles -->
@@ -296,6 +309,7 @@ const mqttForm = ref({
   username: "",
   password: "",
   topicPrefix: "",
+  wledDeviceTopic: "",
   events: {
     uploadCreated: false,
     imageUploaded: false,
@@ -467,6 +481,7 @@ async function loadMqttSettings() {
     mqttForm.value.username = settings.username;
     mqttForm.value.password = settings.password;
     mqttForm.value.topicPrefix = settings.topicPrefix;
+    mqttForm.value.wledDeviceTopic = settings.wledDeviceTopic;
     mqttForm.value.events = settings.events;
     mqttForm.value.presets = settings.presets;
     mqttTriggerTagsInput.value = settings.triggerTags?.join(", ") || "";

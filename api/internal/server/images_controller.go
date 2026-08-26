@@ -260,6 +260,7 @@ func (s *Server) createImage(c *gin.Context) {
 			"userId":     util.GetUser(c.Request.Context()).ID,
 			"preset":     preset,
 		})
+		s.publishToWled(c.Request.Context(), payload.ProjectID, preset)
 	}
 	c.JSON(http.StatusCreated, ToImageResponse(c.Request.Context(), img, s.s3Client, s.thumbnailSizes))
 }

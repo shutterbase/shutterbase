@@ -59,3 +59,17 @@ func (s *Server) isMqttTagTrigger(ctx context.Context, projectID, tagName string
 	}
 	return false
 }
+
+// publishToWled publishes a preset command directly to the WLED device topic.
+// This allows WLED to receive commands without a bridge/automation tool.
+func (s *Server) publishToWled(ctx context.Context, projectID string, preset int) {
+	if preset <= 0 {
+		return
+	}
+	wledTopic, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wledDeviceTopic")
+	if wledTopic == "" {
+		return
+	}
+	// WLED subscribes to [deviceTopic]/api and accepts JSON API commands
+	s.mqtt.PublishToPrefix(wledTopic, "api", gin.H{"preset": preset})
+}

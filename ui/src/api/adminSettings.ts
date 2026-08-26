@@ -6,6 +6,7 @@ export interface MqttSettings {
   username: string;
   password: string;
   topicPrefix: string;
+  wledDeviceTopic: string;
   events: MqttEvents;
   presets: MqttPresets;
   triggerTags: string[];

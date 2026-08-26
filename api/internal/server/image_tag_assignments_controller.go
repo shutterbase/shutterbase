@@ -195,6 +195,7 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 				"rejectedBy": authUser(c).ID,
 				"preset":     preset,
 			})
+			s.publishToWled(c.Request.Context(), up.ProjectID, preset)
 		}
 		// MQTT: publish tag-assigned event if this tag is in the trigger list.
 		if tag.Name != authorization.ReviewRejectedTagName && s.isMqttTagTrigger(c.Request.Context(), up.ProjectID, tag.Name) && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "tagAssigned") {
@@ -207,6 +208,7 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 				"userId":   authUser(c).ID,
 				"preset":   preset,
 			})
+			s.publishToWled(c.Request.Context(), up.ProjectID, preset)
 		}
 	}
 	status := http.StatusOK // idempotent: existing pair -> 200

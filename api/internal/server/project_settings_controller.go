@@ -15,13 +15,14 @@ func (s *Server) registerProjectSettingsRoutes(api *gin.RouterGroup) {
 }
 
 type mqttSettingsResponse struct {
-	Broker      string      `json:"broker"`
-	ClientID    string      `json:"clientId"`
-	Username    string      `json:"username"`
-	Password    string      `json:"password"`
-	TopicPrefix string      `json:"topicPrefix"`
-	Events      mqttEvents  `json:"events"`
-	Presets     mqttPresets `json:"presets"`
+	Broker          string      `json:"broker"`
+	ClientID        string      `json:"clientId"`
+	Username        string      `json:"username"`
+	Password        string      `json:"password"`
+	TopicPrefix     string      `json:"topicPrefix"`
+	WledDeviceTopic string      `json:"wledDeviceTopic"`
+	Events          mqttEvents  `json:"events"`
+	Presets         mqttPresets `json:"presets"`
 }
 
 type mqttEvents struct {
@@ -45,14 +46,15 @@ type mqttPresets struct {
 }
 
 type mqttSettingsUpdate struct {
-	Broker      *string      `json:"broker"`
-	ClientID    *string      `json:"clientId"`
-	Username    *string      `json:"username"`
-	Password    *string      `json:"password"`
-	TopicPrefix *string      `json:"topicPrefix"`
-	Events      *mqttEvents  `json:"events"`
-	Presets     *mqttPresets `json:"presets"`
-	TriggerTags *[]string    `json:"triggerTags"`
+	Broker          *string      `json:"broker"`
+	ClientID        *string      `json:"clientId"`
+	Username        *string      `json:"username"`
+	Password        *string      `json:"password"`
+	TopicPrefix     *string      `json:"topicPrefix"`
+	WledDeviceTopic *string      `json:"wledDeviceTopic"`
+	Events          *mqttEvents  `json:"events"`
+	Presets         *mqttPresets `json:"presets"`
+	TriggerTags     *[]string    `json:"triggerTags"`
 }
 
 func (s *Server) getProjectMqttSettings(c *gin.Context) {
@@ -69,6 +71,7 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 	username, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.username")
 	password, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.password")
 	topicPrefix, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.topicPrefix")
+	wledDeviceTopic, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wledDeviceTopic")
 
 	events := mqttEvents{}
 	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.event.uploadCreated"); v == "true" {
@@ -123,14 +126,15 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"broker":      broker,
-		"clientId":    clientID,
-		"username":    username,
-		"password":    password,
-		"topicPrefix": topicPrefix,
-		"events":      events,
-		"presets":     presets,
-		"triggerTags": triggerTags,
+		"broker":          broker,
+		"clientId":        clientID,
+		"username":        username,
+		"password":        password,
+		"topicPrefix":     topicPrefix,
+		"wledDeviceTopic": wledDeviceTopic,
+		"events":          events,
+		"presets":         presets,
+		"triggerTags":     triggerTags,
 	})
 }
 
@@ -150,11 +154,12 @@ func (s *Server) updateProjectMqttSettings(c *gin.Context) {
 
 	ctx := c.Request.Context()
 	settings := map[string]*string{
-		"mqtt.broker":      input.Broker,
-		"mqtt.clientId":    input.ClientID,
-		"mqtt.username":    input.Username,
-		"mqtt.password":    input.Password,
-		"mqtt.topicPrefix": input.TopicPrefix,
+		"mqtt.broker":          input.Broker,
+		"mqtt.clientId":        input.ClientID,
+		"mqtt.username":        input.Username,
+		"mqtt.password":        input.Password,
+		"mqtt.topicPrefix":     input.TopicPrefix,
+		"mqtt.wledDeviceTopic": input.WledDeviceTopic,
 	}
 
 	for key, val := range settings {

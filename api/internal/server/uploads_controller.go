@@ -261,6 +261,7 @@ func (s *Server) createUpload(c *gin.Context) {
 			"userId":     userID,
 			"preset":     preset,
 		})
+		s.publishToWled(c.Request.Context(), up.ProjectID, preset)
 	}
 	s.respondUpload(c, http.StatusCreated, up)
 }
@@ -336,6 +337,7 @@ func (s *Server) updateUpload(c *gin.Context) {
 				"userId":     authUser(c).ID,
 				"preset":     preset,
 			})
+			s.publishToWled(c.Request.Context(), up.ProjectID, preset)
 		}
 	}
 	s.respondUpload(c, http.StatusOK, up)

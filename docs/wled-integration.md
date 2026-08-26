@@ -42,7 +42,8 @@ Open your project **Settings > General** tab. Scroll to **MQTT / WLED Integratio
 | Client ID | Unique identifier for the connection | `shutterbase-myproject` |
 | Username | Broker auth (leave empty if none) | `mqttuser` |
 | Password | Broker auth (leave empty if none) | `secret` |
-| Topic Prefix | Prepended to all topics | `shutterbase` |
+| Topic Prefix | Prepended to all structured topics | `shutterbase` |
+| WLED Device Topic | Direct WLED control (see below) | `wled/device1` |
 
 ### Events
 
@@ -156,33 +157,57 @@ All payloads are JSON. Common fields:
 
 ## WLED Setup
 
-### 1. Enable MQTT on WLED
+### Option A: Direct WLED Control (Recommended)
 
-In WLED UI: **Security & Setup > MQTT**:
+Shutterbase can publish **directly** to your WLED device's API topic — no bridge or automation tool needed.
+
+#### 1. Enable MQTT on WLED
+
+In WLED UI: **Config > Sync Interfaces > MQTT**:
 - Enable MQTT
 - Set the broker IP/hostname and port (default `1883`)
-- Set MQTT topic (e.g. `wled/device1`) — this is WLED's own topic, not the Shutterbase topic
+- Note the **MQTT device topic** (default: `wled/<device_id>`, e.g. `wled/a4cf12fa54b3`)
 
-### 2. Subscribe to Shutterbase Topics
+#### 2. Enter WLED Device Topic in Shutterbase
 
-WLED automatically subscribes to `wled/+` and its own topic. To receive Shutterbase messages, you need a **bridge** — either:
+In Project Settings > MQTT:
+- Set **WLED Device Topic** to your WLED's device topic (e.g. `wled/a4cf12fa54b3`)
+- Enable events and set preset numbers
 
-**Option A: MQTT bridge in Mosquitto** (recommended)
+#### 3. Create Presets in WLED
 
-Add to `mosquitto.conf`:
+In WLED UI: **Presets > +**:
+- Create presets with the effects you want for each event
+- Note the preset IDs (1, 2, 3, etc.)
+
+#### How It Works
+
+When an event fires, Shutterbase publishes two messages:
+1. **Structured topic** (for HA, Node-RED, custom apps): `{prefix}/{projectId}/upload/{uploadId}/{event}`
+2. **WLED topic** (direct control): `{wledDeviceTopic}/api` with payload `{"preset": N}`
+
+WLED subscribes to `{wledDeviceTopic}/api` natively — it receives the command and triggers the preset immediately.
+
+```
+Upload approved → Shutterbase publishes {"preset":4} to wled/device1/api → WLED triggers preset 4
+```
+
+### Option B: Bridge / Automation Tool
+
+If you want more control or have multiple WLED devices, use a bridge.
+
+**Mosquitto Topic Bridge**
+
+Add to `mosquitto.conf` to forward Shutterbase topics to WLED:
 ```
 topic shutterbase/+/upload/+/+ in 0
 ```
 
-Then in WLED, use a relay or use an MQTT automation tool (Node-RED, Home Assistant) to forward messages.
+Then use an automation tool to filter and forward to WLED's API topic.
 
-**Option B: Use WLED's MQTT update topic**
+**Home Assistant / Node-RED**
 
-Configure WLED to listen on a wildcard. In WLED's MQTT settings, set the **MQTT device topic** to match your Shutterbase prefix, or use an automation tool to bridge.
-
-**Option C: Home Assistant / Node-RED**
-
-The most flexible approach — subscribe to `shutterbase/#` and create automations:
+Subscribe to `shutterbase/#` and create automations:
 
 ```yaml
 # Home Assistant example
@@ -214,35 +239,49 @@ Create presets in WLED (WLED UI > Presets > +) for each event you want to visual
 
 ## Examples
 
-### Simple: Flash on Approval
+### Simple: Flash on Approval (Direct WLED)
 
-1. Project Settings > MQTT:
+1. WLED: create preset 4 (solid gold)
+2. Shutterbase Project Settings > MQTT:
    - Broker: `tcp://mosquitto:1883`
-   - Topic prefix: `shutterbase`
+   - WLED Device Topic: `wled/a4cf12fa54b3`
    - Events: enable **Approved**, preset `4`
-2. WLED preset 4: Solid gold, 30s fade-out
-3. When a reviewer approves an upload, WLED flashes gold
+3. When a reviewer approves an upload, WLED flashes gold — no bridge needed
 
-### Advanced: Tag-Based Effects
+### Multi-Event: Full Review Flow
+
+1. WLED presets:
+   - Preset 1: Green pulse (upload created)
+   - Preset 3: Blue pulse (ready for review)
+   - Preset 4: Gold flash (approved)
+   - Preset 5: Red flash (rejected)
+2. Shutterbase: enable all four events with matching preset numbers
+3. WLED reacts to each stage of the review process
+
+### Tag-Based Effects
 
 1. Enable **Tag assigned**, trigger tags: `winner, highlight`
-2. Preset `7`: Rainbow effect
+2. Preset 7: Rainbow effect
 3. When a `winner` tag is assigned, WLED shows rainbow
 
-### Multi-Device
+### Multi-Device (with Bridge)
 
-Different WLED devices subscribe to different topic patterns:
+Different WLED devices react to different events:
 
-- **Office WLED**: `shutterbase/+/upload/+/approved` — gold flash on approvals
-- **Studio WLED**: `shutterbase/+/upload/+/ready` — blue pulse when work arrives
-- **Party WLED**: `shutterbase/+/upload/+/tag-assigned` — rainbow on any tag
+- **Office WLED** (`wled/office`): preset 4 on approvals — gold flash
+- **Studio WLED** (`wled/studio`): preset 3 on ready — blue pulse
+- **Party WLED** (`wled/party`): preset 7 on tag assigned — rainbow
+
+Use the **Topic Prefix** for structured topics + Home Assistant/Node-RED to route to each device.
 
 ## Troubleshooting
 
 | Symptom | Check |
 |---------|-------|
-| No messages received | Is `MQTT_BROKER` set in server env? Is the broker running? |
-| Messages but no WLED reaction | Is WLED subscribed to the right topic? Is the preset number correct? |
+| No messages received | Is the MQTT broker running? Is the Broker URL correct in project settings? |
+| WLED not reacting (direct) | Is the WLED Device Topic correct? Is the preset number set? Is WLED connected to the same broker? |
+| WLED not reacting (bridge) | Is the bridge configured? Is Home Assistant/Node-RED subscribed to the right topic? |
 | Connection lost warnings | Check broker logs, network connectivity, credentials |
 | Events not firing | Is the event toggle enabled in project settings? |
 | Tag triggers not working | Is the tag name in the trigger list exactly (case-sensitive)? |
+| WLED preset not found | Does the preset ID exist in WLED? Check WLED Presets page. |
