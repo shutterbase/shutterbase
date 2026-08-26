@@ -89,8 +89,30 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 	assert.Len(t, m.Cameras, 2) // fresh + stale
 	assert.Len(t, m.Tags, 4)    // template + manual + default + internal
 	assert.Len(t, m.Offsets, 2) // fresh + stale
-	assert.Len(t, m.Images, 3)
+	assert.Len(t, m.Images, 11) // 3 base + 8 midnight-cluster photos
 	assert.Equal(t, 37, m.DriftSeconds)
+
+	// Midnight cluster: eight photos from 23:55 to 00:10 event-local on the day
+	// before referenceNow; first and last exactly on the boundary instants.
+	assert.Len(t, m.TimeRangeImages, 8)
+	assert.Equal(t, 15*time.Minute, m.TimeRangeEnd.Sub(m.TimeRangeStart))
+	berlin, err := time.LoadLocation(seed.TimeRangeZone)
+	require.NoError(t, err)
+	startLocal := m.TimeRangeStart.In(berlin)
+	assert.Equal(t, 23, startLocal.Hour())
+	assert.Equal(t, 55, startLocal.Minute())
+	endLocal := m.TimeRangeEnd.In(berlin)
+	assert.Equal(t, 0, endLocal.Hour())
+	assert.Equal(t, 10, endLocal.Minute())
+	assert.NotEqual(t, startLocal.YearDay(), endLocal.YearDay(), "cluster crosses midnight")
+	first, err := c.Image.Get(ctx, m.TimeRangeImages[0])
+	require.NoError(t, err)
+	last, err := c.Image.Get(ctx, m.TimeRangeImages[len(m.TimeRangeImages)-1])
+	require.NoError(t, err)
+	assert.True(t, first.CapturedAtCorrected.Equal(m.TimeRangeStart), "first photo sits on the start boundary")
+	assert.True(t, last.CapturedAtCorrected.Equal(m.TimeRangeEnd), "last photo sits on the end boundary")
+	// Untagged by design: capture time must be the only varying dimension.
+	assert.Empty(t, first.QueryImageTagAssignments().AllX(ctx))
 
 	freshOff, err := c.TimeOffset.Get(ctx, m.Offsets["fresh"])
 	require.NoError(t, err)

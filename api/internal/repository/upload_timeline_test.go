@@ -16,11 +16,14 @@ import (
 	"github.com/shutterbase/shutterbase/internal/seed"
 )
 
-// timelineImages returns the seeded upload's images sorted by corrected capture
-// time — the axis ApplyUploadTimeline reconciles on.
+// timelineImages returns the seeded BASE images (the midnight fixture cluster
+// is excluded — its instants sit strictly before the base window, so tracks
+// built on this axis cover exactly what the assertions expect) sorted by
+// corrected capture time — the axis ApplyUploadTimeline reconciles on.
 func timelineImages(t *testing.T, repo *repository.Repository, m *seed.Manifest) []timelineImg {
 	t.Helper()
-	rows, err := repo.Client.Image.Query().Where(image.UploadID(m.Upload)).All(context.Background())
+	base := m.Images[:len(m.Images)-len(m.TimeRangeImages)]
+	rows, err := repo.Client.Image.Query().Where(image.UploadID(m.Upload), image.IDIn(base...)).All(context.Background())
 	require.NoError(t, err)
 	out := make([]timelineImg, 0, len(rows))
 	for _, r := range rows {

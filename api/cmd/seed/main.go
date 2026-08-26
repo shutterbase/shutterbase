@@ -55,7 +55,23 @@ func main() {
 	if seeded, err := conn.Client.User.Query().Exist(ctx); err != nil {
 		log.Fatal().Err(err).Msg("error checking existing seed")
 	} else if seeded {
-		log.Info().Msg("database already has users — skipping seed")
+		log.Info().Msg("database already has users — skipping base seed")
+		// Still make sure the midnight-crossing fixture cluster exists: dev
+		// databases seeded before it was added (or against a bare default
+		// admin) gain the time-range photos on re-run. Soft-fail when there is
+		// no fixture context at all.
+		m, err := seed.EnsureTimeRangeFixtures(ctx, conn.Client, time.Now())
+		if err != nil {
+			log.Fatal().Err(err).Msg("ensuring time-range fixtures failed")
+		}
+		if m == nil {
+			log.Info().Msg("no seeded fixtures found — run against a fresh database for the full fixture set")
+			return
+		}
+		log.Info().Str("manifest", manifestPath).Int("images", len(m.TimeRangeImages)).Msg("time-range fixtures ensured")
+		if err := m.Write(manifestPath); err != nil {
+			log.Warn().Err(err).Msg("failed to write manifest")
+		}
 		return
 	}
 
@@ -66,5 +82,8 @@ func main() {
 	if err := manifest.Write(manifestPath); err != nil {
 		log.Fatal().Err(err).Msg("failed to write manifest")
 	}
-	log.Info().Str("manifest", manifestPath).Int("images", len(manifest.Images)).Msg("seed complete")
+	log.Info().Str("manifest", manifestPath).
+		Int("images", len(manifest.Images)).
+		Int("timeRangeImages", len(manifest.TimeRangeImages)).
+		Msg("seed complete")
 }

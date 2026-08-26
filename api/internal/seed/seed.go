@@ -19,6 +19,8 @@ import (
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
+	"github.com/shutterbase/shutterbase/ent/image"
+	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
 )
 
@@ -33,6 +35,12 @@ const Drift = 37 * time.Second
 // StaleAge places the deliberately-stale offset outside the 24h freshness window.
 const StaleAge = 25 * time.Hour
 
+// TimeRangeZone anchors the midnight-crossing fixture cluster to the event's
+// wall clock (the TIMEZONE default); falls back to UTC if unloadable. Kept here
+// rather than read from config so seeding stays deterministic in unit tests,
+// which run without an initialized config.
+const TimeRangeZone = "Europe/Berlin"
+
 // Manifest records every id and the referenceNow the fixtures derive from.
 // Tests read it so their expectations share the seed's instant.
 type Manifest struct {
@@ -46,6 +54,13 @@ type Manifest struct {
 	Upload       string               `json:"upload"`
 	Images       []string             `json:"images"`
 	DriftSeconds int                  `json:"driftSeconds"`
+	// TimeRange cluster: photos spanning 23:55→00:10 event-local on the day
+	// before referenceNow. TimeRangeStart/End are the first/last photos'
+	// corrected capture instants — exactly on the boundary, so inclusive-range
+	// filters can be exercised against real edges.
+	TimeRangeImages []string  `json:"timeRangeImages"`
+	TimeRangeStart  time.Time `json:"timeRangeStart"`
+	TimeRangeEnd    time.Time `json:"timeRangeEnd"`
 }
 
 // Seed wipes nothing — it expects an empty (freshly migrated) database — and
@@ -273,6 +288,106 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 		return nil, fmt.Errorf("set active project: %w", err)
 	}
 
+	// Midnight-crossing cluster for time-range filtering (see below).
+	if err := SeedTimeRangeCluster(ctx, client, m, referenceNow); err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+// timeRangeOffsetsMinutes places eight photos between 23:55 and 00:10 (minutes
+// after 23:55): dense around midnight, first and last exactly on the boundary.
+var timeRangeOffsetsMinutes = []int{0, 2, 4, 6, 9, 11, 13, 15}
+
+// SeedTimeRangeCluster creates (or finds, by deterministic name) the
+// midnight-crossing fixture photos: len(timeRangeOffsetsMinutes) images from
+// 23:55 to 00:10 in TimeRangeZone on the day before referenceNow. They ride
+// the seed upload/camera with the usual drift math and carry NO tag assignments,
+// so capture time is the only varying dimension. Idempotent via the unique
+// computedFileName — cmd/seed calls this against already-seeded databases whose
+// base fixtures are skipped.
+func SeedTimeRangeCluster(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time) error {
+	loc, err := time.LoadLocation(TimeRangeZone)
+	if err != nil {
+		loc = time.UTC
+	}
+	local := referenceNow.In(loc)
+	yesterdayMidnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -1)
+	start := yesterdayMidnight.Add(23*time.Hour + 55*time.Minute)
+
+	for i, off := range timeRangeOffsetsMinutes {
+		corrected := start.Add(time.Duration(off) * time.Minute)
+		computed := fmt.Sprintf("FSG_90%02d.jpg", i)
+		img, err := client.Image.Query().Where(image.ComputedFileName(computed)).Only(ctx)
+		if ent.IsNotFound(err) {
+			img, err = client.Image.Create().
+				SetFileName(fmt.Sprintf("DSC_90%02d.jpg", i)).
+				SetComputedFileName(computed).
+				SetStorageId(fmt.Sprintf("seedtr%08d", i)).
+				SetSize(1024 * (i + 1)).
+				SetWidth(6000).
+				SetHeight(4000).
+				SetCapturedAt(corrected.Add(-Drift)).
+				SetCapturedAtCorrected(corrected).
+				SetUserID(m.Users["projectEditor"]).
+				SetUploadID(m.Upload).
+				SetProjectID(m.Project).
+				SetCameraID(m.Cameras["fresh"]).
+				Save(ctx)
+			if err != nil {
+				return fmt.Errorf("create time-range image %d: %w", i, err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("query time-range image %d: %w", i, err)
+		}
+		m.TimeRangeImages = append(m.TimeRangeImages, img.ID)
+		m.Images = append(m.Images, img.ID)
+	}
+	m.TimeRangeStart = start
+	m.TimeRangeEnd = start.Add(time.Duration(timeRangeOffsetsMinutes[len(timeRangeOffsetsMinutes)-1]) * time.Minute)
+	return nil
+}
+
+// EnsureTimeRangeFixtures resolves the fixture context (editor, active project,
+// upload, camera) from an ALREADY-seeded database and makes sure the
+// midnight-crossing cluster exists. Returns a partial manifest carrying only
+// what the cluster needs. Fails softly (nil manifest) when the database holds
+// no seed context — e.g. only the server's default admin exists.
+func EnsureTimeRangeFixtures(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Manifest, error) {
+	editor, err := client.User.Query().Where(user.Username("projectEditor")).Only(ctx)
+	if ent.IsNotFound(err) {
+		return nil, nil //nolint:nilnil — no fixture context is a normal state, caller warns
+	} else if err != nil {
+		return nil, fmt.Errorf("find seeded editor: %w", err)
+	}
+
+	up, err := client.Upload.Query().Where(upload.UserID(editor.ID)).Order(ent.Desc(upload.FieldCreatedAt)).First(ctx)
+	if ent.IsNotFound(err) {
+		return nil, nil //nolint:nilnil
+	} else if err != nil {
+		return nil, fmt.Errorf("find seeded upload: %w", err)
+	}
+
+	m := &Manifest{
+		ReferenceNow: referenceNow,
+		Users:        map[string]uuid.UUID{"projectEditor": editor.ID},
+		Cameras:      map[string]string{},
+		Tags:         map[string]string{},
+		Offsets:      map[string]string{},
+		Roles:        map[string]string{},
+		Upload:       up.ID,
+	}
+	if editor.ActiveProjectID != nil {
+		m.Project = *editor.ActiveProjectID
+	}
+	cam, err := client.Camera.Get(ctx, up.CameraID)
+	if err == nil {
+		m.Cameras["fresh"] = cam.ID
+	}
+	if err := SeedTimeRangeCluster(ctx, client, m, referenceNow); err != nil {
+		return nil, err
+	}
 	return m, nil
 }
 

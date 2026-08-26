@@ -37,12 +37,13 @@ test.describe("slideshow", () => {
     await expect(page.getByTestId("slideshow-overlay")).toHaveCount(0);
   });
 
-  // The seed has 3 images, the last one tagged "internal" — the grid shows all
-  // three, the slideshow only ever counts and plays two.
+  // The seed has 11 images: the three base ones (the last tagged "internal")
+  // plus the untagged midnight cluster — the grid shows all eleven, the
+  // slideshow only ever counts and plays the two non-internal base photos.
   test("skips internal images", async ({ page }) => {
     await loginAs(page, "admin");
     await page.goto("/images");
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(3);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(11);
     await page.getByTestId("start-slideshow").click();
     await expect(page.getByTestId("slideshow-setup")).toContainText("2 images in the current view");
     await page.getByTestId("slideshow-start").click();
