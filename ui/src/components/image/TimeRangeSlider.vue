@@ -1,6 +1,10 @@
 <template>
   <div class="select-none" :class="disabled ? 'pointer-events-none opacity-40' : ''">
-    <div class="relative h-6">
+    <div
+      class="relative h-6 cursor-pointer"
+      ref="trackRef"
+      @pointerdown="onPointerDown"
+    >
       <!-- track -->
       <div class="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-primary-200 dark:bg-primary-700"></div>
       <!-- selected segment -->
@@ -8,40 +12,24 @@
         class="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent-500"
         :style="{ left: lowPct + '%', width: highPct - lowPct + '%' }"
       ></div>
-      <input
-        aria-label="Range start"
-        type="range"
-        class="time-thumb absolute top-0 h-6 w-full appearance-none bg-transparent"
-        :min="minStep"
-        :max="maxStep"
-        step="1"
-        v-model.number="lowStep"
-        @change="commit"
-      />
-      <input
-        aria-label="Range end"
-        type="range"
-        class="time-thumb absolute top-0 h-6 w-full appearance-none bg-transparent"
-        :min="minStep"
-        :max="maxStep"
-        step="1"
-        v-model.number="highStep"
-        @change="commit"
-      />
-    </div>
-    <div class="label-mono-sm mt-1 flex justify-between text-primary-400 dark:text-primary-500">
-      <span>{{ fmt(domainMin) }}</span>
-      <span>{{ fmt(domainMax) }}</span>
+      <!-- low thumb -->
+      <div
+        class="absolute top-1/2 z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent-600 shadow-md transition-none"
+        :class="dragging === 'low' ? 'ring-2 ring-accent-400/40' : ''"
+        :style="{ left: lowPct + '%' }"
+      ></div>
+      <!-- high thumb -->
+      <div
+        class="absolute top-1/2 z-20 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-accent-600 shadow-md transition-none"
+        :class="dragging === 'high' ? 'ring-2 ring-accent-400/40' : ''"
+        :style="{ left: highPct + '%' }"
+      ></div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-// Two overlapped native range inputs = a dual-thumb time-range slider.
-// Keyboard-accessible, no component framework needed. Thumbs work in whole
-// minutes across the domain; dragging updates locally, release (`change`)
-// commits ISO strings — one request per gesture, never per pixel.
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, onUnmounted } from "vue";
 
 const props = defineProps<{
   min: string;
@@ -51,7 +39,10 @@ const props = defineProps<{
   disabled?: boolean;
 }>();
 
-const emit = defineEmits<{ change: [string | null, string | null] }>();
+const emit = defineEmits<{
+  change: [string | null, string | null];
+  preview: [string, string];
+}>();
 
 const MINUTE = 60_000;
 const domainMin = computed(() => new Date(props.min).getTime());
@@ -68,7 +59,6 @@ const toStep = (iso: string | null | undefined, fallback: number) => {
 const lowStep = ref(toStep(props.from, minStep.value));
 const highStep = ref(toStep(props.to, maxStep.value));
 
-// inbound sync (props are the source of truth); keep thumbs ordered
 watch(
   () => [props.min, props.max, props.from, props.to],
   () => {
@@ -82,7 +72,6 @@ watch(
   },
 );
 
-// keep low<=high while dragging by nudging the opposite thumb
 watch(lowStep, (v) => {
   if (v > highStep.value) highStep.value = v;
 });
@@ -90,47 +79,50 @@ watch(highStep, (v) => {
   if (v < lowStep.value) lowStep.value = v;
 });
 
-const commit = () => {
-  emit("change", new Date(lowStep.value * MINUTE).toISOString(), new Date(highStep.value * MINUTE).toISOString());
-};
-
 const lowPct = computed(() => ((lowStep.value - minStep.value) / Math.max(maxStep.value - minStep.value, 1)) * 100);
 const highPct = computed(() => ((highStep.value - minStep.value) / Math.max(maxStep.value - minStep.value, 1)) * 100);
 
-const fmt = (ms: number) =>
-  new Date(ms).toLocaleString([], { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-</script>
+// --- manual pointer drag ---
+const trackRef = ref<HTMLElement | null>(null);
+const dragging = ref<"low" | "high" | null>(null);
 
-<style scoped>
-/* both inputs cover the track; only their thumbs receive pointer events */
-.time-thumb {
-  pointer-events: none;
-  -webkit-appearance: none;
-  appearance: none;
+function stepFromClientX(clientX: number): number {
+  const el = trackRef.value;
+  if (!el) return minStep.value;
+  const rect = el.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  return Math.round(minStep.value + pct * (maxStep.value - minStep.value));
 }
-.time-thumb::-webkit-slider-thumb {
-  pointer-events: auto;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 14px;
-  width: 14px;
-  border-radius: 9999px;
-  background: var(--color-accent-600, #2563eb);
-  border: 2px solid white;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+
+function onPointerDown(e: PointerEvent) {
+  if (props.disabled) return;
+  const clickStep = stepFromClientX(e.clientX);
+  // pick the closest thumb
+  const distLow = Math.abs(clickStep - lowStep.value);
+  const distHigh = Math.abs(clickStep - highStep.value);
+  const target = distLow <= distHigh ? "low" : "high";
+  dragging.value = target;
+
+  if (target === "low") lowStep.value = clickStep;
+  else highStep.value = clickStep;
+
+  emit("preview", new Date(lowStep.value * MINUTE).toISOString(), new Date(highStep.value * MINUTE).toISOString());
+
+  const onMove = (ev: PointerEvent) => {
+    const step = stepFromClientX(ev.clientX);
+    if (target === "low") lowStep.value = step;
+    else highStep.value = step;
+    emit("preview", new Date(lowStep.value * MINUTE).toISOString(), new Date(highStep.value * MINUTE).toISOString());
+  };
+
+  const onUp = () => {
+    dragging.value = null;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    emit("change", new Date(lowStep.value * MINUTE).toISOString(), new Date(highStep.value * MINUTE).toISOString());
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp, { once: true });
 }
-.time-thumb::-moz-range-thumb {
-  pointer-events: auto;
-  height: 14px;
-  width: 14px;
-  border-radius: 9999px;
-  background: #2563eb;
-  border: 2px solid white;
-  cursor: pointer;
-}
-.time-thumb::-webkit-slider-runnable-track,
-.time-thumb::-moz-range-track {
-  background: transparent;
-}
-</style>
+</script>

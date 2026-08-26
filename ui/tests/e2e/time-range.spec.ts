@@ -239,3 +239,39 @@ test.describe("time-range slider", () => {
     await expect.poll(() => new URL(page.url()).searchParams.get("from")).toBe("2026-07-31T22:00:00.000Z");
   });
 });
+
+test.describe("time-range slider preview", () => {
+  let errors: string[];
+  test.beforeEach(async ({ page }) => {
+    errors = collectJsErrors(page);
+  });
+  test.afterEach(() => {
+    expect(errors, errors.join("\n")).toHaveLength(0);
+  });
+
+  // dragging shows a live value readout and must NOT touch the URL until release
+  test("drag previews values live, commits only on release", async ({ page }) => {
+    await loginAs(page, "admin");
+    await page.goto("/images");
+    await page.getByPlaceholder("Search images").fill("FSG_90");
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await page.getByTestId("time-range-button").click();
+
+    const endThumb = page.locator('input[aria-label="Range end"]');
+    await expect(endThumb).toBeVisible();
+    const box = await endThumb.boundingBox();
+    const y = box.y + box.height / 2;
+
+    await page.mouse.move(box.x + box.width - 4, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.6, y, { steps: 6 });
+    // mid-drag: the To input mirrors the thumb LIVE, nothing committed yet
+    const toInput = page.getByTestId("time-to-input");
+    await expect(toInput).not.toHaveValue("");
+    expect(new URL(page.url()).searchParams.get("to")).toBeNull();
+    await page.mouse.up();
+    // released: range committed to the URL, inputs keep the values
+    await expect.poll(() => new URL(page.url()).searchParams.get("to")).toBeTruthy();
+    await expect(toInput).not.toHaveValue("");
+  });
+});
