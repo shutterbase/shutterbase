@@ -43,6 +43,24 @@
             </button>
             <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear time range" @click="setTimeRange(null, null)">×</button>
           </span>
+          <button
+            v-if="rangeScopeAll && hasPausableFilters"
+            :class="[
+              'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
+              filtersPaused
+                ? 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200'
+                : 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300',
+            ]"
+            data-testid="filters-pill"
+            :title="
+              filtersPaused
+                ? 'Search, tag and orientation filters are paused — click to apply them again'
+                : 'Search, tag and orientation filters are applied — click to pause them'
+            "
+            @click="toggleFiltersPaused()"
+          >
+            Filters
+          </button>
         </div>
         <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
           <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
@@ -61,9 +79,8 @@
           >
             all my projects
           </button>
-        </div>
-        <div v-if="(personFilter || rangeScopeAll) && hasPausableFilters" class="mt-6 flex flex-wrap items-center gap-3">
           <button
+            v-if="hasPausableFilters"
             :class="[
               'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
               filtersPaused
@@ -113,7 +130,7 @@
          the whole page scroll. -->
     <div v-if="displayMode === DisplayMode.DETAIL && imageIndex !== -1 && images[imageIndex]" class="w-full px-4 sm:px-6 lg:px-8">
       <div class="mx-auto mt-4 flex max-w-screen-2xl flex-col-reverse gap-6 lg:flex-row">
-        <Sidebar :item="images[imageIndex]" />
+        <Sidebar :item="images[imageIndex]" @show-timespan="showTimespanAround()" />
         <figure class="min-w-0 flex-1">
           <!-- zoomed, the image breaks out of the column into a viewport-wide
                stage that spares only the header bar (top-16) and the film
@@ -150,16 +167,6 @@
           </ZoomableImage>
           <figcaption class="mt-3 flex items-baseline justify-center gap-4">
             <span class="truncate font-data text-sm text-primary-700 dark:text-primary-200">{{ images[imageIndex].computedFileName }}</span>
-            <button
-              v-if="images[imageIndex].capturedAtCorrected"
-              class="label-mono-sm inline-flex shrink-0 cursor-pointer items-center gap-1 text-accent-600 transition-colors hover:text-accent-400 dark:text-accent-300 dark:hover:text-accent-200"
-              title="Show all photos around this time"
-              data-testid="show-timespan"
-              @click="showTimespanAround()"
-            >
-              <ClockIcon class="h-4 w-4" />
-              show ±{{ TIMESPAN_MINUTES }} min
-            </button>
             <span class="label-mono-sm shrink-0 text-primary-500 dark:text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
           </figcaption>
         </figure>
@@ -218,7 +225,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import ImageGridTile from "src/components/image/ImageGridTile.vue";
-import { ClockIcon, PauseIcon, PlayIcon } from "@heroicons/vue/24/outline";
+import { PauseIcon, PlayIcon } from "@heroicons/vue/24/outline";
 import ImagesHeader, { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
 import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
@@ -264,6 +271,7 @@ import {
   timeToFilter,
   timeRangeSuspended,
   rangeScopeAll,
+  TIMESPAN_MINUTES,
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
@@ -327,7 +335,6 @@ const setTimeRange = (from: string | null, to: string | null) =>
 // back returns to the exact previous view (route-driven like every filter).
 // rangeScope=all makes this a CONTEXT view like the face lookup: all photos in
 // the window, other narrowing filters auto-paused behind the Filters pill.
-const TIMESPAN_MINUTES = 15;
 function showTimespanAround(minutes = TIMESPAN_MINUTES) {
   const item = images.value[imageIndex.value];
   if (!item?.capturedAtCorrected) return;
