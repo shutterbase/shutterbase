@@ -6,6 +6,29 @@ export interface MqttSettings {
   username: string;
   password: string;
   topicPrefix: string;
+  events: MqttEvents;
+  presets: MqttPresets;
+  triggerTags: string[];
+}
+
+export interface MqttEvents {
+  uploadCreated: boolean;
+  imageUploaded: boolean;
+  ready: boolean;
+  approved: boolean;
+  rejected: boolean;
+  imageRejected: boolean;
+  tagAssigned: boolean;
+}
+
+export interface MqttPresets {
+  uploadCreated: number;
+  imageUploaded: number;
+  ready: number;
+  approved: number;
+  rejected: number;
+  imageRejected: number;
+  tagAssigned: number;
 }
 
 export async function getProjectMqttSettings(projectId: string): Promise<MqttSettings> {

@@ -186,12 +186,26 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 	if created {
 		s.recordTaggingActivity(c, up)
 		// MQTT: publish image-rejected event when the reserved "rejected" tag is assigned.
-		if tag.Name == authorization.ReviewRejectedTagName {
+		if tag.Name == authorization.ReviewRejectedTagName && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "imageRejected") {
 			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
+			preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, "imageRejected")
 			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/image-rejected", gin.H{
 				"fileName":   img.ComputedFileName,
 				"imageId":    img.ID,
 				"rejectedBy": authUser(c).ID,
+				"preset":     preset,
+			})
+		}
+		// MQTT: publish tag-assigned event if this tag is in the trigger list.
+		if tag.Name != authorization.ReviewRejectedTagName && s.isMqttTagTrigger(c.Request.Context(), up.ProjectID, tag.Name) && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "tagAssigned") {
+			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
+			preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, "tagAssigned")
+			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/tag-assigned", gin.H{
+				"imageId":  img.ID,
+				"fileName": img.ComputedFileName,
+				"tagName":  tag.Name,
+				"userId":   authUser(c).ID,
+				"preset":   preset,
 			})
 		}
 	}

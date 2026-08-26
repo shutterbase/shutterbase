@@ -252,6 +252,16 @@ func (s *Server) createUpload(c *gin.Context) {
 	if abortMutationError(c, err) {
 		return
 	}
+	// MQTT: publish upload created event if enabled.
+	if s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "uploadCreated") {
+		topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
+		preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, "uploadCreated")
+		s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/created", gin.H{
+			"uploadName": up.Name,
+			"userId":     userID,
+			"preset":     preset,
+		})
+	}
 	s.respondUpload(c, http.StatusCreated, up)
 }
 
@@ -316,13 +326,15 @@ func (s *Server) updateUpload(c *gin.Context) {
 		case (oldState == "ready" || oldState == "reviewed") && newState == "open":
 			eventName = "rejected"
 		}
-		if eventName != "" {
+		if eventName != "" && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, eventName) {
 			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
+			preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, eventName)
 			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/"+eventName, gin.H{
 				"uploadName": up.Name,
 				"oldState":   oldState,
 				"newState":   newState,
 				"userId":     authUser(c).ID,
+				"preset":     preset,
 			})
 		}
 	}

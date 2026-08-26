@@ -106,60 +106,104 @@
         </div>
         <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">Publish upload events to an MQTT broker for WLED and other smart-home devices</p>
 
-        <form @submit.prevent="saveMqttSettings" class="mt-4 space-y-4">
-          <div>
-            <label for="mqtt-broker" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Broker URL</label>
-            <input
-              id="mqtt-broker"
-              v-model="mqttForm.broker"
-              type="text"
-              placeholder="tcp://localhost:1883"
-              class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
-            />
-          </div>
-          <div>
-            <label for="mqtt-clientid" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Client ID</label>
-            <input
-              id="mqtt-clientid"
-              v-model="mqttForm.clientId"
-              type="text"
-              placeholder="shutterbase"
-              class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
-            />
-          </div>
-          <div class="grid grid-cols-2 gap-4">
+        <form @submit.prevent="saveMqttSettings" class="mt-4 space-y-6">
+          <!-- Broker Connection -->
+          <div class="space-y-4">
+            <h4 class="text-sm font-medium text-primary-700 dark:text-primary-300">Broker Connection</h4>
             <div>
-              <label for="mqtt-username" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Username</label>
+              <label for="mqtt-broker" class="block text-sm text-primary-600 dark:text-primary-400">Broker URL</label>
               <input
-                id="mqtt-username"
-                v-model="mqttForm.username"
+                id="mqtt-broker"
+                v-model="mqttForm.broker"
                 type="text"
+                placeholder="tcp://localhost:1883"
                 class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
               />
             </div>
             <div>
-              <label for="mqtt-password" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Password</label>
+              <label for="mqtt-clientid" class="block text-sm text-primary-600 dark:text-primary-400">Client ID</label>
               <input
-                id="mqtt-password"
-                v-model="mqttForm.password"
-                type="password"
+                id="mqtt-clientid"
+                v-model="mqttForm.clientId"
+                type="text"
+                placeholder="shutterbase"
                 class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
               />
             </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label for="mqtt-username" class="block text-sm text-primary-600 dark:text-primary-400">Username</label>
+                <input
+                  id="mqtt-username"
+                  v-model="mqttForm.username"
+                  type="text"
+                  class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                />
+              </div>
+              <div>
+                <label for="mqtt-password" class="block text-sm text-primary-600 dark:text-primary-400">Password</label>
+                <input
+                  id="mqtt-password"
+                  v-model="mqttForm.password"
+                  type="password"
+                  class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label for="mqtt-topicprefix" class="block text-sm text-primary-600 dark:text-primary-400">Topic Prefix</label>
+              <input
+                id="mqtt-topicprefix"
+                v-model="mqttForm.topicPrefix"
+                type="text"
+                placeholder="shutterbase"
+                class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+              />
+              <p class="mt-1 text-xs text-primary-400 dark:text-primary-500">
+                Topics: <code class="font-mono">{{ mqttForm.topicPrefix || 'shutterbase' }}/{projectId}/upload/{uploadId}/{event}</code>
+              </p>
+            </div>
           </div>
-          <div>
-            <label for="mqtt-topicprefix" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Topic Prefix</label>
+
+          <!-- Event Toggles -->
+          <div class="space-y-4">
+            <h4 class="text-sm font-medium text-primary-700 dark:text-primary-300">Events</h4>
+            <p class="text-xs text-primary-500 dark:text-primary-400">Select which events trigger MQTT messages. Set a WLED preset number (0 = no preset).</p>
+            <div class="space-y-3">
+              <div v-for="event in mqttEventList" :key="event.key" class="flex items-center gap-4">
+                <label class="flex items-center gap-2 min-w-[200px]">
+                  <input
+                    type="checkbox"
+                    v-model="mqttForm.events[event.key]"
+                    class="h-4 w-4 rounded border-primary-300 text-accent-500 focus:ring-accent-500"
+                  />
+                  <span class="text-sm text-primary-700 dark:text-primary-300">{{ event.label }}</span>
+                </label>
+                <input
+                  v-if="mqttForm.events[event.key]"
+                  v-model.number="mqttForm.presets[event.key]"
+                  type="number"
+                  min="0"
+                  placeholder="Preset #"
+                  class="w-24 rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                />
+                <span v-if="mqttForm.events[event.key]" class="text-xs text-primary-400 dark:text-primary-500">WLED preset</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tag Triggers -->
+          <div class="space-y-4">
+            <h4 class="text-sm font-medium text-primary-700 dark:text-primary-300">Tag Triggers</h4>
+            <p class="text-xs text-primary-500 dark:text-primary-400">When "Tag assigned" is enabled above, specify which tag names trigger an MQTT message.</p>
             <input
-              id="mqtt-topicprefix"
-              v-model="mqttForm.topicPrefix"
+              v-model="mqttTriggerTagsInput"
               type="text"
-              placeholder="shutterbase"
+              placeholder="error, vip, highlight (comma-separated)"
               class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
             />
-            <p class="mt-1 text-xs text-primary-400 dark:text-primary-500">
-              Topics: <code class="font-mono">{{ mqttForm.topicPrefix || 'shutterbase' }}/{projectId}/upload/{uploadId}/{event}</code>
-            </p>
           </div>
+
           <div class="flex justify-end">
             <button
               type="submit"
@@ -234,6 +278,17 @@ const unexpectedError = ref(null);
 const mqttConfigured = ref(false);
 const mqttConnected = ref(false);
 const savingMqtt = ref(false);
+const mqttTriggerTagsInput = ref("");
+
+const mqttEventList = [
+  { key: "uploadCreated", label: "Upload created" },
+  { key: "imageUploaded", label: "Image uploaded" },
+  { key: "ready", label: "Ready for review" },
+  { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Rejected / sent back" },
+  { key: "imageRejected", label: "Image rejected (tag)" },
+  { key: "tagAssigned", label: "Tag assigned" },
+];
 
 const mqttForm = ref({
   broker: "",
@@ -241,6 +296,24 @@ const mqttForm = ref({
   username: "",
   password: "",
   topicPrefix: "",
+  events: {
+    uploadCreated: false,
+    imageUploaded: false,
+    ready: false,
+    approved: false,
+    rejected: false,
+    imageRejected: false,
+    tagAssigned: false,
+  },
+  presets: {
+    uploadCreated: 0,
+    imageUploaded: 0,
+    ready: 0,
+    approved: 0,
+    rejected: 0,
+    imageRejected: 0,
+    tagAssigned: 0,
+  },
 });
 
 async function loadItem() {
@@ -389,7 +462,14 @@ async function loadMqttSettings() {
       api.adminSettings.getProjectMqttSettings(projectId),
       api.mqtt.getProjectMqttStatus(projectId),
     ]);
-    mqttForm.value = settings;
+    mqttForm.value.broker = settings.broker;
+    mqttForm.value.clientId = settings.clientId;
+    mqttForm.value.username = settings.username;
+    mqttForm.value.password = settings.password;
+    mqttForm.value.topicPrefix = settings.topicPrefix;
+    mqttForm.value.events = settings.events;
+    mqttForm.value.presets = settings.presets;
+    mqttTriggerTagsInput.value = settings.triggerTags?.join(", ") || "";
     mqttConfigured.value = status.configured;
     mqttConnected.value = status.connected;
   } catch {
@@ -402,7 +482,14 @@ async function saveMqttSettings() {
   if (!projectId) return;
   savingMqtt.value = true;
   try {
-    await api.adminSettings.updateProjectMqttSettings(projectId, mqttForm.value);
+    const triggerTags = mqttTriggerTagsInput.value
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    await api.adminSettings.updateProjectMqttSettings(projectId, {
+      ...mqttForm.value,
+      triggerTags,
+    });
     const status = await api.mqtt.getProjectMqttStatus(projectId);
     mqttConfigured.value = status.configured;
     mqttConnected.value = status.connected;
