@@ -23,7 +23,7 @@
         @slideshow="slideshowActive = true"
       />
       <div v-if="displayMode === DisplayMode.GRID">
-        <div v-if="timeFromFilter || timeToFilter" class="mt-6 flex flex-wrap items-center gap-3" data-testid="time-range-chip-row">
+        <div v-if="rangeScopeAll && (timeFromFilter || timeToFilter)" class="mt-6 flex flex-wrap items-center gap-3" data-testid="time-range-chip-row">
           <span
             :class="[
               'label-mono-sm inline-flex items-center gap-2 rounded-full border px-3 py-1 transition-opacity',
@@ -546,7 +546,10 @@ window.addEventListener("scroll", onScroll);
 // before the watchers below exist, so the reset itself never queues a reload
 resetTransientFilters();
 
-onMounted(() => applyRoute(true));
+onMounted(() => {
+  applyRoute(true);
+  loadTimeBounds();
+});
 // any other filter/sort change makes the saved unfiltered-grid position stale
 const reloadDebounced = useDebounceFn(() => {
   invalidateGridSnapshot();

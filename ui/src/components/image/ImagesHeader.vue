@@ -201,6 +201,12 @@
         >
           <ClockIcon class="h-[18px] w-[18px]" />
           <span>Time</span>
+          <span
+            v-if="timeFrom || timeTo"
+            class="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent-500/20 px-1.5 font-data text-xs font-semibold text-accent-700 dark:text-accent-200"
+          >
+            ·
+          </span>
           <ChevronDownIcon class="h-4 w-4 opacity-60" />
         </PopoverButton>
         <transition
@@ -225,6 +231,7 @@
                 :max="sliderDomain.max"
                 :from="timeFrom"
                 :to="timeTo"
+                @preview="(f, t) => setLocalsSilently(f, t)"
                 @change="(f, t) => emit('timeRange', f, t)"
               />
               <label class="flex flex-col gap-1 text-xs font-medium text-primary-500 dark:text-primary-400">
@@ -479,14 +486,15 @@ watch(orientation, () => emit("aspectRatioFilter", orientation.value));
 // A props->locals sync must NOT echo back out as an emit: the round trip goes
 // through Images.vue's setTimeRange, which is a USER-EDIT writer (it drops
 // ?rangeScope=). The flag marks exactly one inbound sync as non-emitting.
-const fromLocal = ref(isoToLocalInput(props.timeFrom));
-const toLocal = ref(isoToLocalInput(props.timeTo));
+// When no range is set, default to the slider domain bounds (first/last photo).
+const fromLocal = ref(isoToLocalInput(props.timeFrom) || (props.timeBounds?.min ? isoToLocalInput(props.timeBounds.min) : ""));
+const toLocal = ref(isoToLocalInput(props.timeTo) || (props.timeBounds?.max ? isoToLocalInput(props.timeBounds.max) : ""));
 let syncingFromProps = false;
 watch(
-  () => [props.timeFrom, props.timeTo],
-  ([f, t]) => {
-    const fLocal = isoToLocalInput(f);
-    const tLocal = isoToLocalInput(t);
+  () => [props.timeFrom, props.timeTo, props.timeBounds?.min, props.timeBounds?.max],
+  ([f, t, bMin, bMax]) => {
+    const fLocal = isoToLocalInput(f) || (bMin ? isoToLocalInput(bMin as string) : "");
+    const tLocal = isoToLocalInput(t) || (bMax ? isoToLocalInput(bMax as string) : "");
     if (fLocal !== fromLocal.value || tLocal !== toLocal.value) {
       syncingFromProps = true;
       fromLocal.value = fLocal;
@@ -499,6 +507,15 @@ watch([fromLocal, toLocal], () => {
   if (syncingFromProps) return;
   emit("timeRange", localInputToIso(fromLocal.value), localInputToIso(toLocal.value));
 });
+
+// slider drag feedback: mirror the thumbs into the inputs so their values
+// update live — silently, like a props sync (the actual commit is `change`)
+function setLocalsSilently(f: string, t: string) {
+  syncingFromProps = true;
+  fromLocal.value = isoToLocalInput(f);
+  toLocal.value = isoToLocalInput(t);
+  nextTick(() => (syncingFromProps = false));
+}
 
 // tags — Grafana-style polarity filter: + narrows to images WITH the tag,
 // − drops images WITH the tag. Selected entries pin above the list.
