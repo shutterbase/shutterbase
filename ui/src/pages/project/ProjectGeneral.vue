@@ -81,31 +81,96 @@
         :fields="reviewFields"
         :item="item"
       />
-      <!-- MQTT / WLED integration status -->
-      <div>
-        <h3 class="text-lg font-medium text-primary-900 dark:text-white">Integrations</h3>
-        <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">External service connections</p>
-        <div class="mt-4 flex items-center gap-3">
+      <!-- MQTT / WLED integration -->
+      <div v-if="userStore.isProjectAdminOrHigher()">
+        <div class="flex items-center gap-3">
+          <h3 class="text-lg font-medium text-primary-900 dark:text-white">MQTT / WLED Integration</h3>
           <div
             :class="[
-              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium',
-              mqttConnected
-                ? 'border-success-400/60 bg-success-500/10 text-success-700 dark:text-success-300'
+              'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium',
+              mqttConfigured
+                ? mqttConnected
+                  ? 'border-success-400/60 bg-success-500/10 text-success-700 dark:text-success-300'
+                  : 'border-warning-400/60 bg-warning-500/10 text-warning-700 dark:text-warning-300'
                 : 'border-primary-300 bg-transparent text-primary-400 dark:border-primary-700 dark:text-primary-500',
             ]"
           >
             <span
               :class="[
-                'h-2 w-2 rounded-full',
-                mqttConnected ? 'bg-success-500' : 'bg-primary-400',
+                'h-1.5 w-1.5 rounded-full',
+                mqttConfigured ? (mqttConnected ? 'bg-success-500' : 'bg-warning-500') : 'bg-primary-400',
               ]"
             ></span>
-            WLED / MQTT
+            {{ mqttConfigured ? (mqttConnected ? 'Connected' : 'Disconnected') : 'Not configured' }}
           </div>
-          <span class="text-xs text-primary-400 dark:text-primary-500">
-            {{ mqttConnected ? 'Connected' : 'Not configured' }}
-          </span>
         </div>
+        <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">Publish upload events to an MQTT broker for WLED and other smart-home devices</p>
+
+        <form @submit.prevent="saveMqttSettings" class="mt-4 space-y-4">
+          <div>
+            <label for="mqtt-broker" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Broker URL</label>
+            <input
+              id="mqtt-broker"
+              v-model="mqttForm.broker"
+              type="text"
+              placeholder="tcp://localhost:1883"
+              class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+            />
+          </div>
+          <div>
+            <label for="mqtt-clientid" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Client ID</label>
+            <input
+              id="mqtt-clientid"
+              v-model="mqttForm.clientId"
+              type="text"
+              placeholder="shutterbase"
+              class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+            />
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="mqtt-username" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Username</label>
+              <input
+                id="mqtt-username"
+                v-model="mqttForm.username"
+                type="text"
+                class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+              />
+            </div>
+            <div>
+              <label for="mqtt-password" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Password</label>
+              <input
+                id="mqtt-password"
+                v-model="mqttForm.password"
+                type="password"
+                class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label for="mqtt-topicprefix" class="block text-sm font-medium text-primary-700 dark:text-primary-300">Topic Prefix</label>
+            <input
+              id="mqtt-topicprefix"
+              v-model="mqttForm.topicPrefix"
+              type="text"
+              placeholder="shutterbase"
+              class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+            />
+            <p class="mt-1 text-xs text-primary-400 dark:text-primary-500">
+              Topics: <code class="font-mono">{{ mqttForm.topicPrefix || 'shutterbase' }}/{projectId}/upload/{uploadId}/{event}</code>
+            </p>
+          </div>
+          <div class="flex justify-end">
+            <button
+              type="submit"
+              :disabled="savingMqtt"
+              class="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-surface px-3.5 py-2 text-sm font-medium text-primary-700 transition-colors hover:border-primary-300 hover:text-primary-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-200 dark:hover:text-white"
+            >
+              <ArrowPathIcon v-if="savingMqtt" class="h-4 w-4 animate-spin" />
+              Save MQTT Settings
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </main>
@@ -166,7 +231,17 @@ const item: Ref<ITEM_TYPE | null> = ref(null);
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
+const mqttConfigured = ref(false);
 const mqttConnected = ref(false);
+const savingMqtt = ref(false);
+
+const mqttForm = ref({
+  broker: "",
+  clientId: "",
+  username: "",
+  password: "",
+  topicPrefix: "",
+});
 
 async function loadItem() {
   const itemId: string = `${route.params.id}`;
@@ -303,6 +378,40 @@ const copyrightFields: Field<ITEM_TYPE>[] = [
 watch(route, loadItem);
 onMounted(() => {
   loadItem();
-  api.mqtt.getStatus().then((s) => (mqttConnected.value = s.connected)).catch(() => {});
+  loadMqttSettings();
 });
+
+async function loadMqttSettings() {
+  const projectId = `${route.params.id}`;
+  if (!projectId) return;
+  try {
+    const [settings, status] = await Promise.all([
+      api.adminSettings.getProjectMqttSettings(projectId),
+      api.mqtt.getProjectMqttStatus(projectId),
+    ]);
+    mqttForm.value = settings;
+    mqttConfigured.value = status.configured;
+    mqttConnected.value = status.connected;
+  } catch {
+    // MQTT not configured for this project
+  }
+}
+
+async function saveMqttSettings() {
+  const projectId = `${route.params.id}`;
+  if (!projectId) return;
+  savingMqtt.value = true;
+  try {
+    await api.adminSettings.updateProjectMqttSettings(projectId, mqttForm.value);
+    const status = await api.mqtt.getProjectMqttStatus(projectId);
+    mqttConfigured.value = status.configured;
+    mqttConnected.value = status.connected;
+    showNotificationToast({ headline: "MQTT settings saved", type: "success" });
+  } catch (e: any) {
+    unexpectedError.value = e;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    savingMqtt.value = false;
+  }
+}
 </script>

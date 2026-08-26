@@ -10,11 +10,12 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
-	"github.com/shutterbase/shutterbase/ent/platformsetting"
+	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/projectsetting"
 )
 
-// PlatformSetting is the model entity for the PlatformSetting schema.
-type PlatformSetting struct {
+// ProjectSetting is the model entity for the ProjectSetting schema.
+type ProjectSetting struct {
 	config `json:"-"`
 	// ID of the ent.
 	ID string `json:"id"`
@@ -29,21 +30,47 @@ type PlatformSetting struct {
 	// Key holds the value of the "key" field.
 	Key string `json:"key"`
 	// Value holds the value of the "value" field.
-	Value        string `json:"value"`
-	selectValues sql.SelectValues
+	Value string `json:"value"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the ProjectSettingQuery when eager-loading is set.
+	Edges            ProjectSettingEdges `json:"edges"`
+	project_settings *string
+	selectValues     sql.SelectValues
+}
+
+// ProjectSettingEdges holds the relations/edges for other nodes in the graph.
+type ProjectSettingEdges struct {
+	// Project holds the value of the project edge.
+	Project *Project `json:"project,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// ProjectOrErr returns the Project value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e ProjectSettingEdges) ProjectOrErr() (*Project, error) {
+	if e.Project != nil {
+		return e.Project, nil
+	} else if e.loadedTypes[0] {
+		return nil, &NotFoundError{label: project.Label}
+	}
+	return nil, &NotLoadedError{edge: "project"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
-func (*PlatformSetting) scanValues(columns []string) ([]any, error) {
+func (*ProjectSetting) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case platformsetting.FieldCreatedBy, platformsetting.FieldUpdatedBy:
+		case projectsetting.FieldCreatedBy, projectsetting.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case platformsetting.FieldID, platformsetting.FieldKey, platformsetting.FieldValue:
+		case projectsetting.FieldID, projectsetting.FieldKey, projectsetting.FieldValue:
 			values[i] = new(sql.NullString)
-		case platformsetting.FieldCreatedAt, platformsetting.FieldUpdatedAt:
+		case projectsetting.FieldCreatedAt, projectsetting.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
+		case projectsetting.ForeignKeys[0]: // project_settings
+			values[i] = new(sql.NullString)
 		default:
 			values[i] = new(sql.UnknownType)
 		}
@@ -52,56 +79,63 @@ func (*PlatformSetting) scanValues(columns []string) ([]any, error) {
 }
 
 // assignValues assigns the values that were returned from sql.Rows (after scanning)
-// to the PlatformSetting fields.
-func (_m *PlatformSetting) assignValues(columns []string, values []any) error {
+// to the ProjectSetting fields.
+func (_m *ProjectSetting) assignValues(columns []string, values []any) error {
 	if m, n := len(values), len(columns); m < n {
 		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
 	for i := range columns {
 		switch columns[i] {
-		case platformsetting.FieldID:
+		case projectsetting.FieldID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field id", values[i])
 			} else if value.Valid {
 				_m.ID = value.String
 			}
-		case platformsetting.FieldCreatedAt:
+		case projectsetting.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field createdAt", values[i])
 			} else if value.Valid {
 				_m.CreatedAt = value.Time
 			}
-		case platformsetting.FieldUpdatedAt:
+		case projectsetting.FieldUpdatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field updatedAt", values[i])
 			} else if value.Valid {
 				_m.UpdatedAt = value.Time
 			}
-		case platformsetting.FieldCreatedBy:
+		case projectsetting.FieldCreatedBy:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field createdBy", values[i])
 			} else if value.Valid {
 				_m.CreatedBy = new(uuid.UUID)
 				*_m.CreatedBy = *value.S.(*uuid.UUID)
 			}
-		case platformsetting.FieldUpdatedBy:
+		case projectsetting.FieldUpdatedBy:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
 				return fmt.Errorf("unexpected type %T for field updatedBy", values[i])
 			} else if value.Valid {
 				_m.UpdatedBy = new(uuid.UUID)
 				*_m.UpdatedBy = *value.S.(*uuid.UUID)
 			}
-		case platformsetting.FieldKey:
+		case projectsetting.FieldKey:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field key", values[i])
 			} else if value.Valid {
 				_m.Key = value.String
 			}
-		case platformsetting.FieldValue:
+		case projectsetting.FieldValue:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field value", values[i])
 			} else if value.Valid {
 				_m.Value = value.String
+			}
+		case projectsetting.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field project_settings", values[i])
+			} else if value.Valid {
+				_m.project_settings = new(string)
+				*_m.project_settings = value.String
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -110,34 +144,39 @@ func (_m *PlatformSetting) assignValues(columns []string, values []any) error {
 	return nil
 }
 
-// GetValue returns the ent.Value that was dynamically selected and assigned to the PlatformSetting.
+// GetValue returns the ent.Value that was dynamically selected and assigned to the ProjectSetting.
 // This includes values selected through modifiers, order, etc.
-func (_m *PlatformSetting) GetValue(name string) (ent.Value, error) {
+func (_m *ProjectSetting) GetValue(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
-// Update returns a builder for updating this PlatformSetting.
-// Note that you need to call PlatformSetting.Unwrap() before calling this method if this PlatformSetting
-// was returned from a transaction, and the transaction was committed or rolled back.
-func (_m *PlatformSetting) Update() *PlatformSettingUpdateOne {
-	return NewPlatformSettingClient(_m.config).UpdateOne(_m)
+// QueryProject queries the "project" edge of the ProjectSetting entity.
+func (_m *ProjectSetting) QueryProject() *ProjectQuery {
+	return NewProjectSettingClient(_m.config).QueryProject(_m)
 }
 
-// Unwrap unwraps the PlatformSetting entity that was returned from a transaction after it was closed,
+// Update returns a builder for updating this ProjectSetting.
+// Note that you need to call ProjectSetting.Unwrap() before calling this method if this ProjectSetting
+// was returned from a transaction, and the transaction was committed or rolled back.
+func (_m *ProjectSetting) Update() *ProjectSettingUpdateOne {
+	return NewProjectSettingClient(_m.config).UpdateOne(_m)
+}
+
+// Unwrap unwraps the ProjectSetting entity that was returned from a transaction after it was closed,
 // so that all future queries will be executed through the driver which created the transaction.
-func (_m *PlatformSetting) Unwrap() *PlatformSetting {
+func (_m *ProjectSetting) Unwrap() *ProjectSetting {
 	_tx, ok := _m.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: PlatformSetting is not a transactional entity")
+		panic("ent: ProjectSetting is not a transactional entity")
 	}
 	_m.config.driver = _tx.drv
 	return _m
 }
 
 // String implements the fmt.Stringer.
-func (_m *PlatformSetting) String() string {
+func (_m *ProjectSetting) String() string {
 	var builder strings.Builder
-	builder.WriteString("PlatformSetting(")
+	builder.WriteString("ProjectSetting(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("createdAt=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))
@@ -164,5 +203,5 @@ func (_m *PlatformSetting) String() string {
 	return builder.String()
 }
 
-// PlatformSettings is a parsable slice of PlatformSetting.
-type PlatformSettings []*PlatformSetting
+// ProjectSettings is a parsable slice of ProjectSetting.
+type ProjectSettings []*ProjectSetting

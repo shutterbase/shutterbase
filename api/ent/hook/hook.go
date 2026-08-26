@@ -105,18 +105,6 @@ func (f PersonNameFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, 
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PersonNameMutation", m)
 }
 
-// The PlatformSettingFunc type is an adapter to allow the use of ordinary
-// function as PlatformSetting mutator.
-type PlatformSettingFunc func(context.Context, *ent.PlatformSettingMutation) (ent.Value, error)
-
-// Mutate calls f(ctx, m).
-func (f PlatformSettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-	if mv, ok := m.(*ent.PlatformSettingMutation); ok {
-		return f(ctx, mv)
-	}
-	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PlatformSettingMutation", m)
-}
-
 // The ProjectFunc type is an adapter to allow the use of ordinary
 // function as Project mutator.
 type ProjectFunc func(context.Context, *ent.ProjectMutation) (ent.Value, error)
@@ -139,6 +127,18 @@ func (f ProjectAssignmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectAssignmentMutation", m)
+}
+
+// The ProjectSettingFunc type is an adapter to allow the use of ordinary
+// function as ProjectSetting mutator.
+type ProjectSettingFunc func(context.Context, *ent.ProjectSettingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectSettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectSettingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectSettingMutation", m)
 }
 
 // The RoleFunc type is an adapter to allow the use of ordinary

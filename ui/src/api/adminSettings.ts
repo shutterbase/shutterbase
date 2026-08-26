@@ -8,11 +8,11 @@ export interface MqttSettings {
   topicPrefix: string;
 }
 
-export async function getMqttSettings(): Promise<MqttSettings> {
-  const { data } = await http.get<MqttSettings>("/admin/settings/mqtt");
+export async function getProjectMqttSettings(projectId: string): Promise<MqttSettings> {
+  const { data } = await http.get<MqttSettings>(`/projects/${projectId}/settings/mqtt`);
   return data;
 }
 
-export async function updateMqttSettings(settings: Partial<MqttSettings>): Promise<void> {
-  await http.put("/admin/settings/mqtt", settings);
+export async function updateProjectMqttSettings(projectId: string, settings: Partial<MqttSettings>): Promise<void> {
+  await http.put(`/projects/${projectId}/settings/mqtt`, settings);
 }

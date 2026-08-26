@@ -70,6 +70,12 @@ func New(opts *Options) *Client {
 // It is safe to call from any goroutine. When the client is disabled or
 // disconnected the call is silently dropped.
 func (c *Client) Publish(subtopic string, payload interface{}) {
+	c.PublishToPrefix("", subtopic, payload)
+}
+
+// PublishToPrefix sends a message to {prefix}/{subtopic}. When prefix is empty,
+// falls back to the client's default topicPrefix.
+func (c *Client) PublishToPrefix(prefix, subtopic string, payload interface{}) {
 	if c == nil || c.client == nil || !c.client.IsConnected() {
 		return
 	}
@@ -78,7 +84,11 @@ func (c *Client) Publish(subtopic string, payload interface{}) {
 		log.Warn().Err(err).Str("subtopic", subtopic).Msg("mqtt: marshal failed")
 		return
 	}
-	topic := c.topicPrefix + "/" + subtopic
+	topicPrefix := c.topicPrefix
+	if prefix != "" {
+		topicPrefix = prefix
+	}
+	topic := topicPrefix + "/" + subtopic
 	token := c.client.Publish(topic, 1, false, data)
 	token.Wait()
 	if token.Error() != nil {
@@ -99,54 +109,4 @@ func (c *Client) Close() {
 	if c != nil && c.client != nil && c.client.IsConnected() {
 		c.client.Disconnect(250)
 	}
-}
-
-// Reconnect closes the existing connection and establishes a new one with the given options.
-func (c *Client) Reconnect(opts *Options) {
-	if c == nil {
-		return
-	}
-	// Disconnect existing client
-	if c.client != nil && c.client.IsConnected() {
-		c.client.Disconnect(250)
-	}
-
-	if opts.Broker == "" {
-		log.Info().Msg("mqtt: broker not configured, publisher disabled")
-		c.client = nil
-		c.topicPrefix = opts.TopicPrefix
-		c.connected = false
-		return
-	}
-
-	handlers := mqtt.NewClientOptions().
-		AddBroker(opts.Broker).
-		SetClientID(opts.ClientID).
-		SetAutoReconnect(true).
-		SetConnectRetry(true).
-		SetConnectRetryInterval(5 * time.Second).
-		SetConnectionLostHandler(func(_ mqtt.Client, err error) {
-			log.Warn().Err(err).Msg("mqtt: connection lost")
-		}).
-		SetOnConnectHandler(func(_ mqtt.Client) {
-			log.Info().Str("broker", opts.Broker).Msg("mqtt: connected")
-		})
-
-	if opts.Username != "" {
-		handlers.SetUsername(opts.Username)
-	}
-	if opts.Password != "" {
-		handlers.SetPassword(opts.Password)
-	}
-
-	newClient := mqtt.NewClient(handlers)
-	token := newClient.Connect()
-	token.Wait()
-	if token.Error() != nil {
-		log.Warn().Err(token.Error()).Str("broker", opts.Broker).Msg("mqtt: reconnect failed, will retry")
-	}
-
-	c.client = newClient
-	c.topicPrefix = opts.TopicPrefix
-	c.connected = newClient.IsConnected()
 }

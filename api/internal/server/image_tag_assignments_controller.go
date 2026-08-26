@@ -187,9 +187,10 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 		s.recordTaggingActivity(c, up)
 		// MQTT: publish image-rejected event when the reserved "rejected" tag is assigned.
 		if tag.Name == authorization.ReviewRejectedTagName {
-			s.mqtt.Publish(up.ProjectID+"/upload/"+up.ID+"/image-rejected", gin.H{
-				"fileName":  img.ComputedFileName,
-				"imageId":   img.ID,
+			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
+			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/image-rejected", gin.H{
+				"fileName":   img.ComputedFileName,
+				"imageId":    img.ID,
 				"rejectedBy": authUser(c).ID,
 			})
 		}

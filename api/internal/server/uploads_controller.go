@@ -317,7 +317,8 @@ func (s *Server) updateUpload(c *gin.Context) {
 			eventName = "rejected"
 		}
 		if eventName != "" {
-			s.mqtt.Publish(up.ProjectID+"/upload/"+up.ID+"/"+eventName, gin.H{
+			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
+			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/"+eventName, gin.H{
 				"uploadName": up.Name,
 				"oldState":   oldState,
 				"newState":   newState,

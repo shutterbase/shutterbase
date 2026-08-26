@@ -58,6 +58,8 @@ const (
 	EdgeProjectAssignments = "projectAssignments"
 	// EdgeDownloadConfigs holds the string denoting the downloadconfigs edge name in mutations.
 	EdgeDownloadConfigs = "downloadConfigs"
+	// EdgeSettings holds the string denoting the settings edge name in mutations.
+	EdgeSettings = "settings"
 	// EdgeActiveForUsers holds the string denoting the activeforusers edge name in mutations.
 	EdgeActiveForUsers = "activeForUsers"
 	// Table holds the table name of the project in the database.
@@ -104,6 +106,13 @@ const (
 	DownloadConfigsInverseTable = "download_configs"
 	// DownloadConfigsColumn is the table column denoting the downloadConfigs relation/edge.
 	DownloadConfigsColumn = "project_id"
+	// SettingsTable is the table that holds the settings relation/edge.
+	SettingsTable = "project_settings"
+	// SettingsInverseTable is the table name for the ProjectSetting entity.
+	// It exists in this package in order to avoid circular dependency with the "projectsetting" package.
+	SettingsInverseTable = "project_settings"
+	// SettingsColumn is the table column denoting the settings relation/edge.
+	SettingsColumn = "project_settings"
 	// ActiveForUsersTable is the table that holds the activeForUsers relation/edge.
 	ActiveForUsersTable = "users"
 	// ActiveForUsersInverseTable is the table name for the User entity.
@@ -347,6 +356,20 @@ func ByDownloadConfigs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySettingsCount orders the results by settings count.
+func BySettingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSettingsStep(), opts...)
+	}
+}
+
+// BySettings orders the results by settings terms.
+func BySettings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSettingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByActiveForUsersCount orders the results by activeForUsers count.
 func ByActiveForUsersCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -400,6 +423,13 @@ func newDownloadConfigsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DownloadConfigsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DownloadConfigsTable, DownloadConfigsColumn),
+	)
+}
+func newSettingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SettingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SettingsTable, SettingsColumn),
 	)
 }
 func newActiveForUsersStep() *sqlgraph.Step {

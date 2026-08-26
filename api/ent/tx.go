@@ -30,12 +30,12 @@ type Tx struct {
 	ImageTagAssignment *ImageTagAssignmentClient
 	// PersonName is the client for interacting with the PersonName builders.
 	PersonName *PersonNameClient
-	// PlatformSetting is the client for interacting with the PlatformSetting builders.
-	PlatformSetting *PlatformSettingClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectAssignment is the client for interacting with the ProjectAssignment builders.
 	ProjectAssignment *ProjectAssignmentClient
+	// ProjectSetting is the client for interacting with the ProjectSetting builders.
+	ProjectSetting *ProjectSettingClient
 	// Role is the client for interacting with the Role builders.
 	Role *RoleClient
 	// ScheduleItem is the client for interacting with the ScheduleItem builders.
@@ -185,9 +185,9 @@ func (tx *Tx) init() {
 	tx.ImageTag = NewImageTagClient(tx.config)
 	tx.ImageTagAssignment = NewImageTagAssignmentClient(tx.config)
 	tx.PersonName = NewPersonNameClient(tx.config)
-	tx.PlatformSetting = NewPlatformSettingClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectAssignment = NewProjectAssignmentClient(tx.config)
+	tx.ProjectSetting = NewProjectSettingClient(tx.config)
 	tx.Role = NewRoleClient(tx.config)
 	tx.ScheduleItem = NewScheduleItemClient(tx.config)
 	tx.TimeOffset = NewTimeOffsetClient(tx.config)

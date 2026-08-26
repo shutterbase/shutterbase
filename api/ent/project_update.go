@@ -18,6 +18,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/projectsetting"
 	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -344,6 +345,21 @@ func (_u *ProjectUpdate) AddDownloadConfigs(v ...*DownloadConfig) *ProjectUpdate
 	return _u.AddDownloadConfigIDs(ids...)
 }
 
+// AddSettingIDs adds the "settings" edge to the ProjectSetting entity by IDs.
+func (_u *ProjectUpdate) AddSettingIDs(ids ...string) *ProjectUpdate {
+	_u.mutation.AddSettingIDs(ids...)
+	return _u
+}
+
+// AddSettings adds the "settings" edges to the ProjectSetting entity.
+func (_u *ProjectUpdate) AddSettings(v ...*ProjectSetting) *ProjectUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSettingIDs(ids...)
+}
+
 // AddActiveForUserIDs adds the "activeForUsers" edge to the User entity by IDs.
 func (_u *ProjectUpdate) AddActiveForUserIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddActiveForUserIDs(ids...)
@@ -488,6 +504,27 @@ func (_u *ProjectUpdate) RemoveDownloadConfigs(v ...*DownloadConfig) *ProjectUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDownloadConfigIDs(ids...)
+}
+
+// ClearSettings clears all "settings" edges to the ProjectSetting entity.
+func (_u *ProjectUpdate) ClearSettings() *ProjectUpdate {
+	_u.mutation.ClearSettings()
+	return _u
+}
+
+// RemoveSettingIDs removes the "settings" edge to ProjectSetting entities by IDs.
+func (_u *ProjectUpdate) RemoveSettingIDs(ids ...string) *ProjectUpdate {
+	_u.mutation.RemoveSettingIDs(ids...)
+	return _u
+}
+
+// RemoveSettings removes "settings" edges to ProjectSetting entities.
+func (_u *ProjectUpdate) RemoveSettings(v ...*ProjectSetting) *ProjectUpdate {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSettingIDs(ids...)
 }
 
 // ClearActiveForUsers clears all "activeForUsers" edges to the User entity.
@@ -934,6 +971,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.SettingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SettingsTable,
+			Columns: []string{project.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSettingsIDs(); len(nodes) > 0 && !_u.mutation.SettingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SettingsTable,
+			Columns: []string{project.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SettingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SettingsTable,
+			Columns: []string{project.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.ActiveForUsersCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1307,6 +1389,21 @@ func (_u *ProjectUpdateOne) AddDownloadConfigs(v ...*DownloadConfig) *ProjectUpd
 	return _u.AddDownloadConfigIDs(ids...)
 }
 
+// AddSettingIDs adds the "settings" edge to the ProjectSetting entity by IDs.
+func (_u *ProjectUpdateOne) AddSettingIDs(ids ...string) *ProjectUpdateOne {
+	_u.mutation.AddSettingIDs(ids...)
+	return _u
+}
+
+// AddSettings adds the "settings" edges to the ProjectSetting entity.
+func (_u *ProjectUpdateOne) AddSettings(v ...*ProjectSetting) *ProjectUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSettingIDs(ids...)
+}
+
 // AddActiveForUserIDs adds the "activeForUsers" edge to the User entity by IDs.
 func (_u *ProjectUpdateOne) AddActiveForUserIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddActiveForUserIDs(ids...)
@@ -1451,6 +1548,27 @@ func (_u *ProjectUpdateOne) RemoveDownloadConfigs(v ...*DownloadConfig) *Project
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDownloadConfigIDs(ids...)
+}
+
+// ClearSettings clears all "settings" edges to the ProjectSetting entity.
+func (_u *ProjectUpdateOne) ClearSettings() *ProjectUpdateOne {
+	_u.mutation.ClearSettings()
+	return _u
+}
+
+// RemoveSettingIDs removes the "settings" edge to ProjectSetting entities by IDs.
+func (_u *ProjectUpdateOne) RemoveSettingIDs(ids ...string) *ProjectUpdateOne {
+	_u.mutation.RemoveSettingIDs(ids...)
+	return _u
+}
+
+// RemoveSettings removes "settings" edges to ProjectSetting entities.
+func (_u *ProjectUpdateOne) RemoveSettings(v ...*ProjectSetting) *ProjectUpdateOne {
+	ids := make([]string, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSettingIDs(ids...)
 }
 
 // ClearActiveForUsers clears all "activeForUsers" edges to the User entity.
@@ -1920,6 +2038,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(downloadconfig.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SettingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SettingsTable,
+			Columns: []string{project.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSettingsIDs(); len(nodes) > 0 && !_u.mutation.SettingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SettingsTable,
+			Columns: []string{project.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SettingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.SettingsTable,
+			Columns: []string{project.SettingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString),
 			},
 		}
 		for _, k := range nodes {

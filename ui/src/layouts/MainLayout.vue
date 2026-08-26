@@ -121,9 +121,6 @@ function calculateNavigationItems() {
   navigationItems.push({ name: "People", href: "/people", current: false });
   navigationItems.push({ name: "Projects", href: "/projects", current: false });
   navigationItems.push({ name: "EXIF", href: "/exif-viewer", current: false });
-  if (userStore.isAdmin()) {
-    navigationItems.push({ name: "Settings", href: "/admin/settings", current: false });
-  }
 
   const currentPath = route.path;
   navigationItems.forEach((item) => {

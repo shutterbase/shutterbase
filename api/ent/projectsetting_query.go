@@ -12,69 +12,94 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
-	"github.com/shutterbase/shutterbase/ent/platformsetting"
 	"github.com/shutterbase/shutterbase/ent/predicate"
+	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/projectsetting"
 )
 
-// PlatformSettingQuery is the builder for querying PlatformSetting entities.
-type PlatformSettingQuery struct {
+// ProjectSettingQuery is the builder for querying ProjectSetting entities.
+type ProjectSettingQuery struct {
 	config
-	ctx        *QueryContext
-	order      []platformsetting.OrderOption
-	inters     []Interceptor
-	predicates []predicate.PlatformSetting
-	modifiers  []func(*sql.Selector)
+	ctx         *QueryContext
+	order       []projectsetting.OrderOption
+	inters      []Interceptor
+	predicates  []predicate.ProjectSetting
+	withProject *ProjectQuery
+	withFKs     bool
+	modifiers   []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the PlatformSettingQuery builder.
-func (_q *PlatformSettingQuery) Where(ps ...predicate.PlatformSetting) *PlatformSettingQuery {
+// Where adds a new predicate for the ProjectSettingQuery builder.
+func (_q *ProjectSettingQuery) Where(ps ...predicate.ProjectSetting) *ProjectSettingQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *PlatformSettingQuery) Limit(limit int) *PlatformSettingQuery {
+func (_q *ProjectSettingQuery) Limit(limit int) *ProjectSettingQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *PlatformSettingQuery) Offset(offset int) *PlatformSettingQuery {
+func (_q *ProjectSettingQuery) Offset(offset int) *ProjectSettingQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *PlatformSettingQuery) Unique(unique bool) *PlatformSettingQuery {
+func (_q *ProjectSettingQuery) Unique(unique bool) *ProjectSettingQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *PlatformSettingQuery) Order(o ...platformsetting.OrderOption) *PlatformSettingQuery {
+func (_q *ProjectSettingQuery) Order(o ...projectsetting.OrderOption) *ProjectSettingQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
-// First returns the first PlatformSetting entity from the query.
-// Returns a *NotFoundError when no PlatformSetting was found.
-func (_q *PlatformSettingQuery) First(ctx context.Context) (*PlatformSetting, error) {
+// QueryProject chains the current query on the "project" edge.
+func (_q *ProjectSettingQuery) QueryProject() *ProjectQuery {
+	query := (&ProjectClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectsetting.Table, projectsetting.FieldID, selector),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, projectsetting.ProjectTable, projectsetting.ProjectColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// First returns the first ProjectSetting entity from the query.
+// Returns a *NotFoundError when no ProjectSetting was found.
+func (_q *ProjectSettingQuery) First(ctx context.Context) (*ProjectSetting, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{platformsetting.Label}
+		return nil, &NotFoundError{projectsetting.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *PlatformSettingQuery) FirstX(ctx context.Context) *PlatformSetting {
+func (_q *ProjectSettingQuery) FirstX(ctx context.Context) *ProjectSetting {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -82,22 +107,22 @@ func (_q *PlatformSettingQuery) FirstX(ctx context.Context) *PlatformSetting {
 	return node
 }
 
-// FirstID returns the first PlatformSetting ID from the query.
-// Returns a *NotFoundError when no PlatformSetting ID was found.
-func (_q *PlatformSettingQuery) FirstID(ctx context.Context) (id string, err error) {
+// FirstID returns the first ProjectSetting ID from the query.
+// Returns a *NotFoundError when no ProjectSetting ID was found.
+func (_q *ProjectSettingQuery) FirstID(ctx context.Context) (id string, err error) {
 	var ids []string
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{platformsetting.Label}
+		err = &NotFoundError{projectsetting.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *PlatformSettingQuery) FirstIDX(ctx context.Context) string {
+func (_q *ProjectSettingQuery) FirstIDX(ctx context.Context) string {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -105,10 +130,10 @@ func (_q *PlatformSettingQuery) FirstIDX(ctx context.Context) string {
 	return id
 }
 
-// Only returns a single PlatformSetting entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one PlatformSetting entity is found.
-// Returns a *NotFoundError when no PlatformSetting entities are found.
-func (_q *PlatformSettingQuery) Only(ctx context.Context) (*PlatformSetting, error) {
+// Only returns a single ProjectSetting entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one ProjectSetting entity is found.
+// Returns a *NotFoundError when no ProjectSetting entities are found.
+func (_q *ProjectSettingQuery) Only(ctx context.Context) (*ProjectSetting, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -117,14 +142,14 @@ func (_q *PlatformSettingQuery) Only(ctx context.Context) (*PlatformSetting, err
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{platformsetting.Label}
+		return nil, &NotFoundError{projectsetting.Label}
 	default:
-		return nil, &NotSingularError{platformsetting.Label}
+		return nil, &NotSingularError{projectsetting.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *PlatformSettingQuery) OnlyX(ctx context.Context) *PlatformSetting {
+func (_q *ProjectSettingQuery) OnlyX(ctx context.Context) *ProjectSetting {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -132,10 +157,10 @@ func (_q *PlatformSettingQuery) OnlyX(ctx context.Context) *PlatformSetting {
 	return node
 }
 
-// OnlyID is like Only, but returns the only PlatformSetting ID in the query.
-// Returns a *NotSingularError when more than one PlatformSetting ID is found.
+// OnlyID is like Only, but returns the only ProjectSetting ID in the query.
+// Returns a *NotSingularError when more than one ProjectSetting ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *PlatformSettingQuery) OnlyID(ctx context.Context) (id string, err error) {
+func (_q *ProjectSettingQuery) OnlyID(ctx context.Context) (id string, err error) {
 	var ids []string
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -144,15 +169,15 @@ func (_q *PlatformSettingQuery) OnlyID(ctx context.Context) (id string, err erro
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{platformsetting.Label}
+		err = &NotFoundError{projectsetting.Label}
 	default:
-		err = &NotSingularError{platformsetting.Label}
+		err = &NotSingularError{projectsetting.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *PlatformSettingQuery) OnlyIDX(ctx context.Context) string {
+func (_q *ProjectSettingQuery) OnlyIDX(ctx context.Context) string {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -160,18 +185,18 @@ func (_q *PlatformSettingQuery) OnlyIDX(ctx context.Context) string {
 	return id
 }
 
-// All executes the query and returns a list of PlatformSettings.
-func (_q *PlatformSettingQuery) All(ctx context.Context) ([]*PlatformSetting, error) {
+// All executes the query and returns a list of ProjectSettings.
+func (_q *ProjectSettingQuery) All(ctx context.Context) ([]*ProjectSetting, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*PlatformSetting, *PlatformSettingQuery]()
-	return withInterceptors[[]*PlatformSetting](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*ProjectSetting, *ProjectSettingQuery]()
+	return withInterceptors[[]*ProjectSetting](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *PlatformSettingQuery) AllX(ctx context.Context) []*PlatformSetting {
+func (_q *ProjectSettingQuery) AllX(ctx context.Context) []*ProjectSetting {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -179,20 +204,20 @@ func (_q *PlatformSettingQuery) AllX(ctx context.Context) []*PlatformSetting {
 	return nodes
 }
 
-// IDs executes the query and returns a list of PlatformSetting IDs.
-func (_q *PlatformSettingQuery) IDs(ctx context.Context) (ids []string, err error) {
+// IDs executes the query and returns a list of ProjectSetting IDs.
+func (_q *ProjectSettingQuery) IDs(ctx context.Context) (ids []string, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(platformsetting.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(projectsetting.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *PlatformSettingQuery) IDsX(ctx context.Context) []string {
+func (_q *ProjectSettingQuery) IDsX(ctx context.Context) []string {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -201,16 +226,16 @@ func (_q *PlatformSettingQuery) IDsX(ctx context.Context) []string {
 }
 
 // Count returns the count of the given query.
-func (_q *PlatformSettingQuery) Count(ctx context.Context) (int, error) {
+func (_q *ProjectSettingQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*PlatformSettingQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*ProjectSettingQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *PlatformSettingQuery) CountX(ctx context.Context) int {
+func (_q *ProjectSettingQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -219,7 +244,7 @@ func (_q *PlatformSettingQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *PlatformSettingQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *ProjectSettingQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -232,7 +257,7 @@ func (_q *PlatformSettingQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *PlatformSettingQuery) ExistX(ctx context.Context) bool {
+func (_q *ProjectSettingQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -240,22 +265,34 @@ func (_q *PlatformSettingQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the PlatformSettingQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the ProjectSettingQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *PlatformSettingQuery) Clone() *PlatformSettingQuery {
+func (_q *ProjectSettingQuery) Clone() *ProjectSettingQuery {
 	if _q == nil {
 		return nil
 	}
-	return &PlatformSettingQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]platformsetting.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.PlatformSetting{}, _q.predicates...),
+	return &ProjectSettingQuery{
+		config:      _q.config,
+		ctx:         _q.ctx.Clone(),
+		order:       append([]projectsetting.OrderOption{}, _q.order...),
+		inters:      append([]Interceptor{}, _q.inters...),
+		predicates:  append([]predicate.ProjectSetting{}, _q.predicates...),
+		withProject: _q.withProject.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithProject tells the query-builder to eager-load the nodes that are connected to
+// the "project" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectSettingQuery) WithProject(opts ...func(*ProjectQuery)) *ProjectSettingQuery {
+	query := (&ProjectClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withProject = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -268,15 +305,15 @@ func (_q *PlatformSettingQuery) Clone() *PlatformSettingQuery {
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.PlatformSetting.Query().
-//		GroupBy(platformsetting.FieldCreatedAt).
+//	client.ProjectSetting.Query().
+//		GroupBy(projectsetting.FieldCreatedAt).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *PlatformSettingQuery) GroupBy(field string, fields ...string) *PlatformSettingGroupBy {
+func (_q *ProjectSettingQuery) GroupBy(field string, fields ...string) *ProjectSettingGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &PlatformSettingGroupBy{build: _q}
+	grbuild := &ProjectSettingGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = platformsetting.Label
+	grbuild.label = projectsetting.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -290,23 +327,23 @@ func (_q *PlatformSettingQuery) GroupBy(field string, fields ...string) *Platfor
 //		CreatedAt time.Time `json:"createdAt"`
 //	}
 //
-//	client.PlatformSetting.Query().
-//		Select(platformsetting.FieldCreatedAt).
+//	client.ProjectSetting.Query().
+//		Select(projectsetting.FieldCreatedAt).
 //		Scan(ctx, &v)
-func (_q *PlatformSettingQuery) Select(fields ...string) *PlatformSettingSelect {
+func (_q *ProjectSettingQuery) Select(fields ...string) *ProjectSettingSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &PlatformSettingSelect{PlatformSettingQuery: _q}
-	sbuild.label = platformsetting.Label
+	sbuild := &ProjectSettingSelect{ProjectSettingQuery: _q}
+	sbuild.label = projectsetting.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a PlatformSettingSelect configured with the given aggregations.
-func (_q *PlatformSettingQuery) Aggregate(fns ...AggregateFunc) *PlatformSettingSelect {
+// Aggregate returns a ProjectSettingSelect configured with the given aggregations.
+func (_q *ProjectSettingQuery) Aggregate(fns ...AggregateFunc) *ProjectSettingSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *PlatformSettingQuery) prepareQuery(ctx context.Context) error {
+func (_q *ProjectSettingQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -318,7 +355,7 @@ func (_q *PlatformSettingQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !platformsetting.ValidColumn(f) {
+		if !projectsetting.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -332,17 +369,28 @@ func (_q *PlatformSettingQuery) prepareQuery(ctx context.Context) error {
 	return nil
 }
 
-func (_q *PlatformSettingQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*PlatformSetting, error) {
+func (_q *ProjectSettingQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ProjectSetting, error) {
 	var (
-		nodes = []*PlatformSetting{}
-		_spec = _q.querySpec()
+		nodes       = []*ProjectSetting{}
+		withFKs     = _q.withFKs
+		_spec       = _q.querySpec()
+		loadedTypes = [1]bool{
+			_q.withProject != nil,
+		}
 	)
+	if _q.withProject != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, projectsetting.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*PlatformSetting).scanValues(nil, columns)
+		return (*ProjectSetting).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &PlatformSetting{config: _q.config}
+		node := &ProjectSetting{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	if len(_q.modifiers) > 0 {
@@ -357,10 +405,49 @@ func (_q *PlatformSettingQuery) sqlAll(ctx context.Context, hooks ...queryHook) 
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withProject; query != nil {
+		if err := _q.loadProject(ctx, query, nodes, nil,
+			func(n *ProjectSetting, e *Project) { n.Edges.Project = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
 }
 
-func (_q *PlatformSettingQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *ProjectSettingQuery) loadProject(ctx context.Context, query *ProjectQuery, nodes []*ProjectSetting, init func(*ProjectSetting), assign func(*ProjectSetting, *Project)) error {
+	ids := make([]string, 0, len(nodes))
+	nodeids := make(map[string][]*ProjectSetting)
+	for i := range nodes {
+		if nodes[i].project_settings == nil {
+			continue
+		}
+		fk := *nodes[i].project_settings
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(project.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "project_settings" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+
+func (_q *ProjectSettingQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
@@ -372,8 +459,8 @@ func (_q *PlatformSettingQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *PlatformSettingQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(platformsetting.Table, platformsetting.Columns, sqlgraph.NewFieldSpec(platformsetting.FieldID, field.TypeString))
+func (_q *ProjectSettingQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(projectsetting.Table, projectsetting.Columns, sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -382,9 +469,9 @@ func (_q *PlatformSettingQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, platformsetting.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, projectsetting.FieldID)
 		for i := range fields {
-			if fields[i] != platformsetting.FieldID {
+			if fields[i] != projectsetting.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
@@ -412,12 +499,12 @@ func (_q *PlatformSettingQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *PlatformSettingQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *ProjectSettingQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(platformsetting.Table)
+	t1 := builder.Table(projectsetting.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = platformsetting.Columns
+		columns = projectsetting.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -450,7 +537,7 @@ func (_q *PlatformSettingQuery) sqlQuery(ctx context.Context) *sql.Selector {
 // ForUpdate locks the selected rows against concurrent updates, and prevent them from being
 // updated, deleted or "selected ... for update" by other sessions, until the transaction is
 // either committed or rolled-back.
-func (_q *PlatformSettingQuery) ForUpdate(opts ...sql.LockOption) *PlatformSettingQuery {
+func (_q *ProjectSettingQuery) ForUpdate(opts ...sql.LockOption) *ProjectSettingQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -463,7 +550,7 @@ func (_q *PlatformSettingQuery) ForUpdate(opts ...sql.LockOption) *PlatformSetti
 // ForShare behaves similarly to ForUpdate, except that it acquires a shared mode lock
 // on any rows that are read. Other sessions can read the rows, but cannot modify them
 // until your transaction commits.
-func (_q *PlatformSettingQuery) ForShare(opts ...sql.LockOption) *PlatformSettingQuery {
+func (_q *ProjectSettingQuery) ForShare(opts ...sql.LockOption) *ProjectSettingQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -473,28 +560,28 @@ func (_q *PlatformSettingQuery) ForShare(opts ...sql.LockOption) *PlatformSettin
 	return _q
 }
 
-// PlatformSettingGroupBy is the group-by builder for PlatformSetting entities.
-type PlatformSettingGroupBy struct {
+// ProjectSettingGroupBy is the group-by builder for ProjectSetting entities.
+type ProjectSettingGroupBy struct {
 	selector
-	build *PlatformSettingQuery
+	build *ProjectSettingQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *PlatformSettingGroupBy) Aggregate(fns ...AggregateFunc) *PlatformSettingGroupBy {
+func (_g *ProjectSettingGroupBy) Aggregate(fns ...AggregateFunc) *ProjectSettingGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *PlatformSettingGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *ProjectSettingGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*PlatformSettingQuery, *PlatformSettingGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*ProjectSettingQuery, *ProjectSettingGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *PlatformSettingGroupBy) sqlScan(ctx context.Context, root *PlatformSettingQuery, v any) error {
+func (_g *ProjectSettingGroupBy) sqlScan(ctx context.Context, root *ProjectSettingQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -521,28 +608,28 @@ func (_g *PlatformSettingGroupBy) sqlScan(ctx context.Context, root *PlatformSet
 	return sql.ScanSlice(rows, v)
 }
 
-// PlatformSettingSelect is the builder for selecting fields of PlatformSetting entities.
-type PlatformSettingSelect struct {
-	*PlatformSettingQuery
+// ProjectSettingSelect is the builder for selecting fields of ProjectSetting entities.
+type ProjectSettingSelect struct {
+	*ProjectSettingQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *PlatformSettingSelect) Aggregate(fns ...AggregateFunc) *PlatformSettingSelect {
+func (_s *ProjectSettingSelect) Aggregate(fns ...AggregateFunc) *ProjectSettingSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *PlatformSettingSelect) Scan(ctx context.Context, v any) error {
+func (_s *ProjectSettingSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*PlatformSettingQuery, *PlatformSettingSelect](ctx, _s.PlatformSettingQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*ProjectSettingQuery, *ProjectSettingSelect](ctx, _s.ProjectSettingQuery, _s, _s.inters, v)
 }
 
-func (_s *PlatformSettingSelect) sqlScan(ctx context.Context, root *PlatformSettingQuery, v any) error {
+func (_s *ProjectSettingSelect) sqlScan(ctx context.Context, root *ProjectSettingQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

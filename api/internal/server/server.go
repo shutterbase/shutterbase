@@ -156,9 +156,14 @@ func NewServer(options *Options) (*Server, error) {
 		downloadMaxBytes:  int64(config.Get().Int("DOWNLOAD_MAX_OBJECT_BYTES")),
 	}
 
-	// Initialize MQTT client — database settings take precedence over env vars.
-	mqttOpts := s.loadMqttOptions()
-	s.mqtt = mqtt.New(mqttOpts)
+	// Initialize MQTT client from env vars. Per-project settings override the topic prefix at publish time.
+	s.mqtt = mqtt.New(&mqtt.Options{
+		Broker:      config.Get().String("MQTT_BROKER"),
+		ClientID:    config.Get().String("MQTT_CLIENT_ID"),
+		Username:    config.Get().String("MQTT_USERNAME"),
+		Password:    config.Get().String("MQTT_PASSWORD"),
+		TopicPrefix: config.Get().String("MQTT_TOPIC_PREFIX"),
+	})
 
 	// S10: bound simultaneous exiftool shell-outs (/download) so a burst can't
 	// exhaust the worker pool / memory.
@@ -359,34 +364,4 @@ func (s *Server) Shutdown(ctx context.Context) {
 			log.Error().Err(err).Msg("error during server shutdown")
 		}
 	}
-}
-
-// loadMqttOptions reads MQTT config from the database, falling back to env vars.
-func (s *Server) loadMqttOptions() *mqtt.Options {
-	ctx := context.Background()
-	opts := &mqtt.Options{
-		Broker:      config.Get().String("MQTT_BROKER"),
-		ClientID:    config.Get().String("MQTT_CLIENT_ID"),
-		Username:    config.Get().String("MQTT_USERNAME"),
-		Password:    config.Get().String("MQTT_PASSWORD"),
-		TopicPrefix: config.Get().String("MQTT_TOPIC_PREFIX"),
-	}
-
-	// Database settings override env vars when non-empty
-	if v, _ := s.Repository.GetPlatformSetting(ctx, "mqtt.broker"); v != "" {
-		opts.Broker = v
-	}
-	if v, _ := s.Repository.GetPlatformSetting(ctx, "mqtt.clientId"); v != "" {
-		opts.ClientID = v
-	}
-	if v, _ := s.Repository.GetPlatformSetting(ctx, "mqtt.username"); v != "" {
-		opts.Username = v
-	}
-	if v, _ := s.Repository.GetPlatformSetting(ctx, "mqtt.password"); v != "" {
-		opts.Password = v
-	}
-	if v, _ := s.Repository.GetPlatformSetting(ctx, "mqtt.topicPrefix"); v != "" {
-		opts.TopicPrefix = v
-	}
-	return opts
 }

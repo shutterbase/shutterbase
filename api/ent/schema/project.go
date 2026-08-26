@@ -45,6 +45,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("scheduleItems", ScheduleItem.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("projectAssignments", ProjectAssignment.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("downloadConfigs", DownloadConfig.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
+		edge.To("settings", ProjectSetting.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.From("activeForUsers", User.Type).Ref("activeProject"),
 	}
 }

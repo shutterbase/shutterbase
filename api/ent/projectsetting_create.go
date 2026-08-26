@@ -11,24 +11,25 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
-	"github.com/shutterbase/shutterbase/ent/platformsetting"
+	"github.com/shutterbase/shutterbase/ent/project"
+	"github.com/shutterbase/shutterbase/ent/projectsetting"
 )
 
-// PlatformSettingCreate is the builder for creating a PlatformSetting entity.
-type PlatformSettingCreate struct {
+// ProjectSettingCreate is the builder for creating a ProjectSetting entity.
+type ProjectSettingCreate struct {
 	config
-	mutation *PlatformSettingMutation
+	mutation *ProjectSettingMutation
 	hooks    []Hook
 }
 
 // SetCreatedAt sets the "createdAt" field.
-func (_c *PlatformSettingCreate) SetCreatedAt(v time.Time) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetCreatedAt(v time.Time) *ProjectSettingCreate {
 	_c.mutation.SetCreatedAt(v)
 	return _c
 }
 
 // SetNillableCreatedAt sets the "createdAt" field if the given value is not nil.
-func (_c *PlatformSettingCreate) SetNillableCreatedAt(v *time.Time) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetNillableCreatedAt(v *time.Time) *ProjectSettingCreate {
 	if v != nil {
 		_c.SetCreatedAt(*v)
 	}
@@ -36,13 +37,13 @@ func (_c *PlatformSettingCreate) SetNillableCreatedAt(v *time.Time) *PlatformSet
 }
 
 // SetUpdatedAt sets the "updatedAt" field.
-func (_c *PlatformSettingCreate) SetUpdatedAt(v time.Time) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetUpdatedAt(v time.Time) *ProjectSettingCreate {
 	_c.mutation.SetUpdatedAt(v)
 	return _c
 }
 
 // SetNillableUpdatedAt sets the "updatedAt" field if the given value is not nil.
-func (_c *PlatformSettingCreate) SetNillableUpdatedAt(v *time.Time) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetNillableUpdatedAt(v *time.Time) *ProjectSettingCreate {
 	if v != nil {
 		_c.SetUpdatedAt(*v)
 	}
@@ -50,13 +51,13 @@ func (_c *PlatformSettingCreate) SetNillableUpdatedAt(v *time.Time) *PlatformSet
 }
 
 // SetCreatedBy sets the "createdBy" field.
-func (_c *PlatformSettingCreate) SetCreatedBy(v uuid.UUID) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetCreatedBy(v uuid.UUID) *ProjectSettingCreate {
 	_c.mutation.SetCreatedBy(v)
 	return _c
 }
 
 // SetNillableCreatedBy sets the "createdBy" field if the given value is not nil.
-func (_c *PlatformSettingCreate) SetNillableCreatedBy(v *uuid.UUID) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetNillableCreatedBy(v *uuid.UUID) *ProjectSettingCreate {
 	if v != nil {
 		_c.SetCreatedBy(*v)
 	}
@@ -64,13 +65,13 @@ func (_c *PlatformSettingCreate) SetNillableCreatedBy(v *uuid.UUID) *PlatformSet
 }
 
 // SetUpdatedBy sets the "updatedBy" field.
-func (_c *PlatformSettingCreate) SetUpdatedBy(v uuid.UUID) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetUpdatedBy(v uuid.UUID) *ProjectSettingCreate {
 	_c.mutation.SetUpdatedBy(v)
 	return _c
 }
 
 // SetNillableUpdatedBy sets the "updatedBy" field if the given value is not nil.
-func (_c *PlatformSettingCreate) SetNillableUpdatedBy(v *uuid.UUID) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetNillableUpdatedBy(v *uuid.UUID) *ProjectSettingCreate {
 	if v != nil {
 		_c.SetUpdatedBy(*v)
 	}
@@ -78,19 +79,19 @@ func (_c *PlatformSettingCreate) SetNillableUpdatedBy(v *uuid.UUID) *PlatformSet
 }
 
 // SetKey sets the "key" field.
-func (_c *PlatformSettingCreate) SetKey(v string) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetKey(v string) *ProjectSettingCreate {
 	_c.mutation.SetKey(v)
 	return _c
 }
 
 // SetValue sets the "value" field.
-func (_c *PlatformSettingCreate) SetValue(v string) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetValue(v string) *ProjectSettingCreate {
 	_c.mutation.SetValue(v)
 	return _c
 }
 
 // SetNillableValue sets the "value" field if the given value is not nil.
-func (_c *PlatformSettingCreate) SetNillableValue(v *string) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetNillableValue(v *string) *ProjectSettingCreate {
 	if v != nil {
 		_c.SetValue(*v)
 	}
@@ -98,32 +99,43 @@ func (_c *PlatformSettingCreate) SetNillableValue(v *string) *PlatformSettingCre
 }
 
 // SetID sets the "id" field.
-func (_c *PlatformSettingCreate) SetID(v string) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetID(v string) *ProjectSettingCreate {
 	_c.mutation.SetID(v)
 	return _c
 }
 
 // SetNillableID sets the "id" field if the given value is not nil.
-func (_c *PlatformSettingCreate) SetNillableID(v *string) *PlatformSettingCreate {
+func (_c *ProjectSettingCreate) SetNillableID(v *string) *ProjectSettingCreate {
 	if v != nil {
 		_c.SetID(*v)
 	}
 	return _c
 }
 
-// Mutation returns the PlatformSettingMutation object of the builder.
-func (_c *PlatformSettingCreate) Mutation() *PlatformSettingMutation {
+// SetProjectID sets the "project" edge to the Project entity by ID.
+func (_c *ProjectSettingCreate) SetProjectID(id string) *ProjectSettingCreate {
+	_c.mutation.SetProjectID(id)
+	return _c
+}
+
+// SetProject sets the "project" edge to the Project entity.
+func (_c *ProjectSettingCreate) SetProject(v *Project) *ProjectSettingCreate {
+	return _c.SetProjectID(v.ID)
+}
+
+// Mutation returns the ProjectSettingMutation object of the builder.
+func (_c *ProjectSettingCreate) Mutation() *ProjectSettingMutation {
 	return _c.mutation
 }
 
-// Save creates the PlatformSetting in the database.
-func (_c *PlatformSettingCreate) Save(ctx context.Context) (*PlatformSetting, error) {
+// Save creates the ProjectSetting in the database.
+func (_c *ProjectSettingCreate) Save(ctx context.Context) (*ProjectSetting, error) {
 	_c.defaults()
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
 // SaveX calls Save and panics if Save returns an error.
-func (_c *PlatformSettingCreate) SaveX(ctx context.Context) *PlatformSetting {
+func (_c *ProjectSettingCreate) SaveX(ctx context.Context) *ProjectSetting {
 	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
@@ -132,66 +144,69 @@ func (_c *PlatformSettingCreate) SaveX(ctx context.Context) *PlatformSetting {
 }
 
 // Exec executes the query.
-func (_c *PlatformSettingCreate) Exec(ctx context.Context) error {
+func (_c *ProjectSettingCreate) Exec(ctx context.Context) error {
 	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_c *PlatformSettingCreate) ExecX(ctx context.Context) {
+func (_c *ProjectSettingCreate) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *PlatformSettingCreate) defaults() {
+func (_c *ProjectSettingCreate) defaults() {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		v := platformsetting.DefaultCreatedAt()
+		v := projectsetting.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		v := platformsetting.DefaultUpdatedAt()
+		v := projectsetting.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
 	if _, ok := _c.mutation.Value(); !ok {
-		v := platformsetting.DefaultValue
+		v := projectsetting.DefaultValue
 		_c.mutation.SetValue(v)
 	}
 	if _, ok := _c.mutation.ID(); !ok {
-		v := platformsetting.DefaultID()
+		v := projectsetting.DefaultID()
 		_c.mutation.SetID(v)
 	}
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (_c *PlatformSettingCreate) check() error {
+func (_c *ProjectSettingCreate) check() error {
 	if _, ok := _c.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "createdAt", err: errors.New(`ent: missing required field "PlatformSetting.createdAt"`)}
+		return &ValidationError{Name: "createdAt", err: errors.New(`ent: missing required field "ProjectSetting.createdAt"`)}
 	}
 	if _, ok := _c.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updatedAt", err: errors.New(`ent: missing required field "PlatformSetting.updatedAt"`)}
+		return &ValidationError{Name: "updatedAt", err: errors.New(`ent: missing required field "ProjectSetting.updatedAt"`)}
 	}
 	if _, ok := _c.mutation.Key(); !ok {
-		return &ValidationError{Name: "key", err: errors.New(`ent: missing required field "PlatformSetting.key"`)}
+		return &ValidationError{Name: "key", err: errors.New(`ent: missing required field "ProjectSetting.key"`)}
 	}
 	if v, ok := _c.mutation.Key(); ok {
-		if err := platformsetting.KeyValidator(v); err != nil {
-			return &ValidationError{Name: "key", err: fmt.Errorf(`ent: validator failed for field "PlatformSetting.key": %w`, err)}
+		if err := projectsetting.KeyValidator(v); err != nil {
+			return &ValidationError{Name: "key", err: fmt.Errorf(`ent: validator failed for field "ProjectSetting.key": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Value(); !ok {
-		return &ValidationError{Name: "value", err: errors.New(`ent: missing required field "PlatformSetting.value"`)}
+		return &ValidationError{Name: "value", err: errors.New(`ent: missing required field "ProjectSetting.value"`)}
 	}
 	if v, ok := _c.mutation.ID(); ok {
-		if err := platformsetting.IDValidator(v); err != nil {
-			return &ValidationError{Name: "id", err: fmt.Errorf(`ent: validator failed for field "PlatformSetting.id": %w`, err)}
+		if err := projectsetting.IDValidator(v); err != nil {
+			return &ValidationError{Name: "id", err: fmt.Errorf(`ent: validator failed for field "ProjectSetting.id": %w`, err)}
 		}
+	}
+	if len(_c.mutation.ProjectIDs()) == 0 {
+		return &ValidationError{Name: "project", err: errors.New(`ent: missing required edge "ProjectSetting.project"`)}
 	}
 	return nil
 }
 
-func (_c *PlatformSettingCreate) sqlSave(ctx context.Context) (*PlatformSetting, error) {
+func (_c *ProjectSettingCreate) sqlSave(ctx context.Context) (*ProjectSetting, error) {
 	if err := _c.check(); err != nil {
 		return nil, err
 	}
@@ -206,7 +221,7 @@ func (_c *PlatformSettingCreate) sqlSave(ctx context.Context) (*PlatformSetting,
 		if id, ok := _spec.ID.Value.(string); ok {
 			_node.ID = id
 		} else {
-			return nil, fmt.Errorf("unexpected PlatformSetting.ID type: %T", _spec.ID.Value)
+			return nil, fmt.Errorf("unexpected ProjectSetting.ID type: %T", _spec.ID.Value)
 		}
 	}
 	_c.mutation.id = &_node.ID
@@ -214,63 +229,80 @@ func (_c *PlatformSettingCreate) sqlSave(ctx context.Context) (*PlatformSetting,
 	return _node, nil
 }
 
-func (_c *PlatformSettingCreate) createSpec() (*PlatformSetting, *sqlgraph.CreateSpec) {
+func (_c *ProjectSettingCreate) createSpec() (*ProjectSetting, *sqlgraph.CreateSpec) {
 	var (
-		_node = &PlatformSetting{config: _c.config}
-		_spec = sqlgraph.NewCreateSpec(platformsetting.Table, sqlgraph.NewFieldSpec(platformsetting.FieldID, field.TypeString))
+		_node = &ProjectSetting{config: _c.config}
+		_spec = sqlgraph.NewCreateSpec(projectsetting.Table, sqlgraph.NewFieldSpec(projectsetting.FieldID, field.TypeString))
 	)
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = id
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
-		_spec.SetField(platformsetting.FieldCreatedAt, field.TypeTime, value)
+		_spec.SetField(projectsetting.FieldCreatedAt, field.TypeTime, value)
 		_node.CreatedAt = value
 	}
 	if value, ok := _c.mutation.UpdatedAt(); ok {
-		_spec.SetField(platformsetting.FieldUpdatedAt, field.TypeTime, value)
+		_spec.SetField(projectsetting.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
 	}
 	if value, ok := _c.mutation.CreatedBy(); ok {
-		_spec.SetField(platformsetting.FieldCreatedBy, field.TypeUUID, value)
+		_spec.SetField(projectsetting.FieldCreatedBy, field.TypeUUID, value)
 		_node.CreatedBy = &value
 	}
 	if value, ok := _c.mutation.UpdatedBy(); ok {
-		_spec.SetField(platformsetting.FieldUpdatedBy, field.TypeUUID, value)
+		_spec.SetField(projectsetting.FieldUpdatedBy, field.TypeUUID, value)
 		_node.UpdatedBy = &value
 	}
 	if value, ok := _c.mutation.Key(); ok {
-		_spec.SetField(platformsetting.FieldKey, field.TypeString, value)
+		_spec.SetField(projectsetting.FieldKey, field.TypeString, value)
 		_node.Key = value
 	}
 	if value, ok := _c.mutation.Value(); ok {
-		_spec.SetField(platformsetting.FieldValue, field.TypeString, value)
+		_spec.SetField(projectsetting.FieldValue, field.TypeString, value)
 		_node.Value = value
+	}
+	if nodes := _c.mutation.ProjectIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   projectsetting.ProjectTable,
+			Columns: []string{projectsetting.ProjectColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(project.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.project_settings = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
 
-// PlatformSettingCreateBulk is the builder for creating many PlatformSetting entities in bulk.
-type PlatformSettingCreateBulk struct {
+// ProjectSettingCreateBulk is the builder for creating many ProjectSetting entities in bulk.
+type ProjectSettingCreateBulk struct {
 	config
 	err      error
-	builders []*PlatformSettingCreate
+	builders []*ProjectSettingCreate
 }
 
-// Save creates the PlatformSetting entities in the database.
-func (_c *PlatformSettingCreateBulk) Save(ctx context.Context) ([]*PlatformSetting, error) {
+// Save creates the ProjectSetting entities in the database.
+func (_c *ProjectSettingCreateBulk) Save(ctx context.Context) ([]*ProjectSetting, error) {
 	if _c.err != nil {
 		return nil, _c.err
 	}
 	specs := make([]*sqlgraph.CreateSpec, len(_c.builders))
-	nodes := make([]*PlatformSetting, len(_c.builders))
+	nodes := make([]*ProjectSetting, len(_c.builders))
 	mutators := make([]Mutator, len(_c.builders))
 	for i := range _c.builders {
 		func(i int, root context.Context) {
 			builder := _c.builders[i]
 			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
-				mutation, ok := m.(*PlatformSettingMutation)
+				mutation, ok := m.(*ProjectSettingMutation)
 				if !ok {
 					return nil, fmt.Errorf("unexpected mutation type %T", m)
 				}
@@ -313,7 +345,7 @@ func (_c *PlatformSettingCreateBulk) Save(ctx context.Context) ([]*PlatformSetti
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (_c *PlatformSettingCreateBulk) SaveX(ctx context.Context) []*PlatformSetting {
+func (_c *ProjectSettingCreateBulk) SaveX(ctx context.Context) []*ProjectSetting {
 	v, err := _c.Save(ctx)
 	if err != nil {
 		panic(err)
@@ -322,13 +354,13 @@ func (_c *PlatformSettingCreateBulk) SaveX(ctx context.Context) []*PlatformSetti
 }
 
 // Exec executes the query.
-func (_c *PlatformSettingCreateBulk) Exec(ctx context.Context) error {
+func (_c *ProjectSettingCreateBulk) Exec(ctx context.Context) error {
 	_, err := _c.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (_c *PlatformSettingCreateBulk) ExecX(ctx context.Context) {
+func (_c *ProjectSettingCreateBulk) ExecX(ctx context.Context) {
 	if err := _c.Exec(ctx); err != nil {
 		panic(err)
 	}

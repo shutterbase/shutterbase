@@ -49,17 +49,6 @@ const routes: RouteRecordRaw[] = [
         path: "/sandbox",
         component: () => import("pages/Sandbox.vue"),
       },
-      {
-        name: "admin-settings",
-        path: "/admin/settings",
-        component: () => import("pages/admin/AdminSettings.vue"),
-        beforeEnter: () => {
-          const userStore = useUserStore();
-          if (!userStore.isAdmin()) {
-            return { name: "index" };
-          }
-        },
-      },
     ],
   },
   {
