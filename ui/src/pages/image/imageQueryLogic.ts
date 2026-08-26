@@ -75,6 +75,10 @@ export const timeToFilter = ref<string | null>(null);
 // reload re-arms the range, and browser-back does not walk suspension states.
 export const timeRangeSuspended = ref(false);
 
+// Half-width of the "show gallery around this photo" window (#117), shared by
+// the detail action and its sidebar affordance.
+export const TIMESPAN_MINUTES = 15;
+
 // Narrowing-filter pause for IMPLICIT CONTEXT views (face lookup / timespan):
 // entering one auto-pauses everything that would narrow the context away —
 // except the context-defining filter itself. The Filters pill re-applies them.
