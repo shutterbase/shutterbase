@@ -161,36 +161,70 @@ All payloads are JSON. Common fields:
 
 Shutterbase can publish **directly** to your WLED device's API topic — no bridge or automation tool needed.
 
-#### 1. Enable MQTT on WLED
+#### Step-by-Step: Connect WLED
 
-In WLED UI: **Config > Sync Interfaces > MQTT**:
-- Enable MQTT
-- Set the broker IP/hostname and port (default `1883`)
-- Note the **MQTT device topic** (default: `wled/<device_id>`, e.g. `wled/a4cf12fa54b3`)
+**Step 1: Install and configure MQTT broker**
 
-#### 2. Enter WLED Device Topic in Shutterbase
+```bash
+# Docker (easiest)
+docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto
 
-In Project Settings > MQTT:
-- Set **WLED Device Topic** to your WLED's device topic (e.g. `wled/a4cf12fa54b3`)
-- Enable events and set preset numbers
-
-#### 3. Create Presets in WLED
-
-In WLED UI: **Presets > +**:
-- Create presets with the effects you want for each event
-- Note the preset IDs (1, 2, 3, etc.)
-
-#### How It Works
-
-When an event fires, Shutterbase publishes two messages:
-1. **Structured topic** (for HA, Node-RED, custom apps): `{prefix}/{projectId}/upload/{uploadId}/{event}`
-2. **WLED topic** (direct control): `{wledDeviceTopic}/api` with payload `{"preset": N}`
-
-WLED subscribes to `{wledDeviceTopic}/api` natively — it receives the command and triggers the preset immediately.
-
+# Or install Mosquitto
+sudo apt install mosquitto mosquitto-clients
 ```
-Upload approved → Shutterbase publishes {"preset":4} to wled/device1/api → WLED triggers preset 4
+
+Verify broker is running:
+```bash
+mosquitto_sub -t '$SYS/#' -C 1 -W 2 | grep -q . && echo "Broker running"
 ```
+
+**Step 2: Configure WLED**
+
+1. Open WLED web UI (e.g. `http://192.168.1.100`)
+2. Go to **Config > Sync Interfaces**
+3. Scroll to **MQTT** section
+4. Enable MQTT
+5. Set **Broker** to your broker IP (e.g. `192.168.1.50`)
+6. Set **Port** to `1883`
+7. Note the **Device Topic** — it looks like `wled/a4cf12fa54b3`
+8. Click **Save** and reboot WLED
+
+**Step 3: Test WLED MQTT connection**
+
+Open a terminal and subscribe to WLED's topic:
+```bash
+# Subscribe to all WLED messages
+mosquitto_sub -h 192.168.1.50 -t "wled/#" -v
+
+# In another terminal, send a test command
+mosquitto_pub -h 192.168.1.50 -t "wled/a4cf12fa54b3/api" -m '{"on":true}'
+```
+
+WLED should turn on. If it works, the MQTT connection is good.
+
+**Step 4: Create presets in WLED**
+
+1. In WLED UI, go to **Presets**
+2. Click **+** to create a new preset
+3. Set up your desired effect (color, brightness, animation)
+4. Save and note the preset ID (e.g. `1`)
+5. Repeat for each event you want to trigger
+
+**Step 5: Configure Shutterbase**
+
+1. Go to your project **Settings > General**
+2. Scroll to **MQTT / WLED Integration**
+3. Fill in:
+   - **Broker URL**: `tcp://192.168.1.50:1883` (same broker as WLED)
+   - **WLED Device Topic**: `wled/a4cf12fa54b3` (from Step 2)
+4. Enable events and set preset numbers (matching Step 4)
+5. Click **Save MQTT Settings**
+
+**Step 6: Test the integration**
+
+1. Upload a photo to your project
+2. Watch WLED — it should react based on your event settings
+3. If nothing happens, check the troubleshooting section below
 
 ### Option B: Bridge / Automation Tool
 
@@ -285,3 +319,91 @@ Use the **Topic Prefix** for structured topics + Home Assistant/Node-RED to rout
 | Events not firing | Is the event toggle enabled in project settings? |
 | Tag triggers not working | Is the tag name in the trigger list exactly (case-sensitive)? |
 | WLED preset not found | Does the preset ID exist in WLED? Check WLED Presets page. |
+
+## Using the MQTT Service
+
+### Monitor MQTT Messages
+
+Subscribe to all Shutterbase topics to see what's being published:
+
+```bash
+# Subscribe to all Shutterbase messages
+mosquitto_sub -h <broker> -t "shutterbase/#" -v
+
+# Subscribe to a specific project
+mosquitto_sub -h <broker> -t "shutterbase/<projectId>/#" -v
+
+# Subscribe to a specific upload
+mosquitto_sub -h <broker> -t "shutterbase/<projectId>/upload/<uploadId>/#" -v
+```
+
+### Test WLED Directly
+
+Send a test command to WLED without Shutterbase:
+
+```bash
+# Turn on WLED
+mosquitto_pub -h <broker> -t "wled/<deviceId>/api" -m '{"on":true}'
+
+# Set preset 4
+mosquitto_pub -h <broker> -t "wled/<deviceId>/api" -m '{"preset":4}'
+
+# Set color to red
+mosquitto_pub -h <broker> -t "wled/<deviceId>/api" -m '{"seg":[{"col":[[255,0,0]]}]}'
+
+# Set brightness to 128
+mosquitto_pub -h <broker> -t "wled/<deviceId>/api" -m '{"bri":128}'
+```
+
+### Test Shutterbase Publishing
+
+Simulate a Shutterbase event by publishing directly:
+
+```bash
+# Simulate "upload ready" event
+mosquitto_pub -h <broker> \
+  -t "shutterbase/<projectId>/upload/<uploadId>/ready" \
+  -m '{"uploadName":"Test","oldState":"open","newState":"ready","userId":"test","preset":3}'
+
+# Simulate "approved" event (also triggers WLED if configured)
+mosquitto_pub -h <broker> \
+  -t "shutterbase/<projectId>/upload/<uploadId>/approved" \
+  -m '{"uploadName":"Test","oldState":"ready","newState":"reviewed","userId":"reviewer","preset":4}'
+```
+
+### Python Example
+
+```python
+import paho.mqtt.client as mqtt
+import json
+
+def on_message(client, userdata, msg):
+    payload = json.loads(msg.payload)
+    print(f"Topic: {msg.topic}")
+    print(f"Payload: {json.dumps(payload, indent=2)}")
+    
+    # Trigger WLED if preset is set
+    if "preset" in payload and payload["preset"] > 0:
+        client.publish("wled/device1/api", json.dumps({"preset": payload["preset"]}))
+
+client = mqtt.Client()
+client.connect("localhost", 1883)
+client.subscribe("shutterbase/#")
+client.on_message = on_message
+client.loop_forever()
+```
+
+### Home Assistant Automation
+
+```yaml
+automation:
+  - alias: "Shutterbase → WLED"
+    trigger:
+      - platform: mqtt
+        topic: "shutterbase/+/upload/+/approved"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: "wled/device1/api"
+          payload: '{"preset":4}'
+```
