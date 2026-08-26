@@ -4,10 +4,11 @@ import type { ImageListParams } from "src/api/images";
 type ImageFilterInput = Parameters<typeof buildImageListParams>[0];
 
 // Person-view pause: while browsing one person's photos the other narrowing
-// criteria (search text, include/exclude tags, aspect ratio) are suspended so
-// a face click always yields the full gallery. Upload context passes through.
+// criteria (search text, include/exclude tags, aspect ratio, time range) are
+// suspended so a face click always yields the full gallery. Upload context
+// passes through.
 export function applyPersonPause(input: ImageFilterInput): ImageFilterInput {
-  return { ...input, search: "", tags: [], excludeTags: [], orientation: "neutral" };
+  return { ...input, search: "", tags: [], excludeTags: [], orientation: "neutral", timeFrom: undefined, timeTo: undefined };
 }
 
 // Pure mapping of UI filter/sort state onto the typed list contract (§4.3).
@@ -21,6 +22,8 @@ export function buildImageListParams(input: {
   crossProject?: boolean;
   uploadId?: string;
   orientation?: string;
+  timeFrom?: string;
+  timeTo?: string;
   sortOrder?: SORT_ORDER;
   limit?: number;
   offset?: number;
@@ -48,6 +51,12 @@ export function buildImageListParams(input: {
   }
   if (input.orientation && input.orientation !== "neutral") {
     params.orientation = input.orientation as "portrait" | "landscape";
+  }
+  if (input.timeFrom) {
+    params.from = input.timeFrom; // inclusive RFC3339 bound on capturedAtCorrected
+  }
+  if (input.timeTo) {
+    params.to = input.timeTo;
   }
 
   switch (input.sortOrder) {

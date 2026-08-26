@@ -12,6 +12,8 @@ export interface ImageListParams {
   personRef?: string; // implicit person filter (AI face clustering handle)
   crossProject?: "true"; // person filter only: search every viewable project
   orientation?: "portrait" | "landscape";
+  from?: string; // inclusive RFC3339 bound on capturedAtCorrected
+  to?: string;
   limit?: number;
   offset?: number;
   sort?: string;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildImageListParams } from "src/pages/image/imageListParams";
+import { applyPersonPause, buildImageListParams } from "src/pages/image/imageListParams";
 import { SORT_ORDER } from "src/components/image/sortOrder";
 
 describe("buildImageListParams (UI state -> §4.3 list params)", () => {
@@ -76,5 +76,40 @@ describe("buildImageListParams (UI state -> §4.3 list params)", () => {
     expect(qs).toContain("tagId=a");
     expect(qs).toContain("tagId=b");
     expect(qs).not.toContain("tagId[0]");
+  });
+});
+
+describe("time-range params", () => {
+  it("serializes inclusive from/to bounds as RFC3339", () => {
+    const params = buildImageListParams({
+      projectId: "p1",
+      timeFrom: "2026-08-25T22:55:00.000Z",
+      timeTo: "2026-08-25T23:10:00.000Z",
+    });
+    expect(params.from).toBe("2026-08-25T22:55:00.000Z");
+    expect(params.to).toBe("2026-08-25T23:10:00.000Z");
+  });
+
+  it("omits unset bounds and passes an open-ended single side", () => {
+    expect(buildImageListParams({ projectId: "p1" }).from).toBeUndefined();
+    expect(buildImageListParams({ projectId: "p1" }).to).toBeUndefined();
+    const openFrom = buildImageListParams({ projectId: "p1", timeFrom: "2026-08-25T22:55:00Z" });
+    expect(openFrom.from).toBe("2026-08-25T22:55:00Z");
+    expect(openFrom.to).toBeUndefined();
+  });
+
+  it("person-view pause suspends the time range with the other narrowing filters", () => {
+    const paused = applyPersonPause({
+      projectId: "p1",
+      search: "x",
+      tags: [{ id: "t1" }],
+      excludeTags: [],
+      orientation: "portrait",
+      timeFrom: "2026-08-25T22:55:00Z",
+      timeTo: "2026-08-25T23:10:00Z",
+    });
+    expect(paused.search).toBe("");
+    expect(paused.timeFrom).toBeUndefined();
+    expect(paused.timeTo).toBeUndefined();
   });
 });

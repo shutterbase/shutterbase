@@ -191,6 +191,56 @@
         </transition>
       </Popover>
 
+      <!-- time range -->
+      <Popover class="relative">
+        <PopoverButton :class="[triggerBase, timeFrom || timeTo ? triggerActive : triggerIdle]" data-testid="time-range-button" title="Filter by capture time">
+          <ClockIcon class="h-[18px] w-[18px]" />
+          <span>Time</span>
+          <ChevronDownIcon class="h-4 w-4 opacity-60" />
+        </PopoverButton>
+        <transition
+          enter-active-class="transition duration-150 ease-out"
+          enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition duration-100 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-1"
+        >
+          <PopoverPanel
+            class="absolute right-0 z-30 mt-2 w-64 rounded-lg border border-primary-200 bg-surface p-3 shadow-xl dark:border-primary-700 dark:bg-surface-dark"
+            data-testid="time-range-panel"
+          >
+            <div class="flex flex-col gap-2.5">
+              <label class="flex flex-col gap-1 text-xs font-medium text-primary-500 dark:text-primary-400">
+                From
+                <input
+                  v-model="fromLocal"
+                  type="datetime-local"
+                  data-testid="time-from-input"
+                  class="h-8 rounded-md border border-primary-200 bg-surface-muted px-2.5 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-primary-900 dark:text-primary-100"
+                />
+              </label>
+              <label class="flex flex-col gap-1 text-xs font-medium text-primary-500 dark:text-primary-400">
+                To
+                <input
+                  v-model="toLocal"
+                  type="datetime-local"
+                  data-testid="time-to-input"
+                  class="h-8 rounded-md border border-primary-200 bg-surface-muted px-2.5 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-primary-900 dark:text-primary-100"
+                />
+              </label>
+              <button
+                v-if="timeFrom || timeTo"
+                class="rounded-md px-2.5 py-1.5 text-left text-sm font-medium text-accent-600 hover:bg-primary-100 dark:text-accent-300 dark:hover:bg-primary-800"
+                @click="fromLocal = ''; toLocal = ''"
+              >
+                Clear time range
+              </button>
+            </div>
+          </PopoverPanel>
+        </transition>
+      </Popover>
+
       <!-- upload batch -->
       <Listbox :model-value="uploadFilter" @update:model-value="onUploadSelect">
         <div class="relative">
@@ -300,6 +350,7 @@ import {
   SparklesIcon,
   ArrowUpTrayIcon,
   PlayIcon,
+  ClockIcon,
 } from "@heroicons/vue/24/outline";
 import { Popover, PopoverButton, PopoverPanel, Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
 import { storeToRefs } from "pinia";
@@ -309,6 +360,7 @@ import { computed, h, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
 import type { TagFacetsResponse } from "src/api/images";
 import { tagLabel } from "src/util/tagOrder";
+import { isoToLocalInput, localInputToIso } from "src/util/dateTimeUtil";
 import { api } from "src/api";
 
 type Density = "gallery" | "comfortable" | "dense";
@@ -321,6 +373,9 @@ interface Props {
   selectionCount?: number;
   // active upload-batch filter — route-driven, Images.vue owns the query sync
   uploadFilter?: string | null;
+  // inclusive capture-time bounds (ISO) — route-driven like uploadFilter
+  timeFrom?: string | null;
+  timeTo?: string | null;
   // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
   tagFacets?: TagFacetsResponse | null;
 }
@@ -329,6 +384,8 @@ const props = withDefaults(defineProps<Props>(), {
   density: "comfortable",
   selectionCount: 0,
   uploadFilter: null,
+  timeFrom: null,
+  timeTo: null,
   tagFacets: null,
 });
 
@@ -339,6 +396,7 @@ const emit = defineEmits<{
   "update:density": [Density];
   rerunAi: [];
   uploadFilter: [string | null];
+  timeRange: [string | null, string | null];
   slideshow: [];
   // true = force a refresh (popover open), false = only if the filter changed
   facetsNeeded: [boolean];
@@ -386,6 +444,25 @@ watch(searchText, () => emit("search", searchText.value));
 // orientation
 const orientation = ref<string>("neutral");
 watch(orientation, () => emit("aspectRatioFilter", orientation.value));
+
+// time range — props are the source of truth (route-driven in Images.vue);
+// the datetime-local inputs work in local wall clock, so convert both ways.
+// The prop watchers are inequality-guarded: an emit round-trips through the
+// route back into props, and re-writing the inputs would emit again.
+const fromLocal = ref(isoToLocalInput(props.timeFrom));
+const toLocal = ref(isoToLocalInput(props.timeTo));
+watch(
+  () => [props.timeFrom, props.timeTo],
+  ([f, t]) => {
+    const fLocal = isoToLocalInput(f);
+    const tLocal = isoToLocalInput(t);
+    if (fLocal !== fromLocal.value) fromLocal.value = fLocal;
+    if (tLocal !== toLocal.value) toLocal.value = tLocal;
+  },
+);
+watch([fromLocal, toLocal], () => {
+  emit("timeRange", localInputToIso(fromLocal.value), localInputToIso(toLocal.value));
+});
 
 // tags — Grafana-style polarity filter: + narrows to images WITH the tag,
 // − drops images WITH the tag. Selected entries pin above the list.

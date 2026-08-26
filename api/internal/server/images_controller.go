@@ -70,6 +70,19 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		}
 		params.Orientation = &v
 	}
+	// Inclusive capturedAtCorrected bounds as RFC3339 (the SPA sends
+	// date.toISOString()); either side alone is an open-ended range.
+	from, fromOk := parseTimeParam(c, "from")
+	to, toOk := parseTimeParam(c, "to")
+	if !fromOk || !toOk {
+		return nil, false, false
+	}
+	if from != nil && to != nil && from.After(*to) {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", "from must not be after to")
+		return nil, false, false
+	}
+	params.FromCapturedAtCorrected = from
+	params.ToCapturedAtCorrected = to
 	if v := c.Query("personRef"); v != "" {
 		ids, idsOk := s.personImageIDs(c, projectID, v)
 		if !idsOk {
@@ -96,6 +109,21 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		params.IDs = ids
 	}
 	return params, false, true
+}
+
+// parseTimeParam reads an optional RFC3339 query parameter. Missing/empty →
+// (nil, true). Malformed → 400 invalid_time_range and (nil, false).
+func parseTimeParam(c *gin.Context, name string) (*time.Time, bool) {
+	v := c.Query(name)
+	if v == "" {
+		return nil, true
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", name+" must be an RFC3339 timestamp")
+		return nil, false
+	}
+	return &t, true
 }
 
 func (s *Server) listImages(c *gin.Context) {

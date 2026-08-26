@@ -9,15 +9,27 @@
         :selection-count="imageIndices.length"
         :upload-filter="uploadFilter"
         :tag-facets="tagFacets"
+        :time-from="timeFromFilter"
+        :time-to="timeToFilter"
         @search="updateSearchText"
         @filter-tags="updateFilterTags"
         @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
+        @time-range="setTimeRange"
         @rerun-ai="rerunSelection"
         @upload-filter="setUploadFilter"
         @slideshow="slideshowActive = true"
       />
       <div v-if="displayMode === DisplayMode.GRID">
+        <div v-if="timeFromFilter || timeToFilter" class="mt-6 flex flex-wrap items-center gap-3" data-testid="time-range-chip-row">
+          <span
+            class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 bg-accent-500/10 px-3 py-1 text-accent-600 dark:text-accent-300"
+            data-testid="time-range-chip"
+          >
+            {{ timeRangeLabel }}
+            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear time range" @click="setTimeRange(null, null)">×</button>
+          </span>
+        </div>
         <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
           <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
             photos of one person
@@ -221,6 +233,8 @@ import {
   personCrossProject,
   personFiltersPaused,
   uploadFilter,
+  timeFromFilter,
+  timeToFilter,
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
@@ -269,6 +283,26 @@ const setUploadFilter = (id: string | null) =>
     if (id) q.upload = id;
     else delete q.upload;
   });
+const setTimeRange = (from: string | null, to: string | null) =>
+  pushQuery((q) => {
+    if (from) q.from = from;
+    else delete q.from;
+    if (to) q.to = to;
+    else delete q.to;
+  });
+
+// chip label for the active range; dates shown only when the window spans days
+const timeRangeLabel = computed(() => {
+  const f = timeFromFilter.value ? new Date(timeFromFilter.value) : null;
+  const t = timeToFilter.value ? new Date(timeToFilter.value) : null;
+  if (!f && !t) return "";
+  const hm = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const day = (d: Date) => d.toLocaleDateString([], { day: "2-digit", month: "short" });
+  if (f && t) {
+    return f.toDateString() === t.toDateString() ? `${day(f)} · ${hm(f)} – ${hm(t)}` : `${day(f)} ${hm(f)} – ${day(t)} ${hm(t)}`;
+  }
+  return f ? `${day(f)} ${hm(f)} →` : `→ ${day(t!)} ${hm(t!)}`;
+});
 const togglePersonScope = () =>
   pushQuery((q) => {
     if (q.personScope === "all") delete q.personScope;
@@ -294,6 +328,17 @@ async function applyRoute(initial = false) {
   const crossProject = route.query.personScope === "all";
   const uploadId = (route.query.upload as string) || null;
   const imageId = (route.query.image as string) || null;
+
+  // Time range (?from=/?to=): assign before any load so a combined
+  // person/upload change picks the new bounds up in the same reload; an
+  // isolated range change reloads here.
+  const from = (route.query.from as string) || null;
+  const to = (route.query.to as string) || null;
+  const timeChanged = from !== timeFromFilter.value || to !== timeToFilter.value;
+  if (timeChanged) {
+    timeFromFilter.value = from;
+    timeToFilter.value = to;
+  }
 
   if (initial || person !== personFilter.value || crossProject !== personCrossProject.value || uploadId !== uploadFilter.value) {
     if (person || uploadId) {
@@ -321,6 +366,11 @@ async function applyRoute(initial = false) {
         window.scrollTo({ top: scrollY, behavior: "instant" as ScrollBehavior });
       }
     }
+  } else if (timeChanged) {
+    // only the range moved: one reload, no snapshot churn
+    invalidateGridSnapshot();
+    imageIndex.value = -1;
+    await loadImages(true);
   }
 
   if (imageId) {

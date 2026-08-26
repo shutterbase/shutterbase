@@ -63,16 +63,33 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
   aspectRatioFilter.value = aspectRatioState;
 }
 
+// Inclusive capturedAtCorrected bounds as ISO strings (null = open side).
+// Route-driven like the person/upload filters (?from=/?to=) so the browser
+// history walks through range states and links can share a window; Images.vue
+// owns the sync.
+export const timeFromFilter = ref<string | null>(null);
+export const timeToFilter = ref<string | null>(null);
+
 // The ImagesHeader owns these controls and remounts clean, so a fresh Images
 // mount must reset them too — a value surviving here filters the grid
 // invisibly (a sticky portrait filter once shrank a 38-photo person view to 5).
 export function resetTransientFilters() {
-  if (!searchText.value && filterTags.value.length === 0 && excludeFilterTags.value.length === 0 && aspectRatioFilter.value === "neutral") return;
+  if (
+    !searchText.value &&
+    filterTags.value.length === 0 &&
+    excludeFilterTags.value.length === 0 &&
+    aspectRatioFilter.value === "neutral" &&
+    !timeFromFilter.value &&
+    !timeToFilter.value
+  )
+    return;
   invalidateGridSnapshot(); // the snapshot was taken under the filters being cleared
   searchText.value = "";
   filterTags.value = [];
   excludeFilterTags.value = [];
   aspectRatioFilter.value = "neutral";
+  timeFromFilter.value = null;
+  timeToFilter.value = null;
 }
 
 // Implicit person filter: set by clicking a face box in the detail view,
@@ -162,6 +179,8 @@ function currentFilterInput() {
     crossProject: personCrossProject.value,
     uploadId: uploadFilter.value ?? undefined,
     orientation: aspectRatioFilter.value,
+    timeFrom: timeFromFilter.value ?? undefined,
+    timeTo: timeToFilter.value ?? undefined,
     sortOrder: preferredImageSortOrder.value,
   };
   return personFilter.value && personFiltersPaused.value ? applyPersonPause(input) : input;
@@ -187,6 +206,8 @@ export async function loadImages(reload: boolean) {
       filterTags.value.length > 0 ||
       excludeFilterTags.value.length > 0 ||
       aspectRatioFilter.value !== "neutral" ||
+      !!timeFromFilter.value ||
+      !!timeToFilter.value ||
       !!personFilter.value ||
       !!uploadFilter.value;
 
