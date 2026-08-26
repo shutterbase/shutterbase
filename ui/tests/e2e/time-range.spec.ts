@@ -44,7 +44,7 @@ test.describe("time range filter", () => {
     await expect(chip).toBeVisible();
 
     // clearing restores the unfiltered grid
-    await chip.getByRole("button").click();
+    await chip.getByRole("button", { name: "×" }).click();
     await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(11);
     await expect(new URL(page.url()).searchParams.get("from")).toBeNull();
   });
@@ -91,5 +91,43 @@ test.describe("time range filter", () => {
     await page.getByRole("button", { name: "Clear time range" }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get("from")).toBeNull();
     await expect.poll(() => new URL(page.url()).searchParams.get("to")).toBeNull();
+  });
+});
+
+test.describe("time range on/off", () => {
+  let errors: string[];
+  test.beforeEach(async ({ page }) => {
+    errors = collectJsErrors(page);
+  });
+  test.afterEach(() => {
+    expect(errors, errors.join("\n")).toHaveLength(0);
+  });
+
+  // Suspend keeps the window values (?from=/?to= stay in the URL) but stops
+  // applying them; re-arming applies again. Clearing resets to active.
+  test("chip pause/play toggles the range without losing it", async ({ page }) => {
+    const project = await loginAs(page, "admin");
+    const all = await fetchImages(page, project!.id);
+    const cluster = midnightCluster(all);
+    const from = encodeURIComponent(cluster[0].capturedAtCorrected);
+    const to = encodeURIComponent(cluster[cluster.length - 1].capturedAtCorrected);
+    await page.goto(`/images?from=${from}&to=${to}`);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+
+    // suspend: everything visible, bounds still in the URL
+    await page.getByTestId("time-range-toggle").click();
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(11);
+    expect(new URL(page.url()).searchParams.get("from")).toBeTruthy();
+    expect(new URL(page.url()).searchParams.get("to")).toBeTruthy();
+
+    // resume: back to the cluster
+    await page.getByTestId("time-range-toggle").click();
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+
+    // clearing the range resets to active — a new window must filter again
+    await page.getByTestId("time-range-chip").getByRole("button").last().click();
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(11);
+    await page.goto(`/images?from=${from}&to=${to}`);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
   });
 });

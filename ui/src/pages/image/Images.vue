@@ -23,10 +23,24 @@
       <div v-if="displayMode === DisplayMode.GRID">
         <div v-if="timeFromFilter || timeToFilter" class="mt-6 flex flex-wrap items-center gap-3" data-testid="time-range-chip-row">
           <span
-            class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 bg-accent-500/10 px-3 py-1 text-accent-600 dark:text-accent-300"
+            :class="[
+              'label-mono-sm inline-flex items-center gap-2 rounded-full border px-3 py-1 transition-opacity',
+              timeRangeSuspended
+                ? 'border-primary-300 bg-transparent text-primary-400 opacity-70 dark:border-primary-700 dark:text-primary-500'
+                : 'border-accent-400/60 bg-accent-500/10 text-accent-600 dark:text-accent-300',
+            ]"
             data-testid="time-range-chip"
           >
             {{ timeRangeLabel }}
+            <button
+              class="cursor-pointer transition-colors hover:text-accent-400"
+              :title="timeRangeSuspended ? 'Re-apply this time range' : 'Temporarily disable this time range'"
+              data-testid="time-range-toggle"
+              @click="toggleTimeRangeSuspension()"
+            >
+              <PlayIcon v-if="timeRangeSuspended" class="h-3.5 w-3.5" />
+              <PauseIcon v-else class="h-3.5 w-3.5" />
+            </button>
             <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear time range" @click="setTimeRange(null, null)">×</button>
           </span>
         </div>
@@ -202,7 +216,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import ImageGridTile from "src/components/image/ImageGridTile.vue";
-import { ClockIcon } from "@heroicons/vue/24/outline";
+import { ClockIcon, PauseIcon, PlayIcon } from "@heroicons/vue/24/outline";
 import ImagesHeader, { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
 import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
@@ -246,6 +260,7 @@ import {
   uploadFilter,
   timeFromFilter,
   timeToFilter,
+  timeRangeSuspended,
   snapshotGrid,
   restoreGridSnapshot,
   invalidateGridSnapshot,
@@ -343,9 +358,20 @@ const togglePersonScope = () =>
 
 // "Filters" pill: pause/resume the other narrowing filters while a person
 // filter is active. Pure in-memory state — leaving the person view re-arms it.
-const hasPausableFilters = computed(() => !!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral");
+const hasPausableFilters = computed(
+  () => !!searchText.value || filterTags.value.length > 0 || excludeFilterTags.value.length > 0 || aspectRatioFilter.value !== "neutral" || !!timeFromFilter.value || !!timeToFilter.value,
+);
 function togglePersonFilters() {
   personFiltersPaused.value = !personFiltersPaused.value;
+  loadImages(true);
+}
+
+// Chip-level suspend for the time range: keep the window values, stop applying
+// them — the face feature's Filters-pill semantics, scoped to this one filter.
+function toggleTimeRangeSuspension() {
+  timeRangeSuspended.value = !timeRangeSuspended.value;
+  invalidateGridSnapshot();
+  imageIndex.value = -1;
   loadImages(true);
 }
 
@@ -370,6 +396,8 @@ async function applyRoute(initial = false) {
   if (timeChanged) {
     timeFromFilter.value = from;
     timeToFilter.value = to;
+    // a cleared or newly entered window always starts applying again
+    if (!from && !to) timeRangeSuspended.value = false;
   }
 
   if (initial || person !== personFilter.value || crossProject !== personCrossProject.value || uploadId !== uploadFilter.value) {

@@ -70,6 +70,11 @@ export function updateAspectRatioFilter(aspectRatioState: string) {
 export const timeFromFilter = ref<string | null>(null);
 export const timeToFilter = ref<string | null>(null);
 
+// Standalone suspend for the time range — keep the window values, stop
+// applying them. Session-only on purpose (mirrors personFiltersPaused): a
+// reload re-arms the range, and browser-back does not walk suspension states.
+export const timeRangeSuspended = ref(false);
+
 // The ImagesHeader owns these controls and remounts clean, so a fresh Images
 // mount must reset them too — a value surviving here filters the grid
 // invisibly (a sticky portrait filter once shrank a 38-photo person view to 5).
@@ -90,6 +95,7 @@ export function resetTransientFilters() {
   aspectRatioFilter.value = "neutral";
   timeFromFilter.value = null;
   timeToFilter.value = null;
+  timeRangeSuspended.value = false;
 }
 
 // Implicit person filter: set by clicking a face box in the detail view,
@@ -170,6 +176,7 @@ let requestId = 0;
 // shared filter/sort state → buildImageListParams input; one source of truth
 // for the list, the facets and the deep-link position queries
 function currentFilterInput() {
+  const suspended = (personFilter.value && personFiltersPaused.value) || timeRangeSuspended.value;
   const input = {
     projectId: activeProject.value.id,
     search: searchText.value,
@@ -179,8 +186,8 @@ function currentFilterInput() {
     crossProject: personCrossProject.value,
     uploadId: uploadFilter.value ?? undefined,
     orientation: aspectRatioFilter.value,
-    timeFrom: timeFromFilter.value ?? undefined,
-    timeTo: timeToFilter.value ?? undefined,
+    timeFrom: suspended ? undefined : timeFromFilter.value ?? undefined,
+    timeTo: suspended ? undefined : timeToFilter.value ?? undefined,
     sortOrder: preferredImageSortOrder.value,
   };
   return personFilter.value && personFiltersPaused.value ? applyPersonPause(input) : input;
@@ -206,8 +213,7 @@ export async function loadImages(reload: boolean) {
       filterTags.value.length > 0 ||
       excludeFilterTags.value.length > 0 ||
       aspectRatioFilter.value !== "neutral" ||
-      !!timeFromFilter.value ||
-      !!timeToFilter.value ||
+      ((!!timeFromFilter.value || !!timeToFilter.value) && !timeRangeSuspended.value) ||
       !!personFilter.value ||
       !!uploadFilter.value;
 
