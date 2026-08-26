@@ -30,6 +30,9 @@ type ImageTagAssignment func(*sql.Selector)
 // PersonName is the predicate function for personname builders.
 type PersonName func(*sql.Selector)
 
+// PlatformSetting is the predicate function for platformsetting builders.
+type PlatformSetting func(*sql.Selector)
+
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
 

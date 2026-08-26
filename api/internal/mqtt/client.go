@@ -100,3 +100,53 @@ func (c *Client) Close() {
 		c.client.Disconnect(250)
 	}
 }
+
+// Reconnect closes the existing connection and establishes a new one with the given options.
+func (c *Client) Reconnect(opts *Options) {
+	if c == nil {
+		return
+	}
+	// Disconnect existing client
+	if c.client != nil && c.client.IsConnected() {
+		c.client.Disconnect(250)
+	}
+
+	if opts.Broker == "" {
+		log.Info().Msg("mqtt: broker not configured, publisher disabled")
+		c.client = nil
+		c.topicPrefix = opts.TopicPrefix
+		c.connected = false
+		return
+	}
+
+	handlers := mqtt.NewClientOptions().
+		AddBroker(opts.Broker).
+		SetClientID(opts.ClientID).
+		SetAutoReconnect(true).
+		SetConnectRetry(true).
+		SetConnectRetryInterval(5 * time.Second).
+		SetConnectionLostHandler(func(_ mqtt.Client, err error) {
+			log.Warn().Err(err).Msg("mqtt: connection lost")
+		}).
+		SetOnConnectHandler(func(_ mqtt.Client) {
+			log.Info().Str("broker", opts.Broker).Msg("mqtt: connected")
+		})
+
+	if opts.Username != "" {
+		handlers.SetUsername(opts.Username)
+	}
+	if opts.Password != "" {
+		handlers.SetPassword(opts.Password)
+	}
+
+	newClient := mqtt.NewClient(handlers)
+	token := newClient.Connect()
+	token.Wait()
+	if token.Error() != nil {
+		log.Warn().Err(token.Error()).Str("broker", opts.Broker).Msg("mqtt: reconnect failed, will retry")
+	}
+
+	c.client = newClient
+	c.topicPrefix = opts.TopicPrefix
+	c.connected = newClient.IsConnected()
+}

@@ -81,6 +81,32 @@
         :fields="reviewFields"
         :item="item"
       />
+      <!-- MQTT / WLED integration status -->
+      <div>
+        <h3 class="text-lg font-medium text-primary-900 dark:text-white">Integrations</h3>
+        <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">External service connections</p>
+        <div class="mt-4 flex items-center gap-3">
+          <div
+            :class="[
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium',
+              mqttConnected
+                ? 'border-success-400/60 bg-success-500/10 text-success-700 dark:text-success-300'
+                : 'border-primary-300 bg-transparent text-primary-400 dark:border-primary-700 dark:text-primary-500',
+            ]"
+          >
+            <span
+              :class="[
+                'h-2 w-2 rounded-full',
+                mqttConnected ? 'bg-success-500' : 'bg-primary-400',
+              ]"
+            ></span>
+            WLED / MQTT
+          </div>
+          <span class="text-xs text-primary-400 dark:text-primary-500">
+            {{ mqttConnected ? 'Connected' : 'Not configured' }}
+          </span>
+        </div>
+      </div>
     </div>
   </main>
   <ModalMessage
@@ -140,6 +166,7 @@ const item: Ref<ITEM_TYPE | null> = ref(null);
 
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
+const mqttConnected = ref(false);
 
 async function loadItem() {
   const itemId: string = `${route.params.id}`;
@@ -274,5 +301,8 @@ const copyrightFields: Field<ITEM_TYPE>[] = [
 ];
 
 watch(route, loadItem);
-onMounted(loadItem);
+onMounted(() => {
+  loadItem();
+  api.mqtt.getStatus().then((s) => (mqttConnected.value = s.connected)).catch(() => {});
+});
 </script>

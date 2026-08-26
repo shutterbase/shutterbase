@@ -14,6 +14,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/personname"
+	"github.com/shutterbase/shutterbase/ent/platformsetting"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -334,6 +335,37 @@ func init() {
 	personname.DefaultID = personnameDescID.Default.(func() string)
 	// personname.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	personname.IDValidator = personnameDescID.Validators[0].(func(string) error)
+	platformsettingMixin := schema.PlatformSetting{}.Mixin()
+	platformsettingMixinFields0 := platformsettingMixin[0].Fields()
+	_ = platformsettingMixinFields0
+	platformsettingMixinFields1 := platformsettingMixin[1].Fields()
+	_ = platformsettingMixinFields1
+	platformsettingFields := schema.PlatformSetting{}.Fields()
+	_ = platformsettingFields
+	// platformsettingDescCreatedAt is the schema descriptor for createdAt field.
+	platformsettingDescCreatedAt := platformsettingMixinFields1[0].Descriptor()
+	// platformsetting.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	platformsetting.DefaultCreatedAt = platformsettingDescCreatedAt.Default.(func() time.Time)
+	// platformsettingDescUpdatedAt is the schema descriptor for updatedAt field.
+	platformsettingDescUpdatedAt := platformsettingMixinFields1[1].Descriptor()
+	// platformsetting.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	platformsetting.DefaultUpdatedAt = platformsettingDescUpdatedAt.Default.(func() time.Time)
+	// platformsetting.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	platformsetting.UpdateDefaultUpdatedAt = platformsettingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// platformsettingDescKey is the schema descriptor for key field.
+	platformsettingDescKey := platformsettingFields[0].Descriptor()
+	// platformsetting.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	platformsetting.KeyValidator = platformsettingDescKey.Validators[0].(func(string) error)
+	// platformsettingDescValue is the schema descriptor for value field.
+	platformsettingDescValue := platformsettingFields[1].Descriptor()
+	// platformsetting.DefaultValue holds the default value on creation for the value field.
+	platformsetting.DefaultValue = platformsettingDescValue.Default.(string)
+	// platformsettingDescID is the schema descriptor for id field.
+	platformsettingDescID := platformsettingMixinFields0[0].Descriptor()
+	// platformsetting.DefaultID holds the default value on creation for the id field.
+	platformsetting.DefaultID = platformsettingDescID.Default.(func() string)
+	// platformsetting.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	platformsetting.IDValidator = platformsettingDescID.Validators[0].(func(string) error)
 	projectMixin := schema.Project{}.Mixin()
 	projectMixinFields0 := projectMixin[0].Fields()
 	_ = projectMixinFields0

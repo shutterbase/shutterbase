@@ -16,6 +16,8 @@ import * as statistics from "./statistics";
 import * as apiKeys from "./apiKeys";
 import * as downloadConfigs from "./downloadConfigs";
 import * as exif from "./exif";
+import * as mqtt from "./mqtt";
+import * as adminSettings from "./adminSettings";
 
 export const api = {
   ai,
@@ -35,6 +37,8 @@ export const api = {
   apiKeys,
   downloadConfigs,
   exif,
+  mqtt,
+  adminSettings,
 };
 
 export default api;

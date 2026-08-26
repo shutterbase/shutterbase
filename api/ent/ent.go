@@ -20,6 +20,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/personname"
+	"github.com/shutterbase/shutterbase/ent/platformsetting"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -95,6 +96,7 @@ func checkColumn(t, c string) error {
 			imagetag.Table:           imagetag.ValidColumn,
 			imagetagassignment.Table: imagetagassignment.ValidColumn,
 			personname.Table:         personname.ValidColumn,
+			platformsetting.Table:    platformsetting.ValidColumn,
 			project.Table:            project.ValidColumn,
 			projectassignment.Table:  projectassignment.ValidColumn,
 			role.Table:               role.ValidColumn,

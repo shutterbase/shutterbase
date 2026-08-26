@@ -24,6 +24,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/personname"
+	"github.com/shutterbase/shutterbase/ent/platformsetting"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
 	"github.com/shutterbase/shutterbase/ent/role"
@@ -56,6 +57,8 @@ type Client struct {
 	ImageTagAssignment *ImageTagAssignmentClient
 	// PersonName is the client for interacting with the PersonName builders.
 	PersonName *PersonNameClient
+	// PlatformSetting is the client for interacting with the PlatformSetting builders.
+	PlatformSetting *PlatformSettingClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectAssignment is the client for interacting with the ProjectAssignment builders.
@@ -89,6 +92,7 @@ func (c *Client) init() {
 	c.ImageTag = NewImageTagClient(c.config)
 	c.ImageTagAssignment = NewImageTagAssignmentClient(c.config)
 	c.PersonName = NewPersonNameClient(c.config)
+	c.PlatformSetting = NewPlatformSettingClient(c.config)
 	c.Project = NewProjectClient(c.config)
 	c.ProjectAssignment = NewProjectAssignmentClient(c.config)
 	c.Role = NewRoleClient(c.config)
@@ -196,6 +200,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
 		PersonName:         NewPersonNameClient(cfg),
+		PlatformSetting:    NewPlatformSettingClient(cfg),
 		Project:            NewProjectClient(cfg),
 		ProjectAssignment:  NewProjectAssignmentClient(cfg),
 		Role:               NewRoleClient(cfg),
@@ -230,6 +235,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
 		PersonName:         NewPersonNameClient(cfg),
+		PlatformSetting:    NewPlatformSettingClient(cfg),
 		Project:            NewProjectClient(cfg),
 		ProjectAssignment:  NewProjectAssignmentClient(cfg),
 		Role:               NewRoleClient(cfg),
@@ -267,8 +273,8 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
-		c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment, c.Role,
-		c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
+		c.ImageTagAssignment, c.PersonName, c.PlatformSetting, c.Project,
+		c.ProjectAssignment, c.Role, c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -279,8 +285,8 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
-		c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment, c.Role,
-		c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
+		c.ImageTagAssignment, c.PersonName, c.PlatformSetting, c.Project,
+		c.ProjectAssignment, c.Role, c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -305,6 +311,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ImageTagAssignment.mutate(ctx, m)
 	case *PersonNameMutation:
 		return c.PersonName.mutate(ctx, m)
+	case *PlatformSettingMutation:
+		return c.PlatformSetting.mutate(ctx, m)
 	case *ProjectMutation:
 		return c.Project.mutate(ctx, m)
 	case *ProjectAssignmentMutation:
@@ -1657,6 +1665,139 @@ func (c *PersonNameClient) mutate(ctx context.Context, m *PersonNameMutation) (V
 		return (&PersonNameDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown PersonName mutation op: %q", m.Op())
+	}
+}
+
+// PlatformSettingClient is a client for the PlatformSetting schema.
+type PlatformSettingClient struct {
+	config
+}
+
+// NewPlatformSettingClient returns a client for the PlatformSetting from the given config.
+func NewPlatformSettingClient(c config) *PlatformSettingClient {
+	return &PlatformSettingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `platformsetting.Hooks(f(g(h())))`.
+func (c *PlatformSettingClient) Use(hooks ...Hook) {
+	c.hooks.PlatformSetting = append(c.hooks.PlatformSetting, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `platformsetting.Intercept(f(g(h())))`.
+func (c *PlatformSettingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PlatformSetting = append(c.inters.PlatformSetting, interceptors...)
+}
+
+// Create returns a builder for creating a PlatformSetting entity.
+func (c *PlatformSettingClient) Create() *PlatformSettingCreate {
+	mutation := newPlatformSettingMutation(c.config, OpCreate)
+	return &PlatformSettingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PlatformSetting entities.
+func (c *PlatformSettingClient) CreateBulk(builders ...*PlatformSettingCreate) *PlatformSettingCreateBulk {
+	return &PlatformSettingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PlatformSettingClient) MapCreateBulk(slice any, setFunc func(*PlatformSettingCreate, int)) *PlatformSettingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PlatformSettingCreateBulk{err: fmt.Errorf("calling to PlatformSettingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PlatformSettingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PlatformSettingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PlatformSetting.
+func (c *PlatformSettingClient) Update() *PlatformSettingUpdate {
+	mutation := newPlatformSettingMutation(c.config, OpUpdate)
+	return &PlatformSettingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PlatformSettingClient) UpdateOne(_m *PlatformSetting) *PlatformSettingUpdateOne {
+	mutation := newPlatformSettingMutation(c.config, OpUpdateOne, withPlatformSetting(_m))
+	return &PlatformSettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PlatformSettingClient) UpdateOneID(id string) *PlatformSettingUpdateOne {
+	mutation := newPlatformSettingMutation(c.config, OpUpdateOne, withPlatformSettingID(id))
+	return &PlatformSettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PlatformSetting.
+func (c *PlatformSettingClient) Delete() *PlatformSettingDelete {
+	mutation := newPlatformSettingMutation(c.config, OpDelete)
+	return &PlatformSettingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PlatformSettingClient) DeleteOne(_m *PlatformSetting) *PlatformSettingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PlatformSettingClient) DeleteOneID(id string) *PlatformSettingDeleteOne {
+	builder := c.Delete().Where(platformsetting.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PlatformSettingDeleteOne{builder}
+}
+
+// Query returns a query builder for PlatformSetting.
+func (c *PlatformSettingClient) Query() *PlatformSettingQuery {
+	return &PlatformSettingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePlatformSetting},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PlatformSetting entity by its id.
+func (c *PlatformSettingClient) Get(ctx context.Context, id string) (*PlatformSetting, error) {
+	return c.Query().Where(platformsetting.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PlatformSettingClient) GetX(ctx context.Context, id string) *PlatformSetting {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *PlatformSettingClient) Hooks() []Hook {
+	return c.hooks.PlatformSetting
+}
+
+// Interceptors returns the client interceptors.
+func (c *PlatformSettingClient) Interceptors() []Interceptor {
+	return c.inters.PlatformSetting
+}
+
+func (c *PlatformSettingClient) mutate(ctx context.Context, m *PlatformSettingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PlatformSettingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PlatformSettingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PlatformSettingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PlatformSettingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PlatformSetting mutation op: %q", m.Op())
 	}
 }
 
@@ -3059,13 +3200,13 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 type (
 	hooks struct {
 		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
-		PersonName, Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
-		User []ent.Hook
+		PersonName, PlatformSetting, Project, ProjectAssignment, Role, ScheduleItem,
+		TimeOffset, Upload, User []ent.Hook
 	}
 	inters struct {
 		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
-		PersonName, Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
-		User []ent.Interceptor
+		PersonName, PlatformSetting, Project, ProjectAssignment, Role, ScheduleItem,
+		TimeOffset, Upload, User []ent.Interceptor
 	}
 )
 

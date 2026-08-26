@@ -392,6 +392,22 @@ var (
 			},
 		},
 	}
+	// PlatformSettingsColumns holds the columns for the "platform_settings" table.
+	PlatformSettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "key", Type: field.TypeString, Unique: true},
+		{Name: "value", Type: field.TypeString, Size: 2147483647, Default: ""},
+	}
+	// PlatformSettingsTable holds the schema information for the "platform_settings" table.
+	PlatformSettingsTable = &schema.Table{
+		Name:       "platform_settings",
+		Columns:    PlatformSettingsColumns,
+		PrimaryKey: []*schema.Column{PlatformSettingsColumns[0]},
+	}
 	// ProjectsColumns holds the columns for the "projects" table.
 	ProjectsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -749,6 +765,7 @@ var (
 		ImageTagsTable,
 		ImageTagAssignmentsTable,
 		PersonNamesTable,
+		PlatformSettingsTable,
 		ProjectsTable,
 		ProjectAssignmentsTable,
 		RolesTable,
