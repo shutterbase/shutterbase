@@ -11,11 +11,13 @@
         :tag-facets="tagFacets"
         :time-from="timeFromFilter"
         :time-to="timeToFilter"
+        :time-bounds="timeBounds"
         @search="updateSearchText"
         @filter-tags="updateFilterTags"
         @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
         @time-range="setTimeRange"
+        @time-bounds-needed="loadTimeBounds"
         @rerun-ai="rerunSelection"
         @upload-filter="setUploadFilter"
         @slideshow="slideshowActive = true"
@@ -278,6 +280,8 @@ import {
   resetTransientFilters,
   tagFacets,
   loadTagFacets,
+  timeBounds,
+  loadTimeBounds,
 } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";

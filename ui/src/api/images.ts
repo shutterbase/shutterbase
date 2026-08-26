@@ -59,6 +59,19 @@ export async function tagFacets(params: ImageListParams): Promise<TagFacetsRespo
   return data;
 }
 
+// [earliest, latest] capturedAtCorrected under the filter, EXCLUDING the time
+// range itself — the Time popover's slider domain. Either side null when no
+// matching image has a corrected capture time.
+export interface ImageTimeBounds {
+  min: string | null;
+  max: string | null;
+}
+
+export async function timeBounds(params: ImageListParams): Promise<ImageTimeBounds> {
+  const { data } = await http.get<ImageTimeBounds>("/images/time-bounds", { params, paramsSerializer: { indexes: null } });
+  return data;
+}
+
 // Zero-based offset of one image under the same filter+sort `list` uses, or -1
 // when the filter excludes it / it sits beyond the server's scan bound — the
 // deep-link resolver decides jump-to-context vs. solo detail on this.

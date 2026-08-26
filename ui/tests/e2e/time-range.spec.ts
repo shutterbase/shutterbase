@@ -194,3 +194,48 @@ test.describe("timespan context view", () => {
     await expect(page.getByPlaceholder("Search images")).toHaveValue("FSG_9000");
   });
 });
+
+// The Time popover's dual-thumb slider: its domain is the filtered gallery's
+// capturedAtCorrected span EXCLUDING the range itself; dragging commits on
+// release; the datetime inputs remain the manual override.
+test.describe("time-range slider", () => {
+  let errors: string[];
+  test.beforeEach(async ({ page }) => {
+    errors = collectJsErrors(page);
+  });
+  test.afterEach(() => {
+    expect(errors, errors.join("\n")).toHaveLength(0);
+  });
+
+  test("domain follows the filter, drag commits, inputs override", async ({ page }) => {
+    const project = await loginAs(page, "admin");
+    const all = await fetchImages(page, project!.id);
+    const cluster = midnightCluster(all);
+
+    // narrow the gallery to the cluster so the domain is exactly its span
+    await page.goto("/images");
+    await page.getByPlaceholder("Search images").fill("FSG_90");
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+
+    await page.getByTestId("time-range-button").click();
+    const startThumb = page.locator('input[aria-label="Range start"]');
+    const endThumb = page.locator('input[aria-label="Range end"]');
+    await expect(startThumb).toBeVisible();
+
+    const minMs = new Date(cluster[0].capturedAtCorrected).getTime();
+    const maxMs = new Date(cluster[cluster.length - 1].capturedAtCorrected).getTime();
+    // untouched thumbs sit at the domain ends
+    await expect(startThumb).toHaveValue(String(Math.round(minMs / 60_000)));
+    await expect(endThumb).toHaveValue(String(Math.round(maxMs / 60_000)));
+
+    // drag the end thumb five minutes earlier and release -> committed to URL
+    await endThumb.fill(String(Math.round(maxMs / 60_000) - 5));
+    await expect.poll(() => new URL(page.url()).searchParams.get("to")).toBeTruthy();
+    const toMs = new Date(new URL(page.url()).searchParams.get("to")!).getTime();
+    expect(Math.round((maxMs - toMs) / 60_000)).toBe(5);
+
+    // manual override wins: type an exact From instant
+    await page.getByTestId("time-from-input").fill("2026-08-01T00:00");
+    await expect.poll(() => new URL(page.url()).searchParams.get("from")).toBe("2026-07-31T22:00:00.000Z");
+  });
+});

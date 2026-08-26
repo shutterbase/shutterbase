@@ -169,6 +169,49 @@ func (r *Repository) GetImages(ctx context.Context, parameters *GetImageParamete
 	return items, total, nil
 }
 
+// ImageTimeBounds is the [earliest, latest] capturedAtCorrected span of a
+// gallery filter — the Time popover's slider domain. Either side nil when no
+// matching image carries a corrected capture time.
+type ImageTimeBounds struct {
+	Min *time.Time `json:"min"`
+	Max *time.Time `json:"max"`
+}
+
+// GetImageTimeBounds computes the [earliest, latest] capturedAtCorrected over
+// the shared gallery filter. The time-range bounds themselves are always
+// STRIPPED: the range being edited must not be part of its own slider domain,
+// so this stays stable while thumbs move. NULL-corrected images never
+// contribute. Implemented as two ordered picks (not MIN/MAX aggregates):
+// SQLite hands aggregates back as untyped strings, and both queries are
+// index-covered anyway.
+func (r *Repository) GetImageTimeBounds(ctx context.Context, parameters *GetImageParameters) (*ImageTimeBounds, error) {
+	parameters.FromCapturedAtCorrected = nil
+	parameters.ToCapturedAtCorrected = nil
+	predicates, err := buildImagePredicates(parameters)
+	if err != nil {
+		return nil, err
+	}
+	where := image.And(append(predicates, image.CapturedAtCorrectedNotNil())...)
+	bounds := &ImageTimeBounds{}
+	first, err := r.Client.Image.Query().Where(where).
+		Order(ent.Asc(image.FieldCapturedAtCorrected)).First(ctx)
+	if err != nil && !ent.IsNotFound(err) {
+		log.Error().Err(err).Msg("error getting image time bounds (min)")
+		return nil, err
+	}
+	if first != nil {
+		bounds.Min = first.CapturedAtCorrected
+		last, err := r.Client.Image.Query().Where(where).
+			Order(ent.Desc(image.FieldCapturedAtCorrected)).First(ctx)
+		if err != nil {
+			log.Error().Err(err).Msg("error getting image time bounds (max)")
+			return nil, err
+		}
+		bounds.Max = last.CapturedAtCorrected
+	}
+	return bounds, nil
+}
+
 // GetImagePosition returns the zero-based offset of imageID within the gallery
 // query defined by parameters (same predicates and order as GetImages), or -1
 // when the image is not among the first maxScan matches — the deep-link

@@ -18,6 +18,7 @@ func (s *Server) registerImageRoutes(api *gin.RouterGroup) {
 	api.GET("/images", s.listImages)
 	api.GET("/images/tag-facets", s.listImageTagFacets)
 	api.GET("/images/position", s.getImagePosition)
+	api.GET("/images/time-bounds", s.getImageTimeBounds)
 	api.GET("/images/:id", s.getImage)
 	api.POST("/images", s.createImage)
 	api.PUT("/images/:id", s.updateImage)
@@ -184,6 +185,31 @@ func (s *Server) getImagePosition(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"position": position})
+}
+
+// ImageTimeBoundsResponse backs the Time popover's slider: the [min,max]
+// capturedAtCorrected span of everything matching the filter. The repository
+// always strips the time-range bounds themselves — the range being edited must
+// not shift its own domain.
+type ImageTimeBoundsResponse struct {
+	Min *time.Time `json:"min"`
+	Max *time.Time `json:"max"`
+}
+
+func (s *Server) getImageTimeBounds(c *gin.Context) {
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	if emptyResult {
+		c.JSON(http.StatusOK, ImageTimeBoundsResponse{})
+		return
+	}
+	bounds, err := s.Repository.GetImageTimeBounds(c.Request.Context(), params)
+	if abortRepoListError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, ImageTimeBoundsResponse{Min: bounds.Min, Max: bounds.Max})
 }
 
 // TagFacetsResponse backs the tag filter popover: facets[tagId] = images the

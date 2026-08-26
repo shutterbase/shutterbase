@@ -389,6 +389,28 @@ export async function loadTagFacets(force = false) {
   }
 }
 
+// Slider domain for the Time popover: [earliest, latest] capturedAtCorrected
+// under the filter MINUS the time range itself (the range being edited must not
+// shift its own domain). Fetched on popover open; key memo like the facets.
+export const timeBounds = ref<{ min: string | null; max: string | null } | null>(null);
+let lastBoundsKey = "";
+
+export async function loadTimeBounds() {
+  if (!activeProject.value?.id) return;
+  const { timeFrom: _f, timeTo: _t, ...rest } = currentFilterInput();
+  const params = buildImageListParams(rest);
+  const key = JSON.stringify(params);
+  if (key === lastBoundsKey && timeBounds.value) return;
+  lastBoundsKey = key;
+  try {
+    timeBounds.value = await api.images.timeBounds(params);
+  } catch {
+    // bounds are decoration — the popover degrades to manual inputs only
+    timeBounds.value = null;
+    lastBoundsKey = "";
+  }
+}
+
 export async function addImageTag(image: ImageWithTagsType, tag: ImageTag) {
   // Every tag assignment (dialog, hotkey, repeat-last) funnels through here, so
   // this is the one place the review freeze has to be honored client-side.

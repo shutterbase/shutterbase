@@ -192,8 +192,13 @@
       </Popover>
 
       <!-- time range -->
-      <Popover class="relative">
-        <PopoverButton :class="[triggerBase, timeFrom || timeTo ? triggerActive : triggerIdle]" data-testid="time-range-button" title="Filter by capture time">
+      <Popover class="relative" v-slot="{ open: timeOpen }">
+        <PopoverButton
+          :class="[triggerBase, timeFrom || timeTo ? triggerActive : triggerIdle]"
+          data-testid="time-range-button"
+          title="Filter by capture time"
+          @click="!timeOpen && emit('timeBoundsNeeded')"
+        >
           <ClockIcon class="h-[18px] w-[18px]" />
           <span>Time</span>
           <ChevronDownIcon class="h-4 w-4 opacity-60" />
@@ -211,6 +216,17 @@
             data-testid="time-range-panel"
           >
             <div class="flex flex-col gap-2.5">
+              <!-- quick way: two thumbs over the currently filtered gallery's
+                   time span (excluding the range itself). Hidden when the
+                   domain is empty/degenerate; manual inputs stay the override. -->
+              <TimeRangeSlider
+                v-if="sliderDomain"
+                :min="sliderDomain.min"
+                :max="sliderDomain.max"
+                :from="timeFrom"
+                :to="timeTo"
+                @change="(f, t) => emit('timeRange', f, t)"
+              />
               <label class="flex flex-col gap-1 text-xs font-medium text-primary-500 dark:text-primary-400">
                 From
                 <input
@@ -358,9 +374,10 @@ import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
 import { computed, h, nextTick, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
-import type { TagFacetsResponse } from "src/api/images";
+import type { TagFacetsResponse, ImageTimeBounds } from "src/api/images";
 import { tagLabel } from "src/util/tagOrder";
 import { isoToLocalInput, localInputToIso } from "src/util/dateTimeUtil";
+import TimeRangeSlider from "src/components/image/TimeRangeSlider.vue";
 import { api } from "src/api";
 
 type Density = "gallery" | "comfortable" | "dense";
@@ -376,6 +393,8 @@ interface Props {
   // inclusive capture-time bounds (ISO) — route-driven like uploadFilter
   timeFrom?: string | null;
   timeTo?: string | null;
+  // slider domain for the Time popover — fetched on popover open
+  timeBounds?: ImageTimeBounds | null;
   // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
   tagFacets?: TagFacetsResponse | null;
 }
@@ -386,6 +405,7 @@ const props = withDefaults(defineProps<Props>(), {
   uploadFilter: null,
   timeFrom: null,
   timeTo: null,
+  timeBounds: null,
   tagFacets: null,
 });
 
@@ -397,12 +417,21 @@ const emit = defineEmits<{
   rerunAi: [];
   uploadFilter: [string | null];
   timeRange: [string | null, string | null];
+  timeBoundsNeeded: [];
+  timeBoundsNeeded: [];
   slideshow: [];
   // true = force a refresh (popover open), false = only if the filter changed
   facetsNeeded: [boolean];
 }>();
 
 const { activeProject, preferredImageSortOrder, projectTags } = storeToRefs(useUserStore());
+
+// slider domain: only render when both ends exist and span at least a minute
+const sliderDomain = computed(() => {
+  const b = props.timeBounds;
+  if (!b?.min || !b?.max) return null;
+  return new Date(b.max).getTime() - new Date(b.min).getTime() >= 60_000 ? { min: b.min, max: b.max } : null;
+});
 
 // shared trigger styling so every control aligns to one spec
 const triggerBase =
