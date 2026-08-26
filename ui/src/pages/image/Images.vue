@@ -134,6 +134,16 @@
           </ZoomableImage>
           <figcaption class="mt-3 flex items-baseline justify-center gap-4">
             <span class="truncate font-data text-sm text-primary-700 dark:text-primary-200">{{ images[imageIndex].computedFileName }}</span>
+            <button
+              v-if="images[imageIndex].capturedAtCorrected"
+              class="label-mono-sm inline-flex shrink-0 cursor-pointer items-center gap-1 text-accent-600 transition-colors hover:text-accent-400 dark:text-accent-300 dark:hover:text-accent-200"
+              title="Show all photos around this time"
+              data-testid="show-timespan"
+              @click="showTimespanAround()"
+            >
+              <ClockIcon class="h-4 w-4" />
+              show ±{{ TIMESPAN_MINUTES }} min
+            </button>
             <span class="label-mono-sm shrink-0 text-primary-500 dark:text-primary-400">{{ imageIndex + 1 }} / {{ totalImageCount.toLocaleString() }}</span>
           </figcaption>
         </figure>
@@ -192,6 +202,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import ImageGridTile from "src/components/image/ImageGridTile.vue";
+import { ClockIcon } from "@heroicons/vue/24/outline";
 import ImagesHeader, { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
 import ImagesFooter from "src/components/image/ImagesFooter.vue";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
@@ -290,6 +301,27 @@ const setTimeRange = (from: string | null, to: string | null) =>
     if (to) q.to = to;
     else delete q.to;
   });
+
+// #117: from a photo to the gallery of its timespan — "unknown car here, what
+// happened around it?" Chronological reading order via OLDEST_FIRST; browser
+// back returns to the exact previous view (route-driven like every filter).
+const TIMESPAN_MINUTES = 15;
+function showTimespanAround(minutes = TIMESPAN_MINUTES) {
+  const item = images.value[imageIndex.value];
+  if (!item?.capturedAtCorrected) return;
+  const t = new Date(item.capturedAtCorrected).getTime();
+  if (preferredImageSortOrder.value !== SORT_ORDER.OLDEST_FIRST) {
+    preferredImageSortOrder.value = SORT_ORDER.OLDEST_FIRST;
+  }
+  pushQuery((q) => {
+    q.from = new Date(t - minutes * 60_000).toISOString();
+    q.to = new Date(t + minutes * 60_000).toISOString();
+    delete q.image;
+    delete q.person;
+    delete q.personScope;
+    delete q.upload;
+  });
+}
 
 // chip label for the active range; dates shown only when the window spans days
 const timeRangeLabel = computed(() => {

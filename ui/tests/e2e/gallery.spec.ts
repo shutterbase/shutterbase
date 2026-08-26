@@ -43,11 +43,13 @@ test.describe("gallery toolbar", () => {
     // $DATE is a template tag and must not appear in the filter
     await expect(page.getByText("$DATE")).toHaveCount(0);
 
-    // facet counts: all 3 seed images carry Default, none carries Podium
+    // facet counts: all 3 seed images carry Default, none carries Podium.
+    // The eight midnight-cluster photos are untagged, so excluding Default no
+    // longer empties the view — it keeps those eight visible.
     const includeDefault = page.getByRole("button", { name: "Include Default" });
     await expect(includeDefault).toContainText("3");
     await expect(page.getByRole("button", { name: "Include Podium" })).toBeDisabled(); // would show 0 images
-    await expect(page.getByRole("button", { name: "Exclude Default" })).toBeDisabled(); // would empty the view
+    await expect(page.getByRole("button", { name: "Exclude Default" })).toBeEnabled();
 
     // including a tag surfaces the "Clear N selected" affordance…
     await includeDefault.click();
