@@ -89,8 +89,8 @@ templ ProjectPage(site *Site, p catalog.ProjectSummary, fv FilterView, latest []
 				</div>
 			</div>
 			if cover != nil {
-				<a href={ templ.SafeURL(cover.Href) } class="lg:w-[38%] shrink-0 overflow-hidden rounded-theme bg-line">
-					<img src={ cover.Src(1024) } srcset={ cover.Srcset() } sizes="(max-width: 1024px) 100vw, 40vw" width={ strconv.Itoa(cover.Width) } height={ strconv.Itoa(cover.Height) } alt={ cover.Caption } class="w-full h-auto"/>
+				<a href={ templ.SafeURL(cover.Href) } class="lg:w-[42%] shrink-0 overflow-hidden rounded-theme bg-line aspect-[3/2]">
+					<img src={ cover.Src(1024) } srcset={ cover.Srcset() } sizes="(max-width: 1024px) 100vw, 40vw" width={ strconv.Itoa(cover.Width) } height={ strconv.Itoa(cover.Height) } alt={ cover.Caption } class="w-full h-full object-cover"/>
 				</a>
 			}
 		</section>

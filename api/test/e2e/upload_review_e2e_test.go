@@ -96,12 +96,11 @@ func TestUploadReviewFlow(t *testing.T) {
 		assert.Equal(t, http.StatusCreated, assign(padmin, m.Tags["Podium"]), "the reviewer is never frozen")
 
 		// The reserved review tags are the reviewer's alone — in every state.
+		// They are materialized for every project at boot (reserved namespace),
+		// so look them up rather than create them.
 		for _, name := range []string{"error", "rejected"} {
-			reserved, err := c.ImageTag.Create().
-				SetName(name).SetDescription("reserved review tag").SetType(imagetag.TypeCustom).
-				SetProjectID(proj).Save(ctx)
+			reserved, err := c.ImageTag.Query().Where(imagetag.ProjectID(proj), imagetag.NameEQ(name)).Only(ctx)
 			require.NoError(t, err)
-			t.Cleanup(func() { _ = c.ImageTag.DeleteOneID(reserved.ID).Exec(ctx) })
 
 			assert.Equal(t, http.StatusForbidden, assign(editor, reserved.ID), name)
 			assert.Equal(t, http.StatusCreated, assign(padmin, reserved.ID), name)
