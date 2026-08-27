@@ -19,9 +19,10 @@ test.describe("semantic search", () => {
     await expect(page.getByRole("button", { name: "Ask" })).toBeEnabled();
     await search.press("Enter");
 
+    // the role=dialog wrapper is a zero-height shell around fixed children,
+    // so visibility is asserted on its content, not the wrapper
     const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText("team celebrating in the rain");
+    await expect(dialog.getByRole("heading", { level: 3 })).toContainText("team celebrating in the rain");
     await expect(dialog.getByText(/Nothing matches|Loading/)).toBeVisible();
 
     await dialog.getByRole("button", { name: "previous" }).waitFor();
