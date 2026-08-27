@@ -23,7 +23,7 @@
         <div v-if="askFilter" class="mt-6 flex flex-wrap items-center gap-3">
           <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300" data-testid="ask-chip">
             ask: <span class="normal-case italic">“{{ askFilter }}”</span>
-            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear ask filter" @click="clearAskFilter()">×</button>
+            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear ask filter" aria-label="Clear ask filter" @click="clearAskFilter()">×</button>
           </span>
         </div>
         <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
