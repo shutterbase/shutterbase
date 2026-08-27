@@ -23,6 +23,11 @@ test.describe("ask filter", () => {
     const chip = page.getByTestId("ask-chip");
     await expect(chip).toContainText("team celebrating in the rain");
 
+    // no AI server in the e2e stack: the list request fails with 501 and the
+    // app shows its error modal — dismiss it (an environment artifact, not the
+    // filter plumbing under test) before clearing the chip
+    const close = page.getByRole("button", { name: "Close" });
+    if (await close.first().isVisible().catch(() => false)) await close.first().click();
     await chip.locator("button").click();
     await expect(chip).toHaveCount(0);
     await expect(page).not.toHaveURL(/ask=/);
