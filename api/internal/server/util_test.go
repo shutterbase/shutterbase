@@ -124,8 +124,8 @@ func TestListResponseShape(t *testing.T) {
 
 func TestValidatePassword(t *testing.T) {
 	assert.Empty(t, validatePassword("GoodPass1"))
-	assert.NotEmpty(t, validatePassword("short1A"))    // too short
-	assert.NotEmpty(t, validatePassword("alllower1"))  // no upper
-	assert.NotEmpty(t, validatePassword("ALLUPPER1"))  // no lower
+	assert.NotEmpty(t, validatePassword("short1A"))      // too short
+	assert.NotEmpty(t, validatePassword("alllower1"))    // no upper
+	assert.NotEmpty(t, validatePassword("ALLUPPER1"))    // no lower
 	assert.NotEmpty(t, validatePassword("NoDigitsHere")) // no digit
 }

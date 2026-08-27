@@ -70,6 +70,10 @@ func (f *fakeServer) Similar(_ context.Context, projectID, imageRef string, page
 	return SimilarResponse{Items: []SimilarImage{{ImageRef: "img2", Similarity: 0.87}}, Page: page, PageSize: pageSize, HasMore: true}, nil
 }
 
+func (f *fakeServer) Descriptions(_ context.Context, projectID string, page, pageSize int) (DescriptionsResponse, error) {
+	return DescriptionsResponse{Items: []ImageDescription{{ImageRef: "img1", Description: "a caption"}}, Page: page, PageSize: pageSize}, nil
+}
+
 func (f *fakeServer) Search(_ context.Context, projectID, query string, page, pageSize int) (SimilarResponse, error) {
 	f.searchQuery = query
 	return SimilarResponse{Items: []SimilarImage{{ImageRef: "img3", Similarity: 0.71}}, Page: page, PageSize: pageSize}, nil
@@ -164,6 +168,11 @@ func TestClientHandlerRoundtrip(t *testing.T) {
 	search, err := client.Search(ctx, "proj1", "rain & umbrellas", 1, 5)
 	if err != nil || fake.searchQuery != "rain & umbrellas" || search.Items[0].ImageRef != "img3" || search.Page != 1 {
 		t.Fatalf("search: %v query=%q %+v", err, fake.searchQuery, search)
+	}
+
+	descs, err := client.Descriptions(ctx, "proj1", 0, 50)
+	if err != nil || len(descs.Items) != 1 || descs.Items[0].Description != "a caption" {
+		t.Fatalf("descriptions: %v %+v", err, descs)
 	}
 
 	similar, err := client.Similar(ctx, "proj1", "img1", 0, 0) // 0 pageSize → default

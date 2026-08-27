@@ -4348,6 +4348,7 @@ type ImageMutation struct {
 	aiAttempts                 *int
 	addaiAttempts              *int
 	aiError                    *string
+	aiDescription              *string
 	size                       *int
 	addsize                    *int
 	width                      *int
@@ -5344,6 +5345,55 @@ func (m *ImageMutation) ResetAiError() {
 	delete(m.clearedFields, image.FieldAiError)
 }
 
+// SetAiDescription sets the "aiDescription" field.
+func (m *ImageMutation) SetAiDescription(s string) {
+	m.aiDescription = &s
+}
+
+// AiDescription returns the value of the "aiDescription" field in the mutation.
+func (m *ImageMutation) AiDescription() (r string, exists bool) {
+	v := m.aiDescription
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAiDescription returns the old "aiDescription" field's value of the Image entity.
+// If the Image object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ImageMutation) OldAiDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAiDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAiDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAiDescription: %w", err)
+	}
+	return oldValue.AiDescription, nil
+}
+
+// ClearAiDescription clears the value of the "aiDescription" field.
+func (m *ImageMutation) ClearAiDescription() {
+	m.aiDescription = nil
+	m.clearedFields[image.FieldAiDescription] = struct{}{}
+}
+
+// AiDescriptionCleared returns if the "aiDescription" field was cleared in this mutation.
+func (m *ImageMutation) AiDescriptionCleared() bool {
+	_, ok := m.clearedFields[image.FieldAiDescription]
+	return ok
+}
+
+// ResetAiDescription resets all changes to the "aiDescription" field.
+func (m *ImageMutation) ResetAiDescription() {
+	m.aiDescription = nil
+	delete(m.clearedFields, image.FieldAiDescription)
+}
+
 // SetSize sets the "size" field.
 func (m *ImageMutation) SetSize(i int) {
 	m.size = &i
@@ -5880,7 +5930,7 @@ func (m *ImageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ImageMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 26)
 	if m.createdAt != nil {
 		fields = append(fields, image.FieldCreatedAt)
 	}
@@ -5934,6 +5984,9 @@ func (m *ImageMutation) Fields() []string {
 	}
 	if m.aiError != nil {
 		fields = append(fields, image.FieldAiError)
+	}
+	if m.aiDescription != nil {
+		fields = append(fields, image.FieldAiDescription)
 	}
 	if m.size != nil {
 		fields = append(fields, image.FieldSize)
@@ -6000,6 +6053,8 @@ func (m *ImageMutation) Field(name string) (ent.Value, bool) {
 		return m.AiAttempts()
 	case image.FieldAiError:
 		return m.AiError()
+	case image.FieldAiDescription:
+		return m.AiDescription()
 	case image.FieldSize:
 		return m.Size()
 	case image.FieldWidth:
@@ -6059,6 +6114,8 @@ func (m *ImageMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldAiAttempts(ctx)
 	case image.FieldAiError:
 		return m.OldAiError(ctx)
+	case image.FieldAiDescription:
+		return m.OldAiDescription(ctx)
 	case image.FieldSize:
 		return m.OldSize(ctx)
 	case image.FieldWidth:
@@ -6207,6 +6264,13 @@ func (m *ImageMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAiError(v)
+		return nil
+	case image.FieldAiDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAiDescription(v)
 		return nil
 	case image.FieldSize:
 		v, ok := value.(int)
@@ -6377,6 +6441,9 @@ func (m *ImageMutation) ClearedFields() []string {
 	if m.FieldCleared(image.FieldAiError) {
 		fields = append(fields, image.FieldAiError)
 	}
+	if m.FieldCleared(image.FieldAiDescription) {
+		fields = append(fields, image.FieldAiDescription)
+	}
 	if m.FieldCleared(image.FieldWidth) {
 		fields = append(fields, image.FieldWidth)
 	}
@@ -6435,6 +6502,9 @@ func (m *ImageMutation) ClearField(name string) error {
 		return nil
 	case image.FieldAiError:
 		m.ClearAiError()
+		return nil
+	case image.FieldAiDescription:
+		m.ClearAiDescription()
 		return nil
 	case image.FieldWidth:
 		m.ClearWidth()
@@ -6503,6 +6573,9 @@ func (m *ImageMutation) ResetField(name string) error {
 		return nil
 	case image.FieldAiError:
 		m.ResetAiError()
+		return nil
+	case image.FieldAiDescription:
+		m.ResetAiDescription()
 		return nil
 	case image.FieldSize:
 		m.ResetSize()

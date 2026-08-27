@@ -121,6 +121,12 @@ func (c *Client) Search(ctx context.Context, projectID, query string, page, page
 	return resp, err
 }
 
+func (c *Client) Descriptions(ctx context.Context, projectID string, page, pageSize int) (DescriptionsResponse, error) {
+	var resp DescriptionsResponse
+	err := c.do(ctx, http.MethodGet, c.projectPath(projectID)+"/descriptions?"+pageQuery(page, pageSize), nil, &resp)
+	return resp, err
+}
+
 func (c *Client) DeleteImage(ctx context.Context, projectID, imageRef string) error {
 	return c.do(ctx, http.MethodDelete, c.imagePath(projectID, imageRef), nil, nil)
 }

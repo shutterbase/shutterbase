@@ -88,6 +88,7 @@ func buildImagePredicates(parameters *GetImageParameters) ([]predicate.Image, er
 		predicates = append(predicates, image.Or(
 			image.ComputedFileNameContainsFold(*parameters.Search),
 			image.FileNameContainsFold(*parameters.Search),
+			image.AiDescriptionContainsFold(*parameters.Search),
 		))
 	}
 	if parameters.IDs != nil {
