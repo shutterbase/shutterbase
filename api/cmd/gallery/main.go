@@ -110,9 +110,12 @@ func main() {
 		TTL:        galleryconfig.Duration("CACHE_TTL", 5*time.Minute),
 		MaxEntries: config.Get().Int("CACHE_MAX_ENTRIES"),
 	})
-	presigner := web.NewPresigner(s3Client, thumbnailSizes(),
+	presigner, err := web.NewPresigner(s3Client, thumbnailSizes(),
 		galleryconfig.Duration("PRESIGN_EXPIRY", 15*time.Minute),
-		galleryconfig.Duration("PRESIGN_CACHE", 10*time.Minute))
+		galleryconfig.Duration("PRESIGN_CACHE", 10*time.Minute)).WithBaseURL(config.Get().String("PRESIGN_BASE_URL"))
+	if err != nil {
+		log.Panic().Err(err).Msg("presigner")
+	}
 
 	exif.SetConcurrency(config.Get().Int("EXIF_MAX_CONCURRENCY"))
 	renderer := &worker.Renderer{

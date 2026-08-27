@@ -34,6 +34,10 @@ func Init() error {
 		// resolving quickly; memoized for PRESIGN_CACHE (< expiry).
 		config.String("PRESIGN_EXPIRY").Default("15m"),
 		config.String("PRESIGN_CACHE").Default("10m"),
+		// Dev: presigned URLs are signed for the real S3 endpoint and then
+		// rewritten to this scheme://host (a tunnel in front of the local
+		// bucket). Empty in production.
+		config.String("PRESIGN_BASE_URL").Default(""),
 
 		// database (read-only role on the shutterbase schema, owner of `gallery`)
 		config.String("DATABASE_TYPE").NotEmpty().Default("psql"),

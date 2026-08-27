@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
@@ -20,6 +21,10 @@ type Presigner struct {
 	sizes  []int
 	expiry time.Duration
 	cache  *expirable.LRU[string, string]
+	// base, when set, replaces scheme+host of every signed URL (a dev tunnel
+	// fronting the local bucket; the signature stays valid because the tunnel
+	// forwards with the real Host).
+	base *url.URL
 }
 
 func NewPresigner(client *s3.S3Client, sizes []int, expiry, memo time.Duration) *Presigner {
@@ -27,6 +32,19 @@ func NewPresigner(client *s3.S3Client, sizes []int, expiry, memo time.Duration) 
 		memo = expiry / 2
 	}
 	return &Presigner{client: client, sizes: sizes, expiry: expiry, cache: expirable.NewLRU[string, string](20000, nil, memo)}
+}
+
+// WithBaseURL rewrites signed URLs to scheme://host of base ("" = off).
+func (p *Presigner) WithBaseURL(base string) (*Presigner, error) {
+	if base == "" {
+		return p, nil
+	}
+	u, err := url.Parse(base)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return nil, fmt.Errorf("invalid PRESIGN_BASE_URL %q", base)
+	}
+	p.base = u
+	return p, nil
 }
 
 func (p *Presigner) Sizes() []int { return p.sizes }
@@ -79,6 +97,12 @@ func (p *Presigner) sign(ctx context.Context, key string) string {
 	if err != nil {
 		log.Error().Err(err).Str("key", key).Msg("gallery: presign")
 		return ""
+	}
+	if p.base != nil {
+		if pu, err := url.Parse(u); err == nil {
+			pu.Scheme, pu.Host = p.base.Scheme, p.base.Host
+			u = pu.String()
+		}
 	}
 	p.cache.Add(key, u)
 	return u
