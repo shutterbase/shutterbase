@@ -111,6 +111,8 @@ func (s *Server) getMqttWledCommand(ctx context.Context, projectID, event string
 		effectID, err := strconv.Atoi(effectStr)
 		if err == nil {
 			return map[string]interface{}{
+				"on":  true,
+				"bri": 128,
 				"seg": []map[string]interface{}{{"fx": effectID}},
 			}
 		}
@@ -120,7 +122,11 @@ func (s *Server) getMqttWledCommand(ctx context.Context, projectID, event string
 	if presetStr != "" {
 		presetID, err := strconv.Atoi(presetStr)
 		if err == nil && presetID > 0 {
-			return map[string]interface{}{"preset": presetID}
+			return map[string]interface{}{
+				"on":     true,
+				"bri":    128,
+				"preset": presetID,
+			}
 		}
 	}
 
