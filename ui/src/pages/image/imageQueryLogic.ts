@@ -96,6 +96,11 @@ export const personFiltersPaused = ref(true);
 // like the person filter; Images.vue owns the sync.
 export const uploadFilter = ref<string | null>(null);
 
+// Semantic "ask" filter: the AI server ranks the project's images by their
+// description for a free-text query; the grid shows that set under its
+// normal sort, combinable with every other filter. Route-driven (?ask=).
+export const askFilter = ref<string | null>(null);
+
 // --- grid snapshot -----------------------------------------------------------
 // Applying the person filter replaces the loaded (possibly deeply scrolled)
 // grid. A snapshot of that state lets "clear filter" / browser-back land on
@@ -161,6 +166,7 @@ function currentFilterInput() {
     personRef: personFilter.value ?? undefined,
     crossProject: personCrossProject.value,
     uploadId: uploadFilter.value ?? undefined,
+    ask: askFilter.value ?? undefined,
     orientation: aspectRatioFilter.value,
     sortOrder: preferredImageSortOrder.value,
   };
@@ -188,7 +194,8 @@ export async function loadImages(reload: boolean) {
       excludeFilterTags.value.length > 0 ||
       aspectRatioFilter.value !== "neutral" ||
       !!personFilter.value ||
-      !!uploadFilter.value;
+      !!uploadFilter.value ||
+      !!askFilter.value;
 
     const params = buildImageListParams({
       ...currentFilterInput(),
@@ -254,6 +261,7 @@ export async function jumpToImage(imageId: string): Promise<JumpResult> {
     personFilter.value = null;
     personCrossProject.value = false;
     uploadFilter.value = null;
+    askFilter.value = null;
     personFiltersPaused.value = true;
     resetTransientFilters();
     projectSwitched = true;

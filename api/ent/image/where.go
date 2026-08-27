@@ -136,6 +136,11 @@ func AiError(v string) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldAiError, v))
 }
 
+// AiDescription applies equality check predicate on the "aiDescription" field. It's identical to AiDescriptionEQ.
+func AiDescription(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiDescription, v))
+}
+
 // Size applies equality check predicate on the "size" field. It's identical to SizeEQ.
 func Size(v int) predicate.Image {
 	return predicate.Image(sql.FieldEQ(FieldSize, v))
@@ -1004,6 +1009,81 @@ func AiErrorEqualFold(v string) predicate.Image {
 // AiErrorContainsFold applies the ContainsFold predicate on the "aiError" field.
 func AiErrorContainsFold(v string) predicate.Image {
 	return predicate.Image(sql.FieldContainsFold(FieldAiError, v))
+}
+
+// AiDescriptionEQ applies the EQ predicate on the "aiDescription" field.
+func AiDescriptionEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldEQ(FieldAiDescription, v))
+}
+
+// AiDescriptionNEQ applies the NEQ predicate on the "aiDescription" field.
+func AiDescriptionNEQ(v string) predicate.Image {
+	return predicate.Image(sql.FieldNEQ(FieldAiDescription, v))
+}
+
+// AiDescriptionIn applies the In predicate on the "aiDescription" field.
+func AiDescriptionIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldIn(FieldAiDescription, vs...))
+}
+
+// AiDescriptionNotIn applies the NotIn predicate on the "aiDescription" field.
+func AiDescriptionNotIn(vs ...string) predicate.Image {
+	return predicate.Image(sql.FieldNotIn(FieldAiDescription, vs...))
+}
+
+// AiDescriptionGT applies the GT predicate on the "aiDescription" field.
+func AiDescriptionGT(v string) predicate.Image {
+	return predicate.Image(sql.FieldGT(FieldAiDescription, v))
+}
+
+// AiDescriptionGTE applies the GTE predicate on the "aiDescription" field.
+func AiDescriptionGTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldGTE(FieldAiDescription, v))
+}
+
+// AiDescriptionLT applies the LT predicate on the "aiDescription" field.
+func AiDescriptionLT(v string) predicate.Image {
+	return predicate.Image(sql.FieldLT(FieldAiDescription, v))
+}
+
+// AiDescriptionLTE applies the LTE predicate on the "aiDescription" field.
+func AiDescriptionLTE(v string) predicate.Image {
+	return predicate.Image(sql.FieldLTE(FieldAiDescription, v))
+}
+
+// AiDescriptionContains applies the Contains predicate on the "aiDescription" field.
+func AiDescriptionContains(v string) predicate.Image {
+	return predicate.Image(sql.FieldContains(FieldAiDescription, v))
+}
+
+// AiDescriptionHasPrefix applies the HasPrefix predicate on the "aiDescription" field.
+func AiDescriptionHasPrefix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasPrefix(FieldAiDescription, v))
+}
+
+// AiDescriptionHasSuffix applies the HasSuffix predicate on the "aiDescription" field.
+func AiDescriptionHasSuffix(v string) predicate.Image {
+	return predicate.Image(sql.FieldHasSuffix(FieldAiDescription, v))
+}
+
+// AiDescriptionIsNil applies the IsNil predicate on the "aiDescription" field.
+func AiDescriptionIsNil() predicate.Image {
+	return predicate.Image(sql.FieldIsNull(FieldAiDescription))
+}
+
+// AiDescriptionNotNil applies the NotNil predicate on the "aiDescription" field.
+func AiDescriptionNotNil() predicate.Image {
+	return predicate.Image(sql.FieldNotNull(FieldAiDescription))
+}
+
+// AiDescriptionEqualFold applies the EqualFold predicate on the "aiDescription" field.
+func AiDescriptionEqualFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldEqualFold(FieldAiDescription, v))
+}
+
+// AiDescriptionContainsFold applies the ContainsFold predicate on the "aiDescription" field.
+func AiDescriptionContainsFold(v string) predicate.Image {
+	return predicate.Image(sql.FieldContainsFold(FieldAiDescription, v))
 }
 
 // SizeEQ applies the EQ predicate on the "size" field.

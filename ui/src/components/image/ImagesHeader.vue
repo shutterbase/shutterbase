@@ -334,6 +334,8 @@ interface Props {
   uploadFilter?: string | null;
   // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
   tagFacets?: TagFacetsResponse | null;
+  // any narrowing filter active (search, tags, orientation, person, upload, ask)
+  filterActive?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   totalImageCount: 0,
@@ -341,6 +343,7 @@ const props = withDefaults(defineProps<Props>(), {
   selectionCount: 0,
   uploadFilter: null,
   tagFacets: null,
+  filterActive: false,
 });
 
 const emit = defineEmits<{
@@ -427,8 +430,8 @@ const filteredTags = computed(() => {
 // under an active filter, tags that would produce an empty result set disappear;
 // with no filter every tag stays offered (zero-count tags are normal pre-event)
 const visibleTags = computed(() => {
-  if (selectedTags.value.length === 0 || !props.tagFacets) return filteredTags.value;
-  return filteredTags.value.filter((t: ImageTag) => (props.tagFacets!.facets[t.id] ?? 0) > 0);
+  if (!props.filterActive || !props.tagFacets) return filteredTags.value;
+  return filteredTags.value.filter((t: ImageTag) => isSelected(t) || (props.tagFacets!.facets[t.id] ?? 0) > 0);
 });
 // images left when adding the tag as +/− filter; null while facets are loading
 const includeCount = (tag: ImageTag): number | null => (props.tagFacets ? (props.tagFacets.facets[tag.id] ?? 0) : null);

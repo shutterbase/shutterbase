@@ -239,6 +239,20 @@ func (_c *ImageCreate) SetNillableAiError(v *string) *ImageCreate {
 	return _c
 }
 
+// SetAiDescription sets the "aiDescription" field.
+func (_c *ImageCreate) SetAiDescription(v string) *ImageCreate {
+	_c.mutation.SetAiDescription(v)
+	return _c
+}
+
+// SetNillableAiDescription sets the "aiDescription" field if the given value is not nil.
+func (_c *ImageCreate) SetNillableAiDescription(v *string) *ImageCreate {
+	if v != nil {
+		_c.SetAiDescription(*v)
+	}
+	return _c
+}
+
 // SetSize sets the "size" field.
 func (_c *ImageCreate) SetSize(v int) *ImageCreate {
 	_c.mutation.SetSize(v)
@@ -588,6 +602,10 @@ func (_c *ImageCreate) createSpec() (*Image, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AiError(); ok {
 		_spec.SetField(image.FieldAiError, field.TypeString, value)
 		_node.AiError = value
+	}
+	if value, ok := _c.mutation.AiDescription(); ok {
+		_spec.SetField(image.FieldAiDescription, field.TypeString, value)
+		_node.AiDescription = value
 	}
 	if value, ok := _c.mutation.Size(); ok {
 		_spec.SetField(image.FieldSize, field.TypeInt, value)

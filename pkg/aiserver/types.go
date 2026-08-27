@@ -15,9 +15,9 @@ import (
 // a shutterbase project. It is sent both via Prime and inline with every
 // IngestRequest, so the server is always eventually consistent.
 type Project struct {
-	ID     string   `json:"id"`
-	Name   string   `json:"name"`
-	Prompt string   `json:"prompt"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Prompt string `json:"prompt"`
 	// Tags is the allowed vocabulary. The server MUST only ever return tag
 	// names contained in this list.
 	Tags []string `json:"tags"`
@@ -52,6 +52,9 @@ type Tag struct {
 type IngestResponse struct {
 	ImageRef string `json:"imageRef"`
 	Tags     []Tag  `json:"tags"`
+	// Description is the server's free-text caption of the image (empty when
+	// the server has no description tier). The caller stores it with the image.
+	Description string `json:"description,omitempty"`
 	// Raw is the server's full detection detail (model reads, evidence axes,
 	// notes …) as an opaque JSON document for human inspection. The caller
 	// stores and displays it verbatim — no semantics leak into the contract.
@@ -150,6 +153,20 @@ type PersonsResponse struct {
 type SimilarImage struct {
 	ImageRef   string  `json:"imageRef"`
 	Similarity float64 `json:"similarity"`
+}
+
+// ImageDescription is one stored caption, for bulk backfill.
+type ImageDescription struct {
+	ImageRef    string `json:"imageRef"`
+	Description string `json:"description"`
+}
+
+// DescriptionsResponse pages through a project's stored descriptions.
+type DescriptionsResponse struct {
+	Items    []ImageDescription `json:"items"`
+	Page     int                `json:"page"`
+	PageSize int                `json:"pageSize"`
+	HasMore  bool               `json:"hasMore"`
 }
 
 // SimilarResponse has no Total: nearest-neighbour search has no honest total,

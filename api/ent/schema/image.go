@@ -42,6 +42,9 @@ func (Image) Fields() []ent.Field {
 		field.JSON("aiRawResult", json.RawMessage{}).Optional().StructTag(`json:"-"`),
 		field.Int("aiAttempts").Default(0).StructTag(`json:"-"`),
 		field.String("aiError").Optional().StructTag(`json:"aiError,omitempty"`),
+		// free-text caption from the AI server's description tier; exported
+		// as IPTC caption and searched by ?search=
+		field.Text("aiDescription").Optional().StructTag(`json:"aiDescription,omitempty"`),
 		field.Int("size").NonNegative().StructTag(`json:"size"`),
 		field.Int("width").Optional().Nillable().NonNegative().StructTag(`json:"width,omitempty"`),
 		field.Int("height").Optional().Nillable().NonNegative().StructTag(`json:"height,omitempty"`),

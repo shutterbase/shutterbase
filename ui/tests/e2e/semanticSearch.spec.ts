@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, collectJsErrors } from "./helpers";
 
-// Semantic search entry point: typing a description and pressing Enter (or
-// the "Ask" button) opens the ranked-results dialog titled with the query.
-// The e2e stack has no AI server, so the dialog must degrade to an empty
-// state (no uncaught error, no crash) rather than a broken overlay.
-test.describe("semantic search", () => {
-  test("Enter in the search field opens the ranked dialog with the query", async ({ page }) => {
+// The "ask" filter: Enter in the search field (or the Ask button) narrows the
+// normal grid via ?ask=, shows a chip with the query, and the chip's × restores
+// the unfiltered view. The e2e stack's stub AI server ranks nothing, so the
+// grid shows its empty state — the point is the filter plumbing, not results.
+test.describe("ask filter", () => {
+  test("Enter applies ?ask=, the chip shows the query, × clears it", async ({ page }) => {
     const errors = collectJsErrors(page);
     await loginAs(page, "admin");
     await page.goto("/images");
@@ -19,13 +19,18 @@ test.describe("semantic search", () => {
     await expect(page.getByRole("button", { name: "Ask" })).toBeEnabled();
     await search.press("Enter");
 
-    // the role=dialog wrapper is a zero-height shell around fixed children,
-    // so visibility is asserted on its content, not the wrapper
-    const dialog = page.getByRole("dialog");
-    await expect(dialog.getByRole("heading", { level: 3 })).toContainText("team celebrating in the rain");
-    await expect(dialog.getByText(/Nothing matches|Loading/)).toBeVisible();
+    await expect(page).toHaveURL(/[?&]ask=team(\+|%20)celebrating/);
+    const chip = page.getByTestId("ask-chip");
+    await expect(chip).toContainText("team celebrating in the rain");
 
-    await dialog.getByRole("button", { name: "previous" }).waitFor();
+    // no AI server in the e2e stack: the list request fails with 501 and the
+    // app shows its error modal — dismiss it (an environment artifact, not the
+    // filter plumbing under test) before clearing the chip
+    const close = page.getByRole("button", { name: "Close" });
+    if (await close.first().isVisible().catch(() => false)) await close.first().click();
+    await chip.locator("button").click();
+    await expect(chip).toHaveCount(0);
+    await expect(page).not.toHaveURL(/ask=/);
     expect(errors).toEqual([]);
   });
 });

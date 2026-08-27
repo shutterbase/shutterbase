@@ -111,6 +111,7 @@ type ImageResponse struct {
 	InferredAt          *string                `json:"inferredAt"`
 	AiStatus            *string                `json:"aiStatus"`
 	AiError             string                 `json:"aiError,omitempty"`
+	AiDescription       string                 `json:"aiDescription,omitempty"`
 	CreatedAt           string                 `json:"createdAt"`
 	UpdatedAt           string                 `json:"updatedAt"`
 }
@@ -151,6 +152,7 @@ func ToImageResponse(ctx context.Context, img *ent.Image, signer DownloadURLSign
 		DownloadUrls:        map[string]string{},
 		InferredAt:          rfc3339(img.InferredAt),
 		AiError:             img.AiError,
+		AiDescription:       img.AiDescription,
 		CreatedAt:           img.CreatedAt.Format(timeLayout),
 		UpdatedAt:           img.UpdatedAt.Format(timeLayout),
 	}

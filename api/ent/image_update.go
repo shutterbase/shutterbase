@@ -319,6 +319,26 @@ func (_u *ImageUpdate) ClearAiError() *ImageUpdate {
 	return _u
 }
 
+// SetAiDescription sets the "aiDescription" field.
+func (_u *ImageUpdate) SetAiDescription(v string) *ImageUpdate {
+	_u.mutation.SetAiDescription(v)
+	return _u
+}
+
+// SetNillableAiDescription sets the "aiDescription" field if the given value is not nil.
+func (_u *ImageUpdate) SetNillableAiDescription(v *string) *ImageUpdate {
+	if v != nil {
+		_u.SetAiDescription(*v)
+	}
+	return _u
+}
+
+// ClearAiDescription clears the value of the "aiDescription" field.
+func (_u *ImageUpdate) ClearAiDescription() *ImageUpdate {
+	_u.mutation.ClearAiDescription()
+	return _u
+}
+
 // SetSize sets the "size" field.
 func (_u *ImageUpdate) SetSize(v int) *ImageUpdate {
 	_u.mutation.ResetSize()
@@ -729,6 +749,12 @@ func (_u *ImageUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AiErrorCleared() {
 		_spec.ClearField(image.FieldAiError, field.TypeString)
+	}
+	if value, ok := _u.mutation.AiDescription(); ok {
+		_spec.SetField(image.FieldAiDescription, field.TypeString, value)
+	}
+	if _u.mutation.AiDescriptionCleared() {
+		_spec.ClearField(image.FieldAiDescription, field.TypeString)
 	}
 	if value, ok := _u.mutation.Size(); ok {
 		_spec.SetField(image.FieldSize, field.TypeInt, value)
@@ -1218,6 +1244,26 @@ func (_u *ImageUpdateOne) ClearAiError() *ImageUpdateOne {
 	return _u
 }
 
+// SetAiDescription sets the "aiDescription" field.
+func (_u *ImageUpdateOne) SetAiDescription(v string) *ImageUpdateOne {
+	_u.mutation.SetAiDescription(v)
+	return _u
+}
+
+// SetNillableAiDescription sets the "aiDescription" field if the given value is not nil.
+func (_u *ImageUpdateOne) SetNillableAiDescription(v *string) *ImageUpdateOne {
+	if v != nil {
+		_u.SetAiDescription(*v)
+	}
+	return _u
+}
+
+// ClearAiDescription clears the value of the "aiDescription" field.
+func (_u *ImageUpdateOne) ClearAiDescription() *ImageUpdateOne {
+	_u.mutation.ClearAiDescription()
+	return _u
+}
+
 // SetSize sets the "size" field.
 func (_u *ImageUpdateOne) SetSize(v int) *ImageUpdateOne {
 	_u.mutation.ResetSize()
@@ -1658,6 +1704,12 @@ func (_u *ImageUpdateOne) sqlSave(ctx context.Context) (_node *Image, err error)
 	}
 	if _u.mutation.AiErrorCleared() {
 		_spec.ClearField(image.FieldAiError, field.TypeString)
+	}
+	if value, ok := _u.mutation.AiDescription(); ok {
+		_spec.SetField(image.FieldAiDescription, field.TypeString, value)
+	}
+	if _u.mutation.AiDescriptionCleared() {
+		_spec.ClearField(image.FieldAiDescription, field.TypeString)
 	}
 	if value, ok := _u.mutation.Size(); ok {
 		_spec.SetField(image.FieldSize, field.TypeInt, value)

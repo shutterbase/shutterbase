@@ -115,6 +115,7 @@
           <p class="font-data text-sm text-primary-800 dark:text-primary-100">{{ aiStatusText }}</p>
         </div>
         <p v-if="item.aiStatus === 'error' && item.aiError" class="mt-1 truncate text-xs text-error-600 dark:text-error-400" :title="item.aiError">{{ item.aiError }}</p>
+        <p v-if="item.aiDescription" class="mt-2 text-sm leading-snug text-primary-700 dark:text-primary-200" data-testid="ai-description">{{ item.aiDescription }}</p>
         <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
           <p @click="() => emitter.emit('ai-toggle-faces')" class="text-sm font-medium text-accent-600 hover:text-accent-500 dark:text-accent-400 underline cursor-pointer">
             faces
