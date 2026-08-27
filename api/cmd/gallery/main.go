@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/minio/minio-go/v7"
 	"github.com/mxcd/go-config/config"
 	"github.com/rs/zerolog/log"
 
@@ -87,6 +88,13 @@ func main() {
 		})
 		if err != nil {
 			log.Panic().Err(err).Msg("error initializing gallery bucket client")
+		}
+		// Dev convenience: create the zip bucket when the key is allowed to
+		// (production keys are scoped to zips/ and just log the failure).
+		if ok, _ := zipBucket.Client.BucketExists(context.Background(), b); !ok {
+			if err := zipBucket.Client.MakeBucket(context.Background(), b, minio.MakeBucketOptions{}); err != nil {
+				log.Warn().Err(err).Str("bucket", b).Msg("zip bucket missing and could not be created")
+			}
 		}
 	}
 
