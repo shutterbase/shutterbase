@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,17 +15,6 @@ func (s *Server) registerProjectSettingsRoutes(api *gin.RouterGroup) {
 	api.PUT("/projects/:id/settings/mqtt", s.updateProjectMqttSettings)
 }
 
-type mqttSettingsResponse struct {
-	Broker          string      `json:"broker"`
-	ClientID        string      `json:"clientId"`
-	Username        string      `json:"username"`
-	Password        string      `json:"password"`
-	TopicPrefix     string      `json:"topicPrefix"`
-	WledDeviceTopic string      `json:"wledDeviceTopic"`
-	Events          mqttEvents  `json:"events"`
-	Presets         mqttPresets `json:"presets"`
-}
-
 type mqttEvents struct {
 	UploadCreated  bool `json:"uploadCreated"`
 	ImageUploaded  bool `json:"imageUploaded"`
@@ -35,7 +25,23 @@ type mqttEvents struct {
 	TagAssigned    bool `json:"tagAssigned"`
 }
 
-type mqttPresets struct {
+type wledCommand struct {
+	Preset *int    `json:"preset"`
+	Effect *int    `json:"effect"`
+	Raw    *string `json:"raw"`
+}
+
+type mqttWledCommands struct {
+	UploadCreated  wledCommand `json:"uploadCreated"`
+	ImageUploaded  wledCommand `json:"imageUploaded"`
+	Ready          wledCommand `json:"ready"`
+	Approved       wledCommand `json:"approved"`
+	Rejected       wledCommand `json:"rejected"`
+	ImageRejected  wledCommand `json:"imageRejected"`
+	TagAssigned    wledCommand `json:"tagAssigned"`
+}
+
+type mqttDurations struct {
 	UploadCreated  int `json:"uploadCreated"`
 	ImageUploaded  int `json:"imageUploaded"`
 	Ready          int `json:"ready"`
@@ -46,15 +52,18 @@ type mqttPresets struct {
 }
 
 type mqttSettingsUpdate struct {
-	Broker          *string      `json:"broker"`
-	ClientID        *string      `json:"clientId"`
-	Username        *string      `json:"username"`
-	Password        *string      `json:"password"`
-	TopicPrefix     *string      `json:"topicPrefix"`
-	WledDeviceTopic *string      `json:"wledDeviceTopic"`
-	Events          *mqttEvents  `json:"events"`
-	Presets         *mqttPresets `json:"presets"`
-	TriggerTags     *[]string    `json:"triggerTags"`
+	Broker          *string          `json:"broker"`
+	ClientID        *string          `json:"clientId"`
+	Username        *string          `json:"username"`
+	Password        *string          `json:"password"`
+	TopicPrefix     *string          `json:"topicPrefix"`
+	WledDeviceTopic *string          `json:"wledDeviceTopic"`
+	PublishEvents   *bool            `json:"publishEvents"`
+	WledControl     *bool            `json:"wledControl"`
+	Events          *mqttEvents      `json:"events"`
+	WledCommands    *mqttWledCommands `json:"wledCommands"`
+	Durations       *mqttDurations   `json:"durations"`
+	TriggerTags     *[]string        `json:"triggerTags"`
 }
 
 func (s *Server) getProjectMqttSettings(c *gin.Context) {
@@ -72,6 +81,15 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 	password, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.password")
 	topicPrefix, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.topicPrefix")
 	wledDeviceTopic, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wledDeviceTopic")
+
+	var publishEvents bool
+	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.publishEvents"); v == "true" {
+		publishEvents = true
+	}
+	var wledControl bool
+	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wledControl"); v == "true" {
+		wledControl = true
+	}
 
 	events := mqttEvents{}
 	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.event.uploadCreated"); v == "true" {
@@ -96,27 +114,43 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 		events.TagAssigned = true
 	}
 
-	presets := mqttPresets{}
-	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.preset.uploadCreated"); v != "" {
-		presets.UploadCreated = parseIntOrDefault(v)
+	eventNames := []string{"uploadCreated", "imageUploaded", "ready", "approved", "rejected", "imageRejected", "tagAssigned"}
+	wledCommands := mqttWledCommands{}
+	durations := mqttDurations{}
+	cmdMap := map[string]*wledCommand{
+		"uploadCreated": &wledCommands.UploadCreated,
+		"imageUploaded": &wledCommands.ImageUploaded,
+		"ready":         &wledCommands.Ready,
+		"approved":      &wledCommands.Approved,
+		"rejected":      &wledCommands.Rejected,
+		"imageRejected": &wledCommands.ImageRejected,
+		"tagAssigned":   &wledCommands.TagAssigned,
 	}
-	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.preset.imageUploaded"); v != "" {
-		presets.ImageUploaded = parseIntOrDefault(v)
+	durMap := map[string]*int{
+		"uploadCreated": &durations.UploadCreated,
+		"imageUploaded": &durations.ImageUploaded,
+		"ready":         &durations.Ready,
+		"approved":      &durations.Approved,
+		"rejected":      &durations.Rejected,
+		"imageRejected": &durations.ImageRejected,
+		"tagAssigned":   &durations.TagAssigned,
 	}
-	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.preset.ready"); v != "" {
-		presets.Ready = parseIntOrDefault(v)
-	}
-	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.preset.approved"); v != "" {
-		presets.Approved = parseIntOrDefault(v)
-	}
-	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.preset.rejected"); v != "" {
-		presets.Rejected = parseIntOrDefault(v)
-	}
-	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.preset.imageRejected"); v != "" {
-		presets.ImageRejected = parseIntOrDefault(v)
-	}
-	if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.preset.tagAssigned"); v != "" {
-		presets.TagAssigned = parseIntOrDefault(v)
+	for _, name := range eventNames {
+		if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+name+".preset"); v != "" {
+			n := parseIntOrDefault(v)
+			cmdMap[name].Preset = &n
+		}
+		if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+name+".effect"); v != "" {
+			n := parseIntOrDefault(v)
+			cmdMap[name].Effect = &n
+		}
+		if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+name+".raw"); v != "" {
+			cmdMap[name].Raw = &v
+		}
+		if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+name+".duration"); v != "" {
+			n := parseIntOrDefault(v)
+			*durMap[name] = n
+		}
 	}
 
 	triggerTagsRaw, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.triggerTags")
@@ -132,8 +166,11 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 		"password":        password,
 		"topicPrefix":     topicPrefix,
 		"wledDeviceTopic": wledDeviceTopic,
+		"publishEvents":   publishEvents,
+		"wledControl":     wledControl,
 		"events":          events,
-		"presets":         presets,
+		"wledCommands":    wledCommands,
+		"durations":       durations,
 		"triggerTags":     triggerTags,
 	})
 }
@@ -171,6 +208,19 @@ func (s *Server) updateProjectMqttSettings(c *gin.Context) {
 		}
 	}
 
+	if input.PublishEvents != nil {
+		if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.publishEvents", boolToStr(*input.PublishEvents)); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save publish events setting"})
+			return
+		}
+	}
+	if input.WledControl != nil {
+		if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.wledControl", boolToStr(*input.WledControl)); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save wled control setting"})
+			return
+		}
+	}
+
 	if input.Events != nil {
 		eventSettings := map[string]*string{
 			"mqtt.event.uploadCreated":  boolPtrToStr(&input.Events.UploadCreated),
@@ -191,22 +241,58 @@ func (s *Server) updateProjectMqttSettings(c *gin.Context) {
 		}
 	}
 
-	if input.Presets != nil {
-		presetSettings := map[string]*string{
-			"mqtt.preset.uploadCreated":  intPtrToStr(&input.Presets.UploadCreated),
-			"mqtt.preset.imageUploaded":  intPtrToStr(&input.Presets.ImageUploaded),
-			"mqtt.preset.ready":          intPtrToStr(&input.Presets.Ready),
-			"mqtt.preset.approved":       intPtrToStr(&input.Presets.Approved),
-			"mqtt.preset.rejected":       intPtrToStr(&input.Presets.Rejected),
-			"mqtt.preset.imageRejected":  intPtrToStr(&input.Presets.ImageRejected),
-			"mqtt.preset.tagAssigned":    intPtrToStr(&input.Presets.TagAssigned),
+	if input.WledCommands != nil {
+		eventNames := []string{"uploadCreated", "imageUploaded", "ready", "approved", "rejected", "imageRejected", "tagAssigned"}
+		cmdMap := map[string]wledCommand{
+			"uploadCreated": input.WledCommands.UploadCreated,
+			"imageUploaded": input.WledCommands.ImageUploaded,
+			"ready":         input.WledCommands.Ready,
+			"approved":      input.WledCommands.Approved,
+			"rejected":      input.WledCommands.Rejected,
+			"imageRejected": input.WledCommands.ImageRejected,
+			"tagAssigned":   input.WledCommands.TagAssigned,
 		}
-		for key, val := range presetSettings {
-			if val != nil {
-				if err := s.Repository.SetProjectSetting(ctx, projectID, key, *val); err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save preset setting"})
+		for _, name := range eventNames {
+			cmd := cmdMap[name]
+			if cmd.Raw != nil {
+				if !json.Valid([]byte(*cmd.Raw)) {
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid JSON for %s raw command", name)})
 					return
 				}
+				if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.wled."+name+".raw", *cmd.Raw); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save raw command"})
+					return
+				}
+			}
+			if cmd.Preset != nil {
+				if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.wled."+name+".preset", intToStr(*cmd.Preset)); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save preset"})
+					return
+				}
+			}
+			if cmd.Effect != nil {
+				if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.wled."+name+".effect", intToStr(*cmd.Effect)); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save effect"})
+					return
+				}
+			}
+		}
+	}
+
+	if input.Durations != nil {
+		durMap := map[string]*int{
+			"uploadCreated": &input.Durations.UploadCreated,
+			"imageUploaded": &input.Durations.ImageUploaded,
+			"ready":         &input.Durations.Ready,
+			"approved":      &input.Durations.Approved,
+			"rejected":      &input.Durations.Rejected,
+			"imageRejected": &input.Durations.ImageRejected,
+			"tagAssigned":   &input.Durations.TagAssigned,
+		}
+		for name, val := range durMap {
+			if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.wled."+name+".duration", intToStr(*val)); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save duration"})
+				return
 			}
 		}
 	}
@@ -237,12 +323,15 @@ func boolPtrToStr(b *bool) *string {
 	return &s
 }
 
-func intPtrToStr(i *int) *string {
-	if i == nil {
-		return nil
+func boolToStr(b bool) string {
+	if b {
+		return "true"
 	}
-	s := fmt.Sprintf("%d", *i)
-	return &s
+	return "false"
+}
+
+func intToStr(i int) string {
+	return fmt.Sprintf("%d", i)
 }
 
 func parseIntOrDefault(s string) int {

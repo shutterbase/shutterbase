@@ -254,14 +254,18 @@ func (s *Server) createUpload(c *gin.Context) {
 	}
 	// MQTT: publish upload created event if enabled.
 	if s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "uploadCreated") {
-		topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
-		preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, "uploadCreated")
-		s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/created", gin.H{
-			"uploadName": up.Name,
-			"userId":     userID,
-			"preset":     preset,
-		})
-		s.publishToWled(c.Request.Context(), up.ProjectID, preset)
+		ctx := c.Request.Context()
+		if s.isMqttPublishEventsEnabled(ctx, up.ProjectID) {
+			s.publishToProject(ctx, up.ProjectID, s.getMqttTopicPrefix(ctx, up.ProjectID)+"/"+up.ProjectID+"/upload/"+up.ID+"/created", gin.H{
+				"uploadName": up.Name,
+				"userId":     userID,
+			})
+		}
+		if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
+			wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, "uploadCreated")
+			duration := s.getMqttDuration(ctx, up.ProjectID, "uploadCreated")
+			s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
+		}
 	}
 	s.respondUpload(c, http.StatusCreated, up)
 }
@@ -328,16 +332,20 @@ func (s *Server) updateUpload(c *gin.Context) {
 			eventName = "rejected"
 		}
 		if eventName != "" && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, eventName) {
-			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
-			preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, eventName)
-			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/"+eventName, gin.H{
-				"uploadName": up.Name,
-				"oldState":   oldState,
-				"newState":   newState,
-				"userId":     authUser(c).ID,
-				"preset":     preset,
-			})
-			s.publishToWled(c.Request.Context(), up.ProjectID, preset)
+			ctx := c.Request.Context()
+			if s.isMqttPublishEventsEnabled(ctx, up.ProjectID) {
+				s.publishToProject(ctx, up.ProjectID, s.getMqttTopicPrefix(ctx, up.ProjectID)+"/"+up.ProjectID+"/upload/"+up.ID+"/"+eventName, gin.H{
+					"uploadName": up.Name,
+					"oldState":   oldState,
+					"newState":   newState,
+					"userId":     authUser(c).ID,
+				})
+			}
+			if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
+				wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, eventName)
+				duration := s.getMqttDuration(ctx, up.ProjectID, eventName)
+				s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
+			}
 		}
 	}
 	s.respondUpload(c, http.StatusOK, up)

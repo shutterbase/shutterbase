@@ -1,5 +1,11 @@
 import { http } from "src/boot/axios";
 
+export interface WledCommand {
+  preset?: number;
+  effect?: number;
+  raw?: string;
+}
+
 export interface MqttSettings {
   broker: string;
   clientId: string;
@@ -7,8 +13,11 @@ export interface MqttSettings {
   password: string;
   topicPrefix: string;
   wledDeviceTopic: string;
+  publishEvents: boolean;
+  wledControl: boolean;
   events: MqttEvents;
-  presets: MqttPresets;
+  wledCommands: MqttWledCommands;
+  durations: MqttDurations;
   triggerTags: string[];
 }
 
@@ -22,7 +31,17 @@ export interface MqttEvents {
   tagAssigned: boolean;
 }
 
-export interface MqttPresets {
+export interface MqttWledCommands {
+  uploadCreated: WledCommand;
+  imageUploaded: WledCommand;
+  ready: WledCommand;
+  approved: WledCommand;
+  rejected: WledCommand;
+  imageRejected: WledCommand;
+  tagAssigned: WledCommand;
+}
+
+export interface MqttDurations {
   uploadCreated: number;
   imageUploaded: number;
   ready: number;

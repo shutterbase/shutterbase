@@ -251,16 +251,20 @@ func (s *Server) createImage(c *gin.Context) {
 	}
 	// MQTT: publish image uploaded event if enabled.
 	if s.isMqttEventEnabled(c.Request.Context(), payload.ProjectID, "imageUploaded") {
-		topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), payload.ProjectID, "mqtt.topicPrefix")
-		preset := s.getMqttPreset(c.Request.Context(), payload.ProjectID, "imageUploaded")
-		s.mqtt.PublishToPrefix(topicPrefix, payload.ProjectID+"/upload/"+payload.UploadID+"/image-uploaded", gin.H{
-			"imageId":    img.ID,
-			"fileName":   img.ComputedFileName,
-			"uploadId":   payload.UploadID,
-			"userId":     util.GetUser(c.Request.Context()).ID,
-			"preset":     preset,
-		})
-		s.publishToWled(c.Request.Context(), payload.ProjectID, preset)
+		ctx := c.Request.Context()
+		if s.isMqttPublishEventsEnabled(ctx, payload.ProjectID) {
+			s.publishToProject(ctx, payload.ProjectID, s.getMqttTopicPrefix(ctx, payload.ProjectID)+"/"+payload.ProjectID+"/upload/"+payload.UploadID+"/image-uploaded", gin.H{
+				"imageId":    img.ID,
+				"fileName":   img.ComputedFileName,
+				"uploadId":   payload.UploadID,
+				"userId":     util.GetUser(ctx).ID,
+			})
+		}
+		if s.isMqttWledControlEnabled(ctx, payload.ProjectID) {
+			wledCmd := s.getMqttWledCommand(ctx, payload.ProjectID, "imageUploaded")
+			duration := s.getMqttDuration(ctx, payload.ProjectID, "imageUploaded")
+			s.publishToWled(ctx, payload.ProjectID, wledCmd, duration)
+		}
 	}
 	c.JSON(http.StatusCreated, ToImageResponse(c.Request.Context(), img, s.s3Client, s.thumbnailSizes))
 }

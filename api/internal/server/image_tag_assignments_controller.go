@@ -187,28 +187,36 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 		s.recordTaggingActivity(c, up)
 		// MQTT: publish image-rejected event when the reserved "rejected" tag is assigned.
 		if tag.Name == authorization.ReviewRejectedTagName && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "imageRejected") {
-			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
-			preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, "imageRejected")
-			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/image-rejected", gin.H{
-				"fileName":   img.ComputedFileName,
-				"imageId":    img.ID,
-				"rejectedBy": authUser(c).ID,
-				"preset":     preset,
-			})
-			s.publishToWled(c.Request.Context(), up.ProjectID, preset)
+			ctx := c.Request.Context()
+			if s.isMqttPublishEventsEnabled(ctx, up.ProjectID) {
+				s.publishToProject(ctx, up.ProjectID, s.getMqttTopicPrefix(ctx, up.ProjectID)+"/"+up.ProjectID+"/upload/"+up.ID+"/image-rejected", gin.H{
+					"fileName":   img.ComputedFileName,
+					"imageId":    img.ID,
+					"rejectedBy": authUser(c).ID,
+				})
+			}
+			if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
+				wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, "imageRejected")
+				duration := s.getMqttDuration(ctx, up.ProjectID, "imageRejected")
+				s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
+			}
 		}
 		// MQTT: publish tag-assigned event if this tag is in the trigger list.
 		if tag.Name != authorization.ReviewRejectedTagName && s.isMqttTagTrigger(c.Request.Context(), up.ProjectID, tag.Name) && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "tagAssigned") {
-			topicPrefix, _ := s.Repository.GetProjectSetting(c.Request.Context(), up.ProjectID, "mqtt.topicPrefix")
-			preset := s.getMqttPreset(c.Request.Context(), up.ProjectID, "tagAssigned")
-			s.mqtt.PublishToPrefix(topicPrefix, up.ProjectID+"/upload/"+up.ID+"/tag-assigned", gin.H{
-				"imageId":  img.ID,
-				"fileName": img.ComputedFileName,
-				"tagName":  tag.Name,
-				"userId":   authUser(c).ID,
-				"preset":   preset,
-			})
-			s.publishToWled(c.Request.Context(), up.ProjectID, preset)
+			ctx := c.Request.Context()
+			if s.isMqttPublishEventsEnabled(ctx, up.ProjectID) {
+				s.publishToProject(ctx, up.ProjectID, s.getMqttTopicPrefix(ctx, up.ProjectID)+"/"+up.ProjectID+"/upload/"+up.ID+"/tag-assigned", gin.H{
+					"imageId":  img.ID,
+					"fileName": img.ComputedFileName,
+					"tagName":  tag.Name,
+					"userId":   authUser(c).ID,
+				})
+			}
+			if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
+				wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, "tagAssigned")
+				duration := s.getMqttDuration(ctx, up.ProjectID, "tagAssigned")
+				s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
+			}
 		}
 	}
 	status := http.StatusOK // idempotent: existing pair -> 200
