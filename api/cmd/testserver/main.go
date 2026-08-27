@@ -19,6 +19,7 @@ import (
 	"github.com/shutterbase/shutterbase/internal/server"
 	"github.com/shutterbase/shutterbase/internal/util"
 	"github.com/shutterbase/shutterbase/test/harness"
+	galleryserver "github.com/shutterbase/shutterbase/test/harness/gallery"
 )
 
 func main() {
@@ -79,6 +80,21 @@ func main() {
 	go func() {
 		if err := srv.Run(); err != nil {
 			log.Fatal().Err(err).Msg("error running server")
+		}
+	}()
+
+	// The public gallery next to the API: GALLERY_PORT (default 8090), gallery
+	// key "e2e" (the Playwright gallery project creates/publishes it via the
+	// API), inline EXIF rendering and a zip bucket on the same S3 container.
+	galleryPort := 8090
+	if p := os.Getenv("GALLERY_PORT"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil {
+			galleryPort = v
+		}
+	}
+	go func() {
+		if err := galleryserver.Run(ctx, stack, galleryPort, "e2e"); err != nil {
+			log.Fatal().Err(err).Msg("error running gallery")
 		}
 	}()
 

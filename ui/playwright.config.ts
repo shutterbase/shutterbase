@@ -23,5 +23,14 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /gallery\// },
+    // The public gallery served by cmd/testserver on :8090 (GALLERY_PORT). Its
+    // specs publish through the shutterbase API on the SPA origin first.
+    {
+      name: "gallery",
+      testMatch: /gallery\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], baseURL: process.env.PLAYWRIGHT_GALLERY_URL || "http://localhost:8090" },
+    },
+  ],
 });

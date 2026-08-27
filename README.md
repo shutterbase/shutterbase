@@ -13,6 +13,27 @@ It allows to uploading, time-syncing, tagging and searching photos.
 - Object storage: S3 (RustFS locally)
 - Local photo processing: WASM written in Rust
 
+## Public gallery (`cmd/gallery`)
+
+A second binary in this repo serves the **public, white-label gallery** — the replacement
+for third-party photo hosts. It reads the same database under a read-only role, shows only
+images carrying the reserved `public` tag of projects published on a gallery, serves preview
+renditions via short-lived presigned URLs, and delivers EXIF-exported downloads (single files
+and bulk zips) through scalable exif workers. Everything visitor-facing (name, branding,
+theme, vocabulary, legal links) is configured in shutterbase under **Galleries** (platform
+admins); projects publish themselves in their settings (project admins).
+
+```sh
+# dev: needs `just up` (Postgres + RustFS) and a gallery created in the SPA
+cd api && just gallery-css && GALLERY_KEY=<key> just gallery-air   # http://localhost:8090
+```
+
+Key facts: `GALLERY_KEY` pins the deployment to one gallery row; `ROLE=web|worker`;
+`internal/gallery/policy` is the single publication rule set; `internal/gallery/db/roles.sql`
+documents the database roles and grants; `gallery migrate` applies the `gallery` schema with
+the owner credentials. The Docker image is the `gallery` target (`ghcr.io/shutterbase/gallery`,
+same tag as the server).
+
 ## Development
 ### Prerequisites
 To get started with development the following tools are required:

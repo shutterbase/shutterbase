@@ -1,3 +1,7 @@
+-- The owner role runs this; the schema is created here as well so a fresh
+-- database (tests, dev) needs nothing but the migration.
+CREATE SCHEMA IF NOT EXISTS gallery;
+
 -- gallery schema v1: public counters + bulk download jobs.
 CREATE TABLE IF NOT EXISTS gallery.image_stats (
   image_id       text PRIMARY KEY,
