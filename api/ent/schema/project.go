@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 )
 
 type Project struct{ ent.Schema }
@@ -34,6 +35,20 @@ func (Project) Fields() []ent.Field {
 		// calendar falls back to the schedule-item span, then the current week.
 		field.Time("startAt").Optional().Nillable().StructTag(`json:"startAt,omitempty"`),
 		field.Time("endAt").Optional().Nillable().StructTag(`json:"endAt,omitempty"`),
+
+		// Public gallery publication (see Gallery). gallery_id nil = not
+		// published. Everything else is the project's public presentation and
+		// is edited by a projectAdmin.
+		field.String("gallery_id").Optional().Nillable().StructTag(`json:"galleryId,omitempty"`),
+		field.String("gallerySlug").Optional().MaxLen(80).Match(GalleryKeyPattern).StructTag(`json:"gallerySlug,omitempty"`),
+		field.String("galleryTitle").Optional().StructTag(`json:"galleryTitle,omitempty"`),
+		field.String("galleryDescription").Optional().StructTag(`json:"galleryDescription,omitempty"`),
+		// Must be a public image of this project (validated in the controller).
+		field.String("galleryCoverImageId").Optional().StructTag(`json:"galleryCoverImageId,omitempty"`),
+		field.Time("galleryPublishedAt").Optional().Nillable().StructTag(`json:"galleryPublishedAt,omitempty"`),
+		// Tags shown as sections on the public project page; empty = every
+		// isAlbum tag.
+		field.JSON("galleryFeaturedTagIds", []string{}).Optional().Default([]string{}).StructTag(`json:"galleryFeaturedTagIds"`),
 	}
 }
 
@@ -46,5 +61,15 @@ func (Project) Edges() []ent.Edge {
 		edge.To("projectAssignments", ProjectAssignment.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("downloadConfigs", DownloadConfig.Type).Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.From("activeForUsers", User.Type).Ref("activeProject"),
+		edge.From("gallery", Gallery.Type).Ref("projects").Field("gallery_id").Unique().
+			Annotations(entsql.OnDelete(entsql.SetNull)),
+	}
+}
+
+func (Project) Indexes() []ent.Index {
+	return []ent.Index{
+		// A slug is unique within its gallery; unpublished projects (NULL
+		// gallery_id) never collide.
+		index.Fields("gallery_id", "gallerySlug").Unique(),
 	}
 }

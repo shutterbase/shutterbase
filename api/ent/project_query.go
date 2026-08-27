@@ -14,6 +14,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/shutterbase/shutterbase/ent/downloadconfig"
+	"github.com/shutterbase/shutterbase/ent/gallery"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/predicate"
@@ -38,6 +39,7 @@ type ProjectQuery struct {
 	withProjectAssignments *ProjectAssignmentQuery
 	withDownloadConfigs    *DownloadConfigQuery
 	withActiveForUsers     *UserQuery
+	withGallery            *GalleryQuery
 	modifiers              []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -222,6 +224,28 @@ func (_q *ProjectQuery) QueryActiveForUsers() *UserQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, project.ActiveForUsersTable, project.ActiveForUsersColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGallery chains the current query on the "gallery" edge.
+func (_q *ProjectQuery) QueryGallery() *GalleryQuery {
+	query := (&GalleryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(gallery.Table, gallery.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, project.GalleryTable, project.GalleryColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -428,6 +452,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withProjectAssignments: _q.withProjectAssignments.Clone(),
 		withDownloadConfigs:    _q.withDownloadConfigs.Clone(),
 		withActiveForUsers:     _q.withActiveForUsers.Clone(),
+		withGallery:            _q.withGallery.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -511,6 +536,17 @@ func (_q *ProjectQuery) WithActiveForUsers(opts ...func(*UserQuery)) *ProjectQue
 	return _q
 }
 
+// WithGallery tells the query-builder to eager-load the nodes that are connected to
+// the "gallery" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithGallery(opts ...func(*GalleryQuery)) *ProjectQuery {
+	query := (&GalleryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGallery = query
+	return _q
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -589,7 +625,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			_q.withUploads != nil,
 			_q.withImages != nil,
 			_q.withImageTags != nil,
@@ -597,6 +633,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withProjectAssignments != nil,
 			_q.withDownloadConfigs != nil,
 			_q.withActiveForUsers != nil,
+			_q.withGallery != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -668,6 +705,12 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadActiveForUsers(ctx, query, nodes,
 			func(n *Project) { n.Edges.ActiveForUsers = []*User{} },
 			func(n *Project, e *User) { n.Edges.ActiveForUsers = append(n.Edges.ActiveForUsers, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGallery; query != nil {
+		if err := _q.loadGallery(ctx, query, nodes, nil,
+			func(n *Project, e *Gallery) { n.Edges.Gallery = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -887,6 +930,38 @@ func (_q *ProjectQuery) loadActiveForUsers(ctx context.Context, query *UserQuery
 	}
 	return nil
 }
+func (_q *ProjectQuery) loadGallery(ctx context.Context, query *GalleryQuery, nodes []*Project, init func(*Project), assign func(*Project, *Gallery)) error {
+	ids := make([]string, 0, len(nodes))
+	nodeids := make(map[string][]*Project)
+	for i := range nodes {
+		if nodes[i].GalleryID == nil {
+			continue
+		}
+		fk := *nodes[i].GalleryID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(gallery.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "gallery_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 
 func (_q *ProjectQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
@@ -915,6 +990,9 @@ func (_q *ProjectQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != project.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withGallery != nil {
+			_spec.Node.AddColumnOnce(project.FieldGalleryID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
@@ -70,6 +71,69 @@ func (s *S3Client) GetSignedDownloadUrl(ctx context.Context, objectName string) 
 	}
 	s.DownloadUrlCache.Add(objectName, url.String())
 	return url.String(), nil
+}
+
+// GetObjectIds maps each requested thumbnail size to its S3 object key for a
+// storageId. Layout (SPEC §4.3): "XX/<storageId>.jpg" for size 0 ("original"),
+// "XX/<storageId>-<size>.jpg" otherwise, where XX = first two chars of storageId.
+// Size 0 is always included as the original alongside the passed sizes.
+func GetObjectIds(storageId string, sizes []int) map[int]string {
+	prefix := storageId
+	if len(storageId) > 2 {
+		prefix = storageId[:2]
+	}
+	keys := map[int]string{0: fmt.Sprintf("%s/%s.jpg", prefix, storageId)}
+	for _, size := range sizes {
+		keys[size] = fmt.Sprintf("%s/%s-%d.jpg", prefix, storageId, size)
+	}
+	return keys
+}
+
+// PresignGet mints an uncached presigned GET with the given expiry, optionally
+// forcing a download filename via response-content-disposition. Callers that
+// want memoization (the public gallery's short-lived preview URLs) keep their
+// own cache keyed by (object, expiry).
+func (s *S3Client) PresignGet(ctx context.Context, objectName string, expiry time.Duration, downloadName string) (string, error) {
+	params := make(map[string][]string)
+	if downloadName != "" {
+		params["response-content-disposition"] = []string{fmt.Sprintf("attachment; filename=%q", downloadName)}
+	}
+	url, err := s.Client.PresignedGetObject(ctx, s.Options.Bucket, objectName, expiry, params)
+	if err != nil {
+		return "", err
+	}
+	return url.String(), nil
+}
+
+// GetObjectToFile streams an object into path, capped at maxBytes (<= 0 is
+// uncapped), without holding it in memory. Returns ErrObjectTooLarge past the
+// cap; the partial file is removed on any error.
+func (s *S3Client) GetObjectToFile(ctx context.Context, objectName string, maxBytes int64, path string) (int64, error) {
+	obj, err := s.Client.GetObject(ctx, s.Options.Bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return 0, err
+	}
+	defer obj.Close()
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return 0, err
+	}
+	var r io.Reader = obj
+	if maxBytes > 0 {
+		r = io.LimitReader(obj, maxBytes+1)
+	}
+	n, err := io.Copy(f, r)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil && maxBytes > 0 && n > maxBytes {
+		err = ErrObjectTooLarge
+	}
+	if err != nil {
+		_ = os.Remove(path)
+		return 0, err
+	}
+	return n, nil
 }
 
 // GetObject reads an object into memory, capped at maxBytes (S10: a huge object

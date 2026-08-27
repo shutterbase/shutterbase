@@ -17,6 +17,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/downloadconfig"
+	"github.com/shutterbase/shutterbase/ent/gallery"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
@@ -45,6 +46,7 @@ const (
 	TypeAuditLog           = "AuditLog"
 	TypeCamera             = "Camera"
 	TypeDownloadConfig     = "DownloadConfig"
+	TypeGallery            = "Gallery"
 	TypeImage              = "Image"
 	TypeImageTag           = "ImageTag"
 	TypeImageTagAssignment = "ImageTagAssignment"
@@ -4319,6 +4321,1960 @@ func (m *DownloadConfigMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown DownloadConfig edge %s", name)
+}
+
+// GalleryMutation represents an operation that mutates the Gallery nodes in the graph.
+type GalleryMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *string
+	createdAt                *time.Time
+	updatedAt                *time.Time
+	createdBy                *uuid.UUID
+	updatedBy                *uuid.UUID
+	key                      *string
+	name                     *string
+	domain                   *string
+	tagline                  *string
+	aboutText                *string
+	footerText               *string
+	imprintUrl               *string
+	privacyUrl               *string
+	locale                   *gallery.Locale
+	labels                   *schema.GalleryLabels
+	theme                    *schema.GalleryTheme
+	socialLinks              *[]schema.SocialLink
+	appendsocialLinks        []schema.SocialLink
+	logoStorageId            *string
+	logoDarkStorageId        *string
+	faviconStorageId         *string
+	heroStorageId            *string
+	bulkDownloadEnabled      *bool
+	bulkDownloadMaxImages    *int
+	addbulkDownloadMaxImages *int
+	active                   *bool
+	clearedFields            map[string]struct{}
+	projects                 map[string]struct{}
+	removedprojects          map[string]struct{}
+	clearedprojects          bool
+	done                     bool
+	oldValue                 func(context.Context) (*Gallery, error)
+	predicates               []predicate.Gallery
+}
+
+var _ ent.Mutation = (*GalleryMutation)(nil)
+
+// galleryOption allows management of the mutation configuration using functional options.
+type galleryOption func(*GalleryMutation)
+
+// newGalleryMutation creates new mutation for the Gallery entity.
+func newGalleryMutation(c config, op Op, opts ...galleryOption) *GalleryMutation {
+	m := &GalleryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeGallery,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withGalleryID sets the ID field of the mutation.
+func withGalleryID(id string) galleryOption {
+	return func(m *GalleryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Gallery
+		)
+		m.oldValue = func(ctx context.Context) (*Gallery, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Gallery.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withGallery sets the old Gallery of the mutation.
+func withGallery(node *Gallery) galleryOption {
+	return func(m *GalleryMutation) {
+		m.oldValue = func(context.Context) (*Gallery, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m GalleryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m GalleryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of Gallery entities.
+func (m *GalleryMutation) SetID(id string) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *GalleryMutation) ID() (id string, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *GalleryMutation) IDs(ctx context.Context) ([]string, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []string{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Gallery.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "createdAt" field.
+func (m *GalleryMutation) SetCreatedAt(t time.Time) {
+	m.createdAt = &t
+}
+
+// CreatedAt returns the value of the "createdAt" field in the mutation.
+func (m *GalleryMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.createdAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "createdAt" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "createdAt" field.
+func (m *GalleryMutation) ResetCreatedAt() {
+	m.createdAt = nil
+}
+
+// SetUpdatedAt sets the "updatedAt" field.
+func (m *GalleryMutation) SetUpdatedAt(t time.Time) {
+	m.updatedAt = &t
+}
+
+// UpdatedAt returns the value of the "updatedAt" field in the mutation.
+func (m *GalleryMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updatedAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updatedAt" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updatedAt" field.
+func (m *GalleryMutation) ResetUpdatedAt() {
+	m.updatedAt = nil
+}
+
+// SetCreatedBy sets the "createdBy" field.
+func (m *GalleryMutation) SetCreatedBy(u uuid.UUID) {
+	m.createdBy = &u
+}
+
+// CreatedBy returns the value of the "createdBy" field in the mutation.
+func (m *GalleryMutation) CreatedBy() (r uuid.UUID, exists bool) {
+	v := m.createdBy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedBy returns the old "createdBy" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldCreatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedBy: %w", err)
+	}
+	return oldValue.CreatedBy, nil
+}
+
+// ClearCreatedBy clears the value of the "createdBy" field.
+func (m *GalleryMutation) ClearCreatedBy() {
+	m.createdBy = nil
+	m.clearedFields[gallery.FieldCreatedBy] = struct{}{}
+}
+
+// CreatedByCleared returns if the "createdBy" field was cleared in this mutation.
+func (m *GalleryMutation) CreatedByCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldCreatedBy]
+	return ok
+}
+
+// ResetCreatedBy resets all changes to the "createdBy" field.
+func (m *GalleryMutation) ResetCreatedBy() {
+	m.createdBy = nil
+	delete(m.clearedFields, gallery.FieldCreatedBy)
+}
+
+// SetUpdatedBy sets the "updatedBy" field.
+func (m *GalleryMutation) SetUpdatedBy(u uuid.UUID) {
+	m.updatedBy = &u
+}
+
+// UpdatedBy returns the value of the "updatedBy" field in the mutation.
+func (m *GalleryMutation) UpdatedBy() (r uuid.UUID, exists bool) {
+	v := m.updatedBy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedBy returns the old "updatedBy" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldUpdatedBy(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedBy: %w", err)
+	}
+	return oldValue.UpdatedBy, nil
+}
+
+// ClearUpdatedBy clears the value of the "updatedBy" field.
+func (m *GalleryMutation) ClearUpdatedBy() {
+	m.updatedBy = nil
+	m.clearedFields[gallery.FieldUpdatedBy] = struct{}{}
+}
+
+// UpdatedByCleared returns if the "updatedBy" field was cleared in this mutation.
+func (m *GalleryMutation) UpdatedByCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldUpdatedBy]
+	return ok
+}
+
+// ResetUpdatedBy resets all changes to the "updatedBy" field.
+func (m *GalleryMutation) ResetUpdatedBy() {
+	m.updatedBy = nil
+	delete(m.clearedFields, gallery.FieldUpdatedBy)
+}
+
+// SetKey sets the "key" field.
+func (m *GalleryMutation) SetKey(s string) {
+	m.key = &s
+}
+
+// Key returns the value of the "key" field in the mutation.
+func (m *GalleryMutation) Key() (r string, exists bool) {
+	v := m.key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKey returns the old "key" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKey: %w", err)
+	}
+	return oldValue.Key, nil
+}
+
+// ResetKey resets all changes to the "key" field.
+func (m *GalleryMutation) ResetKey() {
+	m.key = nil
+}
+
+// SetName sets the "name" field.
+func (m *GalleryMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *GalleryMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *GalleryMutation) ResetName() {
+	m.name = nil
+}
+
+// SetDomain sets the "domain" field.
+func (m *GalleryMutation) SetDomain(s string) {
+	m.domain = &s
+}
+
+// Domain returns the value of the "domain" field in the mutation.
+func (m *GalleryMutation) Domain() (r string, exists bool) {
+	v := m.domain
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDomain returns the old "domain" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldDomain(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDomain is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDomain requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDomain: %w", err)
+	}
+	return oldValue.Domain, nil
+}
+
+// ClearDomain clears the value of the "domain" field.
+func (m *GalleryMutation) ClearDomain() {
+	m.domain = nil
+	m.clearedFields[gallery.FieldDomain] = struct{}{}
+}
+
+// DomainCleared returns if the "domain" field was cleared in this mutation.
+func (m *GalleryMutation) DomainCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldDomain]
+	return ok
+}
+
+// ResetDomain resets all changes to the "domain" field.
+func (m *GalleryMutation) ResetDomain() {
+	m.domain = nil
+	delete(m.clearedFields, gallery.FieldDomain)
+}
+
+// SetTagline sets the "tagline" field.
+func (m *GalleryMutation) SetTagline(s string) {
+	m.tagline = &s
+}
+
+// Tagline returns the value of the "tagline" field in the mutation.
+func (m *GalleryMutation) Tagline() (r string, exists bool) {
+	v := m.tagline
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTagline returns the old "tagline" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldTagline(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTagline is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTagline requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTagline: %w", err)
+	}
+	return oldValue.Tagline, nil
+}
+
+// ClearTagline clears the value of the "tagline" field.
+func (m *GalleryMutation) ClearTagline() {
+	m.tagline = nil
+	m.clearedFields[gallery.FieldTagline] = struct{}{}
+}
+
+// TaglineCleared returns if the "tagline" field was cleared in this mutation.
+func (m *GalleryMutation) TaglineCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldTagline]
+	return ok
+}
+
+// ResetTagline resets all changes to the "tagline" field.
+func (m *GalleryMutation) ResetTagline() {
+	m.tagline = nil
+	delete(m.clearedFields, gallery.FieldTagline)
+}
+
+// SetAboutText sets the "aboutText" field.
+func (m *GalleryMutation) SetAboutText(s string) {
+	m.aboutText = &s
+}
+
+// AboutText returns the value of the "aboutText" field in the mutation.
+func (m *GalleryMutation) AboutText() (r string, exists bool) {
+	v := m.aboutText
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAboutText returns the old "aboutText" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldAboutText(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAboutText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAboutText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAboutText: %w", err)
+	}
+	return oldValue.AboutText, nil
+}
+
+// ClearAboutText clears the value of the "aboutText" field.
+func (m *GalleryMutation) ClearAboutText() {
+	m.aboutText = nil
+	m.clearedFields[gallery.FieldAboutText] = struct{}{}
+}
+
+// AboutTextCleared returns if the "aboutText" field was cleared in this mutation.
+func (m *GalleryMutation) AboutTextCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldAboutText]
+	return ok
+}
+
+// ResetAboutText resets all changes to the "aboutText" field.
+func (m *GalleryMutation) ResetAboutText() {
+	m.aboutText = nil
+	delete(m.clearedFields, gallery.FieldAboutText)
+}
+
+// SetFooterText sets the "footerText" field.
+func (m *GalleryMutation) SetFooterText(s string) {
+	m.footerText = &s
+}
+
+// FooterText returns the value of the "footerText" field in the mutation.
+func (m *GalleryMutation) FooterText() (r string, exists bool) {
+	v := m.footerText
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFooterText returns the old "footerText" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldFooterText(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFooterText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFooterText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFooterText: %w", err)
+	}
+	return oldValue.FooterText, nil
+}
+
+// ClearFooterText clears the value of the "footerText" field.
+func (m *GalleryMutation) ClearFooterText() {
+	m.footerText = nil
+	m.clearedFields[gallery.FieldFooterText] = struct{}{}
+}
+
+// FooterTextCleared returns if the "footerText" field was cleared in this mutation.
+func (m *GalleryMutation) FooterTextCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldFooterText]
+	return ok
+}
+
+// ResetFooterText resets all changes to the "footerText" field.
+func (m *GalleryMutation) ResetFooterText() {
+	m.footerText = nil
+	delete(m.clearedFields, gallery.FieldFooterText)
+}
+
+// SetImprintUrl sets the "imprintUrl" field.
+func (m *GalleryMutation) SetImprintUrl(s string) {
+	m.imprintUrl = &s
+}
+
+// ImprintUrl returns the value of the "imprintUrl" field in the mutation.
+func (m *GalleryMutation) ImprintUrl() (r string, exists bool) {
+	v := m.imprintUrl
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImprintUrl returns the old "imprintUrl" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldImprintUrl(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImprintUrl is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImprintUrl requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImprintUrl: %w", err)
+	}
+	return oldValue.ImprintUrl, nil
+}
+
+// ClearImprintUrl clears the value of the "imprintUrl" field.
+func (m *GalleryMutation) ClearImprintUrl() {
+	m.imprintUrl = nil
+	m.clearedFields[gallery.FieldImprintUrl] = struct{}{}
+}
+
+// ImprintUrlCleared returns if the "imprintUrl" field was cleared in this mutation.
+func (m *GalleryMutation) ImprintUrlCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldImprintUrl]
+	return ok
+}
+
+// ResetImprintUrl resets all changes to the "imprintUrl" field.
+func (m *GalleryMutation) ResetImprintUrl() {
+	m.imprintUrl = nil
+	delete(m.clearedFields, gallery.FieldImprintUrl)
+}
+
+// SetPrivacyUrl sets the "privacyUrl" field.
+func (m *GalleryMutation) SetPrivacyUrl(s string) {
+	m.privacyUrl = &s
+}
+
+// PrivacyUrl returns the value of the "privacyUrl" field in the mutation.
+func (m *GalleryMutation) PrivacyUrl() (r string, exists bool) {
+	v := m.privacyUrl
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPrivacyUrl returns the old "privacyUrl" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldPrivacyUrl(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPrivacyUrl is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPrivacyUrl requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPrivacyUrl: %w", err)
+	}
+	return oldValue.PrivacyUrl, nil
+}
+
+// ClearPrivacyUrl clears the value of the "privacyUrl" field.
+func (m *GalleryMutation) ClearPrivacyUrl() {
+	m.privacyUrl = nil
+	m.clearedFields[gallery.FieldPrivacyUrl] = struct{}{}
+}
+
+// PrivacyUrlCleared returns if the "privacyUrl" field was cleared in this mutation.
+func (m *GalleryMutation) PrivacyUrlCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldPrivacyUrl]
+	return ok
+}
+
+// ResetPrivacyUrl resets all changes to the "privacyUrl" field.
+func (m *GalleryMutation) ResetPrivacyUrl() {
+	m.privacyUrl = nil
+	delete(m.clearedFields, gallery.FieldPrivacyUrl)
+}
+
+// SetLocale sets the "locale" field.
+func (m *GalleryMutation) SetLocale(ga gallery.Locale) {
+	m.locale = &ga
+}
+
+// Locale returns the value of the "locale" field in the mutation.
+func (m *GalleryMutation) Locale() (r gallery.Locale, exists bool) {
+	v := m.locale
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLocale returns the old "locale" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldLocale(ctx context.Context) (v gallery.Locale, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLocale is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLocale requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLocale: %w", err)
+	}
+	return oldValue.Locale, nil
+}
+
+// ResetLocale resets all changes to the "locale" field.
+func (m *GalleryMutation) ResetLocale() {
+	m.locale = nil
+}
+
+// SetLabels sets the "labels" field.
+func (m *GalleryMutation) SetLabels(sl schema.GalleryLabels) {
+	m.labels = &sl
+}
+
+// Labels returns the value of the "labels" field in the mutation.
+func (m *GalleryMutation) Labels() (r schema.GalleryLabels, exists bool) {
+	v := m.labels
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLabels returns the old "labels" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldLabels(ctx context.Context) (v schema.GalleryLabels, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLabels is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLabels requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLabels: %w", err)
+	}
+	return oldValue.Labels, nil
+}
+
+// ClearLabels clears the value of the "labels" field.
+func (m *GalleryMutation) ClearLabels() {
+	m.labels = nil
+	m.clearedFields[gallery.FieldLabels] = struct{}{}
+}
+
+// LabelsCleared returns if the "labels" field was cleared in this mutation.
+func (m *GalleryMutation) LabelsCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldLabels]
+	return ok
+}
+
+// ResetLabels resets all changes to the "labels" field.
+func (m *GalleryMutation) ResetLabels() {
+	m.labels = nil
+	delete(m.clearedFields, gallery.FieldLabels)
+}
+
+// SetTheme sets the "theme" field.
+func (m *GalleryMutation) SetTheme(st schema.GalleryTheme) {
+	m.theme = &st
+}
+
+// Theme returns the value of the "theme" field in the mutation.
+func (m *GalleryMutation) Theme() (r schema.GalleryTheme, exists bool) {
+	v := m.theme
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTheme returns the old "theme" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldTheme(ctx context.Context) (v schema.GalleryTheme, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTheme is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTheme requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTheme: %w", err)
+	}
+	return oldValue.Theme, nil
+}
+
+// ClearTheme clears the value of the "theme" field.
+func (m *GalleryMutation) ClearTheme() {
+	m.theme = nil
+	m.clearedFields[gallery.FieldTheme] = struct{}{}
+}
+
+// ThemeCleared returns if the "theme" field was cleared in this mutation.
+func (m *GalleryMutation) ThemeCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldTheme]
+	return ok
+}
+
+// ResetTheme resets all changes to the "theme" field.
+func (m *GalleryMutation) ResetTheme() {
+	m.theme = nil
+	delete(m.clearedFields, gallery.FieldTheme)
+}
+
+// SetSocialLinks sets the "socialLinks" field.
+func (m *GalleryMutation) SetSocialLinks(sl []schema.SocialLink) {
+	m.socialLinks = &sl
+	m.appendsocialLinks = nil
+}
+
+// SocialLinks returns the value of the "socialLinks" field in the mutation.
+func (m *GalleryMutation) SocialLinks() (r []schema.SocialLink, exists bool) {
+	v := m.socialLinks
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSocialLinks returns the old "socialLinks" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldSocialLinks(ctx context.Context) (v []schema.SocialLink, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSocialLinks is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSocialLinks requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSocialLinks: %w", err)
+	}
+	return oldValue.SocialLinks, nil
+}
+
+// AppendSocialLinks adds sl to the "socialLinks" field.
+func (m *GalleryMutation) AppendSocialLinks(sl []schema.SocialLink) {
+	m.appendsocialLinks = append(m.appendsocialLinks, sl...)
+}
+
+// AppendedSocialLinks returns the list of values that were appended to the "socialLinks" field in this mutation.
+func (m *GalleryMutation) AppendedSocialLinks() ([]schema.SocialLink, bool) {
+	if len(m.appendsocialLinks) == 0 {
+		return nil, false
+	}
+	return m.appendsocialLinks, true
+}
+
+// ClearSocialLinks clears the value of the "socialLinks" field.
+func (m *GalleryMutation) ClearSocialLinks() {
+	m.socialLinks = nil
+	m.appendsocialLinks = nil
+	m.clearedFields[gallery.FieldSocialLinks] = struct{}{}
+}
+
+// SocialLinksCleared returns if the "socialLinks" field was cleared in this mutation.
+func (m *GalleryMutation) SocialLinksCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldSocialLinks]
+	return ok
+}
+
+// ResetSocialLinks resets all changes to the "socialLinks" field.
+func (m *GalleryMutation) ResetSocialLinks() {
+	m.socialLinks = nil
+	m.appendsocialLinks = nil
+	delete(m.clearedFields, gallery.FieldSocialLinks)
+}
+
+// SetLogoStorageId sets the "logoStorageId" field.
+func (m *GalleryMutation) SetLogoStorageId(s string) {
+	m.logoStorageId = &s
+}
+
+// LogoStorageId returns the value of the "logoStorageId" field in the mutation.
+func (m *GalleryMutation) LogoStorageId() (r string, exists bool) {
+	v := m.logoStorageId
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLogoStorageId returns the old "logoStorageId" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldLogoStorageId(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLogoStorageId is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLogoStorageId requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLogoStorageId: %w", err)
+	}
+	return oldValue.LogoStorageId, nil
+}
+
+// ClearLogoStorageId clears the value of the "logoStorageId" field.
+func (m *GalleryMutation) ClearLogoStorageId() {
+	m.logoStorageId = nil
+	m.clearedFields[gallery.FieldLogoStorageId] = struct{}{}
+}
+
+// LogoStorageIdCleared returns if the "logoStorageId" field was cleared in this mutation.
+func (m *GalleryMutation) LogoStorageIdCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldLogoStorageId]
+	return ok
+}
+
+// ResetLogoStorageId resets all changes to the "logoStorageId" field.
+func (m *GalleryMutation) ResetLogoStorageId() {
+	m.logoStorageId = nil
+	delete(m.clearedFields, gallery.FieldLogoStorageId)
+}
+
+// SetLogoDarkStorageId sets the "logoDarkStorageId" field.
+func (m *GalleryMutation) SetLogoDarkStorageId(s string) {
+	m.logoDarkStorageId = &s
+}
+
+// LogoDarkStorageId returns the value of the "logoDarkStorageId" field in the mutation.
+func (m *GalleryMutation) LogoDarkStorageId() (r string, exists bool) {
+	v := m.logoDarkStorageId
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLogoDarkStorageId returns the old "logoDarkStorageId" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldLogoDarkStorageId(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLogoDarkStorageId is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLogoDarkStorageId requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLogoDarkStorageId: %w", err)
+	}
+	return oldValue.LogoDarkStorageId, nil
+}
+
+// ClearLogoDarkStorageId clears the value of the "logoDarkStorageId" field.
+func (m *GalleryMutation) ClearLogoDarkStorageId() {
+	m.logoDarkStorageId = nil
+	m.clearedFields[gallery.FieldLogoDarkStorageId] = struct{}{}
+}
+
+// LogoDarkStorageIdCleared returns if the "logoDarkStorageId" field was cleared in this mutation.
+func (m *GalleryMutation) LogoDarkStorageIdCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldLogoDarkStorageId]
+	return ok
+}
+
+// ResetLogoDarkStorageId resets all changes to the "logoDarkStorageId" field.
+func (m *GalleryMutation) ResetLogoDarkStorageId() {
+	m.logoDarkStorageId = nil
+	delete(m.clearedFields, gallery.FieldLogoDarkStorageId)
+}
+
+// SetFaviconStorageId sets the "faviconStorageId" field.
+func (m *GalleryMutation) SetFaviconStorageId(s string) {
+	m.faviconStorageId = &s
+}
+
+// FaviconStorageId returns the value of the "faviconStorageId" field in the mutation.
+func (m *GalleryMutation) FaviconStorageId() (r string, exists bool) {
+	v := m.faviconStorageId
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFaviconStorageId returns the old "faviconStorageId" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldFaviconStorageId(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFaviconStorageId is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFaviconStorageId requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFaviconStorageId: %w", err)
+	}
+	return oldValue.FaviconStorageId, nil
+}
+
+// ClearFaviconStorageId clears the value of the "faviconStorageId" field.
+func (m *GalleryMutation) ClearFaviconStorageId() {
+	m.faviconStorageId = nil
+	m.clearedFields[gallery.FieldFaviconStorageId] = struct{}{}
+}
+
+// FaviconStorageIdCleared returns if the "faviconStorageId" field was cleared in this mutation.
+func (m *GalleryMutation) FaviconStorageIdCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldFaviconStorageId]
+	return ok
+}
+
+// ResetFaviconStorageId resets all changes to the "faviconStorageId" field.
+func (m *GalleryMutation) ResetFaviconStorageId() {
+	m.faviconStorageId = nil
+	delete(m.clearedFields, gallery.FieldFaviconStorageId)
+}
+
+// SetHeroStorageId sets the "heroStorageId" field.
+func (m *GalleryMutation) SetHeroStorageId(s string) {
+	m.heroStorageId = &s
+}
+
+// HeroStorageId returns the value of the "heroStorageId" field in the mutation.
+func (m *GalleryMutation) HeroStorageId() (r string, exists bool) {
+	v := m.heroStorageId
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHeroStorageId returns the old "heroStorageId" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldHeroStorageId(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHeroStorageId is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHeroStorageId requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHeroStorageId: %w", err)
+	}
+	return oldValue.HeroStorageId, nil
+}
+
+// ClearHeroStorageId clears the value of the "heroStorageId" field.
+func (m *GalleryMutation) ClearHeroStorageId() {
+	m.heroStorageId = nil
+	m.clearedFields[gallery.FieldHeroStorageId] = struct{}{}
+}
+
+// HeroStorageIdCleared returns if the "heroStorageId" field was cleared in this mutation.
+func (m *GalleryMutation) HeroStorageIdCleared() bool {
+	_, ok := m.clearedFields[gallery.FieldHeroStorageId]
+	return ok
+}
+
+// ResetHeroStorageId resets all changes to the "heroStorageId" field.
+func (m *GalleryMutation) ResetHeroStorageId() {
+	m.heroStorageId = nil
+	delete(m.clearedFields, gallery.FieldHeroStorageId)
+}
+
+// SetBulkDownloadEnabled sets the "bulkDownloadEnabled" field.
+func (m *GalleryMutation) SetBulkDownloadEnabled(b bool) {
+	m.bulkDownloadEnabled = &b
+}
+
+// BulkDownloadEnabled returns the value of the "bulkDownloadEnabled" field in the mutation.
+func (m *GalleryMutation) BulkDownloadEnabled() (r bool, exists bool) {
+	v := m.bulkDownloadEnabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBulkDownloadEnabled returns the old "bulkDownloadEnabled" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldBulkDownloadEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBulkDownloadEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBulkDownloadEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBulkDownloadEnabled: %w", err)
+	}
+	return oldValue.BulkDownloadEnabled, nil
+}
+
+// ResetBulkDownloadEnabled resets all changes to the "bulkDownloadEnabled" field.
+func (m *GalleryMutation) ResetBulkDownloadEnabled() {
+	m.bulkDownloadEnabled = nil
+}
+
+// SetBulkDownloadMaxImages sets the "bulkDownloadMaxImages" field.
+func (m *GalleryMutation) SetBulkDownloadMaxImages(i int) {
+	m.bulkDownloadMaxImages = &i
+	m.addbulkDownloadMaxImages = nil
+}
+
+// BulkDownloadMaxImages returns the value of the "bulkDownloadMaxImages" field in the mutation.
+func (m *GalleryMutation) BulkDownloadMaxImages() (r int, exists bool) {
+	v := m.bulkDownloadMaxImages
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBulkDownloadMaxImages returns the old "bulkDownloadMaxImages" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldBulkDownloadMaxImages(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBulkDownloadMaxImages is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBulkDownloadMaxImages requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBulkDownloadMaxImages: %w", err)
+	}
+	return oldValue.BulkDownloadMaxImages, nil
+}
+
+// AddBulkDownloadMaxImages adds i to the "bulkDownloadMaxImages" field.
+func (m *GalleryMutation) AddBulkDownloadMaxImages(i int) {
+	if m.addbulkDownloadMaxImages != nil {
+		*m.addbulkDownloadMaxImages += i
+	} else {
+		m.addbulkDownloadMaxImages = &i
+	}
+}
+
+// AddedBulkDownloadMaxImages returns the value that was added to the "bulkDownloadMaxImages" field in this mutation.
+func (m *GalleryMutation) AddedBulkDownloadMaxImages() (r int, exists bool) {
+	v := m.addbulkDownloadMaxImages
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBulkDownloadMaxImages resets all changes to the "bulkDownloadMaxImages" field.
+func (m *GalleryMutation) ResetBulkDownloadMaxImages() {
+	m.bulkDownloadMaxImages = nil
+	m.addbulkDownloadMaxImages = nil
+}
+
+// SetActive sets the "active" field.
+func (m *GalleryMutation) SetActive(b bool) {
+	m.active = &b
+}
+
+// Active returns the value of the "active" field in the mutation.
+func (m *GalleryMutation) Active() (r bool, exists bool) {
+	v := m.active
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActive returns the old "active" field's value of the Gallery entity.
+// If the Gallery object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GalleryMutation) OldActive(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActive is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActive requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActive: %w", err)
+	}
+	return oldValue.Active, nil
+}
+
+// ResetActive resets all changes to the "active" field.
+func (m *GalleryMutation) ResetActive() {
+	m.active = nil
+}
+
+// AddProjectIDs adds the "projects" edge to the Project entity by ids.
+func (m *GalleryMutation) AddProjectIDs(ids ...string) {
+	if m.projects == nil {
+		m.projects = make(map[string]struct{})
+	}
+	for i := range ids {
+		m.projects[ids[i]] = struct{}{}
+	}
+}
+
+// ClearProjects clears the "projects" edge to the Project entity.
+func (m *GalleryMutation) ClearProjects() {
+	m.clearedprojects = true
+}
+
+// ProjectsCleared reports if the "projects" edge to the Project entity was cleared.
+func (m *GalleryMutation) ProjectsCleared() bool {
+	return m.clearedprojects
+}
+
+// RemoveProjectIDs removes the "projects" edge to the Project entity by IDs.
+func (m *GalleryMutation) RemoveProjectIDs(ids ...string) {
+	if m.removedprojects == nil {
+		m.removedprojects = make(map[string]struct{})
+	}
+	for i := range ids {
+		delete(m.projects, ids[i])
+		m.removedprojects[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedProjects returns the removed IDs of the "projects" edge to the Project entity.
+func (m *GalleryMutation) RemovedProjectsIDs() (ids []string) {
+	for id := range m.removedprojects {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ProjectsIDs returns the "projects" edge IDs in the mutation.
+func (m *GalleryMutation) ProjectsIDs() (ids []string) {
+	for id := range m.projects {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetProjects resets all changes to the "projects" edge.
+func (m *GalleryMutation) ResetProjects() {
+	m.projects = nil
+	m.clearedprojects = false
+	m.removedprojects = nil
+}
+
+// Where appends a list predicates to the GalleryMutation builder.
+func (m *GalleryMutation) Where(ps ...predicate.Gallery) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the GalleryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *GalleryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Gallery, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *GalleryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *GalleryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Gallery).
+func (m *GalleryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *GalleryMutation) Fields() []string {
+	fields := make([]string, 0, 23)
+	if m.createdAt != nil {
+		fields = append(fields, gallery.FieldCreatedAt)
+	}
+	if m.updatedAt != nil {
+		fields = append(fields, gallery.FieldUpdatedAt)
+	}
+	if m.createdBy != nil {
+		fields = append(fields, gallery.FieldCreatedBy)
+	}
+	if m.updatedBy != nil {
+		fields = append(fields, gallery.FieldUpdatedBy)
+	}
+	if m.key != nil {
+		fields = append(fields, gallery.FieldKey)
+	}
+	if m.name != nil {
+		fields = append(fields, gallery.FieldName)
+	}
+	if m.domain != nil {
+		fields = append(fields, gallery.FieldDomain)
+	}
+	if m.tagline != nil {
+		fields = append(fields, gallery.FieldTagline)
+	}
+	if m.aboutText != nil {
+		fields = append(fields, gallery.FieldAboutText)
+	}
+	if m.footerText != nil {
+		fields = append(fields, gallery.FieldFooterText)
+	}
+	if m.imprintUrl != nil {
+		fields = append(fields, gallery.FieldImprintUrl)
+	}
+	if m.privacyUrl != nil {
+		fields = append(fields, gallery.FieldPrivacyUrl)
+	}
+	if m.locale != nil {
+		fields = append(fields, gallery.FieldLocale)
+	}
+	if m.labels != nil {
+		fields = append(fields, gallery.FieldLabels)
+	}
+	if m.theme != nil {
+		fields = append(fields, gallery.FieldTheme)
+	}
+	if m.socialLinks != nil {
+		fields = append(fields, gallery.FieldSocialLinks)
+	}
+	if m.logoStorageId != nil {
+		fields = append(fields, gallery.FieldLogoStorageId)
+	}
+	if m.logoDarkStorageId != nil {
+		fields = append(fields, gallery.FieldLogoDarkStorageId)
+	}
+	if m.faviconStorageId != nil {
+		fields = append(fields, gallery.FieldFaviconStorageId)
+	}
+	if m.heroStorageId != nil {
+		fields = append(fields, gallery.FieldHeroStorageId)
+	}
+	if m.bulkDownloadEnabled != nil {
+		fields = append(fields, gallery.FieldBulkDownloadEnabled)
+	}
+	if m.bulkDownloadMaxImages != nil {
+		fields = append(fields, gallery.FieldBulkDownloadMaxImages)
+	}
+	if m.active != nil {
+		fields = append(fields, gallery.FieldActive)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *GalleryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case gallery.FieldCreatedAt:
+		return m.CreatedAt()
+	case gallery.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case gallery.FieldCreatedBy:
+		return m.CreatedBy()
+	case gallery.FieldUpdatedBy:
+		return m.UpdatedBy()
+	case gallery.FieldKey:
+		return m.Key()
+	case gallery.FieldName:
+		return m.Name()
+	case gallery.FieldDomain:
+		return m.Domain()
+	case gallery.FieldTagline:
+		return m.Tagline()
+	case gallery.FieldAboutText:
+		return m.AboutText()
+	case gallery.FieldFooterText:
+		return m.FooterText()
+	case gallery.FieldImprintUrl:
+		return m.ImprintUrl()
+	case gallery.FieldPrivacyUrl:
+		return m.PrivacyUrl()
+	case gallery.FieldLocale:
+		return m.Locale()
+	case gallery.FieldLabels:
+		return m.Labels()
+	case gallery.FieldTheme:
+		return m.Theme()
+	case gallery.FieldSocialLinks:
+		return m.SocialLinks()
+	case gallery.FieldLogoStorageId:
+		return m.LogoStorageId()
+	case gallery.FieldLogoDarkStorageId:
+		return m.LogoDarkStorageId()
+	case gallery.FieldFaviconStorageId:
+		return m.FaviconStorageId()
+	case gallery.FieldHeroStorageId:
+		return m.HeroStorageId()
+	case gallery.FieldBulkDownloadEnabled:
+		return m.BulkDownloadEnabled()
+	case gallery.FieldBulkDownloadMaxImages:
+		return m.BulkDownloadMaxImages()
+	case gallery.FieldActive:
+		return m.Active()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *GalleryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case gallery.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case gallery.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case gallery.FieldCreatedBy:
+		return m.OldCreatedBy(ctx)
+	case gallery.FieldUpdatedBy:
+		return m.OldUpdatedBy(ctx)
+	case gallery.FieldKey:
+		return m.OldKey(ctx)
+	case gallery.FieldName:
+		return m.OldName(ctx)
+	case gallery.FieldDomain:
+		return m.OldDomain(ctx)
+	case gallery.FieldTagline:
+		return m.OldTagline(ctx)
+	case gallery.FieldAboutText:
+		return m.OldAboutText(ctx)
+	case gallery.FieldFooterText:
+		return m.OldFooterText(ctx)
+	case gallery.FieldImprintUrl:
+		return m.OldImprintUrl(ctx)
+	case gallery.FieldPrivacyUrl:
+		return m.OldPrivacyUrl(ctx)
+	case gallery.FieldLocale:
+		return m.OldLocale(ctx)
+	case gallery.FieldLabels:
+		return m.OldLabels(ctx)
+	case gallery.FieldTheme:
+		return m.OldTheme(ctx)
+	case gallery.FieldSocialLinks:
+		return m.OldSocialLinks(ctx)
+	case gallery.FieldLogoStorageId:
+		return m.OldLogoStorageId(ctx)
+	case gallery.FieldLogoDarkStorageId:
+		return m.OldLogoDarkStorageId(ctx)
+	case gallery.FieldFaviconStorageId:
+		return m.OldFaviconStorageId(ctx)
+	case gallery.FieldHeroStorageId:
+		return m.OldHeroStorageId(ctx)
+	case gallery.FieldBulkDownloadEnabled:
+		return m.OldBulkDownloadEnabled(ctx)
+	case gallery.FieldBulkDownloadMaxImages:
+		return m.OldBulkDownloadMaxImages(ctx)
+	case gallery.FieldActive:
+		return m.OldActive(ctx)
+	}
+	return nil, fmt.Errorf("unknown Gallery field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GalleryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case gallery.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case gallery.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case gallery.FieldCreatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedBy(v)
+		return nil
+	case gallery.FieldUpdatedBy:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedBy(v)
+		return nil
+	case gallery.FieldKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKey(v)
+		return nil
+	case gallery.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case gallery.FieldDomain:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDomain(v)
+		return nil
+	case gallery.FieldTagline:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTagline(v)
+		return nil
+	case gallery.FieldAboutText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAboutText(v)
+		return nil
+	case gallery.FieldFooterText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFooterText(v)
+		return nil
+	case gallery.FieldImprintUrl:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImprintUrl(v)
+		return nil
+	case gallery.FieldPrivacyUrl:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPrivacyUrl(v)
+		return nil
+	case gallery.FieldLocale:
+		v, ok := value.(gallery.Locale)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLocale(v)
+		return nil
+	case gallery.FieldLabels:
+		v, ok := value.(schema.GalleryLabels)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLabels(v)
+		return nil
+	case gallery.FieldTheme:
+		v, ok := value.(schema.GalleryTheme)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTheme(v)
+		return nil
+	case gallery.FieldSocialLinks:
+		v, ok := value.([]schema.SocialLink)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSocialLinks(v)
+		return nil
+	case gallery.FieldLogoStorageId:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLogoStorageId(v)
+		return nil
+	case gallery.FieldLogoDarkStorageId:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLogoDarkStorageId(v)
+		return nil
+	case gallery.FieldFaviconStorageId:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFaviconStorageId(v)
+		return nil
+	case gallery.FieldHeroStorageId:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHeroStorageId(v)
+		return nil
+	case gallery.FieldBulkDownloadEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBulkDownloadEnabled(v)
+		return nil
+	case gallery.FieldBulkDownloadMaxImages:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBulkDownloadMaxImages(v)
+		return nil
+	case gallery.FieldActive:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActive(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Gallery field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *GalleryMutation) AddedFields() []string {
+	var fields []string
+	if m.addbulkDownloadMaxImages != nil {
+		fields = append(fields, gallery.FieldBulkDownloadMaxImages)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *GalleryMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case gallery.FieldBulkDownloadMaxImages:
+		return m.AddedBulkDownloadMaxImages()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GalleryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case gallery.FieldBulkDownloadMaxImages:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBulkDownloadMaxImages(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Gallery numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *GalleryMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(gallery.FieldCreatedBy) {
+		fields = append(fields, gallery.FieldCreatedBy)
+	}
+	if m.FieldCleared(gallery.FieldUpdatedBy) {
+		fields = append(fields, gallery.FieldUpdatedBy)
+	}
+	if m.FieldCleared(gallery.FieldDomain) {
+		fields = append(fields, gallery.FieldDomain)
+	}
+	if m.FieldCleared(gallery.FieldTagline) {
+		fields = append(fields, gallery.FieldTagline)
+	}
+	if m.FieldCleared(gallery.FieldAboutText) {
+		fields = append(fields, gallery.FieldAboutText)
+	}
+	if m.FieldCleared(gallery.FieldFooterText) {
+		fields = append(fields, gallery.FieldFooterText)
+	}
+	if m.FieldCleared(gallery.FieldImprintUrl) {
+		fields = append(fields, gallery.FieldImprintUrl)
+	}
+	if m.FieldCleared(gallery.FieldPrivacyUrl) {
+		fields = append(fields, gallery.FieldPrivacyUrl)
+	}
+	if m.FieldCleared(gallery.FieldLabels) {
+		fields = append(fields, gallery.FieldLabels)
+	}
+	if m.FieldCleared(gallery.FieldTheme) {
+		fields = append(fields, gallery.FieldTheme)
+	}
+	if m.FieldCleared(gallery.FieldSocialLinks) {
+		fields = append(fields, gallery.FieldSocialLinks)
+	}
+	if m.FieldCleared(gallery.FieldLogoStorageId) {
+		fields = append(fields, gallery.FieldLogoStorageId)
+	}
+	if m.FieldCleared(gallery.FieldLogoDarkStorageId) {
+		fields = append(fields, gallery.FieldLogoDarkStorageId)
+	}
+	if m.FieldCleared(gallery.FieldFaviconStorageId) {
+		fields = append(fields, gallery.FieldFaviconStorageId)
+	}
+	if m.FieldCleared(gallery.FieldHeroStorageId) {
+		fields = append(fields, gallery.FieldHeroStorageId)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *GalleryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *GalleryMutation) ClearField(name string) error {
+	switch name {
+	case gallery.FieldCreatedBy:
+		m.ClearCreatedBy()
+		return nil
+	case gallery.FieldUpdatedBy:
+		m.ClearUpdatedBy()
+		return nil
+	case gallery.FieldDomain:
+		m.ClearDomain()
+		return nil
+	case gallery.FieldTagline:
+		m.ClearTagline()
+		return nil
+	case gallery.FieldAboutText:
+		m.ClearAboutText()
+		return nil
+	case gallery.FieldFooterText:
+		m.ClearFooterText()
+		return nil
+	case gallery.FieldImprintUrl:
+		m.ClearImprintUrl()
+		return nil
+	case gallery.FieldPrivacyUrl:
+		m.ClearPrivacyUrl()
+		return nil
+	case gallery.FieldLabels:
+		m.ClearLabels()
+		return nil
+	case gallery.FieldTheme:
+		m.ClearTheme()
+		return nil
+	case gallery.FieldSocialLinks:
+		m.ClearSocialLinks()
+		return nil
+	case gallery.FieldLogoStorageId:
+		m.ClearLogoStorageId()
+		return nil
+	case gallery.FieldLogoDarkStorageId:
+		m.ClearLogoDarkStorageId()
+		return nil
+	case gallery.FieldFaviconStorageId:
+		m.ClearFaviconStorageId()
+		return nil
+	case gallery.FieldHeroStorageId:
+		m.ClearHeroStorageId()
+		return nil
+	}
+	return fmt.Errorf("unknown Gallery nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *GalleryMutation) ResetField(name string) error {
+	switch name {
+	case gallery.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case gallery.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case gallery.FieldCreatedBy:
+		m.ResetCreatedBy()
+		return nil
+	case gallery.FieldUpdatedBy:
+		m.ResetUpdatedBy()
+		return nil
+	case gallery.FieldKey:
+		m.ResetKey()
+		return nil
+	case gallery.FieldName:
+		m.ResetName()
+		return nil
+	case gallery.FieldDomain:
+		m.ResetDomain()
+		return nil
+	case gallery.FieldTagline:
+		m.ResetTagline()
+		return nil
+	case gallery.FieldAboutText:
+		m.ResetAboutText()
+		return nil
+	case gallery.FieldFooterText:
+		m.ResetFooterText()
+		return nil
+	case gallery.FieldImprintUrl:
+		m.ResetImprintUrl()
+		return nil
+	case gallery.FieldPrivacyUrl:
+		m.ResetPrivacyUrl()
+		return nil
+	case gallery.FieldLocale:
+		m.ResetLocale()
+		return nil
+	case gallery.FieldLabels:
+		m.ResetLabels()
+		return nil
+	case gallery.FieldTheme:
+		m.ResetTheme()
+		return nil
+	case gallery.FieldSocialLinks:
+		m.ResetSocialLinks()
+		return nil
+	case gallery.FieldLogoStorageId:
+		m.ResetLogoStorageId()
+		return nil
+	case gallery.FieldLogoDarkStorageId:
+		m.ResetLogoDarkStorageId()
+		return nil
+	case gallery.FieldFaviconStorageId:
+		m.ResetFaviconStorageId()
+		return nil
+	case gallery.FieldHeroStorageId:
+		m.ResetHeroStorageId()
+		return nil
+	case gallery.FieldBulkDownloadEnabled:
+		m.ResetBulkDownloadEnabled()
+		return nil
+	case gallery.FieldBulkDownloadMaxImages:
+		m.ResetBulkDownloadMaxImages()
+		return nil
+	case gallery.FieldActive:
+		m.ResetActive()
+		return nil
+	}
+	return fmt.Errorf("unknown Gallery field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *GalleryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.projects != nil {
+		edges = append(edges, gallery.EdgeProjects)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *GalleryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case gallery.EdgeProjects:
+		ids := make([]ent.Value, 0, len(m.projects))
+		for id := range m.projects {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *GalleryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.removedprojects != nil {
+		edges = append(edges, gallery.EdgeProjects)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *GalleryMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case gallery.EdgeProjects:
+		ids := make([]ent.Value, 0, len(m.removedprojects))
+		for id := range m.removedprojects {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *GalleryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedprojects {
+		edges = append(edges, gallery.EdgeProjects)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *GalleryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case gallery.EdgeProjects:
+		return m.clearedprojects
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *GalleryMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Gallery unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *GalleryMutation) ResetEdge(name string) error {
+	switch name {
+	case gallery.EdgeProjects:
+		m.ResetProjects()
+		return nil
+	}
+	return fmt.Errorf("unknown Gallery edge %s", name)
 }
 
 // ImageMutation represents an operation that mutates the Image nodes in the graph.
@@ -9465,50 +11421,59 @@ func (m *PersonNameMutation) ResetEdge(name string) error {
 // ProjectMutation represents an operation that mutates the Project nodes in the graph.
 type ProjectMutation struct {
 	config
-	op                        Op
-	typ                       string
-	id                        *string
-	createdAt                 *time.Time
-	updatedAt                 *time.Time
-	createdBy                 *uuid.UUID
-	updatedBy                 *uuid.UUID
-	name                      *string
-	description               *string
-	copyright                 *string
-	copyrightReference        *string
-	copyrightTagPrefix        *string
-	locationName              *string
-	locationCode              *string
-	locationCity              *string
-	aiSystemMessage           *string
-	uploadReviewEnabled       *bool
-	startAt                   *time.Time
-	endAt                     *time.Time
-	clearedFields             map[string]struct{}
-	uploads                   map[string]struct{}
-	removeduploads            map[string]struct{}
-	cleareduploads            bool
-	images                    map[string]struct{}
-	removedimages             map[string]struct{}
-	clearedimages             bool
-	imageTags                 map[string]struct{}
-	removedimageTags          map[string]struct{}
-	clearedimageTags          bool
-	scheduleItems             map[string]struct{}
-	removedscheduleItems      map[string]struct{}
-	clearedscheduleItems      bool
-	projectAssignments        map[string]struct{}
-	removedprojectAssignments map[string]struct{}
-	clearedprojectAssignments bool
-	downloadConfigs           map[string]struct{}
-	removeddownloadConfigs    map[string]struct{}
-	cleareddownloadConfigs    bool
-	activeForUsers            map[uuid.UUID]struct{}
-	removedactiveForUsers     map[uuid.UUID]struct{}
-	clearedactiveForUsers     bool
-	done                      bool
-	oldValue                  func(context.Context) (*Project, error)
-	predicates                []predicate.Project
+	op                          Op
+	typ                         string
+	id                          *string
+	createdAt                   *time.Time
+	updatedAt                   *time.Time
+	createdBy                   *uuid.UUID
+	updatedBy                   *uuid.UUID
+	name                        *string
+	description                 *string
+	copyright                   *string
+	copyrightReference          *string
+	copyrightTagPrefix          *string
+	locationName                *string
+	locationCode                *string
+	locationCity                *string
+	aiSystemMessage             *string
+	uploadReviewEnabled         *bool
+	startAt                     *time.Time
+	endAt                       *time.Time
+	gallerySlug                 *string
+	galleryTitle                *string
+	galleryDescription          *string
+	galleryCoverImageId         *string
+	galleryPublishedAt          *time.Time
+	galleryFeaturedTagIds       *[]string
+	appendgalleryFeaturedTagIds []string
+	clearedFields               map[string]struct{}
+	uploads                     map[string]struct{}
+	removeduploads              map[string]struct{}
+	cleareduploads              bool
+	images                      map[string]struct{}
+	removedimages               map[string]struct{}
+	clearedimages               bool
+	imageTags                   map[string]struct{}
+	removedimageTags            map[string]struct{}
+	clearedimageTags            bool
+	scheduleItems               map[string]struct{}
+	removedscheduleItems        map[string]struct{}
+	clearedscheduleItems        bool
+	projectAssignments          map[string]struct{}
+	removedprojectAssignments   map[string]struct{}
+	clearedprojectAssignments   bool
+	downloadConfigs             map[string]struct{}
+	removeddownloadConfigs      map[string]struct{}
+	cleareddownloadConfigs      bool
+	activeForUsers              map[uuid.UUID]struct{}
+	removedactiveForUsers       map[uuid.UUID]struct{}
+	clearedactiveForUsers       bool
+	gallery                     *string
+	clearedgallery              bool
+	done                        bool
+	oldValue                    func(context.Context) (*Project, error)
+	predicates                  []predicate.Project
 }
 
 var _ ent.Mutation = (*ProjectMutation)(nil)
@@ -10269,6 +12234,365 @@ func (m *ProjectMutation) ResetEndAt() {
 	delete(m.clearedFields, project.FieldEndAt)
 }
 
+// SetGalleryID sets the "gallery_id" field.
+func (m *ProjectMutation) SetGalleryID(s string) {
+	m.gallery = &s
+}
+
+// GalleryID returns the value of the "gallery_id" field in the mutation.
+func (m *ProjectMutation) GalleryID() (r string, exists bool) {
+	v := m.gallery
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGalleryID returns the old "gallery_id" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGalleryID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGalleryID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGalleryID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGalleryID: %w", err)
+	}
+	return oldValue.GalleryID, nil
+}
+
+// ClearGalleryID clears the value of the "gallery_id" field.
+func (m *ProjectMutation) ClearGalleryID() {
+	m.gallery = nil
+	m.clearedFields[project.FieldGalleryID] = struct{}{}
+}
+
+// GalleryIDCleared returns if the "gallery_id" field was cleared in this mutation.
+func (m *ProjectMutation) GalleryIDCleared() bool {
+	_, ok := m.clearedFields[project.FieldGalleryID]
+	return ok
+}
+
+// ResetGalleryID resets all changes to the "gallery_id" field.
+func (m *ProjectMutation) ResetGalleryID() {
+	m.gallery = nil
+	delete(m.clearedFields, project.FieldGalleryID)
+}
+
+// SetGallerySlug sets the "gallerySlug" field.
+func (m *ProjectMutation) SetGallerySlug(s string) {
+	m.gallerySlug = &s
+}
+
+// GallerySlug returns the value of the "gallerySlug" field in the mutation.
+func (m *ProjectMutation) GallerySlug() (r string, exists bool) {
+	v := m.gallerySlug
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGallerySlug returns the old "gallerySlug" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGallerySlug(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGallerySlug is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGallerySlug requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGallerySlug: %w", err)
+	}
+	return oldValue.GallerySlug, nil
+}
+
+// ClearGallerySlug clears the value of the "gallerySlug" field.
+func (m *ProjectMutation) ClearGallerySlug() {
+	m.gallerySlug = nil
+	m.clearedFields[project.FieldGallerySlug] = struct{}{}
+}
+
+// GallerySlugCleared returns if the "gallerySlug" field was cleared in this mutation.
+func (m *ProjectMutation) GallerySlugCleared() bool {
+	_, ok := m.clearedFields[project.FieldGallerySlug]
+	return ok
+}
+
+// ResetGallerySlug resets all changes to the "gallerySlug" field.
+func (m *ProjectMutation) ResetGallerySlug() {
+	m.gallerySlug = nil
+	delete(m.clearedFields, project.FieldGallerySlug)
+}
+
+// SetGalleryTitle sets the "galleryTitle" field.
+func (m *ProjectMutation) SetGalleryTitle(s string) {
+	m.galleryTitle = &s
+}
+
+// GalleryTitle returns the value of the "galleryTitle" field in the mutation.
+func (m *ProjectMutation) GalleryTitle() (r string, exists bool) {
+	v := m.galleryTitle
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGalleryTitle returns the old "galleryTitle" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGalleryTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGalleryTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGalleryTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGalleryTitle: %w", err)
+	}
+	return oldValue.GalleryTitle, nil
+}
+
+// ClearGalleryTitle clears the value of the "galleryTitle" field.
+func (m *ProjectMutation) ClearGalleryTitle() {
+	m.galleryTitle = nil
+	m.clearedFields[project.FieldGalleryTitle] = struct{}{}
+}
+
+// GalleryTitleCleared returns if the "galleryTitle" field was cleared in this mutation.
+func (m *ProjectMutation) GalleryTitleCleared() bool {
+	_, ok := m.clearedFields[project.FieldGalleryTitle]
+	return ok
+}
+
+// ResetGalleryTitle resets all changes to the "galleryTitle" field.
+func (m *ProjectMutation) ResetGalleryTitle() {
+	m.galleryTitle = nil
+	delete(m.clearedFields, project.FieldGalleryTitle)
+}
+
+// SetGalleryDescription sets the "galleryDescription" field.
+func (m *ProjectMutation) SetGalleryDescription(s string) {
+	m.galleryDescription = &s
+}
+
+// GalleryDescription returns the value of the "galleryDescription" field in the mutation.
+func (m *ProjectMutation) GalleryDescription() (r string, exists bool) {
+	v := m.galleryDescription
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGalleryDescription returns the old "galleryDescription" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGalleryDescription(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGalleryDescription is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGalleryDescription requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGalleryDescription: %w", err)
+	}
+	return oldValue.GalleryDescription, nil
+}
+
+// ClearGalleryDescription clears the value of the "galleryDescription" field.
+func (m *ProjectMutation) ClearGalleryDescription() {
+	m.galleryDescription = nil
+	m.clearedFields[project.FieldGalleryDescription] = struct{}{}
+}
+
+// GalleryDescriptionCleared returns if the "galleryDescription" field was cleared in this mutation.
+func (m *ProjectMutation) GalleryDescriptionCleared() bool {
+	_, ok := m.clearedFields[project.FieldGalleryDescription]
+	return ok
+}
+
+// ResetGalleryDescription resets all changes to the "galleryDescription" field.
+func (m *ProjectMutation) ResetGalleryDescription() {
+	m.galleryDescription = nil
+	delete(m.clearedFields, project.FieldGalleryDescription)
+}
+
+// SetGalleryCoverImageId sets the "galleryCoverImageId" field.
+func (m *ProjectMutation) SetGalleryCoverImageId(s string) {
+	m.galleryCoverImageId = &s
+}
+
+// GalleryCoverImageId returns the value of the "galleryCoverImageId" field in the mutation.
+func (m *ProjectMutation) GalleryCoverImageId() (r string, exists bool) {
+	v := m.galleryCoverImageId
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGalleryCoverImageId returns the old "galleryCoverImageId" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGalleryCoverImageId(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGalleryCoverImageId is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGalleryCoverImageId requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGalleryCoverImageId: %w", err)
+	}
+	return oldValue.GalleryCoverImageId, nil
+}
+
+// ClearGalleryCoverImageId clears the value of the "galleryCoverImageId" field.
+func (m *ProjectMutation) ClearGalleryCoverImageId() {
+	m.galleryCoverImageId = nil
+	m.clearedFields[project.FieldGalleryCoverImageId] = struct{}{}
+}
+
+// GalleryCoverImageIdCleared returns if the "galleryCoverImageId" field was cleared in this mutation.
+func (m *ProjectMutation) GalleryCoverImageIdCleared() bool {
+	_, ok := m.clearedFields[project.FieldGalleryCoverImageId]
+	return ok
+}
+
+// ResetGalleryCoverImageId resets all changes to the "galleryCoverImageId" field.
+func (m *ProjectMutation) ResetGalleryCoverImageId() {
+	m.galleryCoverImageId = nil
+	delete(m.clearedFields, project.FieldGalleryCoverImageId)
+}
+
+// SetGalleryPublishedAt sets the "galleryPublishedAt" field.
+func (m *ProjectMutation) SetGalleryPublishedAt(t time.Time) {
+	m.galleryPublishedAt = &t
+}
+
+// GalleryPublishedAt returns the value of the "galleryPublishedAt" field in the mutation.
+func (m *ProjectMutation) GalleryPublishedAt() (r time.Time, exists bool) {
+	v := m.galleryPublishedAt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGalleryPublishedAt returns the old "galleryPublishedAt" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGalleryPublishedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGalleryPublishedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGalleryPublishedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGalleryPublishedAt: %w", err)
+	}
+	return oldValue.GalleryPublishedAt, nil
+}
+
+// ClearGalleryPublishedAt clears the value of the "galleryPublishedAt" field.
+func (m *ProjectMutation) ClearGalleryPublishedAt() {
+	m.galleryPublishedAt = nil
+	m.clearedFields[project.FieldGalleryPublishedAt] = struct{}{}
+}
+
+// GalleryPublishedAtCleared returns if the "galleryPublishedAt" field was cleared in this mutation.
+func (m *ProjectMutation) GalleryPublishedAtCleared() bool {
+	_, ok := m.clearedFields[project.FieldGalleryPublishedAt]
+	return ok
+}
+
+// ResetGalleryPublishedAt resets all changes to the "galleryPublishedAt" field.
+func (m *ProjectMutation) ResetGalleryPublishedAt() {
+	m.galleryPublishedAt = nil
+	delete(m.clearedFields, project.FieldGalleryPublishedAt)
+}
+
+// SetGalleryFeaturedTagIds sets the "galleryFeaturedTagIds" field.
+func (m *ProjectMutation) SetGalleryFeaturedTagIds(s []string) {
+	m.galleryFeaturedTagIds = &s
+	m.appendgalleryFeaturedTagIds = nil
+}
+
+// GalleryFeaturedTagIds returns the value of the "galleryFeaturedTagIds" field in the mutation.
+func (m *ProjectMutation) GalleryFeaturedTagIds() (r []string, exists bool) {
+	v := m.galleryFeaturedTagIds
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGalleryFeaturedTagIds returns the old "galleryFeaturedTagIds" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldGalleryFeaturedTagIds(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGalleryFeaturedTagIds is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGalleryFeaturedTagIds requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGalleryFeaturedTagIds: %w", err)
+	}
+	return oldValue.GalleryFeaturedTagIds, nil
+}
+
+// AppendGalleryFeaturedTagIds adds s to the "galleryFeaturedTagIds" field.
+func (m *ProjectMutation) AppendGalleryFeaturedTagIds(s []string) {
+	m.appendgalleryFeaturedTagIds = append(m.appendgalleryFeaturedTagIds, s...)
+}
+
+// AppendedGalleryFeaturedTagIds returns the list of values that were appended to the "galleryFeaturedTagIds" field in this mutation.
+func (m *ProjectMutation) AppendedGalleryFeaturedTagIds() ([]string, bool) {
+	if len(m.appendgalleryFeaturedTagIds) == 0 {
+		return nil, false
+	}
+	return m.appendgalleryFeaturedTagIds, true
+}
+
+// ClearGalleryFeaturedTagIds clears the value of the "galleryFeaturedTagIds" field.
+func (m *ProjectMutation) ClearGalleryFeaturedTagIds() {
+	m.galleryFeaturedTagIds = nil
+	m.appendgalleryFeaturedTagIds = nil
+	m.clearedFields[project.FieldGalleryFeaturedTagIds] = struct{}{}
+}
+
+// GalleryFeaturedTagIdsCleared returns if the "galleryFeaturedTagIds" field was cleared in this mutation.
+func (m *ProjectMutation) GalleryFeaturedTagIdsCleared() bool {
+	_, ok := m.clearedFields[project.FieldGalleryFeaturedTagIds]
+	return ok
+}
+
+// ResetGalleryFeaturedTagIds resets all changes to the "galleryFeaturedTagIds" field.
+func (m *ProjectMutation) ResetGalleryFeaturedTagIds() {
+	m.galleryFeaturedTagIds = nil
+	m.appendgalleryFeaturedTagIds = nil
+	delete(m.clearedFields, project.FieldGalleryFeaturedTagIds)
+}
+
 // AddUploadIDs adds the "uploads" edge to the Upload entity by ids.
 func (m *ProjectMutation) AddUploadIDs(ids ...string) {
 	if m.uploads == nil {
@@ -10647,6 +12971,33 @@ func (m *ProjectMutation) ResetActiveForUsers() {
 	m.removedactiveForUsers = nil
 }
 
+// ClearGallery clears the "gallery" edge to the Gallery entity.
+func (m *ProjectMutation) ClearGallery() {
+	m.clearedgallery = true
+	m.clearedFields[project.FieldGalleryID] = struct{}{}
+}
+
+// GalleryCleared reports if the "gallery" edge to the Gallery entity was cleared.
+func (m *ProjectMutation) GalleryCleared() bool {
+	return m.GalleryIDCleared() || m.clearedgallery
+}
+
+// GalleryIDs returns the "gallery" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// GalleryID instead. It exists only for internal usage by the builders.
+func (m *ProjectMutation) GalleryIDs() (ids []string) {
+	if id := m.gallery; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetGallery resets all changes to the "gallery" edge.
+func (m *ProjectMutation) ResetGallery() {
+	m.gallery = nil
+	m.clearedgallery = false
+}
+
 // Where appends a list predicates to the ProjectMutation builder.
 func (m *ProjectMutation) Where(ps ...predicate.Project) {
 	m.predicates = append(m.predicates, ps...)
@@ -10681,7 +13032,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 16)
+	fields := make([]string, 0, 23)
 	if m.createdAt != nil {
 		fields = append(fields, project.FieldCreatedAt)
 	}
@@ -10730,6 +13081,27 @@ func (m *ProjectMutation) Fields() []string {
 	if m.endAt != nil {
 		fields = append(fields, project.FieldEndAt)
 	}
+	if m.gallery != nil {
+		fields = append(fields, project.FieldGalleryID)
+	}
+	if m.gallerySlug != nil {
+		fields = append(fields, project.FieldGallerySlug)
+	}
+	if m.galleryTitle != nil {
+		fields = append(fields, project.FieldGalleryTitle)
+	}
+	if m.galleryDescription != nil {
+		fields = append(fields, project.FieldGalleryDescription)
+	}
+	if m.galleryCoverImageId != nil {
+		fields = append(fields, project.FieldGalleryCoverImageId)
+	}
+	if m.galleryPublishedAt != nil {
+		fields = append(fields, project.FieldGalleryPublishedAt)
+	}
+	if m.galleryFeaturedTagIds != nil {
+		fields = append(fields, project.FieldGalleryFeaturedTagIds)
+	}
 	return fields
 }
 
@@ -10770,6 +13142,20 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.StartAt()
 	case project.FieldEndAt:
 		return m.EndAt()
+	case project.FieldGalleryID:
+		return m.GalleryID()
+	case project.FieldGallerySlug:
+		return m.GallerySlug()
+	case project.FieldGalleryTitle:
+		return m.GalleryTitle()
+	case project.FieldGalleryDescription:
+		return m.GalleryDescription()
+	case project.FieldGalleryCoverImageId:
+		return m.GalleryCoverImageId()
+	case project.FieldGalleryPublishedAt:
+		return m.GalleryPublishedAt()
+	case project.FieldGalleryFeaturedTagIds:
+		return m.GalleryFeaturedTagIds()
 	}
 	return nil, false
 }
@@ -10811,6 +13197,20 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldStartAt(ctx)
 	case project.FieldEndAt:
 		return m.OldEndAt(ctx)
+	case project.FieldGalleryID:
+		return m.OldGalleryID(ctx)
+	case project.FieldGallerySlug:
+		return m.OldGallerySlug(ctx)
+	case project.FieldGalleryTitle:
+		return m.OldGalleryTitle(ctx)
+	case project.FieldGalleryDescription:
+		return m.OldGalleryDescription(ctx)
+	case project.FieldGalleryCoverImageId:
+		return m.OldGalleryCoverImageId(ctx)
+	case project.FieldGalleryPublishedAt:
+		return m.OldGalleryPublishedAt(ctx)
+	case project.FieldGalleryFeaturedTagIds:
+		return m.OldGalleryFeaturedTagIds(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -10932,6 +13332,55 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetEndAt(v)
 		return nil
+	case project.FieldGalleryID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGalleryID(v)
+		return nil
+	case project.FieldGallerySlug:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGallerySlug(v)
+		return nil
+	case project.FieldGalleryTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGalleryTitle(v)
+		return nil
+	case project.FieldGalleryDescription:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGalleryDescription(v)
+		return nil
+	case project.FieldGalleryCoverImageId:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGalleryCoverImageId(v)
+		return nil
+	case project.FieldGalleryPublishedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGalleryPublishedAt(v)
+		return nil
+	case project.FieldGalleryFeaturedTagIds:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGalleryFeaturedTagIds(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -10980,6 +13429,27 @@ func (m *ProjectMutation) ClearedFields() []string {
 	if m.FieldCleared(project.FieldEndAt) {
 		fields = append(fields, project.FieldEndAt)
 	}
+	if m.FieldCleared(project.FieldGalleryID) {
+		fields = append(fields, project.FieldGalleryID)
+	}
+	if m.FieldCleared(project.FieldGallerySlug) {
+		fields = append(fields, project.FieldGallerySlug)
+	}
+	if m.FieldCleared(project.FieldGalleryTitle) {
+		fields = append(fields, project.FieldGalleryTitle)
+	}
+	if m.FieldCleared(project.FieldGalleryDescription) {
+		fields = append(fields, project.FieldGalleryDescription)
+	}
+	if m.FieldCleared(project.FieldGalleryCoverImageId) {
+		fields = append(fields, project.FieldGalleryCoverImageId)
+	}
+	if m.FieldCleared(project.FieldGalleryPublishedAt) {
+		fields = append(fields, project.FieldGalleryPublishedAt)
+	}
+	if m.FieldCleared(project.FieldGalleryFeaturedTagIds) {
+		fields = append(fields, project.FieldGalleryFeaturedTagIds)
+	}
 	return fields
 }
 
@@ -11011,6 +13481,27 @@ func (m *ProjectMutation) ClearField(name string) error {
 		return nil
 	case project.FieldEndAt:
 		m.ClearEndAt()
+		return nil
+	case project.FieldGalleryID:
+		m.ClearGalleryID()
+		return nil
+	case project.FieldGallerySlug:
+		m.ClearGallerySlug()
+		return nil
+	case project.FieldGalleryTitle:
+		m.ClearGalleryTitle()
+		return nil
+	case project.FieldGalleryDescription:
+		m.ClearGalleryDescription()
+		return nil
+	case project.FieldGalleryCoverImageId:
+		m.ClearGalleryCoverImageId()
+		return nil
+	case project.FieldGalleryPublishedAt:
+		m.ClearGalleryPublishedAt()
+		return nil
+	case project.FieldGalleryFeaturedTagIds:
+		m.ClearGalleryFeaturedTagIds()
 		return nil
 	}
 	return fmt.Errorf("unknown Project nullable field %s", name)
@@ -11068,13 +13559,34 @@ func (m *ProjectMutation) ResetField(name string) error {
 	case project.FieldEndAt:
 		m.ResetEndAt()
 		return nil
+	case project.FieldGalleryID:
+		m.ResetGalleryID()
+		return nil
+	case project.FieldGallerySlug:
+		m.ResetGallerySlug()
+		return nil
+	case project.FieldGalleryTitle:
+		m.ResetGalleryTitle()
+		return nil
+	case project.FieldGalleryDescription:
+		m.ResetGalleryDescription()
+		return nil
+	case project.FieldGalleryCoverImageId:
+		m.ResetGalleryCoverImageId()
+		return nil
+	case project.FieldGalleryPublishedAt:
+		m.ResetGalleryPublishedAt()
+		return nil
+	case project.FieldGalleryFeaturedTagIds:
+		m.ResetGalleryFeaturedTagIds()
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.uploads != nil {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -11095,6 +13607,9 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.activeForUsers != nil {
 		edges = append(edges, project.EdgeActiveForUsers)
+	}
+	if m.gallery != nil {
+		edges = append(edges, project.EdgeGallery)
 	}
 	return edges
 }
@@ -11145,13 +13660,17 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeGallery:
+		if id := m.gallery; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.removeduploads != nil {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -11228,7 +13747,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.cleareduploads {
 		edges = append(edges, project.EdgeUploads)
 	}
@@ -11249,6 +13768,9 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	}
 	if m.clearedactiveForUsers {
 		edges = append(edges, project.EdgeActiveForUsers)
+	}
+	if m.clearedgallery {
+		edges = append(edges, project.EdgeGallery)
 	}
 	return edges
 }
@@ -11271,6 +13793,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.cleareddownloadConfigs
 	case project.EdgeActiveForUsers:
 		return m.clearedactiveForUsers
+	case project.EdgeGallery:
+		return m.clearedgallery
 	}
 	return false
 }
@@ -11279,6 +13803,9 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 // if that edge is not defined in the schema.
 func (m *ProjectMutation) ClearEdge(name string) error {
 	switch name {
+	case project.EdgeGallery:
+		m.ClearGallery()
+		return nil
 	}
 	return fmt.Errorf("unknown Project unique edge %s", name)
 }
@@ -11307,6 +13834,9 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeActiveForUsers:
 		m.ResetActiveForUsers()
+		return nil
+	case project.EdgeGallery:
+		m.ResetGallery()
 		return nil
 	}
 	return fmt.Errorf("unknown Project edge %s", name)

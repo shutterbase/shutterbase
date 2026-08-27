@@ -141,10 +141,10 @@ func (s *Server) createImageTag(c *gin.Context) {
 	if !allow(c, authorization.CanCreateImageTag(authUser(c), payload.ProjectID, string(t))) {
 		return
 	}
-	// The review tags are reserved: a photographer must not be able to mint
-	// (or later rename a tag into) a name only a reviewer may assign.
-	if authorization.IsReviewerOnlyTag(payload.Name) &&
-		!allow(c, authorization.CanDeleteImageTag(authUser(c), payload.ProjectID)) {
+	// Reserved names (public/internal/error/rejected) carry system meaning: a
+	// photographer must not be able to mint (or later rename a tag into) one.
+	if authorization.IsReservedTag(payload.Name) &&
+		!allow(c, authorization.CanManageReservedTag(authUser(c), payload.ProjectID)) {
 		return
 	}
 	if !validTagOrder(c, payload.Order, false) {
@@ -218,10 +218,10 @@ func (s *Server) updateImageTag(c *gin.Context) {
 	if !allow(c, authorization.CanEditImageTag(authUser(c), existing.ProjectID, resultingType)) {
 		return
 	}
-	// Renaming into (or out of) a reserved review tag name is a reviewer-only
-	// move — see createImageTag.
-	if payload.Name != nil && (authorization.IsReviewerOnlyTag(*payload.Name) || authorization.IsReviewerOnlyTag(existing.Name)) &&
-		!allow(c, authorization.CanDeleteImageTag(authUser(c), existing.ProjectID)) {
+	// Renaming into (or out of) a reserved name is a projectAdmin-only move —
+	// see createImageTag.
+	if payload.Name != nil && (authorization.IsReservedTag(*payload.Name) || authorization.IsReservedTag(existing.Name)) &&
+		!allow(c, authorization.CanManageReservedTag(authUser(c), existing.ProjectID)) {
 		return
 	}
 	item, err := s.Repository.UpdateImageTag(c.Request.Context(), id, params)

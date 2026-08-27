@@ -10,6 +10,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/downloadconfig"
+	"github.com/shutterbase/shutterbase/ent/gallery"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
@@ -186,6 +187,70 @@ func init() {
 	downloadconfig.DefaultID = downloadconfigDescID.Default.(func() string)
 	// downloadconfig.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	downloadconfig.IDValidator = downloadconfigDescID.Validators[0].(func(string) error)
+	galleryMixin := schema.Gallery{}.Mixin()
+	galleryMixinFields0 := galleryMixin[0].Fields()
+	_ = galleryMixinFields0
+	galleryMixinFields1 := galleryMixin[1].Fields()
+	_ = galleryMixinFields1
+	galleryFields := schema.Gallery{}.Fields()
+	_ = galleryFields
+	// galleryDescCreatedAt is the schema descriptor for createdAt field.
+	galleryDescCreatedAt := galleryMixinFields1[0].Descriptor()
+	// gallery.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	gallery.DefaultCreatedAt = galleryDescCreatedAt.Default.(func() time.Time)
+	// galleryDescUpdatedAt is the schema descriptor for updatedAt field.
+	galleryDescUpdatedAt := galleryMixinFields1[1].Descriptor()
+	// gallery.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	gallery.DefaultUpdatedAt = galleryDescUpdatedAt.Default.(func() time.Time)
+	// gallery.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	gallery.UpdateDefaultUpdatedAt = galleryDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// galleryDescKey is the schema descriptor for key field.
+	galleryDescKey := galleryFields[0].Descriptor()
+	// gallery.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	gallery.KeyValidator = func() func(string) error {
+		validators := galleryDescKey.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(key string) error {
+			for _, fn := range fns {
+				if err := fn(key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// galleryDescName is the schema descriptor for name field.
+	galleryDescName := galleryFields[1].Descriptor()
+	// gallery.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	gallery.NameValidator = galleryDescName.Validators[0].(func(string) error)
+	// galleryDescSocialLinks is the schema descriptor for socialLinks field.
+	galleryDescSocialLinks := galleryFields[11].Descriptor()
+	// gallery.DefaultSocialLinks holds the default value on creation for the socialLinks field.
+	gallery.DefaultSocialLinks = galleryDescSocialLinks.Default.([]schema.SocialLink)
+	// galleryDescBulkDownloadEnabled is the schema descriptor for bulkDownloadEnabled field.
+	galleryDescBulkDownloadEnabled := galleryFields[16].Descriptor()
+	// gallery.DefaultBulkDownloadEnabled holds the default value on creation for the bulkDownloadEnabled field.
+	gallery.DefaultBulkDownloadEnabled = galleryDescBulkDownloadEnabled.Default.(bool)
+	// galleryDescBulkDownloadMaxImages is the schema descriptor for bulkDownloadMaxImages field.
+	galleryDescBulkDownloadMaxImages := galleryFields[17].Descriptor()
+	// gallery.DefaultBulkDownloadMaxImages holds the default value on creation for the bulkDownloadMaxImages field.
+	gallery.DefaultBulkDownloadMaxImages = galleryDescBulkDownloadMaxImages.Default.(int)
+	// gallery.BulkDownloadMaxImagesValidator is a validator for the "bulkDownloadMaxImages" field. It is called by the builders before save.
+	gallery.BulkDownloadMaxImagesValidator = galleryDescBulkDownloadMaxImages.Validators[0].(func(int) error)
+	// galleryDescActive is the schema descriptor for active field.
+	galleryDescActive := galleryFields[18].Descriptor()
+	// gallery.DefaultActive holds the default value on creation for the active field.
+	gallery.DefaultActive = galleryDescActive.Default.(bool)
+	// galleryDescID is the schema descriptor for id field.
+	galleryDescID := galleryMixinFields0[0].Descriptor()
+	// gallery.DefaultID holds the default value on creation for the id field.
+	gallery.DefaultID = galleryDescID.Default.(func() string)
+	// gallery.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	gallery.IDValidator = galleryDescID.Validators[0].(func(string) error)
 	imageMixin := schema.Image{}.Mixin()
 	imageMixinFields0 := imageMixin[0].Fields()
 	_ = imageMixinFields0
@@ -387,6 +452,28 @@ func init() {
 	projectDescUploadReviewEnabled := projectFields[9].Descriptor()
 	// project.DefaultUploadReviewEnabled holds the default value on creation for the uploadReviewEnabled field.
 	project.DefaultUploadReviewEnabled = projectDescUploadReviewEnabled.Default.(bool)
+	// projectDescGallerySlug is the schema descriptor for gallerySlug field.
+	projectDescGallerySlug := projectFields[13].Descriptor()
+	// project.GallerySlugValidator is a validator for the "gallerySlug" field. It is called by the builders before save.
+	project.GallerySlugValidator = func() func(string) error {
+		validators := projectDescGallerySlug.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(gallerySlug string) error {
+			for _, fn := range fns {
+				if err := fn(gallerySlug); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// projectDescGalleryFeaturedTagIds is the schema descriptor for galleryFeaturedTagIds field.
+	projectDescGalleryFeaturedTagIds := projectFields[18].Descriptor()
+	// project.DefaultGalleryFeaturedTagIds holds the default value on creation for the galleryFeaturedTagIds field.
+	project.DefaultGalleryFeaturedTagIds = projectDescGalleryFeaturedTagIds.Default.([]string)
 	// projectDescID is the schema descriptor for id field.
 	projectDescID := projectMixinFields0[0].Descriptor()
 	// project.DefaultID holds the default value on creation for the id field.

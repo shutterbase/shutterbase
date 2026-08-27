@@ -208,6 +208,7 @@ func NewServer(options *Options) (*Server, error) {
 	// Manager.Start blocks, so it runs in its own goroutine.
 	bgCtx, cancel := context.WithCancel(context.Background())
 	s.bgCancel = cancel
+	s.backfillReservedTags(bgCtx)
 	s.ai.Start(bgCtx)
 	go s.ws.Start(bgCtx)
 	s.bus.Start(bgCtx)

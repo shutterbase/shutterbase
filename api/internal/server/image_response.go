@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/internal/s3"
 )
 
 // DownloadURLSigner is the slice of the S3 client the image serializer needs:
@@ -18,20 +19,10 @@ type DownloadURLSigner interface {
 	GetSignedDownloadUrl(ctx context.Context, objectName string) (string, error)
 }
 
-// GetObjectIds maps each requested thumbnail size to its S3 object key for a
-// storageId. Layout (SPEC §4.3): "XX/<storageId>.jpg" for size 0 ("original"),
-// "XX/<storageId>-<size>.jpg" otherwise, where XX = first two chars of storageId.
-// Size 0 is always included as the original alongside the passed sizes.
+// GetObjectIds is kept as the server-side name for s3.GetObjectIds (the key
+// layout lives with the client that owns the bucket).
 func GetObjectIds(storageId string, sizes []int) map[int]string {
-	prefix := storageId
-	if len(storageId) > 2 {
-		prefix = storageId[:2]
-	}
-	keys := map[int]string{0: fmt.Sprintf("%s/%s.jpg", prefix, storageId)}
-	for _, size := range sizes {
-		keys[size] = fmt.Sprintf("%s/%s-%d.jpg", prefix, storageId, size)
-	}
-	return keys
+	return s3.GetObjectIds(storageId, sizes)
 }
 
 // downloadKey is the map key used in the serialized downloadUrls object:

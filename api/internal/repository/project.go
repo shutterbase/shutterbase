@@ -151,6 +151,16 @@ type UpdateProjectParameters struct {
 	// See CreateProjectParameters: a provided ZERO time clears the field.
 	StartAt *time.Time
 	EndAt   *time.Time
+
+	// Public gallery publication. GalleryID: nil = leave, "" = unpublish,
+	// otherwise publish on that gallery (GalleryPublishedAt is set on the
+	// first publication and kept across re-publications).
+	GalleryID             *string
+	GallerySlug           *string
+	GalleryTitle          *string
+	GalleryDescription    *string
+	GalleryCoverImageID   *string
+	GalleryFeaturedTagIDs *[]string
 }
 
 func (r *Repository) UpdateProject(ctx context.Context, id string, parameters *UpdateProjectParameters) (*ent.Project, error) {
@@ -214,6 +224,48 @@ func (r *Repository) UpdateProject(ctx context.Context, id string, parameters *U
 		func(t time.Time) { update.SetStartAt(t) }, func() { update.ClearStartAt() })
 	applyPeriodField(parameters.EndAt, item.EndAt, project.FieldEndAt, &st,
 		func(t time.Time) { update.SetEndAt(t) }, func() { update.ClearEndAt() })
+
+	if parameters.GalleryID != nil {
+		current := ""
+		if item.GalleryID != nil {
+			current = *item.GalleryID
+		}
+		if current != *parameters.GalleryID {
+			if *parameters.GalleryID == "" {
+				update.ClearGalleryID()
+			} else {
+				update.SetGalleryID(*parameters.GalleryID)
+				if item.GalleryPublishedAt == nil {
+					update.SetGalleryPublishedAt(time.Now())
+				}
+			}
+			st.SetFieldChanged(project.FieldGalleryID, current, *parameters.GalleryID)
+		}
+	}
+	if parameters.GallerySlug != nil && item.GallerySlug != *parameters.GallerySlug {
+		if *parameters.GallerySlug == "" {
+			update.ClearGallerySlug()
+		} else {
+			update.SetGallerySlug(*parameters.GallerySlug)
+		}
+		st.SetFieldChanged(project.FieldGallerySlug, item.GallerySlug, *parameters.GallerySlug)
+	}
+	if parameters.GalleryTitle != nil && item.GalleryTitle != *parameters.GalleryTitle {
+		update.SetGalleryTitle(*parameters.GalleryTitle)
+		st.SetFieldChanged(project.FieldGalleryTitle, item.GalleryTitle, *parameters.GalleryTitle)
+	}
+	if parameters.GalleryDescription != nil && item.GalleryDescription != *parameters.GalleryDescription {
+		update.SetGalleryDescription(*parameters.GalleryDescription)
+		st.SetFieldChanged(project.FieldGalleryDescription, item.GalleryDescription, *parameters.GalleryDescription)
+	}
+	if parameters.GalleryCoverImageID != nil && item.GalleryCoverImageId != *parameters.GalleryCoverImageID {
+		update.SetGalleryCoverImageId(*parameters.GalleryCoverImageID)
+		st.SetFieldChanged(project.FieldGalleryCoverImageId, item.GalleryCoverImageId, *parameters.GalleryCoverImageID)
+	}
+	if parameters.GalleryFeaturedTagIDs != nil {
+		update.SetGalleryFeaturedTagIds(*parameters.GalleryFeaturedTagIDs)
+		st.SetFieldChanged(project.FieldGalleryFeaturedTagIds, item.GalleryFeaturedTagIds, *parameters.GalleryFeaturedTagIDs)
+	}
 
 	if !st.modelChanged {
 		_ = tx.Rollback()

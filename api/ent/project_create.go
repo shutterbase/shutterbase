@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/google/uuid"
 	"github.com/shutterbase/shutterbase/ent/downloadconfig"
+	"github.com/shutterbase/shutterbase/ent/gallery"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/project"
@@ -196,6 +197,96 @@ func (_c *ProjectCreate) SetNillableEndAt(v *time.Time) *ProjectCreate {
 	return _c
 }
 
+// SetGalleryID sets the "gallery_id" field.
+func (_c *ProjectCreate) SetGalleryID(v string) *ProjectCreate {
+	_c.mutation.SetGalleryID(v)
+	return _c
+}
+
+// SetNillableGalleryID sets the "gallery_id" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableGalleryID(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetGalleryID(*v)
+	}
+	return _c
+}
+
+// SetGallerySlug sets the "gallerySlug" field.
+func (_c *ProjectCreate) SetGallerySlug(v string) *ProjectCreate {
+	_c.mutation.SetGallerySlug(v)
+	return _c
+}
+
+// SetNillableGallerySlug sets the "gallerySlug" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableGallerySlug(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetGallerySlug(*v)
+	}
+	return _c
+}
+
+// SetGalleryTitle sets the "galleryTitle" field.
+func (_c *ProjectCreate) SetGalleryTitle(v string) *ProjectCreate {
+	_c.mutation.SetGalleryTitle(v)
+	return _c
+}
+
+// SetNillableGalleryTitle sets the "galleryTitle" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableGalleryTitle(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetGalleryTitle(*v)
+	}
+	return _c
+}
+
+// SetGalleryDescription sets the "galleryDescription" field.
+func (_c *ProjectCreate) SetGalleryDescription(v string) *ProjectCreate {
+	_c.mutation.SetGalleryDescription(v)
+	return _c
+}
+
+// SetNillableGalleryDescription sets the "galleryDescription" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableGalleryDescription(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetGalleryDescription(*v)
+	}
+	return _c
+}
+
+// SetGalleryCoverImageId sets the "galleryCoverImageId" field.
+func (_c *ProjectCreate) SetGalleryCoverImageId(v string) *ProjectCreate {
+	_c.mutation.SetGalleryCoverImageId(v)
+	return _c
+}
+
+// SetNillableGalleryCoverImageId sets the "galleryCoverImageId" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableGalleryCoverImageId(v *string) *ProjectCreate {
+	if v != nil {
+		_c.SetGalleryCoverImageId(*v)
+	}
+	return _c
+}
+
+// SetGalleryPublishedAt sets the "galleryPublishedAt" field.
+func (_c *ProjectCreate) SetGalleryPublishedAt(v time.Time) *ProjectCreate {
+	_c.mutation.SetGalleryPublishedAt(v)
+	return _c
+}
+
+// SetNillableGalleryPublishedAt sets the "galleryPublishedAt" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableGalleryPublishedAt(v *time.Time) *ProjectCreate {
+	if v != nil {
+		_c.SetGalleryPublishedAt(*v)
+	}
+	return _c
+}
+
+// SetGalleryFeaturedTagIds sets the "galleryFeaturedTagIds" field.
+func (_c *ProjectCreate) SetGalleryFeaturedTagIds(v []string) *ProjectCreate {
+	_c.mutation.SetGalleryFeaturedTagIds(v)
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *ProjectCreate) SetID(v string) *ProjectCreate {
 	_c.mutation.SetID(v)
@@ -315,6 +406,11 @@ func (_c *ProjectCreate) AddActiveForUsers(v ...*User) *ProjectCreate {
 	return _c.AddActiveForUserIDs(ids...)
 }
 
+// SetGallery sets the "gallery" edge to the Gallery entity.
+func (_c *ProjectCreate) SetGallery(v *Gallery) *ProjectCreate {
+	return _c.SetGalleryID(v.ID)
+}
+
 // Mutation returns the ProjectMutation object of the builder.
 func (_c *ProjectCreate) Mutation() *ProjectMutation {
 	return _c.mutation
@@ -361,6 +457,10 @@ func (_c *ProjectCreate) defaults() {
 	if _, ok := _c.mutation.UploadReviewEnabled(); !ok {
 		v := project.DefaultUploadReviewEnabled
 		_c.mutation.SetUploadReviewEnabled(v)
+	}
+	if _, ok := _c.mutation.GalleryFeaturedTagIds(); !ok {
+		v := project.DefaultGalleryFeaturedTagIds
+		_c.mutation.SetGalleryFeaturedTagIds(v)
 	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := project.DefaultID()
@@ -439,6 +539,11 @@ func (_c *ProjectCreate) check() error {
 	}
 	if _, ok := _c.mutation.UploadReviewEnabled(); !ok {
 		return &ValidationError{Name: "uploadReviewEnabled", err: errors.New(`ent: missing required field "Project.uploadReviewEnabled"`)}
+	}
+	if v, ok := _c.mutation.GallerySlug(); ok {
+		if err := project.GallerySlugValidator(v); err != nil {
+			return &ValidationError{Name: "gallerySlug", err: fmt.Errorf(`ent: validator failed for field "Project.gallerySlug": %w`, err)}
+		}
 	}
 	if v, ok := _c.mutation.ID(); ok {
 		if err := project.IDValidator(v); err != nil {
@@ -543,6 +648,30 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EndAt(); ok {
 		_spec.SetField(project.FieldEndAt, field.TypeTime, value)
 		_node.EndAt = &value
+	}
+	if value, ok := _c.mutation.GallerySlug(); ok {
+		_spec.SetField(project.FieldGallerySlug, field.TypeString, value)
+		_node.GallerySlug = value
+	}
+	if value, ok := _c.mutation.GalleryTitle(); ok {
+		_spec.SetField(project.FieldGalleryTitle, field.TypeString, value)
+		_node.GalleryTitle = value
+	}
+	if value, ok := _c.mutation.GalleryDescription(); ok {
+		_spec.SetField(project.FieldGalleryDescription, field.TypeString, value)
+		_node.GalleryDescription = value
+	}
+	if value, ok := _c.mutation.GalleryCoverImageId(); ok {
+		_spec.SetField(project.FieldGalleryCoverImageId, field.TypeString, value)
+		_node.GalleryCoverImageId = value
+	}
+	if value, ok := _c.mutation.GalleryPublishedAt(); ok {
+		_spec.SetField(project.FieldGalleryPublishedAt, field.TypeTime, value)
+		_node.GalleryPublishedAt = &value
+	}
+	if value, ok := _c.mutation.GalleryFeaturedTagIds(); ok {
+		_spec.SetField(project.FieldGalleryFeaturedTagIds, field.TypeJSON, value)
+		_node.GalleryFeaturedTagIds = value
 	}
 	if nodes := _c.mutation.UploadsIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -654,6 +783,23 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GalleryIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   project.GalleryTable,
+			Columns: []string{project.GalleryColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(gallery.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.GalleryID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

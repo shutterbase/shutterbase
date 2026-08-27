@@ -139,6 +139,70 @@ export interface Project {
   // Event period (S15): frames the schedule calendar. Optional.
   startAt?: string | null;
   endAt?: string | null;
+  // Public gallery publication (projectAdmin). galleryId null = unpublished.
+  galleryId?: string | null;
+  gallerySlug?: string;
+  galleryTitle?: string;
+  galleryDescription?: string;
+  galleryCoverImageId?: string;
+  galleryPublishedAt?: string | null;
+  galleryFeaturedTagIds?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Visual configuration of a public gallery site (rendered to CSS custom
+// properties by the gallery binary). Colors are hex, fonts Google Fonts names.
+export interface GalleryTheme {
+  primary?: string;
+  accent?: string;
+  surface?: string;
+  surfaceDark?: string;
+  fontHeading?: string;
+  fontBody?: string;
+  radius?: string;
+  defaultDark?: boolean;
+  logoPosition?: "left" | "center" | "";
+}
+
+// White-label vocabulary of a public gallery; empty = gallery default.
+export interface GalleryLabels {
+  projectSingular?: string;
+  projectPlural?: string;
+  dayLabel?: string;
+  photographerLabel?: string;
+  allPhotosLabel?: string;
+}
+
+export interface SocialLink {
+  label: string;
+  url: string;
+}
+
+// One public, white-label gallery site (platform-admin managed). The gallery
+// binary selects its row by key (GALLERY_KEY); asset fields hold S3 object keys
+// minted via POST /galleries/:id/assets.
+export interface Gallery {
+  id: string;
+  key: string;
+  name: string;
+  domain: string;
+  tagline: string;
+  aboutText: string;
+  footerText: string;
+  imprintUrl: string;
+  privacyUrl: string;
+  locale: "de" | "en";
+  labels: GalleryLabels;
+  theme: GalleryTheme;
+  socialLinks: SocialLink[];
+  logoStorageId: string;
+  logoDarkStorageId: string;
+  faviconStorageId: string;
+  heroStorageId: string;
+  bulkDownloadEnabled: boolean;
+  bulkDownloadMaxImages: number;
+  active: boolean;
   createdAt: string;
   updatedAt: string;
 }

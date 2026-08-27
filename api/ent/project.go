@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/google/uuid"
+	"github.com/shutterbase/shutterbase/ent/gallery"
 	"github.com/shutterbase/shutterbase/ent/project"
 )
 
@@ -50,6 +52,20 @@ type Project struct {
 	StartAt *time.Time `json:"startAt,omitempty"`
 	// EndAt holds the value of the "endAt" field.
 	EndAt *time.Time `json:"endAt,omitempty"`
+	// GalleryID holds the value of the "gallery_id" field.
+	GalleryID *string `json:"galleryId,omitempty"`
+	// GallerySlug holds the value of the "gallerySlug" field.
+	GallerySlug string `json:"gallerySlug,omitempty"`
+	// GalleryTitle holds the value of the "galleryTitle" field.
+	GalleryTitle string `json:"galleryTitle,omitempty"`
+	// GalleryDescription holds the value of the "galleryDescription" field.
+	GalleryDescription string `json:"galleryDescription,omitempty"`
+	// GalleryCoverImageId holds the value of the "galleryCoverImageId" field.
+	GalleryCoverImageId string `json:"galleryCoverImageId,omitempty"`
+	// GalleryPublishedAt holds the value of the "galleryPublishedAt" field.
+	GalleryPublishedAt *time.Time `json:"galleryPublishedAt,omitempty"`
+	// GalleryFeaturedTagIds holds the value of the "galleryFeaturedTagIds" field.
+	GalleryFeaturedTagIds []string `json:"galleryFeaturedTagIds"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -72,9 +88,11 @@ type ProjectEdges struct {
 	DownloadConfigs []*DownloadConfig `json:"downloadConfigs,omitempty"`
 	// ActiveForUsers holds the value of the activeForUsers edge.
 	ActiveForUsers []*User `json:"activeForUsers,omitempty"`
+	// Gallery holds the value of the gallery edge.
+	Gallery *Gallery `json:"gallery,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // UploadsOrErr returns the Uploads value or an error if the edge
@@ -140,6 +158,17 @@ func (e ProjectEdges) ActiveForUsersOrErr() ([]*User, error) {
 	return nil, &NotLoadedError{edge: "activeForUsers"}
 }
 
+// GalleryOrErr returns the Gallery value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e ProjectEdges) GalleryOrErr() (*Gallery, error) {
+	if e.Gallery != nil {
+		return e.Gallery, nil
+	} else if e.loadedTypes[7] {
+		return nil, &NotFoundError{label: gallery.Label}
+	}
+	return nil, &NotLoadedError{edge: "gallery"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Project) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -147,11 +176,13 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldCreatedBy, project.FieldUpdatedBy:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
+		case project.FieldGalleryFeaturedTagIds:
+			values[i] = new([]byte)
 		case project.FieldUploadReviewEnabled:
 			values[i] = new(sql.NullBool)
-		case project.FieldID, project.FieldName, project.FieldDescription, project.FieldCopyright, project.FieldCopyrightReference, project.FieldCopyrightTagPrefix, project.FieldLocationName, project.FieldLocationCode, project.FieldLocationCity, project.FieldAiSystemMessage:
+		case project.FieldID, project.FieldName, project.FieldDescription, project.FieldCopyright, project.FieldCopyrightReference, project.FieldCopyrightTagPrefix, project.FieldLocationName, project.FieldLocationCode, project.FieldLocationCity, project.FieldAiSystemMessage, project.FieldGalleryID, project.FieldGallerySlug, project.FieldGalleryTitle, project.FieldGalleryDescription, project.FieldGalleryCoverImageId:
 			values[i] = new(sql.NullString)
-		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldStartAt, project.FieldEndAt:
+		case project.FieldCreatedAt, project.FieldUpdatedAt, project.FieldStartAt, project.FieldEndAt, project.FieldGalleryPublishedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -274,6 +305,52 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				_m.EndAt = new(time.Time)
 				*_m.EndAt = value.Time
 			}
+		case project.FieldGalleryID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field gallery_id", values[i])
+			} else if value.Valid {
+				_m.GalleryID = new(string)
+				*_m.GalleryID = value.String
+			}
+		case project.FieldGallerySlug:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field gallerySlug", values[i])
+			} else if value.Valid {
+				_m.GallerySlug = value.String
+			}
+		case project.FieldGalleryTitle:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field galleryTitle", values[i])
+			} else if value.Valid {
+				_m.GalleryTitle = value.String
+			}
+		case project.FieldGalleryDescription:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field galleryDescription", values[i])
+			} else if value.Valid {
+				_m.GalleryDescription = value.String
+			}
+		case project.FieldGalleryCoverImageId:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field galleryCoverImageId", values[i])
+			} else if value.Valid {
+				_m.GalleryCoverImageId = value.String
+			}
+		case project.FieldGalleryPublishedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field galleryPublishedAt", values[i])
+			} else if value.Valid {
+				_m.GalleryPublishedAt = new(time.Time)
+				*_m.GalleryPublishedAt = value.Time
+			}
+		case project.FieldGalleryFeaturedTagIds:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field galleryFeaturedTagIds", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.GalleryFeaturedTagIds); err != nil {
+					return fmt.Errorf("unmarshal field galleryFeaturedTagIds: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -320,6 +397,11 @@ func (_m *Project) QueryDownloadConfigs() *DownloadConfigQuery {
 // QueryActiveForUsers queries the "activeForUsers" edge of the Project entity.
 func (_m *Project) QueryActiveForUsers() *UserQuery {
 	return NewProjectClient(_m.config).QueryActiveForUsers(_m)
+}
+
+// QueryGallery queries the "gallery" edge of the Project entity.
+func (_m *Project) QueryGallery() *GalleryQuery {
+	return NewProjectClient(_m.config).QueryGallery(_m)
 }
 
 // Update returns a builder for updating this Project.
@@ -400,6 +482,31 @@ func (_m *Project) String() string {
 		builder.WriteString("endAt=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	if v := _m.GalleryID; v != nil {
+		builder.WriteString("gallery_id=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("gallerySlug=")
+	builder.WriteString(_m.GallerySlug)
+	builder.WriteString(", ")
+	builder.WriteString("galleryTitle=")
+	builder.WriteString(_m.GalleryTitle)
+	builder.WriteString(", ")
+	builder.WriteString("galleryDescription=")
+	builder.WriteString(_m.GalleryDescription)
+	builder.WriteString(", ")
+	builder.WriteString("galleryCoverImageId=")
+	builder.WriteString(_m.GalleryCoverImageId)
+	builder.WriteString(", ")
+	if v := _m.GalleryPublishedAt; v != nil {
+		builder.WriteString("galleryPublishedAt=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("galleryFeaturedTagIds=")
+	builder.WriteString(fmt.Sprintf("%v", _m.GalleryFeaturedTagIds))
 	builder.WriteByte(')')
 	return builder.String()
 }

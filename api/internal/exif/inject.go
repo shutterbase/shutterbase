@@ -41,26 +41,48 @@ func currentSem() chan struct{} {
 	return sem
 }
 
+// ExportOptions selects what an export writes. Shutterbase's own /download
+// keeps the AI caption (DefaultExportOptions); the public gallery drops it and
+// strips private source metadata (PublicExportOptions).
+type ExportOptions struct {
+	// IncludeAIDescription writes image.AiDescription into the IPTC caption and
+	// EXIF ImageDescription.
+	IncludeAIDescription bool
+	// Strip lists exiftool tag selectors (e.g. "GPS:all", "EXIF:ImageDescription")
+	// deleted from the file BEFORE the export fields are written, so source
+	// metadata the export does not set cannot survive into the output.
+	Strip []string
+}
+
+// DefaultExportOptions reproduce the historical /download behaviour.
+var DefaultExportOptions = ExportOptions{IncludeAIDescription: true}
+
+// PublicStripList is the private-source-metadata policy for files that leave
+// the organisation: no captions/descriptions (an AI caption may already sit in
+// the original), no location, no serials or owner identity. Orientation and the
+// ICC profile are untouched.
+var PublicStripList = []string{
+	"EXIF:ImageDescription", "IPTC:Caption-Abstract", "XMP:Description", "XMP:Title",
+	"GPS:all", "XMP-exif:GPS*",
+	"SerialNumber", "LensSerialNumber", "InternalSerialNumber", "OwnerName", "CameraOwnerName",
+	"XMP-iptcCore:CreatorContactInfo",
+}
+
+// PublicExportOptions are the gallery's: same keywords/copyright/timestamps as
+// the internal export, never the AI caption, private source metadata stripped.
+var PublicExportOptions = ExportOptions{IncludeAIDescription: false, Strip: PublicStripList}
+
 // InjectMetadata writes Shutterbase's EXIF/IPTC fields into jpegData via an
-// exiftool shell-out and returns the rewritten bytes. Ported from the old
-// ApplyExifData (which read the PB client.Image); this reads an eager-loaded
-// ent.Image (User, Project, ImageTagAssignments->ImageTag edges required).
+// exiftool shell-out and returns the rewritten bytes (DefaultExportOptions).
+// Ported from the old ApplyExifData (which read the PB client.Image); this
+// reads an eager-loaded ent.Image (User, Project, ImageTagAssignments->ImageTag
+// edges required).
 //
 // A package semaphore (SetConcurrency) bounds simultaneous exiftool processes
 // (S10). The caller passes a ctx with a deadline; exec.CommandContext kills
 // exiftool when it fires. ponytail: per-request temp dir + full in-memory
-// round-trip; bounded streaming is a later upgrade.
+// round-trip; InjectFile is the streaming sibling.
 func InjectMetadata(ctx context.Context, jpegData []byte, image *ent.Image) ([]byte, error) {
-	// Acquire a slot, honouring the caller's deadline so a saturated pool fails
-	// fast instead of queueing unboundedly.
-	slot := currentSem()
-	select {
-	case slot <- struct{}{}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-	defer func() { <-slot }()
-
 	dir, err := os.MkdirTemp("", "sb-exif-*")
 	if err != nil {
 		return nil, err
@@ -71,27 +93,54 @@ func InjectMetadata(ctx context.Context, jpegData []byte, image *ent.Image) ([]b
 	if err := os.WriteFile(imagePath, jpegData, 0o600); err != nil {
 		return nil, err
 	}
-
-	meta := buildMetadata(image)
-	metaJSON, err := json.Marshal(meta)
-	if err != nil {
+	if err := InjectFile(ctx, imagePath, image, DefaultExportOptions); err != nil {
 		return nil, err
 	}
-	metaPath := filepath.Join(dir, "meta.json")
-	if err := os.WriteFile(metaPath, metaJSON, 0o600); err != nil {
-		return nil, err
-	}
-
-	cmd := exec.CommandContext(ctx, "exiftool", fmt.Sprintf("-j=%s", metaPath), "-f", imagePath, "-overwrite_original")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("exiftool: %w: %s", err, string(out))
-	}
-
 	return os.ReadFile(imagePath)
+}
+
+// InjectFile rewrites the JPEG at path in place with the export fields for
+// image, honouring opts. The file is never read into memory here; the caller
+// streams it wherever it goes. Same semaphore/deadline rules as InjectMetadata.
+func InjectFile(ctx context.Context, path string, image *ent.Image, opts ExportOptions) error {
+	slot := currentSem()
+	select {
+	case slot <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	defer func() { <-slot }()
+
+	metaJSON, err := json.Marshal(buildMetadataWith(image, opts))
+	if err != nil {
+		return err
+	}
+	metaPath := path + ".meta.json"
+	if err := os.WriteFile(metaPath, metaJSON, 0o600); err != nil {
+		return err
+	}
+	defer os.Remove(metaPath)
+
+	// Deletions come first on the command line so a stripped tag that the
+	// export also sets (none today) ends up with the export value.
+	args := make([]string, 0, len(opts.Strip)+4)
+	for _, tag := range opts.Strip {
+		args = append(args, "-"+tag+"=")
+	}
+	args = append(args, fmt.Sprintf("-j=%s", metaPath), "-f", path, "-overwrite_original")
+	cmd := exec.CommandContext(ctx, "exiftool", args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("exiftool: %w: %s", err, string(out))
+	}
+	return nil
 }
 
 // buildMetadata mirrors the old ApplyExifData field mapping, sourced from ent edges.
 func buildMetadata(image *ent.Image) map[string]any {
+	return buildMetadataWith(image, DefaultExportOptions)
+}
+
+func buildMetadataWith(image *ent.Image, opts ExportOptions) map[string]any {
 	m := map[string]any{}
 
 	if image.CapturedAtCorrected != nil {
@@ -101,7 +150,7 @@ func buildMetadata(image *ent.Image) map[string]any {
 		m["IPTC:DateCreated"] = t.Format("2006:01:02")
 	}
 
-	if image.AiDescription != "" {
+	if opts.IncludeAIDescription && image.AiDescription != "" {
 		m["IPTC:Caption-Abstract"] = image.AiDescription
 		m["EXIF:ImageDescription"] = image.AiDescription
 	}

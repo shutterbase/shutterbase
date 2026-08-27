@@ -20,6 +20,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/auditlog"
 	"github.com/shutterbase/shutterbase/ent/camera"
 	"github.com/shutterbase/shutterbase/ent/downloadconfig"
+	"github.com/shutterbase/shutterbase/ent/gallery"
 	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
@@ -48,6 +49,8 @@ type Client struct {
 	Camera *CameraClient
 	// DownloadConfig is the client for interacting with the DownloadConfig builders.
 	DownloadConfig *DownloadConfigClient
+	// Gallery is the client for interacting with the Gallery builders.
+	Gallery *GalleryClient
 	// Image is the client for interacting with the Image builders.
 	Image *ImageClient
 	// ImageTag is the client for interacting with the ImageTag builders.
@@ -85,6 +88,7 @@ func (c *Client) init() {
 	c.AuditLog = NewAuditLogClient(c.config)
 	c.Camera = NewCameraClient(c.config)
 	c.DownloadConfig = NewDownloadConfigClient(c.config)
+	c.Gallery = NewGalleryClient(c.config)
 	c.Image = NewImageClient(c.config)
 	c.ImageTag = NewImageTagClient(c.config)
 	c.ImageTagAssignment = NewImageTagAssignmentClient(c.config)
@@ -192,6 +196,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AuditLog:           NewAuditLogClient(cfg),
 		Camera:             NewCameraClient(cfg),
 		DownloadConfig:     NewDownloadConfigClient(cfg),
+		Gallery:            NewGalleryClient(cfg),
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
@@ -226,6 +231,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AuditLog:           NewAuditLogClient(cfg),
 		Camera:             NewCameraClient(cfg),
 		DownloadConfig:     NewDownloadConfigClient(cfg),
+		Gallery:            NewGalleryClient(cfg),
 		Image:              NewImageClient(cfg),
 		ImageTag:           NewImageTagClient(cfg),
 		ImageTagAssignment: NewImageTagAssignmentClient(cfg),
@@ -266,9 +272,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
-		c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment, c.Role,
-		c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
+		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Gallery, c.Image,
+		c.ImageTag, c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment,
+		c.Role, c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Use(hooks...)
 	}
@@ -278,9 +284,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Image, c.ImageTag,
-		c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment, c.Role,
-		c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
+		c.ApiKey, c.AuditLog, c.Camera, c.DownloadConfig, c.Gallery, c.Image,
+		c.ImageTag, c.ImageTagAssignment, c.PersonName, c.Project, c.ProjectAssignment,
+		c.Role, c.ScheduleItem, c.TimeOffset, c.Upload, c.User,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -297,6 +303,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Camera.mutate(ctx, m)
 	case *DownloadConfigMutation:
 		return c.DownloadConfig.mutate(ctx, m)
+	case *GalleryMutation:
+		return c.Gallery.mutate(ctx, m)
 	case *ImageMutation:
 		return c.Image.mutate(ctx, m)
 	case *ImageTagMutation:
@@ -965,6 +973,155 @@ func (c *DownloadConfigClient) mutate(ctx context.Context, m *DownloadConfigMuta
 		return (&DownloadConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown DownloadConfig mutation op: %q", m.Op())
+	}
+}
+
+// GalleryClient is a client for the Gallery schema.
+type GalleryClient struct {
+	config
+}
+
+// NewGalleryClient returns a client for the Gallery from the given config.
+func NewGalleryClient(c config) *GalleryClient {
+	return &GalleryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `gallery.Hooks(f(g(h())))`.
+func (c *GalleryClient) Use(hooks ...Hook) {
+	c.hooks.Gallery = append(c.hooks.Gallery, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `gallery.Intercept(f(g(h())))`.
+func (c *GalleryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Gallery = append(c.inters.Gallery, interceptors...)
+}
+
+// Create returns a builder for creating a Gallery entity.
+func (c *GalleryClient) Create() *GalleryCreate {
+	mutation := newGalleryMutation(c.config, OpCreate)
+	return &GalleryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Gallery entities.
+func (c *GalleryClient) CreateBulk(builders ...*GalleryCreate) *GalleryCreateBulk {
+	return &GalleryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GalleryClient) MapCreateBulk(slice any, setFunc func(*GalleryCreate, int)) *GalleryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GalleryCreateBulk{err: fmt.Errorf("calling to GalleryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GalleryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GalleryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Gallery.
+func (c *GalleryClient) Update() *GalleryUpdate {
+	mutation := newGalleryMutation(c.config, OpUpdate)
+	return &GalleryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GalleryClient) UpdateOne(_m *Gallery) *GalleryUpdateOne {
+	mutation := newGalleryMutation(c.config, OpUpdateOne, withGallery(_m))
+	return &GalleryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GalleryClient) UpdateOneID(id string) *GalleryUpdateOne {
+	mutation := newGalleryMutation(c.config, OpUpdateOne, withGalleryID(id))
+	return &GalleryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Gallery.
+func (c *GalleryClient) Delete() *GalleryDelete {
+	mutation := newGalleryMutation(c.config, OpDelete)
+	return &GalleryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GalleryClient) DeleteOne(_m *Gallery) *GalleryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GalleryClient) DeleteOneID(id string) *GalleryDeleteOne {
+	builder := c.Delete().Where(gallery.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GalleryDeleteOne{builder}
+}
+
+// Query returns a query builder for Gallery.
+func (c *GalleryClient) Query() *GalleryQuery {
+	return &GalleryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGallery},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Gallery entity by its id.
+func (c *GalleryClient) Get(ctx context.Context, id string) (*Gallery, error) {
+	return c.Query().Where(gallery.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GalleryClient) GetX(ctx context.Context, id string) *Gallery {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProjects queries the projects edge of a Gallery.
+func (c *GalleryClient) QueryProjects(_m *Gallery) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(gallery.Table, gallery.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, gallery.ProjectsTable, gallery.ProjectsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GalleryClient) Hooks() []Hook {
+	return c.hooks.Gallery
+}
+
+// Interceptors returns the client interceptors.
+func (c *GalleryClient) Interceptors() []Interceptor {
+	return c.inters.Gallery
+}
+
+func (c *GalleryClient) mutate(ctx context.Context, m *GalleryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GalleryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GalleryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GalleryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GalleryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Gallery mutation op: %q", m.Op())
 	}
 }
 
@@ -1873,6 +2030,22 @@ func (c *ProjectClient) QueryActiveForUsers(_m *Project) *UserQuery {
 			sqlgraph.From(project.Table, project.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, true, project.ActiveForUsersTable, project.ActiveForUsersColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGallery queries the gallery edge of a Project.
+func (c *ProjectClient) QueryGallery(_m *Project) *GalleryQuery {
+	query := (&GalleryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(gallery.Table, gallery.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, project.GalleryTable, project.GalleryColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3058,14 +3231,14 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
-		PersonName, Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
-		User []ent.Hook
+		ApiKey, AuditLog, Camera, DownloadConfig, Gallery, Image, ImageTag,
+		ImageTagAssignment, PersonName, Project, ProjectAssignment, Role, ScheduleItem,
+		TimeOffset, Upload, User []ent.Hook
 	}
 	inters struct {
-		ApiKey, AuditLog, Camera, DownloadConfig, Image, ImageTag, ImageTagAssignment,
-		PersonName, Project, ProjectAssignment, Role, ScheduleItem, TimeOffset, Upload,
-		User []ent.Interceptor
+		ApiKey, AuditLog, Camera, DownloadConfig, Gallery, Image, ImageTag,
+		ImageTagAssignment, PersonName, Project, ProjectAssignment, Role, ScheduleItem,
+		TimeOffset, Upload, User []ent.Interceptor
 	}
 )
 
