@@ -112,11 +112,11 @@ Popular effects for photography studios:
 | 3 | Wipe | Directional color wipe |
 | 6 | Sweep | Wipe with return |
 | 8 | Rainbow | Classic rainbow cycle |
-| 41 | Meteor | Shooting star effect |
+| 41 | Meteor Shower | Shooting star effect |
 | 46 | Fire 2012 | Realistic fire simulation |
 | 72 | Sunrise | Gradual warm glow |
 | 82 | Candy Cane | Red and white running lights |
-| 89 | Fireworks Starburst | Celebration effect |
+| 89 | Fireworks 1D | Celebration effect |
 
 See the [full WLED effects list](https://github.com/wled/WLED/wiki/List-of-effects-and-palettes) for all 117+ effects.
 
