@@ -2,6 +2,8 @@
 
 Shutterbase can publish events to an MQTT broker when uploads move through the review flow. [WLED](https://kno.wled.ge/) devices (or any MQTT-aware smart-home system) can subscribe to these topics and react with light effects.
 
+The MQTT integration opens Shutterbase up to a whole new world of possibilities. By publishing structured events to standard MQTT topics, Shutterbase becomes a building block in any smart-home or automation ecosystem — [Home Assistant](https://www.home-assistant.io/), [Node-RED](https://nodered.org/), [openHAB](https://www.openhab.org/), custom scripts, or anything that speaks MQTT. Automate your studio lighting, send notifications when reviews are done, trigger celebration effects on approval, or build entirely new workflows — the MQTT broker is the bridge between your photography workflow and the rest of your connected world.
+
 ## How It Works
 
 ```
