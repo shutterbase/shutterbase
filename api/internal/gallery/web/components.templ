@@ -1,0 +1,139 @@
+package web
+
+import (
+	"strconv"
+
+	"github.com/shutterbase/shutterbase/internal/gallery/catalog"
+)
+
+// Tile is one photo in the justified grid; data-lb-* feed the lightbox.
+templ Tile(v PhotoView) {
+	<a
+		href={ templ.SafeURL(v.Href) }
+		style={ "--ar:" + v.AR() }
+		data-lb-src={ v.Src(2048) }
+		data-lb-href={ v.Href }
+		data-lb-caption={ v.Caption }
+		aria-label={ v.Caption }
+	>
+		<img
+			src={ v.Src(512) }
+			srcset={ v.Srcset() }
+			sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
+			width={ strconv.Itoa(v.Width) }
+			height={ strconv.Itoa(v.Height) }
+			alt={ v.Caption }
+			loading="lazy"
+			decoding="async"
+		/>
+	</a>
+}
+
+// Grid renders a page of tiles plus the HTMX load-more sentinel that swaps
+// the next page in place (works as a plain link without JS).
+templ Grid(site *Site, fv FilterView, photos []PhotoView, next string) {
+	for _, v := range photos {
+		@Tile(v)
+	}
+	if next != "" {
+		<a
+			href={ templ.SafeURL(fv.LoadMoreHref(next)) }
+			hx-get={ fv.LoadMoreHref(next) }
+			hx-trigger="revealed, click"
+			hx-swap="outerHTML"
+			hx-select="#grid > *"
+			hx-push-url="false"
+			data-load-more
+			class="basis-full grow-0 flex justify-center py-6 text-sm text-muted"
+		>{ site.T("load_more") } …</a>
+	}
+	if len(photos) == 0 && next == "" {
+		<p class="basis-full text-muted py-10 text-center">{ site.T("no_results") }</p>
+	}
+}
+
+// FilterBar is the sticky strip: active chips, sort, orientation, search.
+templ FilterBar(site *Site, fv FilterView) {
+	<div class="flex flex-wrap items-center gap-2 py-3">
+		for _, c := range fv.Active(site) {
+			<a href={ templ.SafeURL(c.Href) } class="chip chip-on">{ c.Label } <span aria-hidden="true">×</span></a>
+		}
+		if !fv.Filter.IsEmpty() {
+			<a href={ templ.SafeURL(fv.ResetHref()) } class="chip">{ site.T("reset") }</a>
+		}
+		<div class="flex-1"></div>
+		<a href={ templ.SafeURL(fv.OrientHref("landscape")) } class={ "chip", templ.KV("chip-on", fv.Filter.Orientation == "landscape") } title={ site.T("landscape") }>▭</a>
+		<a href={ templ.SafeURL(fv.OrientHref("portrait")) } class={ "chip", templ.KV("chip-on", fv.Filter.Orientation == "portrait") } title={ site.T("portrait") }>▯</a>
+		if fv.Filter.Sort == "oldest" {
+			<a href={ templ.SafeURL(fv.SortHref("newest")) } class="chip">{ site.T("newest") }</a>
+		} else {
+			<a href={ templ.SafeURL(fv.SortHref("oldest")) } class="chip">{ site.T("oldest") }</a>
+		}
+	</div>
+}
+
+// FacetPanel lists the ways into the set: albums, tags, days, photographers, cameras.
+templ FacetPanel(site *Site, fv FilterView) {
+	if fv.Facets != nil {
+		<div class="space-y-5 text-sm">
+			if len(fv.Facets.Albums) > 0 {
+				@facetGroup(site.T("albums"), fv.Facets.Albums, fv.Filter.TagIDs, fv.TagHref)
+			}
+			if len(fv.Facets.Days) > 0 {
+				@facetGroupSingle(site.Label("day"), dayLabels(fv.Facets.Days, site.Locale), fv.Filter.Day, fv.DayHref)
+			}
+			if len(fv.Facets.Photographers) > 0 {
+				@facetGroupSingle(site.T("photographers"), fv.Facets.Photographers, fv.Filter.Photographer, fv.ByHref)
+			}
+			if len(fv.Facets.Tags) > 0 {
+				@facetGroup(site.T("tags"), fv.Facets.Tags, fv.Filter.TagIDs, fv.TagHref)
+			}
+			if len(fv.Facets.Cameras) > 0 {
+				@facetGroupSingle(site.T("cameras"), fv.Facets.Cameras, fv.Filter.Camera, fv.CameraHref)
+			}
+		</div>
+	}
+}
+
+templ facetGroup(title string, values []catalog.FacetValue, active []string, href func(string) string) {
+	<div>
+		<h3 class="text-xs uppercase tracking-wider text-muted mb-2">{ title }</h3>
+		<div class="flex flex-wrap gap-1.5">
+			for _, v := range values {
+				<a href={ templ.SafeURL(href(v.Key)) } class={ "chip", templ.KV("chip-on", contains(active, v.Key)) }>
+					{ v.Label } <span class="opacity-60 tabular-nums">{ strconv.Itoa(v.Count) }</span>
+				</a>
+			}
+		</div>
+	</div>
+}
+
+templ facetGroupSingle(title string, values []catalog.FacetValue, active string, href func(string) string) {
+	<div>
+		<h3 class="text-xs uppercase tracking-wider text-muted mb-2">{ title }</h3>
+		<div class="flex flex-wrap gap-1.5">
+			for _, v := range values {
+				<a href={ templ.SafeURL(href(v.Key)) } class={ "chip", templ.KV("chip-on", active == v.Key) }>
+					{ v.Label } <span class="opacity-60 tabular-nums">{ strconv.Itoa(v.Count) }</span>
+				</a>
+			}
+		</div>
+	</div>
+}
+
+func contains(xs []string, x string) bool {
+	for _, v := range xs {
+		if v == x {
+			return true
+		}
+	}
+	return false
+}
+
+func dayLabels(days []catalog.FacetValue, locale string) []catalog.FacetValue {
+	out := make([]catalog.FacetValue, len(days))
+	for i, d := range days {
+		out[i] = catalog.FacetValue{Key: d.Key, Label: catalog.FormatDay(d.Key, locale), Count: d.Count}
+	}
+	return out
+}

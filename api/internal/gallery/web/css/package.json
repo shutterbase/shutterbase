@@ -1,0 +1,11 @@
+{
+  "name": "shutterbase-gallery-css",
+  "private": true,
+  "scripts": {
+    "build": "tailwindcss -c tailwind.config.js -i ./app.src.css -o ../static/app.css --minify",
+    "watch": "tailwindcss -c tailwind.config.js -i ./app.src.css -o ../static/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

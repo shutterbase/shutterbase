@@ -1,0 +1,118 @@
+package web
+
+
+// Page is the shared shell: head (theme, fonts, OG), header, footer.
+templ Page(site *Site, meta Meta) {
+	<!DOCTYPE html>
+	<html lang={ site.Locale } data-theme={ themeAttr(site) }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+			<title>{ meta.Title } · { site.Gallery.Name }</title>
+			if meta.Description != "" {
+				<meta name="description" content={ meta.Description }/>
+			}
+			<meta property="og:site_name" content={ site.Gallery.Name }/>
+			<meta property="og:title" content={ meta.Title }/>
+			if meta.Description != "" {
+				<meta property="og:description" content={ meta.Description }/>
+			}
+			if meta.Image != "" {
+				<meta property="og:image" content={ meta.Image }/>
+				<meta name="twitter:card" content="summary_large_image"/>
+			}
+			if meta.Canonical != "" {
+				<link rel="canonical" href={ templ.SafeURL(meta.Canonical) }/>
+				<meta property="og:url" content={ meta.Canonical }/>
+			}
+			if meta.NoIndex {
+				<meta name="robots" content="noindex"/>
+			}
+			if site.Favicon != "" {
+				<link rel="icon" href={ templ.SafeURL(site.Favicon) }/>
+			}
+			if site.FontHref != "" {
+				<link rel="preconnect" href="https://fonts.googleapis.com"/>
+				<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+				<link rel="stylesheet" href={ templ.SafeURL(site.FontHref) }/>
+			}
+			<link rel="stylesheet" href={ templ.SafeURL("/static/app.css?v=" + site.Version) }/>
+			@templ.Raw("<style>" + string(site.ThemeCSS) + "</style>")
+			<script src={ "/static/htmx.min.js?v=" + site.Version } defer></script>
+			<script src={ "/static/gallery.js?v=" + site.Version } defer></script>
+		</head>
+		<body class="min-h-dvh flex flex-col">
+			@header(site)
+			<main class="flex-1 w-full max-w-screen-2xl mx-auto px-3 sm:px-6 pb-16">
+				{ children... }
+			</main>
+			@footer(site)
+		</body>
+	</html>
+}
+
+templ header(site *Site) {
+	<header class="sticky top-0 z-30 backdrop-blur bg-surface/80 border-b border-line">
+		<div class={ "max-w-screen-2xl mx-auto px-3 sm:px-6 h-14 flex items-center gap-4", templ.KV("justify-center", site.Gallery.Theme.LogoPosition == "center") }>
+			<a href="/" class="flex items-center gap-3 min-w-0">
+				if site.LogoURL != "" {
+					<img src={ site.LogoURL } alt={ site.Gallery.Name } class={ "h-8 w-auto", templ.KV("dark:hidden", site.LogoDark != "") }/>
+					if site.LogoDark != "" {
+						<img src={ site.LogoDark } alt={ site.Gallery.Name } class="h-8 w-auto hidden dark:block"/>
+					}
+				} else {
+					<span class="font-heading font-semibold text-lg truncate">{ site.Gallery.Name }</span>
+				}
+			</a>
+			if site.Gallery.Theme.LogoPosition != "center" {
+				<div class="flex-1"></div>
+			}
+			<form action="/search" method="get" class="hidden sm:block">
+				<input type="search" name="q" placeholder={ site.T("search_hint") } class="rounded-full border border-line bg-card px-4 py-1.5 text-sm w-56 focus:w-72 transition-all outline-none focus:border-accent"/>
+			</form>
+			<button type="button" data-theme-toggle class="rounded-full border border-line p-2 text-muted hover:text-ink" aria-label="theme">
+				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+			</button>
+		</div>
+	</header>
+}
+
+templ footer(site *Site) {
+	<footer class="border-t border-line mt-8">
+		<div class="max-w-screen-2xl mx-auto px-3 sm:px-6 py-8 flex flex-col sm:flex-row gap-4 sm:items-center text-sm text-muted">
+			<div class="flex-1">
+				if site.Gallery.FooterText != "" {
+					<p>{ site.Gallery.FooterText }</p>
+				}
+				<p class="text-xs mt-1 opacity-70">{ site.T("powered") }</p>
+			</div>
+			<nav class="flex flex-wrap gap-4">
+				for _, l := range site.Gallery.SocialLinks {
+					<a href={ templ.SafeURL(l.URL) } rel="noopener" target="_blank" class="hover:text-ink">{ l.Label }</a>
+				}
+				if site.Gallery.ImprintUrl != "" {
+					<a href={ templ.SafeURL(site.Gallery.ImprintUrl) } class="hover:text-ink">{ site.T("imprint") }</a>
+				}
+				if site.Gallery.PrivacyUrl != "" {
+					<a href={ templ.SafeURL(site.Gallery.PrivacyUrl) } class="hover:text-ink">{ site.T("privacy") }</a>
+				}
+			</nav>
+		</div>
+	</footer>
+}
+
+// Meta is the per-page head data.
+type Meta struct {
+	Title       string
+	Description string
+	Image       string
+	Canonical   string
+	NoIndex     bool
+}
+
+func themeAttr(site *Site) string {
+	if site.Gallery.Theme.DefaultDark {
+		return "dark"
+	}
+	return "light"
+}

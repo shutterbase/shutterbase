@@ -38,6 +38,18 @@ COPY ui/tsconfig.json /usr/src/tsconfig.json
 RUN bun run build
 
 
+FROM oven/bun:1.3.14 AS gallery-css
+WORKDIR /usr/src
+COPY api/internal/gallery/web/css/package.json api/internal/gallery/web/css/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY api/internal/gallery/web/css/tailwind.config.js api/internal/gallery/web/css/app.src.css ./
+# tailwind scans the templ sources for class names
+COPY api/internal/gallery/web/*.templ /usr/src/templates/
+COPY api/internal/gallery/web/static/gallery.js /usr/src/static/gallery.js
+RUN sed -i 's#\.\./\*\.templ#./templates/*.templ#; s#\.\./static/gallery\.js#./static/gallery.js#' tailwind.config.js \
+    && bunx tailwindcss -c tailwind.config.js -i ./app.src.css -o ./app.css --minify
+
+
 FROM golang:1.26.4-alpine AS builder
 
 WORKDIR /usr/src
@@ -62,7 +74,26 @@ ENV CGO_ENABLED=0
 RUN go build -o server -ldflags="-s -w" ./cmd/server
 RUN go build -o import -ldflags="-s -w" ./cmd/import
 
+# Public gallery (cmd/gallery): templ components are generated at build time
+# and the stylesheet comes from the gallery-css stage below.
+COPY --from=gallery-css /usr/src/app.css /usr/src/internal/gallery/web/static/app.css
+RUN go run github.com/a-h/templ/cmd/templ@v0.3.1020 generate -path internal/gallery/web \
+    && go build -o gallery -ldflags="-s -w" ./cmd/gallery
 
+
+# Public gallery image: same base as the server (exiftool for EXIF-exported
+# downloads, tzdata for the event wall clock), a different entrypoint.
+FROM alpine:3.22 AS gallery
+WORKDIR /usr/app
+RUN apk add --no-cache exiftool tzdata
+RUN chown -R 1000:1000 /usr/app
+COPY --chown=1000:1000 --from=builder /usr/src/gallery /usr/app/gallery
+USER 1000
+EXPOSE 8090
+ENTRYPOINT ["/usr/app/gallery"]
+
+
+# Server image (default target).
 FROM alpine:3.22
 WORKDIR /usr/app
 
@@ -80,3 +111,4 @@ COPY --chown=1000:1000 --from=builder /usr/src/import /usr/app/import
 USER 1000
 EXPOSE 8080
 ENTRYPOINT ["/usr/app/server"]
+
