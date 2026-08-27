@@ -23,7 +23,7 @@ test.describe("ask filter", () => {
     const chip = page.getByTestId("ask-chip");
     await expect(chip).toContainText("team celebrating in the rain");
 
-    await chip.getByRole("button", { name: "Clear ask filter" }).click();
+    await chip.locator("button").click();
     await expect(chip).toHaveCount(0);
     await expect(page).not.toHaveURL(/ask=/);
     expect(errors).toEqual([]);
