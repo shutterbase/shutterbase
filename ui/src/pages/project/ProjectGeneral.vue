@@ -81,6 +81,64 @@
         :fields="reviewFields"
         :item="item"
       />
+      <section v-if="item" data-testid="public-gallery">
+        <h2 class="text-base font-semibold text-primary-900 dark:text-white">Public gallery</h2>
+        <p class="mt-1 text-sm text-primary-500 dark:text-primary-400">
+          Publish this project on a public gallery site. Only images carrying the <code>public</code> tag are shown; the tag is set by project admins.
+        </p>
+        <form class="mt-4 grid gap-4 sm:grid-cols-2" @submit.prevent="savePublication">
+          <label class="block"
+            ><span class="pg-label">Gallery</span>
+            <select v-model="pub.galleryId" class="pg-input" :disabled="!userStore.isProjectAdminOrHigher()" data-testid="gallery-select">
+              <option value="">— not published —</option>
+              <option v-for="gal in galleries" :key="gal.id" :value="gal.id">{{ gal.name }} ({{ gal.key }})</option>
+            </select></label
+          >
+          <label class="block"
+            ><span class="pg-label">Slug</span
+            ><input v-model="pub.gallerySlug" class="pg-input" placeholder="fsg-2026" :disabled="!userStore.isProjectAdminOrHigher()" data-testid="gallery-slug" /><span
+              class="pg-hint"
+              >URL path on the public site, lowercase</span
+            ></label
+          >
+          <label class="block"
+            ><span class="pg-label">Public title</span><input v-model="pub.galleryTitle" class="pg-input" :placeholder="item.name" :disabled="!userStore.isProjectAdminOrHigher()"
+          /></label>
+          <label class="block"
+            ><span class="pg-label">Cover image id</span
+            ><input v-model="pub.galleryCoverImageId" class="pg-input" placeholder="a public image of this project" :disabled="!userStore.isProjectAdminOrHigher()"
+          /></label>
+          <label class="block sm:col-span-2"
+            ><span class="pg-label">Public description</span
+            ><textarea
+              v-model="pub.galleryDescription"
+              rows="3"
+              class="pg-input h-auto py-2"
+              :placeholder="item.description"
+              :disabled="!userStore.isProjectAdminOrHigher()"
+            ></textarea>
+          </label>
+          <div class="sm:col-span-2">
+            <span class="pg-label">Featured tags</span>
+            <div class="flex flex-wrap gap-2">
+              <label v-for="t in albumTags" :key="t.id" class="inline-flex items-center gap-1.5 rounded-md border border-primary-200 px-2 py-1 text-xs dark:border-primary-700">
+                <input type="checkbox" :value="t.id" v-model="pub.galleryFeaturedTagIds" :disabled="!userStore.isProjectAdminOrHigher()" /> {{ t.displayName || t.name }}
+              </label>
+              <span v-if="albumTags.length === 0" class="text-xs text-primary-400">No album tags — every album tag is featured by default.</span>
+            </div>
+          </div>
+          <div v-if="userStore.isProjectAdminOrHigher()" class="sm:col-span-2 flex items-center gap-3">
+            <button
+              type="submit"
+              class="inline-flex cursor-pointer items-center justify-center rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-accent-500"
+              data-testid="gallery-save"
+            >
+              Save publication
+            </button>
+            <span v-if="item.galleryPublishedAt" class="text-xs text-primary-500">Published since {{ dateTimeFromBackend(item.galleryPublishedAt) }}</span>
+          </div>
+        </form>
+      </section>
     </div>
   </main>
   <ModalMessage
@@ -117,13 +175,15 @@
 </template>
 
 <script setup lang="ts">
-import { Ref, onMounted, ref, watch } from "vue";
+import { Ref, onMounted, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ArrowPathIcon } from "@heroicons/vue/24/outline";
 import UnexpectedErrorMessage from "src/components/UnexpectedErrorMessage.vue";
 import ModalMessage, { MessageType } from "src/components/ModalMessage.vue";
 import DetailEditGroup, { Field, FieldType, EditData } from "src/components/DetailEditGroup.vue";
 import { ProjectsResponse } from "src/types/pocketbase";
+import { Gallery, ImageTag } from "src/types/api";
+import { dateTimeFromBackend } from "src/util/dateTimeUtil";
 import { api } from "src/api";
 import { showNotificationToast } from "src/boot/mitt";
 import { capitalize } from "src/util/stringUtils";
@@ -141,6 +201,42 @@ const item: Ref<ITEM_TYPE | null> = ref(null);
 const showUnexpectedErrorMessage = ref(false);
 const unexpectedError = ref(null);
 
+// --- public gallery publication ---
+const galleries = ref<Gallery[]>([]);
+const albumTags = ref<ImageTag[]>([]);
+const pub = reactive({ galleryId: "", gallerySlug: "", galleryTitle: "", galleryDescription: "", galleryCoverImageId: "", galleryFeaturedTagIds: [] as string[] });
+
+function seedPublication(p: ITEM_TYPE) {
+  pub.galleryId = p.galleryId ?? "";
+  pub.gallerySlug = p.gallerySlug ?? "";
+  pub.galleryTitle = p.galleryTitle ?? "";
+  pub.galleryDescription = p.galleryDescription ?? "";
+  pub.galleryCoverImageId = p.galleryCoverImageId ?? "";
+  pub.galleryFeaturedTagIds = [...(p.galleryFeaturedTagIds ?? [])];
+}
+
+async function loadPublicationOptions(projectId: string) {
+  try {
+    galleries.value = (await api.galleries.list({ limit: 100 })).items;
+    albumTags.value = (await api.imageTags.list({ projectId, limit: 500 })).items.filter((t) => t.isAlbum);
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
+async function savePublication() {
+  if (!item.value) return;
+  try {
+    item.value = await api.projects.update(item.value.id, { ...pub });
+    seedPublication(item.value);
+    showNotificationToast({ headline: pub.galleryId ? "Project published" : "Project unpublished", type: "success" });
+  } catch (error: any) {
+    unexpectedError.value = error;
+    showUnexpectedErrorMessage.value = true;
+  }
+}
+
 async function loadItem() {
   const itemId: string = `${route.params.id}`;
   if (!itemId || itemId === "") {
@@ -152,6 +248,8 @@ async function loadItem() {
     console.log(`Loading ${ITEM_NAME} ${itemId}`);
     const response = await api.projects.get(itemId);
     item.value = response;
+    seedPublication(response);
+    await loadPublicationOptions(response.id);
   } catch (error: any) {
     unexpectedError.value = error;
     showUnexpectedErrorMessage.value = true;
@@ -276,3 +374,15 @@ const copyrightFields: Field<ITEM_TYPE>[] = [
 watch(route, loadItem);
 onMounted(loadItem);
 </script>
+
+<style scoped>
+.pg-label {
+  @apply mb-1 block text-xs font-medium uppercase tracking-wide text-primary-500 dark:text-primary-400;
+}
+.pg-hint {
+  @apply mt-1 block text-xs text-primary-400;
+}
+.pg-input {
+  @apply h-10 w-full rounded-md border border-primary-200 bg-surface px-3 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 disabled:opacity-60 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600;
+}
+</style>

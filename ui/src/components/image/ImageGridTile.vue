@@ -28,6 +28,9 @@
       <div v-if="verdicts.error" title="Tagging error" class="rounded-full bg-primary-950/70 p-1 shadow-sm">
         <ExclamationTriangleIcon class="h-4 w-4 text-warning-400" />
       </div>
+      <div v-if="published" title="Published on the public gallery" data-testid="public-badge" class="rounded-full bg-primary-950/70 p-1 shadow-sm">
+        <GlobeAltIcon class="h-4 w-4 text-accent-300" />
+      </div>
       <div v-if="selected" class="rounded-full bg-accent-600 p-1 shadow-sm">
         <CheckIcon class="h-3.5 w-3.5 text-white" />
       </div>
@@ -70,8 +73,8 @@ import { aiBadgeLabel, aiBadgeTitle } from "src/util/aiDetection";
 import { ImageWithTagsType } from "src/types/custom";
 import { devPlaceholder } from "src/util/devPlaceholder";
 import { computed, ref } from "vue";
-import { reviewVerdicts } from "src/util/uploadReview";
-import { ArrowPathIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, NoSymbolIcon, PhotoIcon, SparklesIcon } from "@heroicons/vue/24/solid";
+import { isPublished, reviewVerdicts } from "src/util/uploadReview";
+import { ArrowPathIcon, CheckIcon, ClockIcon, ExclamationTriangleIcon, GlobeAltIcon, NoSymbolIcon, PhotoIcon, SparklesIcon } from "@heroicons/vue/24/solid";
 
 type Density = "gallery" | "comfortable" | "dense";
 
@@ -100,6 +103,7 @@ const capturedAt = computed(() => dateTimeUtil.dateTimeFromBackend(props.image.c
 // per-image, not per-active-project: cross-project person search shows
 // foreign images whose own project decides whether verdict tags mean anything
 const verdicts = computed(() => reviewVerdicts({ reviewEnabled: !!props.image.project?.uploadReviewEnabled, tags: props.image.tags }));
+const published = computed(() => isPublished(props.image.tags));
 
 const aiLabel = computed(() => aiBadgeLabel(props.image.aiStatus, props.aiPosition));
 const aiTitle = computed(() => aiBadgeTitle(props.image.aiStatus, props.aiPosition, props.image.aiError));

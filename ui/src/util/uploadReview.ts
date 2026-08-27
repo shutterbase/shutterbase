@@ -20,6 +20,25 @@ export function isReviewerOnlyTag(name: string): boolean {
   return isReviewErrorTag(name) || isReviewRejectedTag(name);
 }
 
+// The public gallery tag: an image carrying it is published on the project's
+// public gallery. Only a project admin may set or clear it — whatever the
+// review mode (mirrors authorization.PublicTagName / IsPublicTag).
+export const PUBLIC_TAG = "public";
+export const INTERNAL_TAG = "internal";
+
+export function isPublicTag(name: string): boolean {
+  return name.toLowerCase() === PUBLIC_TAG;
+}
+
+// Every reserved name (create/rename/delete are project-admin-only on the server).
+export function isReservedTag(name: string): boolean {
+  return isPublicTag(name) || name.toLowerCase() === INTERNAL_TAG || isReviewerOnlyTag(name);
+}
+
+export function isPublished(tags?: { tag?: { name: string } | null }[]): boolean {
+  return (tags ?? []).some((a) => isPublicTag(a.tag?.name ?? ""));
+}
+
 // Grid-view verdict markers: which reserved review tags an image carries. Off
 // entirely without the review flow — a project may own a plain custom tag
 // coincidentally named "error".
@@ -71,11 +90,14 @@ export interface TagEditContext {
   isEditor: boolean; // projectEditor or higher
 }
 
-// Mirrors authorization.CanAssignTag: with the review flow on, a non-reviewer
+// Mirrors authorization.CanAssignTag: the public tag is project-admin-only
+// always; with the review flow on, a non-reviewer additionally
 // loses the reserved review tags entirely, and every non-custom ("official",
 // exported) tag once the upload has been submitted.
 export function canEditTag(ctx: TagEditContext): boolean {
   if (!ctx.isEditor) return false;
+  // publishing is the project admin's call, review flow or not
+  if (isPublicTag(ctx.tagName) && !ctx.isReviewer) return false;
   if (!ctx.reviewEnabled || ctx.isReviewer) return true;
   if (isReviewerOnlyTag(ctx.tagName)) return false;
   return !isUploadSubmitted(ctx.uploadState) || ctx.tagType === "custom";

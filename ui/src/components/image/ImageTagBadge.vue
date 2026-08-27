@@ -12,7 +12,7 @@
 <script lang="ts" setup>
 import { ImageTagAssignmentType } from "src/types/custom";
 import { tagLabel } from "src/util/tagOrder";
-import { isReviewRejectedTag } from "src/util/uploadReview";
+import { isPublicTag, isReviewRejectedTag } from "src/util/uploadReview";
 import { computed } from "vue";
 
 interface Props {
@@ -34,6 +34,10 @@ const tagColor = computed(() => {
   // the rejected verdict reads as a stop sign, not as a tag category
   if (isReviewRejectedTag(tag.name)) {
     return "bg-error-500/10 text-error-700 ring-error-500/40 dark:bg-error-500/15 dark:text-error-300 dark:ring-error-400/30";
+  }
+  // published on the public gallery: a solid, unmistakable marker
+  if (isPublicTag(tag.name)) {
+    return "bg-accent-600 text-white ring-accent-600 dark:bg-accent-500 dark:text-white dark:ring-accent-500";
   }
   switch (tag.type) {
     case "default":
