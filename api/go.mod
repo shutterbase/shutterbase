@@ -15,6 +15,7 @@ require (
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.12.0
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/lib/pq v1.12.3
 	github.com/mxcd/go-basicauth v1.4.0
 	github.com/mxcd/go-config v1.5.1
 	github.com/sashabaranov/go-openai v1.41.2

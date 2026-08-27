@@ -118,7 +118,7 @@ func coverSrc(v *PhotoView) string {
 }
 
 // PhotosPage is the filterable grid.
-templ PhotosPage(site *Site, p catalog.ProjectSummary, fv FilterView, photos []PhotoView, next string) {
+templ PhotosPage(site *Site, p catalog.ProjectSummary, fv FilterView, photos []PhotoView, next string, bulk bool) {
 	@Page(site, Meta{Title: p.Title() + " · " + site.T("photos"), Canonical: site.Abs(fv.Href(fv.Filter.WithoutPage())), NoIndex: !fv.Filter.IsEmpty()}) {
 		<div class="pt-6">
 			<nav class="text-sm text-muted"><a href="/" class="hover:text-ink">{ site.Label("projects") }</a> / <a href={ templ.SafeURL("/" + p.Project.GallerySlug) } class="hover:text-ink">{ p.Title() }</a></nav>
@@ -126,6 +126,12 @@ templ PhotosPage(site *Site, p catalog.ProjectSummary, fv FilterView, photos []P
 				<h1 class="text-2xl sm:text-3xl font-semibold">{ site.T("photos") }</h1>
 				if fv.Facets != nil {
 					<span class="text-muted tabular-nums">{ strconv.Itoa(fv.Facets.Total) }</span>
+				}
+				<span class="flex-1"></span>
+				if bulk && fv.Facets != nil && fv.Facets.Total > 0 {
+					<form method="post" action={ templ.SafeURL("/" + p.Project.GallerySlug + "/download" + queryString(fv.Filter.WithoutPage().Query())) }>
+						<button type="submit" class="btn-ghost text-sm">⤓ { site.T("download_all") }</button>
+					</form>
 				}
 			</div>
 		</div>
@@ -159,7 +165,7 @@ templ PhotosPartial(site *Site, fv FilterView, photos []PhotoView, next string) 
 }
 
 // DetailPage is the shareable photo page: hero, nav, spec sheet, download.
-templ DetailPage(site *Site, p catalog.ProjectSummary, fv FilterView, d *catalog.Detail, v PhotoView, prev *PhotoView, next *PhotoView, tags []Chip, stats *Stats) {
+templ DetailPage(site *Site, p catalog.ProjectSummary, fv FilterView, d *catalog.Detail, v PhotoView, prev *PhotoView, next *PhotoView, tags []Chip, stats *Stats, bulk bool) {
 	@Page(site, Meta{Title: v.FileName, Description: v.Caption, Image: v.Src(1024), Canonical: site.Abs("/" + p.Project.GallerySlug + "/p/" + v.ID)}) {
 		<div class="pt-4 flex items-center gap-3 text-sm text-muted">
 			<a href={ templ.SafeURL(fv.Href(fv.Filter.WithoutPage())) } class="hover:text-ink">← { site.T("back") }</a>
@@ -200,6 +206,11 @@ templ DetailPage(site *Site, p catalog.ProjectSummary, fv FilterView, d *catalog
 				<div class="mt-6 flex flex-wrap gap-3">
 					<a href={ templ.SafeURL("/d/" + v.ID) } class="btn" rel="nofollow">⤓ { site.T("download") }</a>
 					<button type="button" class="btn-ghost" data-copy-link={ site.Abs("/" + p.Project.GallerySlug + "/p/" + v.ID) }>{ site.T("share") }</button>
+					if bulk && !fv.Filter.IsEmpty() {
+						<form method="post" action={ templ.SafeURL("/" + p.Project.GallerySlug + "/download" + queryString(fv.Filter.WithoutPage().Query())) }>
+							<button type="submit" class="btn-ghost">{ site.T("download_all") } <span class="opacity-60 tabular-nums">{ strconv.Itoa(d.Total) }</span></button>
+						</form>
+					}
 				</div>
 				if stats != nil {
 					<p class="mt-4 text-xs text-muted tabular-nums">{ strconv.Itoa(stats.Views) } { site.T("views") } · { strconv.Itoa(stats.Downloads) } { site.T("downloads") }</p>

@@ -71,7 +71,9 @@ func Init() error {
 		config.String("VAULT_S3_SECRET_KEY_FIELD").Default("secret_key"),
 		config.String("VAULT_ENV_KV_PATH").Default(""),
 
-		// downloads / exif workers
+		// downloads / exif workers. The web role proxies renders to
+		// EXIF_WORKER_URL (a k8s Service in front of ROLE=worker replicas) with
+		// WORKER_TOKEN; empty URL => render inline (dev, single node).
 		config.String("EXIF_WORKER_URL").Default(""),
 		config.String("WORKER_TOKEN").Sensitive().Default(""),
 		config.Int("EXIF_MAX_CONCURRENCY").Default(4),
@@ -80,6 +82,20 @@ func Init() error {
 		config.String("DOWNLOAD_TIMEOUT").Default("120s"),
 		config.Int("RATE_LIMIT_DOWNLOAD_PER_MINUTE").Default(60),
 		config.String("TRUSTED_PROXIES").Default(""),
+
+		// bulk zips land in the gallery's own writable bucket (never the
+		// originals bucket); lifecycle on zips/ is the backstop for cleanup.
+		config.String("GALLERY_S3_BUCKET").Default(""),
+		config.String("GALLERY_S3_ACCESS_KEY").Default(""),
+		config.String("GALLERY_S3_SECRET_KEY").Sensitive().Default(""),
+		config.Int("BULK_MAX_IMAGES").Default(2000),
+		config.Int("BULK_MAX_BYTES").Default(20 << 30),
+		config.Int("BULK_MAX_ACTIVE_JOBS").Default(10),
+		config.Int("RATE_LIMIT_BULK_PER_HOUR").Default(5),
+		config.String("BULK_LEASE").Default("2m"),
+		config.String("BULK_JOB_TIMEOUT").Default("45m"),
+		config.String("BULK_ZIP_TTL").Default("24h"),
+		config.String("STATS_FLUSH_INTERVAL").Default("10s"),
 	})
 }
 

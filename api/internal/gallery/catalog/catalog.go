@@ -54,8 +54,12 @@ func New(o *Options) *Catalog {
 }
 
 func (c *Catalog) Location() *time.Location { return c.loc }
-func (c *Catalog) TTL() time.Duration       { return c.cache.ttl }
-func (c *Catalog) CacheLen() int            { return c.cache.len() }
+
+// Repo exposes the repository for callers that need policy-scoped ent
+// queries the catalog does not provide (the zip worker's manifest load).
+func (c *Catalog) Repo() *repository.Repository { return c.repo }
+func (c *Catalog) TTL() time.Duration           { return c.cache.ttl }
+func (c *Catalog) CacheLen() int                { return c.cache.len() }
 
 // Purge drops every cached answer (tests; an admin hook if ever needed).
 func (c *Catalog) Purge() { c.cache.purge() }
@@ -262,6 +266,25 @@ func (c *Catalog) Count(ctx context.Context, f Filter) (int, error) {
 	return cached(c.cache, "count:"+f.Key(), func() (int, error) {
 		return c.repo.Client.Image.Query().Where(c.listPredicates(scope, f)...).Count(ctx)
 	})
+}
+
+// Manifest is the bulk-download admission query: every image id matching
+// the filter under the given (live) scope, sorted, plus the byte total.
+func (c *Catalog) Manifest(ctx context.Context, scope *policy.Scope, f Filter) ([]string, int64, error) {
+	preds := []predicate.Image{scope.Predicates(f.ProjectID)}
+	preds = append(preds, f.WithoutPage().predicates(c.loc, c.tagNameIDs(scope, f.ProjectID))...)
+	rows, err := c.repo.Client.Image.Query().Where(preds...).Select(image.FieldID, image.FieldSize).All(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	ids := make([]string, 0, len(rows))
+	var total int64
+	for _, r := range rows {
+		ids = append(ids, r.ID)
+		total += int64(r.Size)
+	}
+	sort.Strings(ids)
+	return ids, total, nil
 }
 
 // --- detail ---

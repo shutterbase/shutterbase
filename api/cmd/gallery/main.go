@@ -17,9 +17,12 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/internal/database"
+	"github.com/shutterbase/shutterbase/internal/exif"
 	"github.com/shutterbase/shutterbase/internal/gallery/catalog"
 	galleryconfig "github.com/shutterbase/shutterbase/internal/gallery/config"
+	gallerydb "github.com/shutterbase/shutterbase/internal/gallery/db"
 	"github.com/shutterbase/shutterbase/internal/gallery/web"
+	"github.com/shutterbase/shutterbase/internal/gallery/worker"
 	"github.com/shutterbase/shutterbase/internal/repository"
 	"github.com/shutterbase/shutterbase/internal/s3"
 	"github.com/shutterbase/shutterbase/internal/util"
@@ -38,6 +41,20 @@ func main() {
 	creds := resolveVaultCredentials(context.Background())
 	conn := openDatabase(creds.database)
 	defer conn.Close()
+
+	// `gallery migrate` applies the gallery schema with the owner credentials
+	// (deployment Job) and exits; the runtime role never runs DDL.
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if conn.DB == nil {
+			log.Panic().Msg("migrate needs Postgres")
+		}
+		if err := gallerydb.Migrate(context.Background(), conn.DB); err != nil {
+			log.Panic().Err(err).Msg("gallery migration failed")
+		}
+		log.Info().Msg("gallery schema up to date")
+		return
+	}
+
 	repo, err := repository.NewRepository(&repository.Options{DatabaseConnection: conn})
 	if err != nil {
 		log.Panic().Err(err).Msg("error initializing repository")
@@ -54,6 +71,22 @@ func main() {
 		})
 		if err != nil {
 			log.Panic().Err(err).Msg("error initializing S3 client")
+		}
+	}
+	// The zip bucket is separate and writable; same endpoint, own credentials
+	// (falling back to the originals' key for local dev).
+	var zipBucket *s3.S3Client
+	if b := config.Get().String("GALLERY_S3_BUCKET"); b != "" {
+		access, secret := config.Get().String("GALLERY_S3_ACCESS_KEY"), config.Get().String("GALLERY_S3_SECRET_KEY")
+		if access == "" {
+			access, secret = s3Client.Options.AccessKey, s3Client.Options.SecretKey
+		}
+		zipBucket, err = s3.NewClient(&s3.S3ClientOptions{
+			Endpoint: config.Get().String("S3_ENDPOINT"), Port: config.Get().Int("S3_PORT"), SSL: config.Get().Bool("S3_SSL"),
+			Bucket: b, AccessKey: access, SecretKey: secret,
+		})
+		if err != nil {
+			log.Panic().Err(err).Msg("error initializing gallery bucket client")
 		}
 	}
 
@@ -73,22 +106,98 @@ func main() {
 		galleryconfig.Duration("PRESIGN_EXPIRY", 15*time.Minute),
 		galleryconfig.Duration("PRESIGN_CACHE", 10*time.Minute))
 
-	srv, err := web.New(&web.Options{
-		Catalog:        cat,
-		Presigner:      presigner,
-		BaseURL:        config.Get().String("PUBLIC_BASE_URL"),
-		Version:        config.Get().String("DEPLOYMENT_IMAGE_TAG"),
-		DevMode:        config.Get().Bool("DEV"),
-		TrustedProxies: config.Get().String("TRUSTED_PROXIES"),
-	})
-	if err != nil {
-		log.Panic().Err(err).Msg("error initializing gallery server")
+	exif.SetConcurrency(config.Get().Int("EXIF_MAX_CONCURRENCY"))
+	renderer := &worker.Renderer{
+		Catalog:     cat,
+		Originals:   s3Client,
+		MaxBytes:    int64(config.Get().Int("DOWNLOAD_MAX_OBJECT_BYTES")),
+		ExifTimeout: galleryconfig.Duration("EXIF_TIMEOUT", 30*time.Second),
+	}
+	var jobs gallerydb.JobStore
+	var stats *gallerydb.Stats
+	if conn.DB != nil {
+		jobs = &gallerydb.PostgresJobs{DB: conn.DB}
+		stats = gallerydb.NewStats(conn.DB)
+	} else {
+		jobs = gallerydb.NewMemoryJobs()
+	}
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+
+	galleryKey := config.Get().String("GALLERY_KEY")
+	addr := ":" + strconv.Itoa(config.Get().Int("PORT"))
+	var engine interface{ Run(...string) error }
+
+	switch role := config.Get().String("ROLE"); role {
+	case "worker":
+		ws := worker.NewServer(&worker.ServerOptions{
+			Renderer: renderer,
+			Token:    config.Get().String("WORKER_TOKEN"),
+			Timeout:  galleryconfig.Duration("DOWNLOAD_TIMEOUT", 2*time.Minute),
+			Version:  config.Get().String("DEPLOYMENT_IMAGE_TAG"),
+			DevMode:  config.Get().Bool("DEV"),
+		})
+		if zipBucket != nil {
+			go (&worker.ZipWorker{
+				Renderer: renderer, Jobs: jobs, Bucket: zipBucket, GalleryKey: galleryKey,
+				Lease:      galleryconfig.Duration("BULK_LEASE", 2*time.Minute),
+				JobTimeout: galleryconfig.Duration("BULK_JOB_TIMEOUT", 45*time.Minute),
+				ZipTTL:     galleryconfig.Duration("BULK_ZIP_TTL", 24*time.Hour),
+			}).Run(bgCtx)
+		} else {
+			log.Warn().Msg("GALLERY_S3_BUCKET not set: bulk zips disabled on this worker")
+		}
+		engine = ws.Engine
+	case "web":
+		dl := &web.DownloadOptions{
+			WorkerURL:        config.Get().String("EXIF_WORKER_URL"),
+			WorkerToken:      config.Get().String("WORKER_TOKEN"),
+			Timeout:          galleryconfig.Duration("DOWNLOAD_TIMEOUT", 2*time.Minute),
+			PerMinute:        config.Get().Int("RATE_LIMIT_DOWNLOAD_PER_MINUTE"),
+			Jobs:             jobs,
+			ZipBucket:        zipBucket,
+			MaxImages:        config.Get().Int("BULK_MAX_IMAGES"),
+			MaxBytes:         int64(config.Get().Int("BULK_MAX_BYTES")),
+			MaxActiveJobs:    config.Get().Int("BULK_MAX_ACTIVE_JOBS"),
+			RequesterPerHour: config.Get().Int("RATE_LIMIT_BULK_PER_HOUR"),
+			ZipTTL:           galleryconfig.Duration("BULK_ZIP_TTL", 24*time.Hour),
+		}
+		if dl.WorkerURL == "" {
+			// No worker fleet: render inline and drain the zip queue here too.
+			dl.Renderer = renderer
+			if zipBucket != nil {
+				go (&worker.ZipWorker{
+					Renderer: renderer, Jobs: jobs, Bucket: zipBucket, GalleryKey: galleryKey,
+					Lease:      galleryconfig.Duration("BULK_LEASE", 2*time.Minute),
+					JobTimeout: galleryconfig.Duration("BULK_JOB_TIMEOUT", 45*time.Minute),
+					ZipTTL:     galleryconfig.Duration("BULK_ZIP_TTL", 24*time.Hour),
+				}).Run(bgCtx)
+			}
+		}
+		if stats != nil {
+			go stats.Run(bgCtx, galleryconfig.Duration("STATS_FLUSH_INTERVAL", 10*time.Second))
+		}
+		srv, err := web.New(&web.Options{
+			Catalog:        cat,
+			Presigner:      presigner,
+			BaseURL:        config.Get().String("PUBLIC_BASE_URL"),
+			Version:        config.Get().String("DEPLOYMENT_IMAGE_TAG"),
+			DevMode:        config.Get().Bool("DEV"),
+			TrustedProxies: config.Get().String("TRUSTED_PROXIES"),
+			Downloads:      dl,
+			Stats:          stats,
+		})
+		if err != nil {
+			log.Panic().Err(err).Msg("error initializing gallery server")
+		}
+		engine = srv.Engine
+	default:
+		log.Panic().Str("ROLE", role).Msg("invalid ROLE (web|worker)")
 	}
 
-	addr := ":" + strconv.Itoa(config.Get().Int("PORT"))
 	go func() {
-		log.Info().Str("addr", addr).Str("gallery", config.Get().String("GALLERY_KEY")).Msg("gallery listening")
-		if err := srv.Engine.Run(addr); err != nil {
+		log.Info().Str("addr", addr).Str("gallery", galleryKey).Str("role", config.Get().String("ROLE")).Msg("gallery listening")
+		if err := engine.Run(addr); err != nil {
 			log.Panic().Err(err).Msg("error running gallery server")
 		}
 	}()
@@ -96,6 +205,10 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-quit
 	log.Info().Str("signal", sig.String()).Msg("gallery shutting down")
+	bgCancel()
+	if stats != nil {
+		stats.Flush(context.Background())
+	}
 }
 
 func thumbnailSizes() []int {

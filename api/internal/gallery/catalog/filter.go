@@ -232,10 +232,12 @@ func (f Filter) pageSize() int {
 // against tag names so "autocross" finds tagged photos, not just filenames.
 func (f Filter) predicates(loc *time.Location, tagNameIDs func(string) []string) []predicate.Image {
 	var preds []predicate.Image
-	if len(f.TagIDs) > 0 {
-		ids := f.TagIDs
+	// One scalar containment per tag (AND): identical plan on Postgres (each
+	// @> hits the GIN index) and, unlike a slice argument, portable to SQLite.
+	for _, t := range f.TagIDs {
+		id := t
 		preds = append(preds, func(s *sql.Selector) {
-			s.Where(sqljson.ValueContains(image.FieldImageTags, ids))
+			s.Where(sqljson.ValueContains(image.FieldImageTags, id))
 		})
 	}
 	for _, x := range f.ExcludeTagIDs {

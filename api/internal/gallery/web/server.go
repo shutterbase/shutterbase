@@ -18,14 +18,14 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/internal/gallery/catalog"
+	"github.com/shutterbase/shutterbase/internal/gallery/db"
 	"github.com/shutterbase/shutterbase/internal/gallery/policy"
 )
 
 //go:embed static
 var staticFS embed.FS
 
-// Stats are the public counters of one photo (filled in by the stats package
-// once it exists; nil hides the line).
+// Stats are the public counters of one photo (nil hides the line).
 type Stats struct {
 	Views     int
 	Downloads int
@@ -39,8 +39,10 @@ type Options struct {
 	DevMode   bool
 	// TrustedProxies is the comma-separated CIDR list for gin.ClientIP().
 	TrustedProxies string
-	// Download handles GET /d/:id when set; nil => 503 (no worker configured).
-	Download gin.HandlerFunc
+	// Downloads enables /d/:id and bulk zips; nil => 503 on those routes.
+	Downloads *DownloadOptions
+	// Stats counts views/downloads; nil disables counters.
+	Stats *db.Stats
 }
 
 type Server struct {
@@ -50,6 +52,8 @@ type Server struct {
 	baseURL   string
 	version   string
 	dev       bool
+	dl        *downloads
+	stats     *db.Stats
 }
 
 func New(o *Options) (*Server, error) {
@@ -61,7 +65,10 @@ func New(o *Options) (*Server, error) {
 	if err := engine.SetTrustedProxies(splitCSV(o.TrustedProxies)); err != nil {
 		return nil, err
 	}
-	s := &Server{Engine: engine, catalog: o.Catalog, presigner: o.Presigner, baseURL: o.BaseURL, version: o.Version, dev: o.DevMode}
+	s := &Server{Engine: engine, catalog: o.Catalog, presigner: o.Presigner, baseURL: o.BaseURL, version: o.Version, dev: o.DevMode, stats: o.Stats}
+	if o.Downloads != nil {
+		s.dl = newDownloads(o.Downloads)
+	}
 
 	static, err := fs.Sub(staticFS, "static")
 	if err != nil {
@@ -78,13 +85,12 @@ func New(o *Options) (*Server, error) {
 	engine.GET("/sitemap.xml", s.sitemap)
 	engine.GET("/", s.landing)
 	engine.GET("/search", s.search)
-	if o.Download != nil {
-		engine.GET("/d/:id", o.Download)
-	} else {
-		engine.GET("/d/:id", func(c *gin.Context) { s.renderError(c, http.StatusServiceUnavailable, "unavailable") })
-	}
+	engine.GET("/d/:id", s.download)
+	engine.GET("/jobs/:id", s.jobPage)
+	engine.GET("/jobs/:id/file", s.jobFile)
 	engine.GET("/:slug", s.project)
 	engine.GET("/:slug/photos", s.photos)
+	engine.POST("/:slug/download", s.bulkDownload)
 	engine.GET("/:slug/p/:id", s.detail)
 	engine.NoRoute(func(c *gin.Context) { s.renderError(c, http.StatusNotFound, "not_found") })
 	return s, nil
@@ -302,7 +308,7 @@ func (s *Server) photos(c *gin.Context) {
 		s.render(c, http.StatusOK, PhotosPartial(site, fv, views, page.Next))
 		return
 	}
-	s.render(c, http.StatusOK, PhotosPage(site, *p, fv, views, page.Next))
+	s.render(c, http.StatusOK, PhotosPage(site, *p, fv, views, page.Next, s.bulkEnabled(scope.Gallery.BulkDownloadEnabled)))
 }
 
 func (s *Server) detail(c *gin.Context) {
@@ -340,7 +346,13 @@ func (s *Server) detail(c *gin.Context) {
 			tags = append(tags, Chip{Label: tagLabel(t), Href: fv.Href(catalog.Filter{ProjectID: p.Project.ID, TagIDs: []string{id}})})
 		}
 	}
-	s.render(c, http.StatusOK, DetailPage(site, *p, fv, d, v, prev, next, tags, nil))
+	var stats *Stats
+	if s.stats != nil {
+		views, downloads := s.stats.Counts(ctx, d.Photo.ID)
+		stats = &Stats{Views: int(views) + 1, Downloads: int(downloads)}
+		s.stats.View(d.Photo.ID)
+	}
+	s.render(c, http.StatusOK, DetailPage(site, *p, fv, d, v, prev, next, tags, stats, s.bulkEnabled(scope.Gallery.BulkDownloadEnabled)))
 }
 
 func (s *Server) search(c *gin.Context) {
