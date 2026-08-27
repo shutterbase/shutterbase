@@ -7,7 +7,12 @@
         class="mx-auto max-w-4xl transform overflow-hidden rounded-xl border border-primary-200 bg-surface shadow-2xl transition-all dark:border-primary-800 dark:bg-surface-dark"
       >
         <div class="flex items-center justify-between border-b border-primary-200 px-5 py-4 dark:border-primary-800">
-          <h3 class="display text-lg text-primary-900 dark:text-white">Similar images</h3>
+          <h3 class="display text-lg text-primary-900 dark:text-white">
+            <template v-if="query"
+              >Search: <span class="font-normal italic">“{{ query }}”</span></template
+            >
+            <template v-else>Similar images</template>
+          </h3>
           <XMarkIcon class="h-5 w-5 cursor-pointer text-primary-400 hover:text-primary-600 dark:hover:text-primary-200" @click="emit('close')" />
         </div>
 
@@ -21,7 +26,7 @@
             </div>
           </div>
           <p v-else-if="!loading" class="py-8 text-center text-sm text-primary-500 dark:text-primary-400">
-            {{ notAnalyzed ? "This image has not been analyzed yet." : "Nothing found." }}
+            {{ notAnalyzed ? "This image has not been analyzed yet." : query ? "Nothing matches that description." : "Nothing found." }}
           </p>
           <p v-if="loading" class="py-4 text-center text-sm text-primary-500 dark:text-primary-400">Loading…</p>
         </div>
@@ -49,9 +54,10 @@
 </template>
 
 <script setup lang="ts">
-// Paginated "similar images" result grid for the current viewer image.
-// Selecting a result hands the image id back to the viewer. (Person browsing
-// lives in the normal grid via the implicit person filter, not here.)
+// Paginated ranked result grid: "similar images" for the current viewer image
+// (imageId), or semantic text search over the project's AI descriptions
+// (query). Selecting a result hands the image id back. (Person browsing lives
+// in the normal grid via the implicit person filter, not here.)
 import { ref, watch } from "vue";
 import { XMarkIcon } from "@heroicons/vue/24/outline";
 import ImageGridTile from "src/components/image/ImageGridTile.vue";
@@ -68,6 +74,9 @@ interface Entry {
 interface Props {
   shown: boolean;
   imageId?: string;
+  // free-text semantic search; takes precedence over imageId
+  query?: string;
+  projectId?: string;
 }
 const props = defineProps<Props>();
 const emit = defineEmits<{ close: []; select: [string] }>();
@@ -79,7 +88,7 @@ const loading = ref(false);
 const notAnalyzed = ref(false);
 
 watch(
-  () => [props.shown, props.imageId],
+  () => [props.shown, props.imageId, props.query],
   () => {
     if (!props.shown) return;
     page.value = 0;
@@ -89,12 +98,14 @@ watch(
 watch(page, load);
 
 async function load() {
-  if (!props.shown || !props.imageId) return;
+  if (!props.shown) return;
+  const semantic = !!props.query && !!props.projectId;
+  if (!semantic && !props.imageId) return;
   loading.value = true;
   notAnalyzed.value = false;
   items.value = [];
   try {
-    const result = await api.ai.similar(props.imageId, page.value, PAGE_SIZE);
+    const result = semantic ? await api.ai.search(props.projectId!, props.query!, page.value, PAGE_SIZE) : await api.ai.similar(props.imageId!, page.value, PAGE_SIZE);
     items.value = result.items.map((i) => ({ image: i.image, similarity: i.similarity }));
     hasMore.value = result.hasMore;
   } catch (error: any) {

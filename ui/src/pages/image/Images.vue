@@ -10,6 +10,7 @@
         :upload-filter="uploadFilter"
         :tag-facets="tagFacets"
         @search="updateSearchText"
+        @semantic-search="showSearchDialog"
         @filter-tags="updateFilterTags"
         @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
@@ -174,7 +175,14 @@
     @selected="addImageTag"
     :image="images[imageIndex]"
   />
-  <AiImageListDialog :shown="aiDialogVisible" :image-id="imageIndex !== -1 ? images[imageIndex]?.id : undefined" @close="aiDialogVisible = false" @select="selectFromAiDialog" />
+  <AiImageListDialog
+    :shown="aiDialogVisible"
+    :image-id="aiQuery ? undefined : imageIndex !== -1 ? images[imageIndex]?.id : undefined"
+    :query="aiQuery"
+    :project-id="activeProject?.id"
+    @close="closeAiDialog"
+    @select="selectFromAiDialog"
+  />
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 <script setup lang="ts">
@@ -286,6 +294,7 @@ function togglePersonFilters() {
 // "similar faces": person-scoped merge review on the People page; back
 // returns here and remounts the grid, so fresh merges show up immediately.
 const isProjectAdminOrHigher = useUserStore().isProjectAdminOrHigher();
+const { activeProject } = storeToRefs(useUserStore());
 const openSimilarFaces = () => router.push({ name: "people", query: { person: personFilter.value } });
 
 async function applyRoute(initial = false) {
@@ -632,8 +641,22 @@ function showPersonInGrid(personRef: string) {
   });
 }
 
+// aiQuery set = the dialog runs a semantic text search instead of "similar"
+const aiQuery = ref<string | undefined>();
+
 function showSimilarDialog() {
+  aiQuery.value = undefined;
   aiDialogVisible.value = true;
+}
+
+function showSearchDialog(query: string) {
+  aiQuery.value = query;
+  aiDialogVisible.value = true;
+}
+
+function closeAiDialog() {
+  aiDialogVisible.value = false;
+  aiQuery.value = undefined;
 }
 
 function selectFromAiDialog(imageId: string) {
@@ -642,7 +665,7 @@ function selectFromAiDialog(imageId: string) {
     showNotificationToast({ headline: "Image is not in the current view — adjust filters to navigate to it", type: "info" });
     return;
   }
-  aiDialogVisible.value = false;
+  closeAiDialog();
   imageIndex.value = index;
   openDetail(imageId);
 }

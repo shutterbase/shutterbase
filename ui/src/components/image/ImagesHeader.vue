@@ -78,8 +78,9 @@
         <input
           id="search"
           v-model="searchText"
-          placeholder="Search images"
+          placeholder="Search images · Enter = describe what you're looking for"
           type="text"
+          @keydown.enter.prevent="semanticSearch()"
           class="h-9 w-full rounded-md border border-primary-200 bg-surface pl-9 pr-9 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
         />
         <button
@@ -92,6 +93,16 @@
           <span class="sr-only">Clear search</span>
         </button>
       </div>
+      <button
+        type="button"
+        :class="[triggerBase, searchText.trim() ? triggerIdle : 'cursor-default opacity-50']"
+        :disabled="!searchText.trim()"
+        title="Semantic search: describe the moment you're looking for (e.g. “team celebrating in the rain”) — ranks photos by their AI description"
+        @click="semanticSearch()"
+      >
+        <SparklesIcon class="h-[18px] w-[18px]" />
+        <span>Ask</span>
+      </button>
 
       <!-- tags filter -->
       <Popover class="relative" v-slot="{ open }">
@@ -334,6 +345,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   search: [string];
+  semanticSearch: [string];
   filterTags: [{ include: ImageTag[]; exclude: ImageTag[] }];
   aspectRatioFilter: [string];
   "update:density": [Density];
@@ -382,6 +394,10 @@ const densityOptions: { value: Density; label: string; icon: any }[] = [
 // search
 const searchText = ref("");
 watch(searchText, () => emit("search", searchText.value));
+const semanticSearch = () => {
+  const q = searchText.value.trim();
+  if (q) emit("semanticSearch", q);
+};
 
 // orientation
 const orientation = ref<string>("neutral");

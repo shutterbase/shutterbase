@@ -115,6 +115,12 @@ func (c *Client) Similar(ctx context.Context, projectID, imageRef string, page, 
 	return resp, err
 }
 
+func (c *Client) Search(ctx context.Context, projectID, query string, page, pageSize int) (SimilarResponse, error) {
+	var resp SimilarResponse
+	err := c.do(ctx, http.MethodGet, c.projectPath(projectID)+"/search?q="+url.QueryEscape(query)+"&"+pageQuery(page, pageSize), nil, &resp)
+	return resp, err
+}
+
 func (c *Client) DeleteImage(ctx context.Context, projectID, imageRef string) error {
 	return c.do(ctx, http.MethodDelete, c.imagePath(projectID, imageRef), nil, nil)
 }

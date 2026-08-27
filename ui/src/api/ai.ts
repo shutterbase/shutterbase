@@ -118,6 +118,13 @@ export async function similar(imageId: string, page: number, pageSize = 20): Pro
   return data;
 }
 
+// Semantic search over the AI descriptions of a project's images: ranked by
+// closeness to the free-text query, same page shape as similar().
+export async function search(projectId: string, query: string, page: number, pageSize = 20): Promise<AiSimilarPage> {
+  const { data } = await http.get<AiSimilarPage>(`/projects/${projectId}/ai/search`, { params: { q: query, page, pageSize } });
+  return data;
+}
+
 export interface AiPersonImage {
   image: Image;
   x: number;
