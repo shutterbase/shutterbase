@@ -163,7 +163,7 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 		"broker":          broker,
 		"clientId":        clientID,
 		"username":        username,
-		"password":        password,
+		"password":        maskPassword(password),
 		"topicPrefix":     topicPrefix,
 		"wledDeviceTopic": wledDeviceTopic,
 		"publishEvents":   publishEvents,
@@ -332,6 +332,13 @@ func boolToStr(b bool) string {
 
 func intToStr(i int) string {
 	return fmt.Sprintf("%d", i)
+}
+
+func maskPassword(password string) string {
+	if password == "" {
+		return ""
+	}
+	return "***"
 }
 
 func parseIntOrDefault(s string) int {

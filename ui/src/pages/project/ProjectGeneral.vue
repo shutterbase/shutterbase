@@ -893,7 +893,7 @@ async function saveMqttSettings() {
       broker: mqttForm.value.broker,
       clientId: mqttForm.value.clientId,
       username: mqttForm.value.username,
-      password: mqttForm.value.password,
+      password: mqttForm.value.password === "***" ? undefined : mqttForm.value.password,
       topicPrefix: mqttForm.value.topicPrefix,
       wledDeviceTopic: mqttForm.value.wledDeviceTopic,
       publishEvents: mqttForm.value.publishEvents,
