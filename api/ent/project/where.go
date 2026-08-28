@@ -1179,6 +1179,29 @@ func HasDownloadConfigsWith(preds ...predicate.DownloadConfig) predicate.Project
 	})
 }
 
+// HasSettings applies the HasEdge predicate on the "settings" edge.
+func HasSettings() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, SettingsTable, SettingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSettingsWith applies the HasEdge predicate on the "settings" edge with a given conditions (other predicates).
+func HasSettingsWith(preds ...predicate.ProjectSetting) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newSettingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasActiveForUsers applies the HasEdge predicate on the "activeForUsers" edge.
 func HasActiveForUsers() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {

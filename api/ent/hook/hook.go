@@ -129,6 +129,18 @@ func (f ProjectAssignmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectAssignmentMutation", m)
 }
 
+// The ProjectSettingFunc type is an adapter to allow the use of ordinary
+// function as ProjectSetting mutator.
+type ProjectSettingFunc func(context.Context, *ent.ProjectSettingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectSettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectSettingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectSettingMutation", m)
+}
+
 // The RoleFunc type is an adapter to allow the use of ordinary
 // function as Role mutator.
 type RoleFunc func(context.Context, *ent.RoleMutation) (ent.Value, error)

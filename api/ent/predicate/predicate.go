@@ -36,6 +36,9 @@ type Project func(*sql.Selector)
 // ProjectAssignment is the predicate function for projectassignment builders.
 type ProjectAssignment func(*sql.Selector)
 
+// ProjectSetting is the predicate function for projectsetting builders.
+type ProjectSetting func(*sql.Selector)
+
 // Role is the predicate function for role builders.
 type Role func(*sql.Selector)
 

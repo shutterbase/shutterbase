@@ -16,6 +16,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/personname"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/projectsetting"
 	"github.com/shutterbase/shutterbase/ent/role"
 	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/schema"
@@ -416,6 +417,37 @@ func init() {
 	projectassignment.DefaultID = projectassignmentDescID.Default.(func() string)
 	// projectassignment.IDValidator is a validator for the "id" field. It is called by the builders before save.
 	projectassignment.IDValidator = projectassignmentDescID.Validators[0].(func(string) error)
+	projectsettingMixin := schema.ProjectSetting{}.Mixin()
+	projectsettingMixinFields0 := projectsettingMixin[0].Fields()
+	_ = projectsettingMixinFields0
+	projectsettingMixinFields1 := projectsettingMixin[1].Fields()
+	_ = projectsettingMixinFields1
+	projectsettingFields := schema.ProjectSetting{}.Fields()
+	_ = projectsettingFields
+	// projectsettingDescCreatedAt is the schema descriptor for createdAt field.
+	projectsettingDescCreatedAt := projectsettingMixinFields1[0].Descriptor()
+	// projectsetting.DefaultCreatedAt holds the default value on creation for the createdAt field.
+	projectsetting.DefaultCreatedAt = projectsettingDescCreatedAt.Default.(func() time.Time)
+	// projectsettingDescUpdatedAt is the schema descriptor for updatedAt field.
+	projectsettingDescUpdatedAt := projectsettingMixinFields1[1].Descriptor()
+	// projectsetting.DefaultUpdatedAt holds the default value on creation for the updatedAt field.
+	projectsetting.DefaultUpdatedAt = projectsettingDescUpdatedAt.Default.(func() time.Time)
+	// projectsetting.UpdateDefaultUpdatedAt holds the default value on update for the updatedAt field.
+	projectsetting.UpdateDefaultUpdatedAt = projectsettingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// projectsettingDescKey is the schema descriptor for key field.
+	projectsettingDescKey := projectsettingFields[0].Descriptor()
+	// projectsetting.KeyValidator is a validator for the "key" field. It is called by the builders before save.
+	projectsetting.KeyValidator = projectsettingDescKey.Validators[0].(func(string) error)
+	// projectsettingDescValue is the schema descriptor for value field.
+	projectsettingDescValue := projectsettingFields[1].Descriptor()
+	// projectsetting.DefaultValue holds the default value on creation for the value field.
+	projectsetting.DefaultValue = projectsettingDescValue.Default.(string)
+	// projectsettingDescID is the schema descriptor for id field.
+	projectsettingDescID := projectsettingMixinFields0[0].Descriptor()
+	// projectsetting.DefaultID holds the default value on creation for the id field.
+	projectsetting.DefaultID = projectsettingDescID.Default.(func() string)
+	// projectsetting.IDValidator is a validator for the "id" field. It is called by the builders before save.
+	projectsetting.IDValidator = projectsettingDescID.Validators[0].(func(string) error)
 	roleMixin := schema.Role{}.Mixin()
 	roleMixinFields0 := roleMixin[0].Fields()
 	_ = roleMixinFields0

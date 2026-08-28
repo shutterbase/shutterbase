@@ -473,6 +473,31 @@ var (
 			},
 		},
 	}
+	// ProjectSettingsColumns holds the columns for the "project_settings" table.
+	ProjectSettingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "key", Type: field.TypeString},
+		{Name: "value", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "project_settings", Type: field.TypeString, Size: 15},
+	}
+	// ProjectSettingsTable holds the schema information for the "project_settings" table.
+	ProjectSettingsTable = &schema.Table{
+		Name:       "project_settings",
+		Columns:    ProjectSettingsColumns,
+		PrimaryKey: []*schema.Column{ProjectSettingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_settings_projects_settings",
+				Columns:    []*schema.Column{ProjectSettingsColumns[7]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.Cascade,
+			},
+		},
+	}
 	// RolesColumns holds the columns for the "roles" table.
 	RolesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -752,6 +777,7 @@ var (
 		PersonNamesTable,
 		ProjectsTable,
 		ProjectAssignmentsTable,
+		ProjectSettingsTable,
 		RolesTable,
 		ScheduleItemsTable,
 		TimeOffsetsTable,
@@ -777,6 +803,7 @@ func init() {
 	ProjectAssignmentsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ProjectAssignmentsTable.ForeignKeys[1].RefTable = RolesTable
 	ProjectAssignmentsTable.ForeignKeys[2].RefTable = UsersTable
+	ProjectSettingsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduleItemsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduleItemsTable.ForeignKeys[1].RefTable = ScheduleItemsTable
 	TimeOffsetsTable.ForeignKeys[0].RefTable = CamerasTable
