@@ -284,6 +284,9 @@ func TestAIRerunAll(t *testing.T) {
 type fakeRemote struct {
 	faces    aiserver.FacesResponse
 	facesErr error
+	// searchHit is the ref Search returns first; searchQuery records the query.
+	searchHit   string
+	searchQuery string
 	// personQueried records the project ids PersonImages was called with;
 	// personTotals (optional) serves a per-project Total, unknown ids -> 404.
 	personQueried []string
@@ -337,6 +340,20 @@ func (f *fakeRemote) PersonImages(_ context.Context, projectID string, _ string,
 }
 func (f *fakeRemote) Similar(context.Context, string, string, int, int) (aiserver.SimilarResponse, error) {
 	return aiserver.SimilarResponse{}, nil
+}
+func (f *fakeRemote) Descriptions(_ context.Context, _ string, page, pageSize int) (aiserver.DescriptionsResponse, error) {
+	return aiserver.DescriptionsResponse{
+		Items:    []aiserver.ImageDescription{{ImageRef: f.searchHit, Description: "two marshals sharing an umbrella"}, {ImageRef: "ghost", Description: "x"}},
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
+}
+func (f *fakeRemote) Search(_ context.Context, _ string, query string, page, pageSize int) (aiserver.SimilarResponse, error) {
+	f.searchQuery = query
+	return aiserver.SimilarResponse{
+		Items: []aiserver.SimilarImage{{ImageRef: f.searchHit, Similarity: 0.66}, {ImageRef: "ghost", Similarity: 0.5}},
+		Page:  page, PageSize: pageSize, HasMore: true,
+	}, nil
 }
 func (f *fakeRemote) MergeCandidates(_ context.Context, projects []string, skip int, personRef string) (aiserver.MergeCandidatesResponse, error) {
 	f.mergeScopeSeen = projects
@@ -706,4 +723,87 @@ func TestAIPersonImagesCrossProject(t *testing.T) {
 	require.Equal(t, http.StatusOK, code)
 	assert.Equal(t, []string{m.Project}, fake.personQueried, "unassigned project must not be queried")
 	assert.EqualValues(t, 3, body["total"])
+}
+
+// Semantic search: ranked hits resolve to full image responses in rank order,
+// unknown refs are dropped, and an empty query is a 400 (no AI round-trip).
+func TestAIProjectSearch(t *testing.T) {
+	s, m := newAITestServer(t)
+	hit := m.Images[0]
+	remote := &fakeRemote{searchHit: hit}
+	s.aiRemote = remote
+
+	c, rec := aiCtx(t, adminUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/search?q=rain+umbrellas&page=1", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiProjectSearch(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Items []struct {
+			Image struct {
+				ID string `json:"id"`
+			} `json:"image"`
+			Similarity float64 `json:"similarity"`
+		} `json:"items"`
+		Page    int  `json:"page"`
+		HasMore bool `json:"hasMore"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "rain umbrellas", remote.searchQuery)
+	require.Len(t, body.Items, 1, "ghost ref must be dropped")
+	assert.Equal(t, hit, body.Items[0].Image.ID)
+	assert.Equal(t, 0.66, body.Items[0].Similarity)
+	assert.Equal(t, 1, body.Page)
+	assert.True(t, body.HasMore)
+
+	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/projects/"+m.Project+"/ai/search?q=+", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiProjectSearch(c)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+// ?ask= narrows the grid to the AI server's ranked refs, like the person filter.
+func TestListImagesAskFilter(t *testing.T) {
+	s, m := newAITestServer(t)
+	remote := &fakeRemote{searchHit: m.Images[0]}
+	s.aiRemote = remote
+	c, rec := aiCtx(t, adminUser(), http.MethodGet, "/api/v1/images?projectId="+m.Project+"&ask=rain", "")
+	s.listImages(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Total int              `json:"total"`
+		Items []map[string]any `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "rain", remote.searchQuery)
+	require.Equal(t, 1, body.Total, "only the ranked, existing ref")
+	assert.Equal(t, m.Images[0], body.Items[0]["id"])
+}
+
+// Backfill copies stored descriptions onto images; refs shutterbase doesn't
+// know are skipped, and the caption then shows up in the image response and
+// the plain-text search.
+func TestAISyncDescriptions(t *testing.T) {
+	s, m := newAITestServer(t)
+	s.aiRemote = &fakeRemote{searchHit: m.Images[0]}
+	c, rec := aiCtx(t, adminUser(), http.MethodPost, "/api/v1/projects/"+m.Project+"/ai/sync-descriptions", "")
+	c.Params = gin.Params{{Key: "id", Value: m.Project}}
+	s.aiSyncDescriptions(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.JSONEq(t, `{"updated":1,"skipped":1}`, rec.Body.String())
+
+	c, rec = aiCtx(t, adminUser(), http.MethodGet, "/api/v1/images?projectId="+m.Project+"&search=umbrella", "")
+	s.listImages(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	var body struct {
+		Total int `json:"total"`
+		Items []struct {
+			ID            string `json:"id"`
+			AiDescription string `json:"aiDescription"`
+		} `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Equal(t, 1, body.Total)
+	assert.Equal(t, m.Images[0], body.Items[0].ID)
+	assert.Equal(t, "two marshals sharing an umbrella", body.Items[0].AiDescription)
 }

@@ -138,6 +138,16 @@ func (s *fakeAIRemote) Similar(_ context.Context, _, _ string, _, _ int) (aiserv
 	return aiserver.SimilarResponse{Items: []aiserver.SimilarImage{}}, nil
 }
 
+// Search has no descriptions to rank in the stub; an empty page keeps the UI
+// flow (dialog → "nothing matches") exercisable without fsai.
+func (s *fakeAIRemote) Descriptions(_ context.Context, _ string, page, pageSize int) (aiserver.DescriptionsResponse, error) {
+	return aiserver.DescriptionsResponse{Items: []aiserver.ImageDescription{}, Page: page, PageSize: pageSize}, nil
+}
+
+func (s *fakeAIRemote) Search(_ context.Context, _, _ string, page, pageSize int) (aiserver.SimilarResponse, error) {
+	return aiserver.SimilarResponse{Items: []aiserver.SimilarImage{}, Page: page, PageSize: pageSize}, nil
+}
+
 func (s *fakeAIRemote) Persons(ctx context.Context, projectIDs []string, page, pageSize int) (aiserver.PersonsResponse, error) {
 	type tally struct {
 		count  int

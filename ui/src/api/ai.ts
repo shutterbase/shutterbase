@@ -118,6 +118,13 @@ export async function similar(imageId: string, page: number, pageSize = 20): Pro
   return data;
 }
 
+// Copies the AI server's stored descriptions onto this project's images
+// (backfill for images analyzed before descriptions were persisted here).
+export async function syncDescriptions(projectId: string): Promise<{ updated: number; skipped: number }> {
+  const { data } = await http.post<{ updated: number; skipped: number }>(`/projects/${projectId}/ai/sync-descriptions`);
+  return data;
+}
+
 export interface AiPersonImage {
   image: Image;
   x: number;

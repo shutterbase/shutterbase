@@ -9,7 +9,9 @@
         :selection-count="imageIndices.length"
         :upload-filter="uploadFilter"
         :tag-facets="tagFacets"
+        :filter-active="filtered"
         @search="updateSearchText"
+        @semantic-search="setAskFilter"
         @filter-tags="updateFilterTags"
         @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
@@ -18,6 +20,12 @@
         @slideshow="slideshowActive = true"
       />
       <div v-if="displayMode === DisplayMode.GRID">
+        <div v-if="askFilter" class="mt-6 flex flex-wrap items-center gap-3">
+          <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300" data-testid="ask-chip">
+            ask: <span class="normal-case italic">“{{ askFilter }}”</span>
+            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear ask filter" aria-label="Clear ask filter" @click="clearAskFilter()">×</button>
+          </span>
+        </div>
         <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
           <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
             photos of one person
@@ -178,7 +186,6 @@
   <UnexpectedErrorMessage :show="showUnexpectedErrorMessage" :error="unexpectedError" @closed="showUnexpectedErrorMessage = false" />
 </template>
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
 import ImageGridTile from "src/components/image/ImageGridTile.vue";
 import ImagesHeader, { SORT_ORDER } from "src/components/image/ImagesHeader.vue";
 import ImagesFooter from "src/components/image/ImagesFooter.vue";
@@ -218,6 +225,7 @@ import {
   updateAspectRatioFilter,
   filtered,
   personFilter,
+  askFilter,
   personCrossProject,
   personFiltersPaused,
   uploadFilter,
@@ -264,6 +272,8 @@ const clearPersonFilter = () =>
     delete q.person;
     delete q.personScope;
   });
+const setAskFilter = (query: string) => pushQuery((q) => (q.ask = query));
+const clearAskFilter = () => pushQuery((q) => delete q.ask);
 const setUploadFilter = (id: string | null) =>
   pushQuery((q) => {
     if (id) q.upload = id;
@@ -293,15 +303,17 @@ async function applyRoute(initial = false) {
   const person = (route.query.person as string) || null;
   const crossProject = route.query.personScope === "all";
   const uploadId = (route.query.upload as string) || null;
+  const ask = (route.query.ask as string) || null;
   const imageId = (route.query.image as string) || null;
 
-  if (initial || person !== personFilter.value || crossProject !== personCrossProject.value || uploadId !== uploadFilter.value) {
-    if (person || uploadId) {
+  if (initial || person !== personFilter.value || crossProject !== personCrossProject.value || uploadId !== uploadFilter.value || ask !== askFilter.value) {
+    if (person || uploadId || ask) {
       // entering an implicit filter from the unfiltered grid: remember where we were
-      if (!initial && !personFilter.value && !uploadFilter.value) snapshotGrid();
+      if (!initial && !personFilter.value && !uploadFilter.value && !askFilter.value) snapshotGrid();
       personFilter.value = person;
       personCrossProject.value = crossProject;
       uploadFilter.value = uploadId;
+      askFilter.value = ask;
       personFiltersPaused.value = true;
       imageIndex.value = -1;
       imageIndices.value = [];
@@ -312,6 +324,7 @@ async function applyRoute(initial = false) {
       personFilter.value = null;
       personCrossProject.value = false;
       uploadFilter.value = null;
+      askFilter.value = null;
       personFiltersPaused.value = true;
       const scrollY = initial ? null : restoreGridSnapshot();
       if (scrollY === null) {
@@ -336,6 +349,7 @@ async function applyRoute(initial = false) {
           delete q.person;
           delete q.personScope;
           delete q.upload;
+          delete q.ask;
         }, true);
       }
       if (jump.status === "unavailable") {

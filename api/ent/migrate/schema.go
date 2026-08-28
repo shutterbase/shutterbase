@@ -193,6 +193,7 @@ var (
 		{Name: "ai_raw_result", Type: field.TypeJSON, Nullable: true},
 		{Name: "ai_attempts", Type: field.TypeInt, Default: 0},
 		{Name: "ai_error", Type: field.TypeString, Nullable: true},
+		{Name: "ai_description", Type: field.TypeString, Nullable: true, Size: 2147483647},
 		{Name: "size", Type: field.TypeInt},
 		{Name: "width", Type: field.TypeInt, Nullable: true},
 		{Name: "height", Type: field.TypeInt, Nullable: true},
@@ -209,25 +210,25 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "images_cameras_images",
-				Columns:    []*schema.Column{ImagesColumns[22]},
+				Columns:    []*schema.Column{ImagesColumns[23]},
 				RefColumns: []*schema.Column{CamerasColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "images_projects_images",
-				Columns:    []*schema.Column{ImagesColumns[23]},
+				Columns:    []*schema.Column{ImagesColumns[24]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_uploads_images",
-				Columns:    []*schema.Column{ImagesColumns[24]},
+				Columns:    []*schema.Column{ImagesColumns[25]},
 				RefColumns: []*schema.Column{UploadsColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
 			{
 				Symbol:     "images_users_images",
-				Columns:    []*schema.Column{ImagesColumns[25]},
+				Columns:    []*schema.Column{ImagesColumns[26]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -236,22 +237,22 @@ var (
 			{
 				Name:    "image_project_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[23]},
+				Columns: []*schema.Column{ImagesColumns[24]},
 			},
 			{
 				Name:    "image_upload_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[24]},
+				Columns: []*schema.Column{ImagesColumns[25]},
 			},
 			{
 				Name:    "image_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[25]},
+				Columns: []*schema.Column{ImagesColumns[26]},
 			},
 			{
 				Name:    "image_camera_id",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[22]},
+				Columns: []*schema.Column{ImagesColumns[23]},
 			},
 			{
 				Name:    "image_captured_at_corrected",
@@ -261,7 +262,7 @@ var (
 			{
 				Name:    "image_project_id_captured_at_corrected",
 				Unique:  false,
-				Columns: []*schema.Column{ImagesColumns[23], ImagesColumns[11]},
+				Columns: []*schema.Column{ImagesColumns[24], ImagesColumns[11]},
 			},
 			{
 				Name:    "image_ai_status_ai_queued_at",

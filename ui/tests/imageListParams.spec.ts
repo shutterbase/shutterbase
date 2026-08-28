@@ -53,6 +53,11 @@ describe("buildImageListParams (UI state -> §4.3 list params)", () => {
     expect(buildImageListParams({ projectId: "p1" }).personRef).toBeUndefined();
   });
 
+  it("maps the ask filter and drops it when unset", () => {
+    expect(buildImageListParams({ projectId: "p1", ask: "rain" }).ask).toBe("rain");
+    expect(buildImageListParams({ projectId: "p1", ask: "" }).ask).toBeUndefined();
+  });
+
   it("maps the implicit upload filter and drops it when unset", () => {
     expect(buildImageListParams({ projectId: "p1", uploadId: "u-1" }).uploadId).toBe("u-1");
     expect(buildImageListParams({ projectId: "p1" }).uploadId).toBeUndefined();

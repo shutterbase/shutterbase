@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -70,10 +71,25 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		}
 		params.Orientation = &v
 	}
+	// Semantic "ask" filter: the AI server ranks the project's images by their
+	// description; the grid then shows that id set under its normal sort.
+	if v := strings.TrimSpace(c.Query("ask")); v != "" {
+		ids, idsOk := s.askImageIDs(c, projectID, v)
+		if !idsOk {
+			return nil, false, false
+		}
+		if len(ids) == 0 {
+			return params, true, true
+		}
+		params.IDs = ids
+	}
 	if v := c.Query("personRef"); v != "" {
 		ids, idsOk := s.personImageIDs(c, projectID, v)
 		if !idsOk {
 			return nil, false, false
+		}
+		if params.IDs != nil { // ask ∧ person: intersect the two id sets
+			ids = intersect(params.IDs, ids)
 		}
 		// The ONE exception to the hard project filter: cross-project person
 		// search widens to every project the user may view. The requested
@@ -393,4 +409,18 @@ func (s *Server) deleteImage(c *gin.Context) {
 	// The AI server keeps its own analysis per imageRef; tell it to forget.
 	s.forgetAIImage(img.ProjectID, img.ID)
 	c.Status(http.StatusNoContent)
+}
+
+func intersect(a, b []string) []string {
+	in := make(map[string]bool, len(a))
+	for _, id := range a {
+		in[id] = true
+	}
+	out := []string{}
+	for _, id := range b {
+		if in[id] {
+			out = append(out, id)
+		}
+	}
+	return out
 }

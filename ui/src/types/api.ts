@@ -103,6 +103,7 @@ export interface Image {
   inferredAt?: string | null;
   aiStatus?: AiStatus | null;
   aiError?: string;
+  aiDescription?: string;
   createdAt: string;
   updatedAt: string;
 }

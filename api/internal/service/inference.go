@@ -44,6 +44,8 @@ type InferredTag struct {
 type InferenceResult struct {
 	Tags []InferredTag
 	Raw  json.RawMessage
+	// Description is the provider's free-text caption ("" when it has none).
+	Description string
 }
 
 // ImageInference is the single seam the AI tagging service talks to.
@@ -169,5 +171,5 @@ func (h *HTTPInference) Infer(ctx context.Context, req InferenceRequest) (Infere
 	for _, t := range resp.Tags {
 		tags = append(tags, InferredTag{Name: t.Name, Confidence: t.Confidence})
 	}
-	return InferenceResult{Tags: tags, Raw: resp.Raw}, nil
+	return InferenceResult{Tags: tags, Raw: resp.Raw, Description: resp.Description}, nil
 }
