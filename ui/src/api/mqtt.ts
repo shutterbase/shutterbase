@@ -35,10 +35,18 @@ export async function testProjectMqtt(
   return data;
 }
 
+export interface MqttWledTestPayload {
+  preset?: number;
+  effect?: number;
+  palette?: number;
+  raw?: string;
+  duration?: number;
+}
+
 export async function testProjectMqttWled(
   projectId: string,
-  event: string,
+  payload: MqttWledTestPayload,
 ): Promise<{ message: string; topic: string; payload: Record<string, unknown> }> {
-  const { data } = await http.post(`/projects/${projectId}/mqtt/wled/test`, { event });
+  const { data } = await http.post(`/projects/${projectId}/mqtt/wled/test`, payload);
   return data;
 }

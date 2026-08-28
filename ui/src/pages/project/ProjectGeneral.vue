@@ -1043,7 +1043,18 @@ async function testMqttWled(eventKey: string) {
   mqttWledTesting.value = true;
   mqttWledTestEvent.value = eventKey;
   try {
-    await api.mqtt.testProjectMqttWled(projectId, eventKey);
+    const cmd = mqttForm.value.wledCommands[eventKey];
+    const duration = mqttForm.value.durations[eventKey];
+    const payload: Record<string, unknown> = { duration };
+    if (cmd.mode === "raw" && cmd.raw) {
+      payload.raw = cmd.raw;
+    } else if (cmd.mode === "effect") {
+      payload.effect = cmd.effect;
+      payload.palette = cmd.palette;
+    } else {
+      payload.preset = cmd.preset;
+    }
+    await api.mqtt.testProjectMqttWled(projectId, payload);
     showNotificationToast({ headline: "WLED command sent", type: "success" });
   } catch (e: any) {
     unexpectedError.value = e;

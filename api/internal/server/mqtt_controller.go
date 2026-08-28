@@ -284,28 +284,61 @@ func (s *Server) testProjectMqttWled(c *gin.Context) {
 	}
 
 	var input struct {
-		Event string `json:"event"`
+		Preset   *int    `json:"preset"`
+		Effect   *int    `json:"effect"`
+		Palette  *int    `json:"palette"`
+		Raw      *string `json:"raw"`
+		Duration *int    `json:"duration"`
 	}
-	if err := c.ShouldBindJSON(&input); err != nil || input.Event == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "event name required"})
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx := c.Request.Context()
-	payload := s.getMqttWledCommand(ctx, projectID, input.Event)
+	// Build the WLED command from form values
+	var payload map[string]interface{}
+	if input.Raw != nil && *input.Raw != "" {
+		var parsed map[string]interface{}
+		if json.Unmarshal([]byte(*input.Raw), &parsed) != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid JSON"})
+			return
+		}
+		payload = parsed
+	} else if input.Effect != nil {
+		seg := map[string]interface{}{"fx": *input.Effect}
+		if input.Palette != nil && *input.Palette > 0 {
+			seg["pal"] = *input.Palette
+		}
+		payload = map[string]interface{}{
+			"on":  true,
+			"bri": 128,
+			"seg": []map[string]interface{}{seg},
+		}
+	} else if input.Preset != nil && *input.Preset > 0 {
+		payload = map[string]interface{}{
+			"on":     true,
+			"bri":    128,
+			"preset": *input.Preset,
+		}
+	}
+
 	if payload == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no WLED command configured for this event"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no command provided"})
 		return
 	}
 
-	wledTopic, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wledDeviceTopic")
+	wledTopic, _ := s.Repository.GetProjectSetting(c.Request.Context(), projectID, "mqtt.wledDeviceTopic")
 	if wledTopic == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no WLED device topic configured"})
 		return
 	}
 
+	duration := 0
+	if input.Duration != nil && *input.Duration > 0 {
+		duration = *input.Duration
+	}
+
 	topic := wledTopic + "/api"
-	duration := s.getMqttDuration(ctx, projectID, input.Event)
-	s.publishToWled(ctx, projectID, payload, duration)
+	s.publishToWled(c.Request.Context(), projectID, payload, duration)
 	c.JSON(http.StatusOK, gin.H{"message": "sent", "topic": topic, "payload": payload})
 }
