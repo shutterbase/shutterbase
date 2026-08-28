@@ -518,7 +518,7 @@
               <div v-if="mqttForm.events.tagAssigned" class="space-y-3">
                 <div>
                   <h5 class="text-xs font-medium text-primary-600 dark:text-primary-400">Tag Effects</h5>
-                  <p class="mt-1 text-xs text-primary-500 dark:text-primary-400">Map specific tags to WLED commands. Each row triggers independently.</p>
+                  <p class="mt-1 text-xs text-primary-500 dark:text-primary-400">Optionally map specific tags to custom WLED commands. These fire in addition to the general Tag assigned effect above.</p>
                 </div>
                 <div v-for="(te, idx) in mqttForm.tagEffects" :key="idx" class="rounded-md border border-primary-200 dark:border-primary-700 p-3 space-y-2">
                   <div class="flex items-center gap-2">
@@ -695,7 +695,7 @@ const mqttUploadEvents = [
 
 const mqttTagEvents = [
   { key: "imageRejected", label: "Image rejected (tag)", slug: "image-rejected" },
-  { key: "tagAssigned", label: "Tag assigned", slug: "tag-assigned" },
+  { key: "tagAssigned", label: "Tag assigned (all tags)", slug: "tag-assigned" },
 ];
 
 const mqttEventList = [...mqttUploadEvents, ...mqttTagEvents];

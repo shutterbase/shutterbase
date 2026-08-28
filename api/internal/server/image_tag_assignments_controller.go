@@ -201,8 +201,8 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 				s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
 			}
 		}
-		// MQTT: publish tag-assigned event if this tag is in the trigger list.
-		if tag.Name != authorization.ReviewRejectedTagName && s.isMqttTagTrigger(c.Request.Context(), up.ProjectID, tag.Name) && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "tagAssigned") {
+		// MQTT: general tag-assigned event fires for ALL tags (except "rejected").
+		if tag.Name != authorization.ReviewRejectedTagName && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "tagAssigned") {
 			ctx := c.Request.Context()
 			if s.isMqttPublishEventsEnabled(ctx, up.ProjectID) {
 				s.publishToProject(ctx, up.ProjectID, s.getMqttTopicPrefix(ctx, up.ProjectID)+"/"+up.ProjectID+"/upload/"+up.ID+"/tag-assigned", gin.H{
@@ -213,16 +213,17 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 				})
 			}
 			if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
-				// Use tag-specific command if available, fall back to global tagAssigned
-				wledCmd := s.getTagEffectCommand(ctx, up.ProjectID, tag.Name)
-				if wledCmd == nil {
-					wledCmd = s.getMqttWledCommand(ctx, up.ProjectID, "tagAssigned")
-				}
-				duration := s.getTagEffectDuration(ctx, up.ProjectID, tag.Name)
-				if duration == 0 {
-					duration = s.getMqttDuration(ctx, up.ProjectID, "tagAssigned")
-				}
+				wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, "tagAssigned")
+				duration := s.getMqttDuration(ctx, up.ProjectID, "tagAssigned")
 				s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
+			}
+		}
+		// MQTT: per-tag effects fire independently for matching tags.
+		if tag.Name != authorization.ReviewRejectedTagName && s.isMqttWledControlEnabled(c.Request.Context(), up.ProjectID) {
+			tagWledCmd := s.getTagEffectCommand(c.Request.Context(), up.ProjectID, tag.Name)
+			if tagWledCmd != nil {
+				tagDuration := s.getTagEffectDuration(c.Request.Context(), up.ProjectID, tag.Name)
+				s.publishToWled(c.Request.Context(), up.ProjectID, tagWledCmd, tagDuration)
 			}
 		}
 	}
