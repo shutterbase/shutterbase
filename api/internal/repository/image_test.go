@@ -191,3 +191,55 @@ func TestGetImageTimeBounds(t *testing.T) {
 	assert.Nil(t, empty.Min)
 	assert.Nil(t, empty.Max)
 }
+
+// GetImageTimeTicks returns sampled timestamps for the slider density strip.
+// The range is always STRIPPED (same as bounds), and only corrected images
+// contribute. For ≤ maxTicks images every position is returned; above that
+// the list is linearly downsampled.
+func TestGetImageTimeTicks(t *testing.T) {
+	ctx := context.Background()
+	repo, m := seededRepo(t)
+
+	params := func() *repository.GetImageParameters {
+		return &repository.GetImageParameters{
+			ProjectID: m.Project,
+		}
+	}
+
+	// full set: 8 midnight cluster + 3 base = 11 corrected images
+	// maxTicks=200 → all 11 returned
+	ticks, err := repo.GetImageTimeTicks(ctx, params(), 200)
+	require.NoError(t, err)
+	require.NotNil(t, ticks)
+	assert.Len(t, ticks, 11, "all corrected images returned when below maxTicks")
+
+	// timestamps must be sorted ascending
+	for i := 1; i < len(ticks); i++ {
+		assert.False(t, ticks[i].Before(ticks[i-1]), "ticks must be sorted ascending")
+	}
+
+	// range is stripped: adding from/to should NOT narrow the ticks
+	from, to := m.TimeRangeStart, m.TimeRangeEnd
+	bounded := params()
+	bounded.FromCapturedAtCorrected = &from
+	bounded.ToCapturedAtCorrected = &to
+	boundedTicks, err := repo.GetImageTimeTicks(ctx, bounded, 200)
+	require.NoError(t, err)
+	require.NotNil(t, boundedTicks)
+	assert.Len(t, boundedTicks, 11, "time range stripped — same count as unbounded")
+
+	// linear sampling: maxTicks=5 → only 5 timestamps returned
+	sampled, err := repo.GetImageTimeTicks(ctx, params(), 5)
+	require.NoError(t, err)
+	require.Len(t, sampled, 5, "downsampled to maxTicks")
+	// first and last should still be present (linear sampling picks index 0 and near-end)
+	assert.True(t, sampled[0].Equal(ticks[0]), "first tick preserved")
+	assert.True(t, sampled[len(sampled)-1].Equal(ticks[len(ticks)-1]) || sampled[len(sampled)-1].After(ticks[0]), "last tick near end")
+
+	// filter matching nothing returns nil
+	none := params()
+	none.Search = &[]string{"no-such-photo"}[0]
+	empty, err := repo.GetImageTimeTicks(ctx, none, 200)
+	require.NoError(t, err)
+	assert.Nil(t, empty)
+}

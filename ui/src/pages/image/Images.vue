@@ -13,13 +13,14 @@
         :time-from="timeFromFilter"
         :time-to="timeToFilter"
         :time-bounds="timeBounds"
+        :time-ticks="timeTicks"
         @search="updateSearchText"
         @semantic-search="setAskFilter"
         @filter-tags="updateFilterTags"
         @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
         @time-range="setTimeRange"
-        @time-bounds-needed="loadTimeBounds"
+        @time-bounds-needed="loadTimeBounds(); loadTimeTicks()"
         @rerun-ai="rerunSelection"
         @upload-filter="setUploadFilter"
         @slideshow="slideshowActive = true"
@@ -290,6 +291,8 @@ import {
   loadTagFacets,
   timeBounds,
   loadTimeBounds,
+  timeTicks,
+  loadTimeTicks,
 } from "./imageQueryLogic";
 import { totalImageCount, images, imageIndex, imageIndices, multiselectStart, multiselectEnd, loading } from "./imageQueryLogic";
 import { taggingDialogVisible, addImageTag } from "./imageQueryLogic";
@@ -563,6 +566,7 @@ resetTransientFilters();
 onMounted(() => {
   applyRoute(true);
   loadTimeBounds();
+  loadTimeTicks();
 });
 // any other filter/sort change makes the saved unfiltered-grid position stale
 const reloadDebounced = useDebounceFn(() => {

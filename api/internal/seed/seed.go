@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 
@@ -385,6 +386,17 @@ func EnsureTimeRangeFixtures(ctx context.Context, client *ent.Client, referenceN
 	if err == nil {
 		m.Cameras["fresh"] = cam.ID
 	}
+
+	// Fetch the default tag if it exists in the project.
+	if m.Project != "" {
+		defaultTag, err := client.ImageTag.Query().
+			Where(imagetag.ProjectID(m.Project), imagetag.Name("Default")).
+			Only(ctx)
+		if err == nil {
+			m.Tags["Default"] = defaultTag.ID
+		}
+	}
+
 	if err := SeedTimeRangeCluster(ctx, client, m, referenceNow); err != nil {
 		return nil, err
 	}
@@ -398,4 +410,360 @@ func (m *Manifest) Write(path string) error {
 		return err
 	}
 	return os.WriteFile(path, b, 0o644)
+}
+
+// SeedWeekOfPhotos creates ~10,000 photos with capturedAtCorrected spread
+// evenly across 7 days starting from referenceNow. Used for load-testing the
+// time-range slider density ticks. Each photo gets the default tag plus
+// one of 10 additional tags (round-robin). Idempotent: skips images that
+// already exist (by computedFileName).
+func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, count int) error {
+	if count <= 0 {
+		count = 10000
+	}
+	defaultTag := m.Tags["Default"]
+	freshCam := m.Cameras["fresh"]
+	editor := m.Users["projectEditor"]
+	upload := m.Upload
+	project := m.Project
+
+	// Create 10 additional tags if they don't exist
+	extraTags := make([]string, 10)
+	for t := 0; t < 10; t++ {
+		tagName := fmt.Sprintf("Tag%02d", t)
+		existing, err := client.ImageTag.Query().
+			Where(imagetag.ProjectID(project), imagetag.Name(tagName)).
+			Only(ctx)
+		if ent.IsNotFound(err) {
+			newTag, err := client.ImageTag.Create().
+				SetName(tagName).
+				SetDescription(fmt.Sprintf("auto tag %d", t)).
+				SetType(imagetag.TypeManual).
+				SetProjectID(project).
+				Save(ctx)
+			if err != nil {
+				return fmt.Errorf("create extra tag %s: %w", tagName, err)
+			}
+			m.Tags[tagName] = newTag.ID
+			extraTags[t] = newTag.ID
+		} else if err != nil {
+			return fmt.Errorf("query extra tag %s: %w", tagName, err)
+		} else {
+			m.Tags[tagName] = existing.ID
+			extraTags[t] = existing.ID
+		}
+	}
+
+	interval := (7 * 24 * time.Hour) / time.Duration(count)
+	rng := rand.New(rand.NewSource(referenceNow.UnixNano()))
+
+	for i := 0; i < count; i++ {
+		corrected := referenceNow.Add(time.Duration(i) * interval)
+		capturedAt := corrected.Add(-Drift)
+		computed := fmt.Sprintf("FSG_W%05d.jpg", i)
+
+		// Random tag assignment: 30% get 1 tag, 50% get 2 tags, 20% get 3 tags
+		// Each photo always gets Default, plus 0-2 extra tags
+		numExtra := rng.Intn(10)
+		var extraTagsForImage []string
+		if numExtra < 3 { // 30% - 1 extra tag
+			extraTagsForImage = []string{extraTags[rng.Intn(10)]}
+		} else if numExtra < 8 { // 50% - 2 extra tags
+			extraTagsForImage = []string{
+				extraTags[rng.Intn(10)],
+				extraTags[rng.Intn(10)],
+			}
+		} else { // 20% - 3 extra tags
+			extraTagsForImage = []string{
+				extraTags[rng.Intn(10)],
+				extraTags[rng.Intn(10)],
+				extraTags[rng.Intn(10)],
+			}
+		}
+
+		img, err := client.Image.Query().Where(image.ComputedFileName(computed)).Only(ctx)
+		if ent.IsNotFound(err) {
+			storageID := fmt.Sprintf("seedwk%08d", i)
+			allTags := append([]string{defaultTag}, extraTagsForImage...)
+			img, err = client.Image.Create().
+				SetFileName(fmt.Sprintf("WEEK_%05d.jpg", i)).
+				SetComputedFileName(computed).
+				SetStorageId(storageID).
+				SetSize(1024 * (i%10 + 1)).
+				SetWidth(6000).
+				SetHeight(4000).
+				SetCapturedAt(capturedAt).
+				SetCapturedAtCorrected(corrected).
+				SetImageTags(allTags).
+				SetUserID(editor).
+				SetUploadID(upload).
+				SetProjectID(project).
+				SetCameraID(freshCam).
+				Save(ctx)
+			if err != nil {
+				return fmt.Errorf("create week image %d: %w", i, err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("query week image %d: %w", i, err)
+		}
+		m.Images = append(m.Images, img.ID)
+
+		// Link the default tag (idempotent)
+		_, err = client.ImageTagAssignment.Create().
+			SetType(imagetagassignment.TypeDefault).
+			SetImageID(img.ID).
+			SetImageTagID(defaultTag).
+			Save(ctx)
+		if err != nil && !ent.IsConstraintError(err) {
+			return fmt.Errorf("assign default tag to week image %d: %w", i, err)
+		}
+
+		// Link the extra tags (idempotent)
+		for _, tagID := range extraTagsForImage {
+			_, err = client.ImageTagAssignment.Create().
+				SetType(imagetagassignment.TypeManual).
+				SetImageID(img.ID).
+				SetImageTagID(tagID).
+				Save(ctx)
+			if err != nil && !ent.IsConstraintError(err) {
+				return fmt.Errorf("assign extra tag to week image %d: %w", i, err)
+			}
+		}
+	}
+	return nil
+}
+
+// TagExistingPhotos assigns random extra tags to all existing images in the
+// project that don't already have them. Used to backfill the original seed
+// images. Each photo gets Default + 0-2 extra tags from Tag00–Tag09.
+func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time) error {
+	project := m.Project
+
+	// Ensure 10 extra tags exist
+	extraTags := make([]string, 10)
+	for t := 0; t < 10; t++ {
+		tagName := fmt.Sprintf("Tag%02d", t)
+		existing, err := client.ImageTag.Query().
+			Where(imagetag.ProjectID(project), imagetag.Name(tagName)).
+			Only(ctx)
+		if ent.IsNotFound(err) {
+			newTag, err := client.ImageTag.Create().
+				SetName(tagName).
+				SetDescription(fmt.Sprintf("auto tag %d", t)).
+				SetType(imagetag.TypeManual).
+				SetProjectID(project).
+				Save(ctx)
+			if err != nil {
+				return fmt.Errorf("create extra tag %s: %w", tagName, err)
+			}
+			m.Tags[tagName] = newTag.ID
+			extraTags[t] = newTag.ID
+		} else if err != nil {
+			return fmt.Errorf("query extra tag %s: %w", tagName, err)
+		} else {
+			m.Tags[tagName] = existing.ID
+			extraTags[t] = existing.ID
+		}
+	}
+
+	// Fetch all images in the project
+	images, err := client.Image.Query().Where(image.ProjectID(project)).All(ctx)
+	if err != nil {
+		return fmt.Errorf("query images: %w", err)
+	}
+
+	rng := rand.New(rand.NewSource(referenceNow.UnixNano()))
+
+	for _, img := range images {
+		// Random tag assignment: 30% get 1 tag, 50% get 2 tags, 20% get 3 tags
+		numExtra := rng.Intn(10)
+		var extraTagsForImage []string
+		if numExtra < 3 { // 30% - 1 extra tag
+			extraTagsForImage = []string{extraTags[rng.Intn(10)]}
+		} else if numExtra < 8 { // 50% - 2 extra tags
+			extraTagsForImage = []string{
+				extraTags[rng.Intn(10)],
+				extraTags[rng.Intn(10)],
+			}
+		} else { // 20% - 3 extra tags
+			extraTagsForImage = []string{
+				extraTags[rng.Intn(10)],
+				extraTags[rng.Intn(10)],
+				extraTags[rng.Intn(10)],
+			}
+		}
+
+		// Assign extra tags
+		for _, tagID := range extraTagsForImage {
+			_, err = client.ImageTagAssignment.Create().
+				SetType(imagetagassignment.TypeManual).
+				SetImageID(img.ID).
+				SetImageTagID(tagID).
+				Save(ctx)
+			if err != nil && !ent.IsConstraintError(err) {
+				return fmt.Errorf("assign extra tag to image %s: %w", img.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// SeedLastWeekPhotos creates ~5,000 photos with capturedAtCorrected spread
+// organically across the previous 7 days (ending at referenceNow).
+// Timestamps use a Poisson-like distribution to simulate realistic shooting
+// bursts (events, golden hour) instead of uniform spacing. Each photo gets
+// the default tag plus 1-3 random extra tags from Tag00–Tag09.
+// Idempotent: skips images that already exist (by computedFileName).
+func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, count int) error {
+	if count <= 0 {
+		count = 5000
+	}
+	defaultTag := m.Tags["Default"]
+	freshCam := m.Cameras["fresh"]
+	editor := m.Users["projectEditor"]
+	upload := m.Upload
+	project := m.Project
+
+	// Ensure 10 extra tags exist
+	extraTags := make([]string, 10)
+	for t := 0; t < 10; t++ {
+		tagName := fmt.Sprintf("Tag%02d", t)
+		existing, err := client.ImageTag.Query().
+			Where(imagetag.ProjectID(project), imagetag.Name(tagName)).
+			Only(ctx)
+		if ent.IsNotFound(err) {
+			newTag, err := client.ImageTag.Create().
+				SetName(tagName).
+				SetDescription(fmt.Sprintf("auto tag %d", t)).
+				SetType(imagetag.TypeManual).
+				SetProjectID(project).
+				Save(ctx)
+			if err != nil {
+				return fmt.Errorf("create extra tag %s: %w", tagName, err)
+			}
+			m.Tags[tagName] = newTag.ID
+			extraTags[t] = newTag.ID
+		} else if err != nil {
+			return fmt.Errorf("query extra tag %s: %w", tagName, err)
+		} else {
+			m.Tags[tagName] = existing.ID
+			extraTags[t] = existing.ID
+		}
+	}
+
+	weekStart := referenceNow.AddDate(0, 0, -7)
+	rng := rand.New(rand.NewSource(referenceNow.UnixNano() + 42))
+
+	// Generate organic timestamps: cluster around "events" (5 per day)
+	// Each event produces a burst of photos over 30-90 minutes.
+	type burst struct {
+		center   time.Time
+		duration time.Duration
+		count    int
+	}
+	var bursts []burst
+	for d := 0; d < 7; d++ {
+		dayStart := weekStart.AddDate(0, 0, d)
+		for e := 0; e < 5; e++ {
+			// Events favor golden hours: 6-9am, 5-8pm, plus some midday
+			hour := []int{7, 8, 17, 18, 12}[e]
+			center := dayStart.Add(time.Duration(hour)*time.Hour + time.Duration(rng.Intn(60))*time.Minute)
+			duration := time.Duration(30+rng.Intn(60)) * time.Minute
+			burstCount := 10 + rng.Intn(40) // 10-50 photos per burst
+			bursts = append(bursts, burst{center: center, duration: duration, count: burstCount})
+		}
+	}
+
+	// Normalize burst counts to total `count`
+	totalBurstCount := 0
+	for _, b := range bursts {
+		totalBurstCount += b.count
+	}
+	ratio := float64(count) / float64(totalBurstCount)
+
+	for i, b := range bursts {
+		bursts[i].count = int(float64(b.count) * ratio)
+		if bursts[i].count < 1 {
+			bursts[i].count = 1
+		}
+	}
+
+	imgIdx := 0
+	for _, b := range bursts {
+		for j := 0; j < b.count && imgIdx < count; j++ {
+			// Photos distributed around burst center with slight skew toward start
+			offset := time.Duration(rng.Float64()*float64(b.duration)) - b.duration/2
+			corrected := b.center.Add(offset)
+			if corrected.Before(weekStart) {
+				corrected = weekStart
+			}
+			if corrected.After(referenceNow) {
+				corrected = referenceNow
+			}
+			capturedAt := corrected.Add(-Drift)
+			computed := fmt.Sprintf("FSG_LW%05d.jpg", imgIdx)
+
+			// Random extra tags: 30% get 1, 50% get 2, 20% get 3
+			numExtra := rng.Intn(10)
+			var extraTagsForImage []string
+			if numExtra < 3 {
+				extraTagsForImage = []string{extraTags[rng.Intn(10)]}
+			} else if numExtra < 8 {
+				extraTagsForImage = []string{extraTags[rng.Intn(10)], extraTags[rng.Intn(10)]}
+			} else {
+				extraTagsForImage = []string{extraTags[rng.Intn(10)], extraTags[rng.Intn(10)], extraTags[rng.Intn(10)]}
+			}
+
+			img, err := client.Image.Query().Where(image.ComputedFileName(computed)).Only(ctx)
+			if ent.IsNotFound(err) {
+				storageID := fmt.Sprintf("seedlw%08d", imgIdx)
+				allTags := append([]string{defaultTag}, extraTagsForImage...)
+				img, err = client.Image.Create().
+					SetFileName(fmt.Sprintf("LW_%05d.jpg", imgIdx)).
+					SetComputedFileName(computed).
+					SetStorageId(storageID).
+					SetSize(1024 * (imgIdx%10 + 1)).
+					SetWidth(6000).
+					SetHeight(4000).
+					SetCapturedAt(capturedAt).
+					SetCapturedAtCorrected(corrected).
+					SetImageTags(allTags).
+					SetUserID(editor).
+					SetUploadID(upload).
+					SetProjectID(project).
+					SetCameraID(freshCam).
+					Save(ctx)
+				if err != nil {
+					return fmt.Errorf("create last-week image %d: %w", imgIdx, err)
+				}
+			} else if err != nil {
+				return fmt.Errorf("query last-week image %d: %w", imgIdx, err)
+			}
+			m.Images = append(m.Images, img.ID)
+
+			// Link default tag
+			_, err = client.ImageTagAssignment.Create().
+				SetType(imagetagassignment.TypeDefault).
+				SetImageID(img.ID).
+				SetImageTagID(defaultTag).
+				Save(ctx)
+			if err != nil && !ent.IsConstraintError(err) {
+				return fmt.Errorf("assign default tag to last-week image %d: %w", imgIdx, err)
+			}
+
+			// Link extra tags
+			for _, tagID := range extraTagsForImage {
+				_, err = client.ImageTagAssignment.Create().
+					SetType(imagetagassignment.TypeManual).
+					SetImageID(img.ID).
+					SetImageTagID(tagID).
+					Save(ctx)
+				if err != nil && !ent.IsConstraintError(err) {
+					return fmt.Errorf("assign extra tag to last-week image %d: %w", imgIdx, err)
+				}
+			}
+			imgIdx++
+		}
+	}
+	return nil
 }

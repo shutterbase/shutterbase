@@ -7,9 +7,16 @@
     >
       <!-- track -->
       <div class="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-primary-200 dark:bg-primary-700"></div>
+      <!-- image ticks -->
+      <span
+        v-for="tick in tickPositions"
+        :key="tick.key"
+        class="absolute top-1 h-2 w-px bg-primary-300 dark:bg-primary-600"
+        :style="{ left: tick.pct + '%' }"
+      ></span>
       <!-- selected segment -->
       <div
-        class="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent-500"
+        class="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-accent-500 z-[1]"
         :style="{ left: lowPct + '%', width: highPct - lowPct + '%' }"
       ></div>
       <!-- low thumb -->
@@ -37,6 +44,7 @@ const props = defineProps<{
   from?: string | null;
   to?: string | null;
   disabled?: boolean;
+  ticks?: string[] | null;
 }>();
 
 const emit = defineEmits<{
@@ -81,6 +89,21 @@ watch(highStep, (v) => {
 
 const lowPct = computed(() => ((lowStep.value - minStep.value) / Math.max(maxStep.value - minStep.value, 1)) * 100);
 const highPct = computed(() => ((highStep.value - minStep.value) / Math.max(maxStep.value - minStep.value, 1)) * 100);
+
+// Image ticks: map each sampled ISO timestamp to a percentage position on
+// the slider track. Matches the UploadTimeline.vue density strip pattern.
+interface TickPosition { key: string; pct: number }
+const tickPositions = computed<TickPosition[]>(() => {
+  const ticks = props.ticks;
+  if (!ticks || ticks.length === 0) return [];
+  const domainSpan = maxStep.value - minStep.value;
+  if (domainSpan <= 0) return [];
+  return ticks.map((iso) => {
+    const ms = new Date(iso).getTime();
+    const pct = ((ms / MINUTE - minStep.value) / domainSpan) * 100;
+    return { key: iso, pct: Math.max(0, Math.min(100, pct)) };
+  });
+});
 
 // --- manual pointer drag ---
 const trackRef = ref<HTMLElement | null>(null);
