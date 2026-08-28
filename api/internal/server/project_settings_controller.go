@@ -26,9 +26,10 @@ type mqttEvents struct {
 }
 
 type wledCommand struct {
-	Preset *int    `json:"preset"`
-	Effect *int    `json:"effect"`
-	Raw    *string `json:"raw"`
+	Preset  *int    `json:"preset"`
+	Effect  *int    `json:"effect"`
+	Palette *int    `json:"palette"`
+	Raw     *string `json:"raw"`
 }
 
 type mqttWledCommands struct {
@@ -143,6 +144,10 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 		if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+name+".effect"); v != "" {
 			n := parseIntOrDefault(v)
 			cmdMap[name].Effect = &n
+		}
+		if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+name+".palette"); v != "" {
+			n := parseIntOrDefault(v)
+			cmdMap[name].Palette = &n
 		}
 		if v, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+name+".raw"); v != "" {
 			cmdMap[name].Raw = &v
@@ -273,6 +278,12 @@ func (s *Server) updateProjectMqttSettings(c *gin.Context) {
 			if cmd.Effect != nil {
 				if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.wled."+name+".effect", intToStr(*cmd.Effect)); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save effect"})
+					return
+				}
+			}
+			if cmd.Palette != nil {
+				if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.wled."+name+".palette", intToStr(*cmd.Palette)); err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save palette"})
 					return
 				}
 			}

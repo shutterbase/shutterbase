@@ -34,3 +34,11 @@ export async function testProjectMqtt(
   );
   return data;
 }
+
+export async function testProjectMqttWled(
+  projectId: string,
+  event: string,
+): Promise<{ message: string; topic: string; payload: Record<string, unknown> }> {
+  const { data } = await http.post(`/projects/${projectId}/mqtt/wled/test`, { event });
+  return data;
+}

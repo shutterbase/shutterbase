@@ -3,6 +3,7 @@ import { http } from "src/boot/axios";
 export interface WledCommand {
   preset?: number;
   effect?: number;
+  palette?: number;
   raw?: string;
 }
 

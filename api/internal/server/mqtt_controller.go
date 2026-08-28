@@ -19,6 +19,7 @@ import (
 func (s *Server) registerMQTTRoutes(api *gin.RouterGroup) {
 	api.GET("/projects/:id/mqtt/status", s.getProjectMqttStatus)
 	api.POST("/projects/:id/mqtt/test", s.testProjectMqtt)
+	api.POST("/projects/:id/mqtt/wled/test", s.testProjectMqttWled)
 }
 
 func (s *Server) getProjectMqttStatus(c *gin.Context) {
@@ -110,10 +111,17 @@ func (s *Server) getMqttWledCommand(ctx context.Context, projectID, event string
 	if effectStr != "" {
 		effectID, err := strconv.Atoi(effectStr)
 		if err == nil {
+			seg := map[string]interface{}{"fx": effectID}
+			paletteStr, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wled."+event+".palette")
+			if paletteStr != "" {
+				if palID, palErr := strconv.Atoi(paletteStr); palErr == nil && palID > 0 {
+					seg["pal"] = palID
+				}
+			}
 			return map[string]interface{}{
 				"on":  true,
 				"bri": 128,
-				"seg": []map[string]interface{}{{"fx": effectID}},
+				"seg": []map[string]interface{}{seg},
 			}
 		}
 	}
@@ -265,4 +273,38 @@ func (s *Server) testProjectMqtt(c *gin.Context) {
 
 	results := mqtt.TestConnection(opts, input.TopicPrefix)
 	c.JSON(http.StatusOK, results)
+}
+
+func (s *Server) testProjectMqttWled(c *gin.Context) {
+	projectID := c.Param("id")
+
+	if !authorization.CanEditProject(authUser(c), projectID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "project edit access required"})
+		return
+	}
+
+	var input struct {
+		Event string `json:"event"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil || input.Event == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "event name required"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	payload := s.getMqttWledCommand(ctx, projectID, input.Event)
+	if payload == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no WLED command configured for this event"})
+		return
+	}
+
+	wledTopic, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.wledDeviceTopic")
+	if wledTopic == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no WLED device topic configured"})
+		return
+	}
+
+	topic := wledTopic + "/api"
+	s.publishToProject(ctx, projectID, topic, payload)
+	c.JSON(http.StatusOK, gin.H{"message": "sent", "topic": topic, "payload": payload})
 }

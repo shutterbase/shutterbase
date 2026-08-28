@@ -395,6 +395,14 @@
                       <option :value="0">0 — Solid</option>
                       <option v-for="fx in WLED_EFFECTS" :key="fx.id" :value="fx.id">{{ fx.id }} — {{ fx.name }}</option>
                     </select>
+                    <select
+                      v-if="mqttForm.wledCommands[event.key].mode === 'effect'"
+                      v-model.number="mqttForm.wledCommands[event.key].palette"
+                      class="rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100"
+                    >
+                      <option :value="0">Default palette</option>
+                      <option v-for="pal in WLED_PALETTES" :key="pal.id" :value="pal.id">{{ pal.id }} — {{ pal.name }}</option>
+                    </select>
                     <label class="flex items-center gap-1.5">
                       <input type="radio" :name="'mode-'+event.key" value="raw" v-model="mqttForm.wledCommands[event.key].mode" class="h-3.5 w-3.5 text-accent-500 focus:ring-accent-500" />
                       <span class="text-xs text-primary-600 dark:text-primary-400">Raw JSON</span>
@@ -406,6 +414,18 @@
                       placeholder='{"seg":[{"fx":66}]}'
                       class="flex-1 min-w-[200px] rounded-md border border-primary-300 bg-white px-2 py-1 font-mono text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
                     />
+                    <button
+                      type="button"
+                      :disabled="mqttWledTesting"
+                      class="ml-auto inline-flex items-center gap-1 rounded-md border border-primary-300 bg-white px-2 py-1 text-xs text-primary-600 transition-colors hover:border-accent-400 hover:text-accent-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-400 dark:hover:text-accent-400"
+                      @click="testMqttWled(event.key)"
+                    >
+                      <CheckCircleIcon v-if="mqttWledTestEvent === event.key && !mqttWledTesting" class="h-3 w-3 text-success-500" />
+                      <ArrowPathIcon v-else-if="mqttWledTestEvent === event.key && mqttWledTesting" class="h-3 w-3 animate-spin" />
+                      <span v-else>Test</span>
+                      <span v-if="mqttWledTestEvent === event.key && mqttWledTesting">Sending...</span>
+                      <span v-else-if="mqttWledTestEvent === event.key && !mqttWledTesting">Sent!</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -493,6 +513,8 @@ const mqttTriggerTagsBackup = ref("");
 const mqttTriggerTagsInput = ref("");
 const mqttTesting = ref(false);
 const mqttTestResults = ref<Record<string, { ok: boolean; error?: string }>>({});
+const mqttWledTestEvent = ref<string | null>(null);
+const mqttWledTesting = ref(false);
 
 const mqttEventList = [
   { key: "uploadCreated", label: "Upload created", slug: "created" },
@@ -510,119 +532,187 @@ const WLED_EFFECTS = [
   { id: 2, name: "Breathe" },
   { id: 3, name: "Wipe" },
   { id: 4, name: "Wipe Random" },
-  { id: 5, name: "Random Colors" },
   { id: 6, name: "Sweep" },
   { id: 7, name: "Dynamic" },
   { id: 8, name: "Rainbow" },
   { id: 9, name: "Rainbow Cycle" },
-  { id: 10, name: "Theater Chase" },
-  { id: 11, name: "Theater Chase Rainbow" },
-  { id: 12, name: "Running Lights" },
-  { id: 13, name: "Twinkle" },
-  { id: 14, name: "Twinkle Rainbow" },
-  { id: 15, name: "Twinklefox" },
-  { id: 16, name: "Christmas" },
-  { id: 17, name: "Halloween" },
-  { id: 18, name: "Fire Flicker" },
-  { id: 19, name: "Fire Flicker (soft)" },
-  { id: 20, name: "Fire Flicker (intense)" },
-  { id: 21, name: "Candle" },
-  { id: 22, name: "Fireworks" },
-  { id: 23, name: "Fireworks Random" },
-  { id: 24, name: "Fireworks Starburst" },
-  { id: 25, name: "Halloween Eyes" },
-  { id: 26, name: "Party" },
+  { id: 10, name: "Scan" },
+  { id: 11, name: "Scan Dual" },
+  { id: 12, name: "Fade" },
+  { id: 13, name: "Theater Chase" },
+  { id: 14, name: "Theater Chase Rainbow" },
+  { id: 15, name: "Running" },
+  { id: 16, name: "Saw" },
+  { id: 17, name: "Twinkle" },
+  { id: 18, name: "Dissolve" },
+  { id: 19, name: "Dissolve Rnd" },
+  { id: 20, name: "Sparkle" },
+  { id: 21, name: "Sparkle Dark" },
+  { id: 22, name: "Sparkle+" },
+  { id: 23, name: "Strobe" },
+  { id: 24, name: "Strobe Rainbow" },
+  { id: 25, name: "Strobe Mega" },
+  { id: 26, name: "Blink Rainbow" },
   { id: 27, name: "Android" },
-  { id: 28, name: "Strobe" },
-  { id: 29, name: "Strobe Rainbow" },
-  { id: 30, name: "Mega Strobe" },
-  { id: 31, name: "Rainbow Swirl" },
-  { id: 32, name: "Rainbow Swirl (fast)" },
-  { id: 33, name: "Chase" },
-  { id: 34, name: "Chase Rainbow" },
-  { id: 35, name: "Chase Flash" },
-  { id: 36, name: "Chase Flash Random" },
-  { id: 37, name: "Chase Rainbow White" },
-  { id: 38, name: "Chase Blob" },
-  { id: 39, name: "Lightning" },
-  { id: 40, name: "Matrix" },
-  { id: 41, name: "Meteor" },
-  { id: 42, name: "Meteor Smooth" },
-  { id: 43, name: "Railway" },
-  { id: 44, name: "Ripple" },
-  { id: 45, name: "Ripple Rainbow" },
-  { id: 46, name: "Fire 2012" },
-  { id: 47, name: "Fire 2012 (64)" },
-  { id: 48, name: "Fire 2012 (extended)" },
-  { id: 49, name: "Colorwaves" },
-  { id: 50, name: "BPM" },
-  { id: 51, name: "Fill Noise" },
-  { id: 52, name: "Noise 1" },
-  { id: 53, name: "Noise 2" },
-  { id: 54, name: "Noise 3" },
-  { id: 55, name: "Noise 4" },
-  { id: 56, name: "Colortwinkles" },
-  { id: 57, name: "Lake" },
-  { id: 58, name: "Meteor Rainbow" },
-  { id: 59, name: "Meteor Storm" },
-  { id: 60, name: "Sinelon" },
-  { id: 61, name: "Sinelon Dual" },
-  { id: 62, name: "Sinelon Rainbow" },
-  { id: 63, name: "Popcorn" },
-  { id: 64, name: "Drip" },
-  { id: 65, name: "Plasma" },
-  { id: 66, name: "Percent" },
-  { id: 67, name: "Ripple Rainbow" },
-  { id: 68, name: "Heartbeat" },
-  { id: 69, name: "Pacifica" },
-  { id: 70, name: "Candle Multi" },
-  { id: 71, name: "Solid Glitter" },
-  { id: 72, name: "Sunrise" },
-  { id: 73, name: "Phased" },
-  { id: 74, name: "TwinkleUp" },
-  { id: 75, name: "Noise Pal" },
-  { id: 76, name: "Sine" },
-  { id: 77, name: "Phased Noise" },
-  { id: 78, name: "Flow" },
-  { id: 79, name: "Chunchun" },
-  { id: 80, name: "Dancing Shadows" },
-  { id: 81, name: "Washing Machine" },
-  { id: 82, name: "Candy Cane" },
-  { id: 83, name: "Blends" },
-  { id: 84, name: "TV Simulator" },
-  { id: 85, name: "Dynamic Smooth" },
-  { id: 86, name: "Spaceships" },
-  { id: 87, name: "Aeroplane" },
-  { id: 88, name: "Snowball" },
-  { id: 89, name: "Fireworks 1D" },
+  { id: 28, name: "Chase" },
+  { id: 29, name: "Chase Random" },
+  { id: 30, name: "Chase Rainbow" },
+  { id: 31, name: "Chase Flash" },
+  { id: 32, name: "Chase Flash Rnd" },
+  { id: 33, name: "Rainbow Runner" },
+  { id: 34, name: "Colorful" },
+  { id: 35, name: "Traffic Light" },
+  { id: 36, name: "Sweep Random" },
+  { id: 37, name: "Chase 2" },
+  { id: 38, name: "Aurora" },
+  { id: 39, name: "Lighthouse" },
+  { id: 40, name: "Scanner" },
+  { id: 41, name: "Lighthouse" },
+  { id: 44, name: "Tetrix" },
+  { id: 45, name: "Fire Flicker" },
+  { id: 46, name: "Gradient" },
+  { id: 47, name: "Loading" },
+  { id: 49, name: "Fairy" },
+  { id: 50, name: "Two Dots" },
+  { id: 51, name: "Fairytwinkle" },
+  { id: 52, name: "Running Dual" },
+  { id: 55, name: "Tri Wipe" },
+  { id: 56, name: "Tri Fade" },
+  { id: 57, name: "Lightning" },
+  { id: 58, name: "ICU" },
+  { id: 59, name: "Multi Comet" },
+  { id: 60, name: "Scanner Dual" },
+  { id: 61, name: "Stream 2" },
+  { id: 62, name: "Oscillate" },
+  { id: 63, name: "Pride 2015" },
+  { id: 64, name: "Juggle" },
+  { id: 65, name: "Palette" },
+  { id: 66, name: "Fire 2012" },
+  { id: 67, name: "Colorwaves" },
+  { id: 68, name: "Bpm" },
+  { id: 69, name: "Fill Noise" },
+  { id: 70, name: "Noise 1" },
+  { id: 71, name: "Noise 2" },
+  { id: 72, name: "Noise 3" },
+  { id: 73, name: "Noise 4" },
+  { id: 74, name: "Colortwinkles" },
+  { id: 75, name: "Lake" },
+  { id: 76, name: "Meteor" },
+  { id: 77, name: "Meteor Smooth" },
+  { id: 78, name: "Railway" },
+  { id: 81, name: "Twinklecat" },
+  { id: 83, name: "Solid Pattern" },
+  { id: 84, name: "Solid Pattern Tri" },
+  { id: 85, name: "Spots" },
+  { id: 86, name: "Spots Fade" },
+  { id: 87, name: "Glitter" },
+  { id: 88, name: "Candle" },
+  { id: 89, name: "Fireworks Starburst" },
   { id: 90, name: "Bouncing Balls" },
-  { id: 91, name: "Solid Pattern" },
-  { id: 92, name: "Solid Pattern Tri" },
-  { id: 93, name: "Spots" },
-  { id: 94, name: "Spots Fade" },
-  { id: 95, name: "Glitter" },
-  { id: 96, name: "Candle" },
-  { id: 97, name: "Fireworks Starburst" },
-  { id: 98, name: "Fireworks 1D" },
-  { id: 99, name: "Bouncing Balls" },
-  { id: 100, name: "Sinelon" },
-  { id: 101, name: "Sinelon Dual" },
-  { id: 102, name: "Sinelon Rainbow" },
-  { id: 103, name: "Popcorn" },
-  { id: 104, name: "Drip" },
-  { id: 105, name: "Plasma" },
-  { id: 106, name: "Percent" },
-  { id: 107, name: "Ripple Rainbow" },
-  { id: 108, name: "Heartbeat" },
-  { id: 109, name: "Pacifica" },
-  { id: 110, name: "Candle Multi" },
-  { id: 111, name: "Solid Glitter" },
-  { id: 112, name: "Sunrise" },
-  { id: 113, name: "Phased" },
-  { id: 114, name: "TwinkleUp" },
-  { id: 115, name: "Noise Pal" },
-  { id: 116, name: "Sine" },
-  { id: 117, name: "Phased Noise" },
+  { id: 91, name: "Sinelon" },
+  { id: 92, name: "Sinelon Dual" },
+  { id: 93, name: "Sinelon Rainbow" },
+  { id: 95, name: "Popcorn" },
+  { id: 96, name: "Drip" },
+  { id: 97, name: "Plasma" },
+  { id: 98, name: "Percent" },
+  { id: 100, name: "Heartbeat" },
+  { id: 101, name: "Pacifica" },
+  { id: 102, name: "Candle Multi" },
+  { id: 103, name: "Solid Glitter" },
+  { id: 104, name: "Sunrise" },
+  { id: 105, name: "Phased" },
+  { id: 106, name: "Twinkleup" },
+  { id: 107, name: "Noise Pal" },
+  { id: 108, name: "Sine" },
+  { id: 109, name: "Phased Noise" },
+  { id: 110, name: "Flow" },
+  { id: 111, name: "Chunchun" },
+  { id: 112, name: "Dancing Shadows" },
+  { id: 113, name: "Washing Machine" },
+  { id: 115, name: "Blends" },
+  { id: 116, name: "TV Simulator" },
+  { id: 117, name: "Dynamic Smooth" },
+  { id: 147, name: "Perlin Move" },
+  { id: 151, name: "PacMan" },
+  { id: 179, name: "Flow Stripe" },
+  { id: 184, name: "Wavesins" },
+  { id: 218, name: "Color Clouds" },
+  { id: 219, name: "Slow Transition" },
+];
+
+const WLED_PALETTES = [
+  { id: 0, name: "Default" },
+  { id: 1, name: "Random Cycle" },
+  { id: 2, name: "Color 1" },
+  { id: 3, name: "Colors 1&2" },
+  { id: 4, name: "Color Gradient" },
+  { id: 5, name: "Colors Only" },
+  { id: 6, name: "Party" },
+  { id: 7, name: "Cloud" },
+  { id: 8, name: "Lava" },
+  { id: 9, name: "Ocean" },
+  { id: 10, name: "Forest" },
+  { id: 11, name: "Rainbow" },
+  { id: 12, name: "Rainbow Bands" },
+  { id: 13, name: "Sunset" },
+  { id: 14, name: "Rivendell" },
+  { id: 15, name: "Breeze" },
+  { id: 16, name: "Red & Blue" },
+  { id: 17, name: "Yellowout" },
+  { id: 18, name: "Analogous" },
+  { id: 19, name: "Splash" },
+  { id: 20, name: "Pastel" },
+  { id: 21, name: "Sunset 2" },
+  { id: 22, name: "Beach" },
+  { id: 23, name: "Vintage" },
+  { id: 24, name: "Departure" },
+  { id: 25, name: "Landscape" },
+  { id: 26, name: "Beech" },
+  { id: 27, name: "Sherbet" },
+  { id: 28, name: "Hult" },
+  { id: 29, name: "Hult 64" },
+  { id: 30, name: "Drywet" },
+  { id: 31, name: "Jul" },
+  { id: 32, name: "Grintage" },
+  { id: 33, name: "Rewhi" },
+  { id: 34, name: "Tertiary" },
+  { id: 35, name: "Fire" },
+  { id: 36, name: "Icefire" },
+  { id: 37, name: "Cyane" },
+  { id: 38, name: "Light Pink" },
+  { id: 39, name: "Autumn" },
+  { id: 40, name: "Magenta" },
+  { id: 41, name: "Magred" },
+  { id: 42, name: "Yelmag" },
+  { id: 43, name: "Yelblu" },
+  { id: 44, name: "Orange & Teal" },
+  { id: 45, name: "Tiamat" },
+  { id: 46, name: "April Night" },
+  { id: 47, name: "Orangery" },
+  { id: 48, name: "C9" },
+  { id: 49, name: "Sakura" },
+  { id: 50, name: "Aurora" },
+  { id: 51, name: "Atlantica" },
+  { id: 52, name: "C9 2" },
+  { id: 53, name: "C9 New" },
+  { id: 54, name: "Temperature" },
+  { id: 55, name: "Aurora 2" },
+  { id: 56, name: "Retro Clown" },
+  { id: 57, name: "Candy" },
+  { id: 58, name: "Toxy Reaf" },
+  { id: 59, name: "Fairy Reaf" },
+  { id: 60, name: "Semi Blue" },
+  { id: 61, name: "Pink Candy" },
+  { id: 62, name: "Red Reaf" },
+  { id: 63, name: "Aqua Flash" },
+  { id: 64, name: "Yelblu Hot" },
+  { id: 65, name: "Lite Light" },
+  { id: 66, name: "Red Flash" },
+  { id: 67, name: "Blink Red" },
+  { id: 68, name: "Red Shift" },
+  { id: 69, name: "Red Tide" },
+  { id: 70, name: "Candy2" },
 ];
 
 type WledMode = "preset" | "effect" | "raw";
@@ -631,6 +721,7 @@ interface WledCommandForm {
   mode: WledMode;
   preset: number;
   effect: number;
+  palette: number;
   raw: string;
 }
 
@@ -653,13 +744,13 @@ const mqttForm = ref({
     tagAssigned: false,
   },
   wledCommands: {
-    uploadCreated: { mode: "effect", preset: 0, effect: 3, raw: "" },   // Wipe
-    imageUploaded: { mode: "effect", preset: 0, effect: 0, raw: "" },   // Solid (off)
-    ready:         { mode: "effect", preset: 0, effect: 8, raw: "" },   // Rainbow
-    approved:      { mode: "effect", preset: 0, effect: 2, raw: "" },   // Breathe
-    rejected:      { mode: "effect", preset: 0, effect: 1, raw: "" },   // Blink
-    imageRejected: { mode: "effect", preset: 0, effect: 1, raw: "" },   // Blink
-    tagAssigned:   { mode: "effect", preset: 0, effect: 0, raw: "" },   // Solid (off)
+    uploadCreated: { mode: "effect", preset: 0, effect: 3, palette: 0, raw: "" },   // Wipe
+    imageUploaded: { mode: "effect", preset: 0, effect: 0, palette: 0, raw: "" },   // Solid (off)
+    ready:         { mode: "effect", preset: 0, effect: 8, palette: 0, raw: "" },   // Rainbow
+    approved:      { mode: "effect", preset: 0, effect: 2, palette: 0, raw: "" },   // Breathe
+    rejected:      { mode: "effect", preset: 0, effect: 1, palette: 0, raw: "" },   // Blink
+    imageRejected: { mode: "effect", preset: 0, effect: 1, palette: 0, raw: "" },   // Blink
+    tagAssigned:   { mode: "effect", preset: 0, effect: 0, palette: 0, raw: "" },   // Solid (off)
   } as Record<string, WledCommandForm>,
   durations: {
     uploadCreated: 3,
@@ -673,13 +764,13 @@ const mqttForm = ref({
 });
 
 function makeDefaultWledCommand(): WledCommandForm {
-  return { mode: "effect", preset: 0, effect: 0, raw: "" };
+  return { mode: "effect", preset: 0, effect: 0, palette: 0, raw: "" };
 }
 
-function wledCommandToForm(cmd: { preset?: number; effect?: number; raw?: string }): WledCommandForm {
-  if (cmd.raw) return { mode: "raw", preset: 0, effect: 0, raw: cmd.raw };
-  if (cmd.effect !== undefined && cmd.effect !== null) return { mode: "effect", preset: 0, effect: cmd.effect, raw: "" };
-  return { mode: "preset", preset: cmd.preset ?? 0, effect: 0, raw: "" };
+function wledCommandToForm(cmd: { preset?: number; effect?: number; palette?: number; raw?: string }): WledCommandForm {
+  if (cmd.raw) return { mode: "raw", preset: 0, effect: 0, palette: 0, raw: cmd.raw };
+  if (cmd.effect !== undefined && cmd.effect !== null) return { mode: "effect", preset: 0, effect: cmd.effect, palette: cmd.palette ?? 0, raw: "" };
+  return { mode: "preset", preset: cmd.preset ?? 0, effect: 0, palette: 0, raw: "" };
 }
 
 async function loadItem() {
@@ -876,14 +967,14 @@ async function saveMqttSettings() {
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
-    const wledCommands: Record<string, { preset?: number; effect?: number; raw?: string }> = {};
+    const wledCommands: Record<string, { preset?: number; effect?: number; palette?: number; raw?: string }> = {};
     for (const event of mqttEventList) {
       const cmd = mqttForm.value.wledCommands[event.key];
       if (!cmd) continue;
       if (cmd.mode === "raw" && cmd.raw) {
         wledCommands[event.key] = { raw: cmd.raw };
       } else if (cmd.mode === "effect") {
-        wledCommands[event.key] = { effect: cmd.effect };
+        wledCommands[event.key] = { effect: cmd.effect, palette: cmd.palette };
       } else {
         wledCommands[event.key] = { preset: cmd.preset };
       }
@@ -943,6 +1034,23 @@ async function testMqttConnection() {
     showUnexpectedErrorMessage.value = true;
   } finally {
     mqttTesting.value = false;
+  }
+}
+
+async function testMqttWled(eventKey: string) {
+  const projectId = `${route.params.id}`;
+  if (!projectId) return;
+  mqttWledTesting.value = true;
+  mqttWledTestEvent.value = eventKey;
+  try {
+    await api.mqtt.testProjectMqttWled(projectId, eventKey);
+    showNotificationToast({ headline: "WLED command sent", type: "success" });
+  } catch (e: any) {
+    unexpectedError.value = e;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    mqttWledTesting.value = false;
+    mqttWledTestEvent.value = null;
   }
 }
 </script>
