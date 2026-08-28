@@ -86,7 +86,13 @@
         <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div class="min-w-0 flex-1">
             <h2 class="display text-xl text-primary-900 dark:text-white">MQTT / WLED Integration</h2>
-            <p class="mt-1 max-w-prose text-sm text-primary-500 dark:text-primary-400">Publish upload events to an MQTT broker for WLED and other smart-home devices</p>
+            <p class="mt-1 max-w-prose text-sm text-primary-500 dark:text-primary-400">Publish upload events to an MQTT broker for WLED and other IoT devices</p>
+            <div class="mt-3 rounded-md border border-warning-400/60 bg-warning-500/10 p-3 text-xs text-warning-700 dark:text-warning-300">
+              <strong class="font-semibold">Security Notice:</strong> WLED only supports unsecure MQTT connections.
+              Publishing events over MQTT may expose file names and photographer names in plain text.
+              We recommend using a local broker only.
+              <a href="https://kno.wled.ge/interfaces/mqtt/" target="_blank" rel="noopener" class="underline hover:text-warning-800 dark:hover:text-warning-200">WLED MQTT docs</a>
+            </div>
             <div
               :class="[
                 'mt-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium',

@@ -4,6 +4,17 @@ Shutterbase can publish events to an MQTT broker when uploads move through the r
 
 The MQTT integration opens Shutterbase up to a whole new world of possibilities. By publishing structured events to standard MQTT topics, Shutterbase becomes a building block for any IoT setup — WLED LED strips, custom displays, Raspberry Pi projects, digital signage, physical notifications, or anything that speaks MQTT. Automate your studio lighting, trigger celebration effects on approval, show real-time shoot progress on a display, or build entirely new physical feedback systems — the MQTT broker is the bridge between your photography workflow and the connected world.
 
+## Security Notice
+
+WLED only supports **unsecure** MQTT connections (no TLS/SSL). This means:
+
+- **WLED commands** (effects, presets) travel in plain text — fine for LED control, but be aware.
+- **General event topics** include upload names in the payload, which may indirectly reveal photographer names or session details.
+
+We recommend running your MQTT broker on a **local network only**. Exposing an unsecure MQTT broker to the internet is a security risk. See the [WLED MQTT docs](https://kno.wled.ge/interfaces/mqtt/) for details.
+
+If you need to publish events to a remote broker, consider using a local bridge (e.g. Mosquitto bridge) that forwards only WLED commands and omits the general event topics.
+
 ## How It Works
 
 ```
