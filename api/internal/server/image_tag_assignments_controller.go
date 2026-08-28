@@ -213,8 +213,15 @@ func (s *Server) createImageTagAssignment(c *gin.Context) {
 				})
 			}
 			if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
-				wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, "tagAssigned")
-				duration := s.getMqttDuration(ctx, up.ProjectID, "tagAssigned")
+				// Use tag-specific command if available, fall back to global tagAssigned
+				wledCmd := s.getTagEffectCommand(ctx, up.ProjectID, tag.Name)
+				if wledCmd == nil {
+					wledCmd = s.getMqttWledCommand(ctx, up.ProjectID, "tagAssigned")
+				}
+				duration := s.getTagEffectDuration(ctx, up.ProjectID, tag.Name)
+				if duration == 0 {
+					duration = s.getMqttDuration(ctx, up.ProjectID, "tagAssigned")
+				}
 				s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
 			}
 		}

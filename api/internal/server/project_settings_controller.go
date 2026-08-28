@@ -32,6 +32,15 @@ type wledCommand struct {
 	Raw     *string `json:"raw"`
 }
 
+type mqttTagEffect struct {
+	Tags     string  `json:"tags"`
+	Preset   *int    `json:"preset"`
+	Effect   *int    `json:"effect"`
+	Palette  *int    `json:"palette"`
+	Raw      *string `json:"raw"`
+	Duration int     `json:"duration"`
+}
+
 type mqttWledCommands struct {
 	UploadCreated  wledCommand `json:"uploadCreated"`
 	ImageUploaded  wledCommand `json:"imageUploaded"`
@@ -53,18 +62,19 @@ type mqttDurations struct {
 }
 
 type mqttSettingsUpdate struct {
-	Broker          *string          `json:"broker"`
-	ClientID        *string          `json:"clientId"`
-	Username        *string          `json:"username"`
-	Password        *string          `json:"password"`
-	TopicPrefix     *string          `json:"topicPrefix"`
-	WledDeviceTopic *string          `json:"wledDeviceTopic"`
-	PublishEvents   *bool            `json:"publishEvents"`
-	WledControl     *bool            `json:"wledControl"`
-	Events          *mqttEvents      `json:"events"`
+	Broker          *string           `json:"broker"`
+	ClientID        *string           `json:"clientId"`
+	Username        *string           `json:"username"`
+	Password        *string           `json:"password"`
+	TopicPrefix     *string           `json:"topicPrefix"`
+	WledDeviceTopic *string           `json:"wledDeviceTopic"`
+	PublishEvents   *bool             `json:"publishEvents"`
+	WledControl     *bool             `json:"wledControl"`
+	Events          *mqttEvents       `json:"events"`
 	WledCommands    *mqttWledCommands `json:"wledCommands"`
-	Durations       *mqttDurations   `json:"durations"`
-	TriggerTags     *[]string        `json:"triggerTags"`
+	Durations       *mqttDurations    `json:"durations"`
+	TriggerTags     *[]string         `json:"triggerTags"`
+	TagEffects      *[]mqttTagEffect  `json:"tagEffects"`
 }
 
 func (s *Server) getProjectMqttSettings(c *gin.Context) {
@@ -164,6 +174,12 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 		triggerTags = splitComma(triggerTagsRaw)
 	}
 
+	tagEffectsRaw, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.tagEffects")
+	var tagEffects []mqttTagEffect
+	if tagEffectsRaw != "" {
+		json.Unmarshal([]byte(tagEffectsRaw), &tagEffects)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"broker":          broker,
 		"clientId":        clientID,
@@ -177,6 +193,7 @@ func (s *Server) getProjectMqttSettings(c *gin.Context) {
 		"wledCommands":    wledCommands,
 		"durations":       durations,
 		"triggerTags":     triggerTags,
+		"tagEffects":      tagEffects,
 	})
 }
 
@@ -315,6 +332,18 @@ func (s *Server) updateProjectMqttSettings(c *gin.Context) {
 		}
 		if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.triggerTags", val); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save trigger tags"})
+			return
+		}
+	}
+
+	if input.TagEffects != nil {
+		data, err := json.Marshal(*input.TagEffects)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to marshal tag effects"})
+			return
+		}
+		if err := s.Repository.SetProjectSetting(ctx, projectID, "mqtt.tagEffects", string(data)); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save tag effects"})
 			return
 		}
 	}

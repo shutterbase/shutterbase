@@ -156,6 +156,23 @@ func (s *Server) getMqttDuration(ctx context.Context, projectID, event string) i
 
 // isMqttTagTrigger checks if a specific tag name should trigger an MQTT event.
 func (s *Server) isMqttTagTrigger(ctx context.Context, projectID, tagName string) bool {
+	// Check new tagEffects first
+	tagEffectsRaw, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.tagEffects")
+	if tagEffectsRaw != "" {
+		var tagEffects []struct {
+			Tags string `json:"tags"`
+		}
+		if json.Unmarshal([]byte(tagEffectsRaw), &tagEffects) == nil {
+			for _, te := range tagEffects {
+				for _, t := range splitComma(te.Tags) {
+					if t == tagName {
+						return true
+					}
+				}
+			}
+		}
+	}
+	// Fall back to legacy triggerTags
 	raw, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.triggerTags")
 	if raw == "" {
 		return false
@@ -166,6 +183,84 @@ func (s *Server) isMqttTagTrigger(ctx context.Context, projectID, tagName string
 		}
 	}
 	return false
+}
+
+// getTagEffectCommand returns the WLED command for a specific tag from the tagEffects list.
+// Returns nil if no matching tag effect is found.
+func (s *Server) getTagEffectCommand(ctx context.Context, projectID, tagName string) map[string]interface{} {
+	tagEffectsRaw, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.tagEffects")
+	if tagEffectsRaw == "" {
+		return nil
+	}
+	var tagEffects []struct {
+		Tags    string  `json:"tags"`
+		Preset  *int    `json:"preset"`
+		Effect  *int    `json:"effect"`
+		Palette *int    `json:"palette"`
+		Raw     *string `json:"raw"`
+	}
+	if json.Unmarshal([]byte(tagEffectsRaw), &tagEffects) != nil {
+		return nil
+	}
+	for _, te := range tagEffects {
+		for _, t := range splitComma(te.Tags) {
+			if t == tagName {
+				// Build command from the tag effect
+				if te.Raw != nil && *te.Raw != "" {
+					var parsed map[string]interface{}
+					if json.Unmarshal([]byte(*te.Raw), &parsed) == nil {
+						return parsed
+					}
+				}
+				if te.Effect != nil {
+					seg := map[string]interface{}{"fx": *te.Effect}
+					if te.Palette != nil && *te.Palette > 0 {
+						seg["pal"] = *te.Palette
+					}
+					return map[string]interface{}{
+						"on":  true,
+						"bri": 128,
+						"seg": []map[string]interface{}{seg},
+					}
+				}
+				if te.Preset != nil && *te.Preset > 0 {
+					return map[string]interface{}{
+						"on":     true,
+						"bri":    128,
+						"preset": *te.Preset,
+					}
+				}
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+// getTagEffectDuration returns the auto-off duration for a specific tag from the tagEffects list.
+func (s *Server) getTagEffectDuration(ctx context.Context, projectID, tagName string) int {
+	tagEffectsRaw, _ := s.Repository.GetProjectSetting(ctx, projectID, "mqtt.tagEffects")
+	if tagEffectsRaw == "" {
+		return 0
+	}
+	var tagEffects []struct {
+		Tags     string `json:"tags"`
+		Duration int    `json:"duration"`
+	}
+	if json.Unmarshal([]byte(tagEffectsRaw), &tagEffects) != nil {
+		return 0
+	}
+	for _, te := range tagEffects {
+		for _, t := range splitComma(te.Tags) {
+			if t == tagName {
+				if te.Duration < 0 {
+					return 0
+				}
+				return te.Duration
+			}
+		}
+	}
+	return 0
 }
 
 // getMqttTopicPrefix returns the project's MQTT topic prefix, falling back to "shutterbase".

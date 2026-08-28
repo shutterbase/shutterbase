@@ -11,7 +11,7 @@ WLED only supports **unsecure** MQTT connections (no TLS/SSL). This means:
 - **WLED commands** (effects, presets) travel in plain text — fine for LED control, but be aware.
 - **General event topics** include upload names in the payload, which may indirectly reveal photographer names or session details.
 
-We recommend running your MQTT broker on a **local network only**. Exposing an unsecure MQTT broker to the internet is a security risk. See the [WLED MQTT docs](https://kno.wled.ge/interfaces/mqtt/) for details.
+See the [WLED MQTT docs](https://kno.wled.ge/interfaces/mqtt/) for details.
 
 If you need to publish events to a remote broker, consider using a local bridge (e.g. Mosquitto bridge) that forwards only WLED commands and omits the general event topics.
 

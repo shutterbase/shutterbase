@@ -7,6 +7,15 @@ export interface WledCommand {
   raw?: string;
 }
 
+export interface MqttTagEffect {
+  tags: string;
+  preset?: number;
+  effect?: number;
+  palette?: number;
+  raw?: string;
+  duration: number;
+}
+
 export interface MqttSettings {
   broker: string;
   clientId: string;
@@ -20,6 +29,7 @@ export interface MqttSettings {
   wledCommands: MqttWledCommands;
   durations: MqttDurations;
   triggerTags: string[];
+  tagEffects: MqttTagEffect[];
 }
 
 export interface MqttEvents {

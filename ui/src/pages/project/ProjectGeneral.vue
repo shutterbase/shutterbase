@@ -87,10 +87,9 @@
           <div class="min-w-0 flex-1">
             <h2 class="display text-xl text-primary-900 dark:text-white">MQTT / WLED Integration</h2>
             <p class="mt-1 max-w-prose text-sm text-primary-500 dark:text-primary-400">Publish upload events to an MQTT broker for WLED and other IoT devices</p>
-            <div class="mt-3 rounded-md border border-warning-400/60 bg-warning-500/10 p-3 text-xs text-warning-700 dark:text-warning-300">
+            <div v-if="mqttEditing" class="mt-3 rounded-md border border-warning-400/60 bg-warning-500/10 p-3 text-xs text-warning-700 dark:text-warning-300">
               <strong class="font-semibold">Security Notice:</strong> WLED only supports unsecure MQTT connections.
               Publishing events over MQTT may expose file names and photographer names in plain text.
-              We recommend using a local broker only.
               <a href="https://kno.wled.ge/interfaces/mqtt/" target="_blank" rel="noopener" class="underline hover:text-warning-800 dark:hover:text-warning-200">WLED MQTT docs</a>
             </div>
             <div
@@ -253,8 +252,7 @@
                 />
               </div>
             </div>
-            <!-- Test Connection -->
-            <div class="border-t border-primary-200 pt-3 dark:border-primary-700">
+            <div>
               <button
                 type="button"
                 @click="testMqttConnection"
@@ -353,8 +351,8 @@
                 </p>
               </div>
               <div class="space-y-4">
-                <h5 class="text-xs font-medium text-primary-600 dark:text-primary-400">Events</h5>
-                <div v-for="event in mqttEventList" :key="event.key" class="rounded-md border border-primary-200 dark:border-primary-700 p-3 space-y-3">
+                <h5 class="text-xs font-medium text-primary-600 dark:text-primary-400">Upload Events</h5>
+                <div v-for="event in mqttUploadEvents" :key="event.key" class="rounded-md border border-primary-200 dark:border-primary-700 p-3 space-y-3">
                   <div class="flex items-center gap-3">
                     <label class="flex items-center gap-2 min-w-[200px]">
                       <input
@@ -398,7 +396,6 @@
                       v-model.number="mqttForm.wledCommands[event.key].effect"
                       class="rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100"
                     >
-                      <option :value="0">0 — Solid</option>
                       <option v-for="fx in WLED_EFFECTS" :key="fx.id" :value="fx.id">{{ fx.id }} — {{ fx.name }}</option>
                     </select>
                     <select
@@ -435,16 +432,183 @@
                   </div>
                 </div>
               </div>
-              <!-- Tag Triggers -->
-              <div class="space-y-2">
-                <h5 class="text-xs font-medium text-primary-600 dark:text-primary-400">Tag Triggers</h5>
-                <p class="text-xs text-primary-500 dark:text-primary-400">When "Tag assigned" is enabled above, specify which tag names trigger a WLED command.</p>
-                <input
-                  v-model="mqttTriggerTagsInput"
-                  type="text"
-                  placeholder="error, vip, highlight (comma-separated)"
-                  class="mt-1 block w-full rounded-md border border-primary-300 bg-white px-3 py-2 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
-                />
+              <div class="space-y-4">
+                <h5 class="text-xs font-medium text-primary-600 dark:text-primary-400">Image Tag Events</h5>
+                <div v-for="event in mqttTagEvents" :key="event.key" class="rounded-md border border-primary-200 dark:border-primary-700 p-3 space-y-3">
+                  <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 min-w-[200px]">
+                      <input
+                        type="checkbox"
+                        v-model="mqttForm.events[event.key]"
+                        class="h-4 w-4 rounded border-primary-300 text-accent-500 focus:ring-accent-500"
+                      />
+                      <span class="text-sm font-medium text-primary-700 dark:text-primary-300">{{ event.label }}</span>
+                    </label>
+                    <div v-if="mqttForm.events[event.key]" class="flex items-center gap-2 ml-auto">
+                      <label class="text-xs text-primary-500 dark:text-primary-400">Auto-off:</label>
+                      <input
+                        v-model.number="mqttForm.durations[event.key]"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        class="w-16 rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                      />
+                      <span class="text-xs text-primary-400 dark:text-primary-500">sec</span>
+                    </div>
+                  </div>
+                  <div v-if="mqttForm.events[event.key]" class="flex flex-wrap items-center gap-3 pl-7">
+                    <label class="flex items-center gap-1.5">
+                      <input type="radio" :name="'mode-'+event.key" value="preset" v-model="mqttForm.wledCommands[event.key].mode" class="h-3.5 w-3.5 text-accent-500 focus:ring-accent-500" />
+                      <span class="text-xs text-primary-600 dark:text-primary-400">Preset</span>
+                    </label>
+                    <input
+                      v-if="mqttForm.wledCommands[event.key].mode === 'preset'"
+                      v-model.number="mqttForm.wledCommands[event.key].preset"
+                      type="number"
+                      min="0"
+                      placeholder="#"
+                      class="w-20 rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                    />
+                    <label class="flex items-center gap-1.5">
+                      <input type="radio" :name="'mode-'+event.key" value="effect" v-model="mqttForm.wledCommands[event.key].mode" class="h-3.5 w-3.5 text-accent-500 focus:ring-accent-500" />
+                      <span class="text-xs text-primary-600 dark:text-primary-400">Effect</span>
+                    </label>
+                    <select
+                      v-if="mqttForm.wledCommands[event.key].mode === 'effect'"
+                      v-model.number="mqttForm.wledCommands[event.key].effect"
+                      class="rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100"
+                    >
+                      <option v-for="fx in WLED_EFFECTS" :key="fx.id" :value="fx.id">{{ fx.id }} — {{ fx.name }}</option>
+                    </select>
+                    <select
+                      v-if="mqttForm.wledCommands[event.key].mode === 'effect'"
+                      v-model.number="mqttForm.wledCommands[event.key].palette"
+                      class="rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100"
+                    >
+                      <option :value="0">Default palette</option>
+                      <option v-for="pal in WLED_PALETTES" :key="pal.id" :value="pal.id">{{ pal.id }} — {{ pal.name }}</option>
+                    </select>
+                    <label class="flex items-center gap-1.5">
+                      <input type="radio" :name="'mode-'+event.key" value="raw" v-model="mqttForm.wledCommands[event.key].mode" class="h-3.5 w-3.5 text-accent-500 focus:ring-accent-500" />
+                      <span class="text-xs text-primary-600 dark:text-primary-400">Raw JSON</span>
+                    </label>
+                    <input
+                      v-if="mqttForm.wledCommands[event.key].mode === 'raw'"
+                      v-model="mqttForm.wledCommands[event.key].raw"
+                      type="text"
+                      placeholder='{"seg":[{"fx":66}]}'
+                      class="flex-1 min-w-[200px] rounded-md border border-primary-300 bg-white px-2 py-1 font-mono text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                    />
+                    <button
+                      type="button"
+                      :disabled="mqttWledTesting"
+                      class="ml-auto inline-flex items-center gap-1 rounded-md border border-primary-300 bg-white px-2 py-1 text-xs text-primary-600 transition-colors hover:border-accent-400 hover:text-accent-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-400 dark:hover:text-accent-400"
+                      @click="testMqttWled(event.key)"
+                    >
+                      <CheckCircleIcon v-if="mqttWledTestEvent === event.key && !mqttWledTesting" class="h-3 w-3 text-success-500" />
+                      <ArrowPathIcon v-else-if="mqttWledTestEvent === event.key && mqttWledTesting" class="h-3 w-3 animate-spin" />
+                      <span v-else>Test</span>
+                      <span v-if="mqttWledTestEvent === event.key && mqttWledTesting">Sending...</span>
+                      <span v-else-if="mqttWledTestEvent === event.key && !mqttWledTesting">Sent!</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <!-- Tag Effects -->
+              <div v-if="mqttForm.events.tagAssigned" class="space-y-3">
+                <div>
+                  <h5 class="text-xs font-medium text-primary-600 dark:text-primary-400">Tag Effects</h5>
+                  <p class="mt-1 text-xs text-primary-500 dark:text-primary-400">Map specific tags to WLED commands. Each row triggers independently.</p>
+                </div>
+                <div v-for="(te, idx) in mqttForm.tagEffects" :key="idx" class="rounded-md border border-primary-200 dark:border-primary-700 p-3 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <input
+                      v-model="te.tags"
+                      type="text"
+                      placeholder="tag names (comma-separated)"
+                      class="flex-1 min-w-[150px] rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                    />
+                    <div class="flex items-center gap-1">
+                      <label class="text-xs text-primary-500 dark:text-primary-400">Auto-off:</label>
+                      <input
+                        v-model.number="te.duration"
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        class="w-14 rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                      />
+                      <span class="text-xs text-primary-400 dark:text-primary-500">s</span>
+                    </div>
+                    <button
+                      type="button"
+                      :disabled="mqttWledTesting"
+                      class="inline-flex items-center gap-1 rounded-md border border-primary-300 bg-white px-2 py-1 text-xs text-primary-600 transition-colors hover:border-accent-400 hover:text-accent-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-400 dark:hover:text-accent-400"
+                      @click="testMqttTagEffect(idx)"
+                    >
+                      <CheckCircleIcon v-if="mqttWledTestEvent === 'tag-'+idx && !mqttWledTesting" class="h-3 w-3 text-success-500" />
+                      <ArrowPathIcon v-else-if="mqttWledTestEvent === 'tag-'+idx && mqttWledTesting" class="h-3 w-3 animate-spin" />
+                      <span v-else>Test</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex items-center rounded-md border border-primary-300 bg-white px-1.5 py-1 text-xs text-error-500 transition-colors hover:border-error-400 hover:text-error-600 dark:border-primary-600 dark:bg-surface-dark dark:text-error-400 dark:hover:text-error-300"
+                      @click="removeTagEffect(idx)"
+                    >
+                      <XCircleIcon class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3 pl-2">
+                    <label class="flex items-center gap-1.5">
+                      <input type="radio" :name="'tag-mode-'+idx" value="preset" v-model="te.mode" class="h-3.5 w-3.5 text-accent-500 focus:ring-accent-500" />
+                      <span class="text-xs text-primary-600 dark:text-primary-400">Preset</span>
+                    </label>
+                    <input
+                      v-if="te.mode === 'preset'"
+                      v-model.number="te.preset"
+                      type="number"
+                      min="0"
+                      placeholder="#"
+                      class="w-20 rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                    />
+                    <label class="flex items-center gap-1.5">
+                      <input type="radio" :name="'tag-mode-'+idx" value="effect" v-model="te.mode" class="h-3.5 w-3.5 text-accent-500 focus:ring-accent-500" />
+                      <span class="text-xs text-primary-600 dark:text-primary-400">Effect</span>
+                    </label>
+                    <select
+                      v-if="te.mode === 'effect'"
+                      v-model.number="te.effect"
+                      class="rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100"
+                    >
+                      <option v-for="fx in WLED_EFFECTS" :key="fx.id" :value="fx.id">{{ fx.id }} — {{ fx.name }}</option>
+                    </select>
+                    <select
+                      v-if="te.mode === 'effect'"
+                      v-model.number="te.palette"
+                      class="rounded-md border border-primary-300 bg-white px-2 py-1 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100"
+                    >
+                      <option :value="0">Default palette</option>
+                      <option v-for="pal in WLED_PALETTES" :key="pal.id" :value="pal.id">{{ pal.id }} — {{ pal.name }}</option>
+                    </select>
+                    <label class="flex items-center gap-1.5">
+                      <input type="radio" :name="'tag-mode-'+idx" value="raw" v-model="te.mode" class="h-3.5 w-3.5 text-accent-500 focus:ring-accent-500" />
+                      <span class="text-xs text-primary-600 dark:text-primary-400">Raw JSON</span>
+                    </label>
+                    <input
+                      v-if="te.mode === 'raw'"
+                      v-model="te.raw"
+                      type="text"
+                      placeholder='{"seg":[{"fx":66}]}'
+                      class="flex-1 min-w-[200px] rounded-md border border-primary-300 bg-white px-2 py-1 font-mono text-sm text-primary-900 placeholder:text-primary-400 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-600 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 rounded-md border border-dashed border-primary-300 bg-transparent px-3 py-1.5 text-xs font-medium text-primary-500 transition-colors hover:border-accent-400 hover:text-accent-600 dark:border-primary-600 dark:text-primary-400 dark:hover:text-accent-400"
+                  @click="addTagEffect"
+                >
+                  + Add tag effect
+                </button>
               </div>
             </div>
           </div>
@@ -515,22 +679,26 @@ const mqttError = ref("");
 const savingMqtt = ref(false);
 const mqttEditing = ref(false);
 const mqttFormBackup = ref<string>("");
-const mqttTriggerTagsBackup = ref("");
-const mqttTriggerTagsInput = ref("");
+const mqttTagEffectsBackup = ref<string>("");
 const mqttTesting = ref(false);
 const mqttTestResults = ref<Record<string, { ok: boolean; error?: string }>>({});
 const mqttWledTestEvent = ref<string | null>(null);
 const mqttWledTesting = ref(false);
 
-const mqttEventList = [
+const mqttUploadEvents = [
   { key: "uploadCreated", label: "Upload created", slug: "created" },
   { key: "imageUploaded", label: "Image uploaded", slug: "image-uploaded" },
   { key: "ready", label: "Ready for review", slug: "ready" },
   { key: "approved", label: "Approved", slug: "approved" },
   { key: "rejected", label: "Rejected / sent back", slug: "rejected" },
+];
+
+const mqttTagEvents = [
   { key: "imageRejected", label: "Image rejected (tag)", slug: "image-rejected" },
   { key: "tagAssigned", label: "Tag assigned", slug: "tag-assigned" },
 ];
+
+const mqttEventList = [...mqttUploadEvents, ...mqttTagEvents];
 
 const WLED_EFFECTS = [
   { id: 0, name: "Solid" },
@@ -731,6 +899,20 @@ interface WledCommandForm {
   raw: string;
 }
 
+interface TagEffectForm {
+  tags: string;
+  mode: WledMode;
+  preset: number;
+  effect: number;
+  palette: number;
+  raw: string;
+  duration: number;
+}
+
+function makeDefaultTagEffect(): TagEffectForm {
+  return { tags: "", mode: "effect", preset: 0, effect: 0, palette: 0, raw: "", duration: 3 };
+}
+
 const mqttForm = ref({
   broker: "",
   clientId: "",
@@ -767,6 +949,7 @@ const mqttForm = ref({
     imageRejected: 2,
     tagAssigned: 0,
   },
+  tagEffects: [] as TagEffectForm[],
 });
 
 function makeDefaultWledCommand(): WledCommandForm {
@@ -939,7 +1122,32 @@ async function loadMqttSettings() {
       const cmd = settings.wledCommands?.[event.key as keyof typeof settings.wledCommands];
       mqttForm.value.wledCommands[event.key] = cmd ? wledCommandToForm(cmd) : makeDefaultWledCommand();
     }
-    mqttTriggerTagsInput.value = settings.triggerTags?.join(", ") || "";
+    // Load tag effects
+    if (settings.tagEffects && settings.tagEffects.length > 0) {
+      mqttForm.value.tagEffects = settings.tagEffects.map((te) => {
+        if (te.raw) return { tags: te.tags, mode: "raw" as WledMode, preset: 0, effect: 0, palette: 0, raw: te.raw, duration: te.duration };
+        if (te.effect !== undefined && te.effect !== null) return { tags: te.tags, mode: "effect" as WledMode, preset: 0, effect: te.effect, palette: te.palette ?? 0, raw: "", duration: te.duration };
+        return { tags: te.tags, mode: "preset" as WledMode, preset: te.preset ?? 0, effect: 0, palette: 0, raw: "", duration: te.duration };
+      });
+    } else {
+      // Migrate legacy triggerTags to tagEffects
+      const tags = settings.triggerTags?.join(", ") || "";
+      if (tags) {
+        const cmd = settings.wledCommands?.tagAssigned;
+        const dur = settings.durations?.tagAssigned ?? 0;
+        mqttForm.value.tagEffects = [{
+          tags,
+          mode: cmd?.raw ? "raw" : cmd?.effect !== undefined ? "effect" : "preset",
+          preset: cmd?.preset ?? 0,
+          effect: cmd?.effect ?? 0,
+          palette: cmd?.palette ?? 0,
+          raw: cmd?.raw ?? "",
+          duration: dur,
+        }];
+      } else {
+        mqttForm.value.tagEffects = [];
+      }
+    }
     mqttConfigured.value = status.configured;
     mqttReachable.value = status.reachable;
     mqttError.value = status.error || "";
@@ -950,7 +1158,7 @@ async function loadMqttSettings() {
 
 function startMqttEdit() {
   mqttFormBackup.value = JSON.stringify(mqttForm.value);
-  mqttTriggerTagsBackup.value = mqttTriggerTagsInput.value;
+  mqttTagEffectsBackup.value = JSON.stringify(mqttForm.value.tagEffects);
   mqttTestResults.value = {};
   mqttEditing.value = true;
 }
@@ -959,8 +1167,18 @@ function cancelMqttEdit() {
   if (mqttFormBackup.value) {
     Object.assign(mqttForm.value, JSON.parse(mqttFormBackup.value));
   }
-  mqttTriggerTagsInput.value = mqttTriggerTagsBackup.value;
+  if (mqttTagEffectsBackup.value) {
+    mqttForm.value.tagEffects = JSON.parse(mqttTagEffectsBackup.value);
+  }
   mqttEditing.value = false;
+}
+
+function addTagEffect() {
+  mqttForm.value.tagEffects.push(makeDefaultTagEffect());
+}
+
+function removeTagEffect(index: number) {
+  mqttForm.value.tagEffects.splice(index, 1);
 }
 
 async function saveMqttSettings() {
@@ -968,11 +1186,6 @@ async function saveMqttSettings() {
   if (!projectId) return;
   savingMqtt.value = true;
   try {
-    const triggerTags = mqttTriggerTagsInput.value
-      .split(",")
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
     const wledCommands: Record<string, { preset?: number; effect?: number; palette?: number; raw?: string }> = {};
     for (const event of mqttEventList) {
       const cmd = mqttForm.value.wledCommands[event.key];
@@ -986,6 +1199,25 @@ async function saveMqttSettings() {
       }
     }
 
+    // Build tagEffects payload
+    const tagEffects = mqttForm.value.tagEffects
+      .filter((te) => te.tags.trim().length > 0)
+      .map((te) => {
+        const base: Record<string, unknown> = { tags: te.tags.trim(), duration: te.duration };
+        if (te.mode === "raw" && te.raw) {
+          base.raw = te.raw;
+        } else if (te.mode === "effect") {
+          base.effect = te.effect;
+          base.palette = te.palette;
+        } else {
+          base.preset = te.preset;
+        }
+        return base;
+      });
+
+    // Collect all unique tags from tagEffects for backward compat
+    const allTags = tagEffects.flatMap((te) => (te.tags as string).split(",").map((t: string) => t.trim()).filter((t: string) => t.length > 0));
+
     await api.adminSettings.updateProjectMqttSettings(projectId, {
       broker: mqttForm.value.broker,
       clientId: mqttForm.value.clientId,
@@ -998,7 +1230,8 @@ async function saveMqttSettings() {
       events: mqttForm.value.events,
       wledCommands: wledCommands as any,
       durations: mqttForm.value.durations,
-      triggerTags,
+      triggerTags: allTags,
+      tagEffects: tagEffects as any,
     });
     const status = await api.mqtt.getProjectMqttStatus(projectId);
     mqttConfigured.value = status.configured;
@@ -1059,6 +1292,34 @@ async function testMqttWled(eventKey: string) {
       payload.palette = cmd.palette;
     } else {
       payload.preset = cmd.preset;
+    }
+    await api.mqtt.testProjectMqttWled(projectId, payload);
+    showNotificationToast({ headline: "WLED command sent", type: "success" });
+  } catch (e: any) {
+    unexpectedError.value = e;
+    showUnexpectedErrorMessage.value = true;
+  } finally {
+    mqttWledTesting.value = false;
+    mqttWledTestEvent.value = null;
+  }
+}
+
+async function testMqttTagEffect(index: number) {
+  const projectId = `${route.params.id}`;
+  if (!projectId) return;
+  const te = mqttForm.value.tagEffects[index];
+  if (!te) return;
+  mqttWledTesting.value = true;
+  mqttWledTestEvent.value = "tag-" + index;
+  try {
+    const payload: Record<string, unknown> = { duration: te.duration };
+    if (te.mode === "raw" && te.raw) {
+      payload.raw = te.raw;
+    } else if (te.mode === "effect") {
+      payload.effect = te.effect;
+      payload.palette = te.palette;
+    } else {
+      payload.preset = te.preset;
     }
     await api.mqtt.testProjectMqttWled(projectId, payload);
     showNotificationToast({ headline: "WLED command sent", type: "success" });
