@@ -212,6 +212,53 @@ func (r *Repository) GetImageTimeBounds(ctx context.Context, parameters *GetImag
 	return bounds, nil
 }
 
+// ImageTimeTicks returns sampled capturedAtCorrected timestamps for the slider
+// density strip. For ≤ maxTicks images every position is returned; above that
+// the list is linearly downsampled so the frontend always renders a bounded
+// number of DOM nodes. Like GetImageTimeBounds, the time-range itself is
+// always STRIPPED so the ticks stay stable while thumbs move.
+func (r *Repository) GetImageTimeTicks(ctx context.Context, parameters *GetImageParameters, maxTicks int) ([]time.Time, error) {
+	parameters.FromCapturedAtCorrected = nil
+	parameters.ToCapturedAtCorrected = nil
+	predicates, err := buildImagePredicates(parameters)
+	if err != nil {
+		return nil, err
+	}
+	where := image.And(append(predicates, image.CapturedAtCorrectedNotNil())...)
+
+	var rows []struct {
+		CapturedAtCorrected time.Time `json:"captured_at_corrected"`
+	}
+	if err := r.Client.Image.Query().Where(where).
+		Order(ent.Asc(image.FieldCapturedAtCorrected)).
+		Select(image.FieldCapturedAtCorrected).
+		Scan(ctx, &rows); err != nil {
+		log.Error().Err(err).Msg("error loading timestamps for time ticks")
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	timestamps := make([]time.Time, len(rows))
+	for i, r := range rows {
+		timestamps[i] = r.CapturedAtCorrected
+	}
+
+	if len(timestamps) <= maxTicks {
+		return timestamps, nil
+	}
+
+	// Linear downsample: pick every Nth timestamp so the result fits maxTicks.
+	step := float64(len(timestamps)) / float64(maxTicks)
+	sampled := make([]time.Time, 0, maxTicks)
+	for i := 0; i < maxTicks; i++ {
+		idx := int(float64(i) * step)
+		sampled = append(sampled, timestamps[idx])
+	}
+	return sampled, nil
+}
+
 // GetImagePosition returns the zero-based offset of imageID within the gallery
 // query defined by parameters (same predicates and order as GetImages), or -1
 // when the image is not among the first maxScan matches — the deep-link

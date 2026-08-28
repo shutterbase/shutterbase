@@ -72,6 +72,17 @@ export async function timeBounds(params: ImageListParams): Promise<ImageTimeBoun
   return data;
 }
 
+// Sampled image timestamps for the slider density strip. ≤200 ticks returned
+// for any image count; the frontend renders each as a thin vertical line.
+export interface ImageTimeTicks {
+  ticks: string[];
+}
+
+export async function timeTicks(params: ImageListParams): Promise<ImageTimeTicks> {
+  const { data } = await http.get<ImageTimeTicks>("/images/time-ticks", { params, paramsSerializer: { indexes: null } });
+  return data;
+}
+
 // Zero-based offset of one image under the same filter+sort `list` uses, or -1
 // when the filter excludes it / it sits beyond the server's scan bound — the
 // deep-link resolver decides jump-to-context vs. solo detail on this.

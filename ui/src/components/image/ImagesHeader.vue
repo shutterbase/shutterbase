@@ -231,6 +231,7 @@
                 :max="sliderDomain.max"
                 :from="timeFrom"
                 :to="timeTo"
+                :ticks="timeTicks"
                 @preview="(f, t) => setLocalsSilently(f, t)"
                 @change="(f, t) => emit('timeRange', f, t)"
               />
@@ -402,6 +403,8 @@ interface Props {
   timeTo?: string | null;
   // slider domain for the Time popover — fetched on popover open
   timeBounds?: ImageTimeBounds | null;
+  // density ticks for the slider track — fetched alongside bounds
+  timeTicks?: string[] | null;
   // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
   tagFacets?: TagFacetsResponse | null;
 }
@@ -413,6 +416,7 @@ const props = withDefaults(defineProps<Props>(), {
   timeFrom: null,
   timeTo: null,
   timeBounds: null,
+  timeTicks: null,
   tagFacets: null,
 });
 

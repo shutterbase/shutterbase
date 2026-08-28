@@ -200,8 +200,11 @@ function currentFilterInput() {
     timeTo: timeToFilter.value ?? undefined,
     sortOrder: preferredImageSortOrder.value,
   };
+  // Global override: suspended time range always disables the window
+  if (timeRangeSuspended.value) {
+    return { ...input, timeFrom: undefined, timeTo: undefined };
+  }
   // Person-view pause: suspend ALL narrowing filters including the time range
-  // (tested shape via applyPersonPause).
   if (personFilter.value && filtersPaused.value) {
     return applyPersonPause(input);
   }
@@ -213,10 +216,6 @@ function currentFilterInput() {
       return { ...input, search: "", tags: [], excludeTags: [], orientation: "neutral" };
     }
     return input;
-  }
-  // Chip-level toggle: suspend only the window.
-  if (timeRangeSuspended.value) {
-    return { ...input, timeFrom: undefined, timeTo: undefined };
   }
   return input;
 }
@@ -408,6 +407,28 @@ export async function loadTimeBounds() {
     // bounds are decoration — the popover degrades to manual inputs only
     timeBounds.value = null;
     lastBoundsKey = "";
+  }
+}
+
+// Density ticks for the slider track: sampled image timestamps over the
+// filtered gallery's time span (range stripped). Fetched alongside bounds;
+// same memo key so they stay in sync.
+export const timeTicks = ref<string[] | null>(null);
+let lastTicksKey = "";
+
+export async function loadTimeTicks() {
+  if (!activeProject.value?.id) return;
+  const { timeFrom: _f, timeTo: _t, ...rest } = currentFilterInput();
+  const params = buildImageListParams(rest);
+  const key = JSON.stringify(params);
+  if (key === lastTicksKey && timeTicks.value) return;
+  lastTicksKey = key;
+  try {
+    const result = await api.images.timeTicks(params);
+    timeTicks.value = result.ticks.length > 0 ? result.ticks : null;
+  } catch {
+    timeTicks.value = null;
+    lastTicksKey = "";
   }
 }
 

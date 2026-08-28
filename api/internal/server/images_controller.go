@@ -19,6 +19,7 @@ func (s *Server) registerImageRoutes(api *gin.RouterGroup) {
 	api.GET("/images/tag-facets", s.listImageTagFacets)
 	api.GET("/images/position", s.getImagePosition)
 	api.GET("/images/time-bounds", s.getImageTimeBounds)
+	api.GET("/images/time-ticks", s.getImageTimeTicks)
 	api.GET("/images/:id", s.getImage)
 	api.POST("/images", s.createImage)
 	api.PUT("/images/:id", s.updateImage)
@@ -210,6 +211,38 @@ func (s *Server) getImageTimeBounds(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ImageTimeBoundsResponse{Min: bounds.Min, Max: bounds.Max})
+}
+
+// ImageTimeTicksResponse backs the slider density strip: sampled image
+// timestamps over the currently filtered gallery's time span (range stripped).
+// The frontend renders each as a thin vertical tick mark on the slider track.
+type ImageTimeTicksResponse struct {
+	Ticks []string `json:"ticks"`
+}
+
+// maxTimeTicks bounds the number of DOM nodes the frontend renders on the
+// slider track. For ≤ maxTimeTicks images every position is returned; above
+// that the list is linearly downsampled server-side.
+const maxTimeTicks = 200
+
+func (s *Server) getImageTimeTicks(c *gin.Context) {
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	if emptyResult {
+		c.JSON(http.StatusOK, ImageTimeTicksResponse{})
+		return
+	}
+	timestamps, err := s.Repository.GetImageTimeTicks(c.Request.Context(), params, maxTimeTicks)
+	if abortRepoListError(c, err) {
+		return
+	}
+	ticks := make([]string, len(timestamps))
+	for i, t := range timestamps {
+		ticks[i] = t.Format(time.RFC3339)
+	}
+	c.JSON(http.StatusOK, ImageTimeTicksResponse{Ticks: ticks})
 }
 
 // TagFacetsResponse backs the tag filter popover: facets[tagId] = images the
