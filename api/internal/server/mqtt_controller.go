@@ -305,6 +305,7 @@ func (s *Server) testProjectMqttWled(c *gin.Context) {
 	}
 
 	topic := wledTopic + "/api"
-	s.publishToProject(ctx, projectID, topic, payload)
+	duration := s.getMqttDuration(ctx, projectID, input.Event)
+	s.publishToWled(ctx, projectID, payload, duration)
 	c.JSON(http.StatusOK, gin.H{"message": "sent", "topic": topic, "payload": payload})
 }
