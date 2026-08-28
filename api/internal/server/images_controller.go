@@ -223,6 +223,10 @@ type ImageTimeTicksResponse struct {
 // maxTimeTicks bounds the number of DOM nodes the frontend renders on the
 // slider track. For ≤ maxTimeTicks images every position is returned; above
 // that the list is linearly downsampled server-side.
+//
+// 200 is chosen as the sweet spot: visible density resolution without DOM
+// overload. Frontend renders each tick as a 1px vertical line (w-px).
+// See GetImageTimeTicks for performance characteristics.
 const maxTimeTicks = 200
 
 func (s *Server) getImageTimeTicks(c *gin.Context) {
