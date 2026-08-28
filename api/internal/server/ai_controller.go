@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,8 @@ func (s *Server) registerAIRoutes(api *gin.RouterGroup) {
 	api.POST("/projects/:id/ai/rerun-numbers", s.aiRerunNumbers)
 	api.POST("/projects/:id/ai/recluster", s.aiRecluster)
 	api.GET("/projects/:id/ai/persons/:personRef/images", s.aiPersonImages)
+	api.GET("/projects/:id/ai/search", s.aiProjectSearch)
+	api.POST("/projects/:id/ai/sync-descriptions", s.aiSyncDescriptions)
 	// People overview + merge review are global (persons span projects):
 	// scoped to the user's viewable / administered projects, not to one id.
 	api.GET("/ai/persons", s.aiPersonsRanked)
@@ -779,6 +782,123 @@ func (s *Server) otherViewableProjectIDs(ctx context.Context, u *ent.User, exclu
 	return out
 }
 
+// askImageIDs resolves the grid's ?ask= filter: every ref the AI server ranks
+// for the query (its own depth cap bounds this — a few pages at most).
+func (s *Server) askImageIDs(c *gin.Context, projectID, query string) ([]string, bool) {
+	remote, ok := s.remote(c)
+	if !ok {
+		return nil, false
+	}
+	ids := []string{}
+	for page := 0; page < 10; page++ {
+		resp, err := remote.Search(c.Request.Context(), projectID, query, page, aiserver.MaxPageSize)
+		if err != nil {
+			log.Error().Err(err).Msg("AI server request failed")
+			apiError(c, http.StatusBadGateway, "ai_server_error", "AI server request failed")
+			return nil, false
+		}
+		for _, item := range resp.Items {
+			ids = append(ids, item.ImageRef)
+		}
+		if !resp.HasMore {
+			break
+		}
+	}
+	return ids, true
+}
+
+// aiSyncDescriptions copies the AI server's stored descriptions onto the
+// project's images — the backfill for images ingested before descriptions
+// rode along with the ingest response. Idempotent; unknown refs are skipped.
+func (s *Server) aiSyncDescriptions(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanEditProject(authUser(c), projectID)) {
+		return
+	}
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	updated, skipped := 0, 0
+	for page := 0; ; page++ {
+		resp, err := remote.Descriptions(ctx, projectID, page, aiserver.MaxPageSize)
+		if abortAIError(c, err) {
+			return
+		}
+		for _, item := range resp.Items {
+			n, err := s.Repository.Client.Image.Update().
+				Where(entimage.ID(item.ImageRef), entimage.ProjectID(projectID)).
+				SetAiDescription(item.Description).Save(ctx)
+			if err != nil {
+				apiError(c, http.StatusInternalServerError, "update_failed", err.Error())
+				return
+			}
+			if n == 0 {
+				skipped++
+			} else {
+				updated++
+			}
+		}
+		if !resp.HasMore {
+			break
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"updated": updated, "skipped": skipped})
+}
+
+// aiProjectSearch ranks the project's images by semantic closeness of their
+// AI description to ?q= — same response shape as aiImageSimilar.
+func (s *Server) aiProjectSearch(c *gin.Context) {
+	projectID, ok := getIdParam(c)
+	if !ok {
+		return
+	}
+	remote, ok := s.remote(c)
+	if !ok {
+		return
+	}
+	if !allow(c, authorization.CanViewProject(authUser(c), projectID)) {
+		return
+	}
+	query := strings.TrimSpace(c.Query("q"))
+	if query == "" {
+		apiError(c, http.StatusBadRequest, "missing_query", "q is required")
+		return
+	}
+	page, pageSize := aiPageParams(c)
+	resp, err := remote.Search(c.Request.Context(), projectID, query, page, pageSize)
+	if abortAIError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, s.rankedImages(c, projectID, resp))
+}
+
+// rankedImages resolves a ranked ref list into image responses, dropping
+// refs shutterbase no longer knows (deleted since the AI server saw them).
+func (s *Server) rankedImages(c *gin.Context, projectID string, resp aiserver.SimilarResponse) gin.H {
+	refs := make([]string, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		refs = append(refs, item.ImageRef)
+	}
+	images := s.resolveImageRefs(c.Request.Context(), projectID, refs)
+	items := make([]gin.H, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		resolved, ok := images[item.ImageRef]
+		if !ok {
+			continue
+		}
+		items = append(items, gin.H{
+			"image":      ToImageResponse(c.Request.Context(), resolved, s.s3Client, s.thumbnailSizes),
+			"similarity": item.Similarity,
+		})
+	}
+	return gin.H{"items": items, "page": resp.Page, "pageSize": resp.PageSize, "hasMore": resp.HasMore}
+}
+
 func (s *Server) aiImageSimilar(c *gin.Context) {
 	id, ok := getIdParam(c)
 	if !ok {
@@ -800,26 +920,7 @@ func (s *Server) aiImageSimilar(c *gin.Context) {
 	if abortAIError(c, err) {
 		return
 	}
-
-	refs := make([]string, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		refs = append(refs, item.ImageRef)
-	}
-	images := s.resolveImageRefs(c.Request.Context(), img.ProjectID, refs)
-	items := make([]gin.H, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		resolved, ok := images[item.ImageRef]
-		if !ok {
-			continue
-		}
-		items = append(items, gin.H{
-			"image":      ToImageResponse(c.Request.Context(), resolved, s.s3Client, s.thumbnailSizes),
-			"similarity": item.Similarity,
-		})
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"items": items, "page": resp.Page, "pageSize": resp.PageSize, "hasMore": resp.HasMore,
-	})
+	c.JSON(http.StatusOK, s.rankedImages(c, img.ProjectID, resp))
 }
 
 // resolveImageRefs loads the referenced images of the project with the edges

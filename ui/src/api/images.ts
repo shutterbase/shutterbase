@@ -10,6 +10,7 @@ export interface ImageListParams {
   tagId?: string[]; // repeated, AND-combined server-side
   excludeTagId?: string[]; // repeated, images carrying ANY of these are dropped
   personRef?: string; // implicit person filter (AI face clustering handle)
+  ask?: string; // semantic "ask" filter: AI server ranks images by their description
   crossProject?: "true"; // person filter only: search every viewable project
   orientation?: "portrait" | "landscape";
   limit?: number;

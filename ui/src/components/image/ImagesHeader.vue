@@ -78,8 +78,9 @@
         <input
           id="search"
           v-model="searchText"
-          placeholder="Search images"
+          placeholder="Search images · Enter = describe what you're looking for"
           type="text"
+          @keydown.enter.prevent="semanticSearch()"
           class="h-9 w-full rounded-md border border-primary-200 bg-surface pl-9 pr-9 text-sm text-primary-900 placeholder:text-primary-400 transition-colors hover:border-primary-300 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-primary-700 dark:bg-surface-dark dark:text-primary-100 dark:placeholder:text-primary-500 dark:hover:border-primary-600"
         />
         <button
@@ -92,6 +93,16 @@
           <span class="sr-only">Clear search</span>
         </button>
       </div>
+      <button
+        type="button"
+        :class="[triggerBase, searchText.trim() ? triggerIdle : 'cursor-default opacity-50']"
+        :disabled="!searchText.trim()"
+        title="Semantic search: describe the moment you're looking for (e.g. “team celebrating in the rain”) — ranks photos by their AI description"
+        @click="semanticSearch()"
+      >
+        <SparklesIcon class="h-[18px] w-[18px]" />
+        <span>Ask</span>
+      </button>
 
       <!-- tags filter -->
       <Popover class="relative" v-slot="{ open }">
@@ -324,6 +335,8 @@ interface Props {
   uploadFilter?: string | null;
   // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
   tagFacets?: TagFacetsResponse | null;
+  // any narrowing filter active (search, tags, orientation, person, upload, ask)
+  filterActive?: boolean;
 }
 const props = withDefaults(defineProps<Props>(), {
   totalImageCount: 0,
@@ -331,10 +344,12 @@ const props = withDefaults(defineProps<Props>(), {
   selectionCount: 0,
   uploadFilter: null,
   tagFacets: null,
+  filterActive: false,
 });
 
 const emit = defineEmits<{
   search: [string];
+  semanticSearch: [string];
   filterTags: [{ include: ImageTag[]; exclude: ImageTag[] }];
   aspectRatioFilter: [string];
   "update:density": [Density];
@@ -383,6 +398,10 @@ const densityOptions: { value: Density; label: string; icon: any }[] = [
 // search
 const searchText = ref("");
 watch(searchText, () => emit("search", searchText.value));
+const semanticSearch = () => {
+  const q = searchText.value.trim();
+  if (q) emit("semanticSearch", q);
+};
 
 // orientation
 const orientation = ref<string>("neutral");
@@ -415,8 +434,8 @@ const filteredTags = computed(() => {
 // under an active filter, tags that would produce an empty result set disappear;
 // with no filter every tag stays offered (zero-count tags are normal pre-event)
 const visibleTags = computed(() => {
-  if (selectedTags.value.length === 0 || !props.tagFacets) return filteredTags.value;
-  return filteredTags.value.filter((t: ImageTag) => (props.tagFacets!.facets[t.id] ?? 0) > 0);
+  if (!props.filterActive || !props.tagFacets) return filteredTags.value;
+  return filteredTags.value.filter((t: ImageTag) => isSelected(t) || (props.tagFacets!.facets[t.id] ?? 0) > 0);
 });
 // images left when adding the tag as +/− filter; null while facets are loading
 const includeCount = (tag: ImageTag): number | null => (props.tagFacets ? (props.tagFacets.facets[tag.id] ?? 0) : null);

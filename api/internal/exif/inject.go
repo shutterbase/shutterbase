@@ -101,6 +101,11 @@ func buildMetadata(image *ent.Image) map[string]any {
 		m["IPTC:DateCreated"] = t.Format("2006:01:02")
 	}
 
+	if image.AiDescription != "" {
+		m["IPTC:Caption-Abstract"] = image.AiDescription
+		m["EXIF:ImageDescription"] = image.AiDescription
+	}
+
 	// Keywords: only default/manual tags, never the internal management tag.
 	tags := []*ent.ImageTag{}
 	for _, a := range image.Edges.ImageTagAssignments {

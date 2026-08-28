@@ -51,6 +51,8 @@ const (
 	FieldAiAttempts = "ai_attempts"
 	// FieldAiError holds the string denoting the aierror field in the database.
 	FieldAiError = "ai_error"
+	// FieldAiDescription holds the string denoting the aidescription field in the database.
+	FieldAiDescription = "ai_description"
 	// FieldSize holds the string denoting the size field in the database.
 	FieldSize = "size"
 	// FieldWidth holds the string denoting the width field in the database.
@@ -135,6 +137,7 @@ var Columns = []string{
 	FieldAiRawResult,
 	FieldAiAttempts,
 	FieldAiError,
+	FieldAiDescription,
 	FieldSize,
 	FieldWidth,
 	FieldHeight,
@@ -287,6 +290,11 @@ func ByAiAttempts(opts ...sql.OrderTermOption) OrderOption {
 // ByAiError orders the results by the aiError field.
 func ByAiError(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAiError, opts...).ToFunc()
+}
+
+// ByAiDescription orders the results by the aiDescription field.
+func ByAiDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAiDescription, opts...).ToFunc()
 }
 
 // BySize orders the results by the size field.

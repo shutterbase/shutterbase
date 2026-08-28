@@ -28,6 +28,12 @@ type Server interface {
 	PersonImages(ctx context.Context, projectID, personRef string, page, pageSize int, raw bool) (PersonImagesResponse, error)
 	// Similar pages through the project's images most similar to imageRef.
 	Similar(ctx context.Context, projectID, imageRef string, page, pageSize int) (SimilarResponse, error)
+	// Search pages through the project's images whose stored description is
+	// semantically closest to the free-text query (same shape as Similar).
+	Search(ctx context.Context, projectID, query string, page, pageSize int) (SimilarResponse, error)
+	// Descriptions pages through the project's stored descriptions (backfill
+	// for callers that started persisting IngestResponse.Description later).
+	Descriptions(ctx context.Context, projectID string, page, pageSize int) (DescriptionsResponse, error)
 	// Persons pages through person clusters ranked by appearance count
 	// across the given projects, most-seen first. Merge groups fold into one
 	// entry under the representative ref.
@@ -95,6 +101,18 @@ func NewHandler(s Server, apiKey string) http.Handler {
 	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/images/{imageRef}/similar", func(w http.ResponseWriter, r *http.Request) {
 		page, pageSize := pageParams(r)
 		resp, err := s.Similar(r.Context(), r.PathValue("projectId"), r.PathValue("imageRef"), page, pageSize)
+		respond(w, resp, err)
+	})
+
+	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/descriptions", func(w http.ResponseWriter, r *http.Request) {
+		page, pageSize := pageParams(r)
+		resp, err := s.Descriptions(r.Context(), r.PathValue("projectId"), page, pageSize)
+		respond(w, resp, err)
+	})
+
+	mux.HandleFunc("GET "+basePath+"/projects/{projectId}/search", func(w http.ResponseWriter, r *http.Request) {
+		page, pageSize := pageParams(r)
+		resp, err := s.Search(r.Context(), r.PathValue("projectId"), r.URL.Query().Get("q"), page, pageSize)
 		respond(w, resp, err)
 	})
 

@@ -419,6 +419,10 @@ func (s *AIService) processWith(ctx context.Context, imageID string, inference I
 	} else {
 		done.ClearAiRawResult()
 	}
+	// a scoped rerun (numbers only) returns no description — keep the stored one
+	if result.Description != "" {
+		done.SetAiDescription(result.Description)
+	}
 	updated, err := done.Save(ctx)
 	if err != nil {
 		return err
