@@ -320,6 +320,7 @@ import { computed, h, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
 import type { TagFacetsResponse } from "src/api/images";
 import { tagLabel } from "src/util/tagOrder";
+import { byTagSearchRank, tagSearchRank } from "src/util/tagSearch";
 import { api } from "src/api";
 
 type Density = "gallery" | "comfortable" | "dense";
@@ -424,8 +425,11 @@ watch(selectedTags, () => {
 });
 const selectableTags = computed(() => projectTags.value.filter((t: ImageTag) => t.type !== "template"));
 const filteredTags = computed(() => {
-  const q = tagQuery.value.toLowerCase();
-  return selectableTags.value.filter((t: ImageTag) => !isSelected(t) && (t.name.toLowerCase().includes(q) || tagLabel(t).toLowerCase().includes(q)));
+  const unselected = () => selectableTags.value.filter((t: ImageTag) => !isSelected(t));
+  if (!tagQuery.value.trim()) return unselected();
+  return unselected()
+    .filter((t: ImageTag) => tagSearchRank(t, tagQuery.value) >= 0)
+    .sort(byTagSearchRank(tagQuery.value));
 });
 // under an active filter, tags that would produce an empty result set disappear;
 // with no filter every tag stays offered (zero-count tags are normal pre-event)
