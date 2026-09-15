@@ -203,3 +203,17 @@ func TestBuildMetadataNoPrefixLeavesTagsUntouched(t *testing.T) {
 		t.Fatalf("By-lineTitle = %v, want mm", m["IPTC:By-lineTitle"])
 	}
 }
+
+func TestBuildMetadataPublicOptionsDropAIDescription(t *testing.T) {
+	image := &ent.Image{AiDescription: "a car on track"}
+	if m := buildMetadataWith(image, DefaultExportOptions); m["EXIF:ImageDescription"] != "a car on track" {
+		t.Fatalf("default export must keep the AI description, got %v", m["EXIF:ImageDescription"])
+	}
+	m := buildMetadataWith(image, PublicExportOptions)
+	if _, ok := m["EXIF:ImageDescription"]; ok {
+		t.Fatalf("public export must not write the AI description")
+	}
+	if _, ok := m["IPTC:Caption-Abstract"]; ok {
+		t.Fatalf("public export must not write the AI caption")
+	}
+}

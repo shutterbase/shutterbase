@@ -18,6 +18,9 @@ type Camera func(*sql.Selector)
 // DownloadConfig is the predicate function for downloadconfig builders.
 type DownloadConfig func(*sql.Selector)
 
+// Gallery is the predicate function for gallery builders.
+type Gallery func(*sql.Selector)
+
 // Image is the predicate function for image builders.
 type Image func(*sql.Selector)
 

@@ -249,6 +249,13 @@ func CanEditProject(u *ent.User, projectID string) bool {
 	return isAdmin(u) || HasRoleInProject(u, projectID, RoleProjectAdmin)
 }
 
+// --- Galleries ---
+
+// CanManageGalleries: public gallery sites (branding, legal texts, assets) are
+// platform-level configuration — global admin only. Publishing a project onto
+// one is the project's own CanEditProject decision.
+func CanManageGalleries(u *ent.User) bool { return isAdmin(u) }
+
 // --- Images (§4.3) ---
 
 // CanViewImage: admin or assigned to the image's project.
@@ -368,6 +375,49 @@ func IsReviewerOnlyTag(name string) bool {
 	return false
 }
 
+// --- Reserved tag namespace ---
+
+const (
+	// PublicTagName publishes an image on the project's public gallery. Unlike
+	// the review tags it is projectAdmin-only regardless of the review flow.
+	PublicTagName = "public"
+	// InternalTagName keeps an image out of every export, slideshow and the
+	// public gallery. Historically a plain seeded manual tag; now reserved.
+	InternalTagName = "internal"
+)
+
+// ReservedTags are the per-project tag names with system meaning. Matching is
+// case-insensitive everywhere (create, rename, delete, assign) so "Public" can
+// never shadow "public". Every project gets them materialized (see
+// server.ensureReservedTags) as "custom" tags — never exported as keywords.
+var ReservedTags = []struct{ Name, Description string }{
+	{PublicTagName, "Published on the public gallery"},
+	{InternalTagName, "Internal — excluded from exports and the public gallery"},
+	{ReviewErrorTagName, "Tagging error found during upload review"},
+	{ReviewRejectedTagName, "Image rejected during upload review"},
+}
+
+// IsReservedTag reports whether a tag name belongs to the reserved namespace.
+func IsReservedTag(name string) bool {
+	for _, t := range ReservedTags {
+		if strings.EqualFold(name, t.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsPublicTag reports whether a tag name is the reserved public tag.
+func IsPublicTag(name string) bool {
+	return strings.EqualFold(name, PublicTagName)
+}
+
+// CanManageReservedTag: creating, renaming into/out of, or deleting a reserved
+// tag name is a projectAdmin move (or global admin).
+func CanManageReservedTag(u *ent.User, projectID string) bool {
+	return isProjectAdmin(u, projectID)
+}
+
 // isProjectAdmin: global admin or projectAdmin of this project — the reviewer
 // role of the upload review flow.
 func isProjectAdmin(u *ent.User, projectID string) bool {
@@ -389,7 +439,8 @@ func CanTransitionUpload(u *ent.User, up *ent.Upload, next upload.State) bool {
 }
 
 // CanAssignTag reports whether u may create or delete an assignment of tag on
-// img. Base rule is CanManageImageTagAssignment; with the review flow enabled a
+// img. Base rule is CanManageImageTagAssignment; the reserved public tag is
+// always projectAdmin-only; with the review flow enabled a
 // non-reviewer additionally loses
 //   - the reserved review tags entirely (only a projectAdmin flags/clears them), and
 //   - every non-custom ("official", i.e. exported) tag once the upload left the
@@ -399,6 +450,11 @@ func CanAssignTag(u *ent.User, img *ent.Image, up *ent.Upload, tag *ent.ImageTag
 		return false
 	}
 	if !CanManageImageTagAssignment(u, img.ProjectID) {
+		return false
+	}
+	// Publishing is a projectAdmin decision whatever the review mode: the
+	// public tag is what the gallery exposes to the world.
+	if IsPublicTag(tag.Name) && !isProjectAdmin(u, img.ProjectID) {
 		return false
 	}
 	if !reviewEnabled || isProjectAdmin(u, img.ProjectID) {

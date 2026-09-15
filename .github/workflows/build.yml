@@ -19,6 +19,7 @@ concurrency:
 
 env:
   DOCKER_IMAGE_URL: ghcr.io/shutterbase/shutterbase
+  GALLERY_IMAGE_URL: ghcr.io/shutterbase/gallery
   WASM_BUILDER_IMAGE: ghcr.io/shutterbase/wasm-builder
 
 # Two paths:
@@ -80,6 +81,11 @@ jobs:
           docker buildx imagetools create \
             -t $DOCKER_IMAGE_URL:${{ github.ref_name }} \
             $DOCKER_IMAGE_URL:${{ steps.sha.outputs.short }}
+          # The public gallery is built from the same commit in the same job;
+          # release it under the same tag so server and gallery always match.
+          docker buildx imagetools create \
+            -t $GALLERY_IMAGE_URL:${{ github.ref_name }} \
+            $GALLERY_IMAGE_URL:${{ steps.sha.outputs.short }}
 
   release:
     name: Create release
@@ -226,4 +232,6 @@ jobs:
           docker pull $WASM_BUILDER_IMAGE:latest
           docker build --platform=linux/amd64 -t $DOCKER_IMAGE_URL:${GITHUB_SHA::8} .
           docker push $DOCKER_IMAGE_URL:${GITHUB_SHA::8}
+          docker build --platform=linux/amd64 --target gallery -t $GALLERY_IMAGE_URL:${GITHUB_SHA::8} .
+          docker push $GALLERY_IMAGE_URL:${GITHUB_SHA::8}
 

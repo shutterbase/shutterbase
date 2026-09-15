@@ -1,0 +1,59 @@
+package web
+
+import "strconv"
+
+templ JobPage(site *Site, v JobView) {
+	@Page(site, Meta{Title: site.T("download_all"), NoIndex: true}) {
+		<div class="pt-8 max-w-xl">
+			<nav class="text-sm text-muted"><a href="/" class="hover:text-ink">{ site.Label("projects") }</a> / <a href={ templ.SafeURL("/" + v.Slug) } class="hover:text-ink">{ v.ProjectTitle }</a></nav>
+			<h1 class="text-2xl sm:text-3xl font-semibold mt-1">{ site.T("download_all") }</h1>
+			@JobStatus(site, v)
+		</div>
+	}
+}
+
+templ JobStatus(site *Site, v JobView) {
+	<div id="job" hx-get={ "/jobs/" + v.Job.ID } hx-trigger={ jobTrigger(v) } hx-swap="outerHTML" class="mt-6 rounded-theme border border-line bg-card p-6">
+		switch v.Job.Status {
+			case "queued", "running":
+				<p class="flex items-center gap-3"><span class="inline-block h-3 w-3 rounded-full bg-accent animate-pulse"></span> { site.T("job_" + v.Job.Status) }</p>
+				<p class="text-sm text-muted mt-2">{ strconv.Itoa(len(v.Job.Manifest)) } { site.T("photos") }</p>
+			case "done":
+				<p>{ site.T("job_done") } · { strconv.Itoa(v.Job.ImageCount) } { site.T("photos") } · { v.SizeLabel() }</p>
+				<a href={ templ.SafeURL("/jobs/" + v.Job.ID + "/file") } class="btn mt-4" rel="nofollow">⤓ { v.ZipName() }</a>
+				<p class="text-xs text-muted mt-3">{ site.T("job_expires") }</p>
+			case "revoked":
+				<p>{ site.T("job_revoked") }</p>
+				<a href={ templ.SafeURL("/" + v.Slug + "/photos") } class="btn-ghost mt-4">{ site.Label("all_photos") }</a>
+			default:
+				<p>{ site.T("job_failed") }</p>
+		}
+	</div>
+}
+
+templ JobLimitPage(site *Site, slug string, count, max int) {
+	@Page(site, Meta{Title: site.T("download_all"), NoIndex: true}) {
+		<div class="pt-8 max-w-xl">
+			<h1 class="text-2xl font-semibold">{ site.T("download_all") }</h1>
+			<p class="mt-4">{ site.T("job_too_large") } ({ strconv.Itoa(count) } › { strconv.Itoa(max) })</p>
+			<a href={ templ.SafeURL("/" + slug + "/photos") } class="btn-ghost mt-6">{ site.Label("all_photos") }</a>
+		</div>
+	}
+}
+
+templ JobBusyPage(site *Site, slug string) {
+	@Page(site, Meta{Title: site.T("download_all"), NoIndex: true}) {
+		<div class="pt-8 max-w-xl">
+			<h1 class="text-2xl font-semibold">{ site.T("download_all") }</h1>
+			<p class="mt-4">{ site.T("job_busy") }</p>
+			<a href={ templ.SafeURL("/" + slug + "/photos") } class="btn-ghost mt-6">{ site.Label("all_photos") }</a>
+		</div>
+	}
+}
+
+func jobTrigger(v JobView) string {
+	if v.Pending() {
+		return "every 3s"
+	}
+	return "none"
+}

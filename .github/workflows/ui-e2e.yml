@@ -67,6 +67,8 @@ jobs:
           echo "waiting for backend on :8080 (testcontainers pull + boot)…"
           for i in $(seq 1 120); do curl -fs http://localhost:8080/api/v1/health && break; sleep 2; done
           curl -fs http://localhost:8080/api/v1/health || { echo "::error::backend never became healthy"; cat api/testserver.log; exit 1; }
+          echo "waiting for the public gallery on :8090…"
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:8090/healthz && break; sleep 2; done
           echo "waiting for UI on :9000 (vite first compile)…"
           for i in $(seq 1 90); do curl -fs http://localhost:9000/login >/dev/null && break; sleep 2; done
           curl -fs http://localhost:9000/login >/dev/null || { echo "::error::quasar dev never became ready"; cat ui/quasar-dev.log; exit 1; }

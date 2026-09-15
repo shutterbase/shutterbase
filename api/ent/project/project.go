@@ -46,6 +46,20 @@ const (
 	FieldStartAt = "start_at"
 	// FieldEndAt holds the string denoting the endat field in the database.
 	FieldEndAt = "end_at"
+	// FieldGalleryID holds the string denoting the gallery_id field in the database.
+	FieldGalleryID = "gallery_id"
+	// FieldGallerySlug holds the string denoting the galleryslug field in the database.
+	FieldGallerySlug = "gallery_slug"
+	// FieldGalleryTitle holds the string denoting the gallerytitle field in the database.
+	FieldGalleryTitle = "gallery_title"
+	// FieldGalleryDescription holds the string denoting the gallerydescription field in the database.
+	FieldGalleryDescription = "gallery_description"
+	// FieldGalleryCoverImageId holds the string denoting the gallerycoverimageid field in the database.
+	FieldGalleryCoverImageId = "gallery_cover_image_id"
+	// FieldGalleryPublishedAt holds the string denoting the gallerypublishedat field in the database.
+	FieldGalleryPublishedAt = "gallery_published_at"
+	// FieldGalleryFeaturedTagIds holds the string denoting the galleryfeaturedtagids field in the database.
+	FieldGalleryFeaturedTagIds = "gallery_featured_tag_ids"
 	// EdgeUploads holds the string denoting the uploads edge name in mutations.
 	EdgeUploads = "uploads"
 	// EdgeImages holds the string denoting the images edge name in mutations.
@@ -60,6 +74,8 @@ const (
 	EdgeDownloadConfigs = "downloadConfigs"
 	// EdgeActiveForUsers holds the string denoting the activeforusers edge name in mutations.
 	EdgeActiveForUsers = "activeForUsers"
+	// EdgeGallery holds the string denoting the gallery edge name in mutations.
+	EdgeGallery = "gallery"
 	// Table holds the table name of the project in the database.
 	Table = "projects"
 	// UploadsTable is the table that holds the uploads relation/edge.
@@ -111,6 +127,13 @@ const (
 	ActiveForUsersInverseTable = "users"
 	// ActiveForUsersColumn is the table column denoting the activeForUsers relation/edge.
 	ActiveForUsersColumn = "active_project_id"
+	// GalleryTable is the table that holds the gallery relation/edge.
+	GalleryTable = "projects"
+	// GalleryInverseTable is the table name for the Gallery entity.
+	// It exists in this package in order to avoid circular dependency with the "gallery" package.
+	GalleryInverseTable = "galleries"
+	// GalleryColumn is the table column denoting the gallery relation/edge.
+	GalleryColumn = "gallery_id"
 )
 
 // Columns holds all SQL columns for project fields.
@@ -132,6 +155,13 @@ var Columns = []string{
 	FieldUploadReviewEnabled,
 	FieldStartAt,
 	FieldEndAt,
+	FieldGalleryID,
+	FieldGallerySlug,
+	FieldGalleryTitle,
+	FieldGalleryDescription,
+	FieldGalleryCoverImageId,
+	FieldGalleryPublishedAt,
+	FieldGalleryFeaturedTagIds,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -169,6 +199,10 @@ var (
 	LocationCityValidator func(string) error
 	// DefaultUploadReviewEnabled holds the default value on creation for the "uploadReviewEnabled" field.
 	DefaultUploadReviewEnabled bool
+	// GallerySlugValidator is a validator for the "gallerySlug" field. It is called by the builders before save.
+	GallerySlugValidator func(string) error
+	// DefaultGalleryFeaturedTagIds holds the default value on creation for the "galleryFeaturedTagIds" field.
+	DefaultGalleryFeaturedTagIds []string
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() string
 	// IDValidator is a validator for the "id" field. It is called by the builders before save.
@@ -261,6 +295,36 @@ func ByStartAt(opts ...sql.OrderTermOption) OrderOption {
 // ByEndAt orders the results by the endAt field.
 func ByEndAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEndAt, opts...).ToFunc()
+}
+
+// ByGalleryID orders the results by the gallery_id field.
+func ByGalleryID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGalleryID, opts...).ToFunc()
+}
+
+// ByGallerySlug orders the results by the gallerySlug field.
+func ByGallerySlug(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGallerySlug, opts...).ToFunc()
+}
+
+// ByGalleryTitle orders the results by the galleryTitle field.
+func ByGalleryTitle(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGalleryTitle, opts...).ToFunc()
+}
+
+// ByGalleryDescription orders the results by the galleryDescription field.
+func ByGalleryDescription(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGalleryDescription, opts...).ToFunc()
+}
+
+// ByGalleryCoverImageId orders the results by the galleryCoverImageId field.
+func ByGalleryCoverImageId(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGalleryCoverImageId, opts...).ToFunc()
+}
+
+// ByGalleryPublishedAt orders the results by the galleryPublishedAt field.
+func ByGalleryPublishedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGalleryPublishedAt, opts...).ToFunc()
 }
 
 // ByUploadsCount orders the results by uploads count.
@@ -360,6 +424,13 @@ func ByActiveForUsers(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newActiveForUsersStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByGalleryField orders the results by gallery field.
+func ByGalleryField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGalleryStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newUploadsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -407,5 +478,12 @@ func newActiveForUsersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ActiveForUsersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, true, ActiveForUsersTable, ActiveForUsersColumn),
+	)
+}
+func newGalleryStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GalleryInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, GalleryTable, GalleryColumn),
 	)
 }

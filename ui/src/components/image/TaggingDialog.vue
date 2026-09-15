@@ -123,9 +123,7 @@
           <template v-if="appliedMatchingTags.length > 0">
             <CheckCircleIcon class="mx-auto h-6 w-6 text-success-500 dark:text-success-400" />
             <p class="mt-4 font-semibold text-primary-900 dark:text-white">Already applied</p>
-            <p class="mt-2 text-primary-500 dark:text-primary-400">
-              The matching {{ appliedMatchingTags.length === 1 ? "tag is" : "tags are" }} already applied to this image
-            </p>
+            <p class="mt-2 text-primary-500 dark:text-primary-400">The matching {{ appliedMatchingTags.length === 1 ? "tag is" : "tags are" }} already applied to this image</p>
             <ul class="mt-4 flex flex-wrap justify-center gap-2">
               <li
                 v-for="tag in appliedMatchingTags"
@@ -172,6 +170,7 @@ import { Image } from "src/util/fileProcessor";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import { tagStack } from "src/pages/image/imageQueryLogic";
 import { tagLabel } from "src/util/tagOrder";
+import { isPublicTag } from "src/util/uploadReview";
 import { api } from "src/api";
 
 interface Props {
@@ -203,6 +202,10 @@ const filteredTags = computed(() => {
       return false;
     }
     if (tag.type === "default" && !userStore.isProjectAdminOrHigher()) {
+      return false;
+    }
+    // publishing to the public gallery is a project-admin decision
+    if (isPublicTag(tag.name) && !userStore.isProjectAdminOrHigher()) {
       return false;
     }
     if (props.image?.tags?.some((assignment) => assignment.tag.id === tag.id)) {

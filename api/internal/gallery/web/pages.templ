@@ -1,0 +1,285 @@
+package web
+
+import (
+	"strconv"
+
+	"github.com/shutterbase/shutterbase/internal/gallery/catalog"
+)
+
+// ProjectCard is a published project on the landing page.
+type ProjectCard struct {
+	Summary catalog.ProjectSummary
+	Cover   *PhotoView
+	Href    string
+	Dates   string
+}
+
+templ Landing(site *Site, cards []ProjectCard) {
+	@Page(site, Meta{Title: site.Label("projects"), Description: site.Gallery.Tagline, Canonical: site.Abs("/"), Image: heroOrCover(site, cards)}) {
+		<section class="py-10 sm:py-16">
+			if site.HeroURL != "" {
+				<div class="relative overflow-hidden rounded-theme mb-10 aspect-[21/9] bg-line">
+					<img src={ site.HeroURL } alt="" class="absolute inset-0 w-full h-full object-cover"/>
+					<div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+					<div class="absolute bottom-0 left-0 p-6 sm:p-10 text-white">
+						<h1 class="text-3xl sm:text-5xl font-semibold">{ site.Gallery.Name }</h1>
+						if site.Gallery.Tagline != "" {
+							<p class="mt-2 text-lg opacity-90 max-w-2xl">{ site.Gallery.Tagline }</p>
+						}
+					</div>
+				</div>
+			} else {
+				<h1 class="text-3xl sm:text-5xl font-semibold">{ site.Gallery.Name }</h1>
+				if site.Gallery.Tagline != "" {
+					<p class="mt-2 text-lg text-muted max-w-2xl">{ site.Gallery.Tagline }</p>
+				}
+			}
+			if site.Gallery.AboutText != "" {
+				<p class="mt-6 max-w-3xl text-ink/80 leading-relaxed">{ site.Gallery.AboutText }</p>
+			}
+		</section>
+		<section>
+			<h2 class="text-xs uppercase tracking-wider text-muted mb-4">{ site.Label("projects") }</h2>
+			if len(cards) == 0 {
+				<p class="text-muted">{ site.T("no_results") }</p>
+			}
+			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				for _, c := range cards {
+					<a href={ templ.SafeURL(c.Href) } class="group relative overflow-hidden rounded-theme bg-line aspect-[4/3]">
+						if c.Cover != nil {
+							<img src={ c.Cover.Src(1024) } srcset={ c.Cover.Srcset() } sizes="(max-width: 640px) 100vw, 50vw" alt="" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy"/>
+						}
+						<div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent"></div>
+						<div class="absolute bottom-0 left-0 right-0 p-4 text-white">
+							<h3 class="text-xl font-semibold leading-tight">{ c.Summary.Title() }</h3>
+							<p class="text-sm opacity-80 mt-1">{ c.Dates } · { strconv.Itoa(c.Summary.PhotoCount) } { site.T("photos") }</p>
+						</div>
+					</a>
+				}
+			</div>
+		</section>
+	}
+}
+
+func heroOrCover(site *Site, cards []ProjectCard) string {
+	if site.HeroURL != "" {
+		return site.HeroURL
+	}
+	for _, c := range cards {
+		if c.Cover != nil {
+			return c.Cover.Src(1024)
+		}
+	}
+	return ""
+}
+
+// ProjectPage is the project's home: description, facets as entry points,
+// a taste of the newest photos.
+templ ProjectPage(site *Site, p catalog.ProjectSummary, fv FilterView, latest []PhotoView, cover *PhotoView, dates string) {
+	@Page(site, Meta{Title: p.Title(), Description: p.Description(), Canonical: site.Abs("/" + p.Project.GallerySlug), Image: coverSrc(cover)}) {
+		<section class="pt-8 pb-6 sm:pt-12 flex flex-col lg:flex-row gap-8">
+			<div class="flex-1 min-w-0">
+				<p class="text-xs uppercase tracking-wider text-muted">{ site.Label("project") } · { dates }</p>
+				<h1 class="text-3xl sm:text-5xl font-semibold mt-1">{ p.Title() }</h1>
+				if p.Description() != "" {
+					<p class="mt-4 max-w-3xl text-ink/80 leading-relaxed">{ p.Description() }</p>
+				}
+				<div class="mt-6 flex flex-wrap gap-3">
+					<a href={ templ.SafeURL(fv.ResetHref()) } class="btn">{ site.Label("all_photos") } <span class="opacity-70 tabular-nums">{ strconv.Itoa(p.PhotoCount) }</span></a>
+				</div>
+			</div>
+			if cover != nil {
+				<a href={ templ.SafeURL(cover.Href) } class="lg:w-[42%] shrink-0 overflow-hidden rounded-theme bg-line aspect-[3/2]">
+					<img src={ cover.Src(1024) } srcset={ cover.Srcset() } sizes="(max-width: 1024px) 100vw, 40vw" width={ strconv.Itoa(cover.Width) } height={ strconv.Itoa(cover.Height) } alt={ cover.Caption } class="w-full h-full object-cover"/>
+				</a>
+			}
+		</section>
+		<section class="py-6 border-t border-line">
+			@FacetPanel(site, fv)
+		</section>
+		if len(latest) > 0 {
+			<section class="py-6">
+				<h2 class="text-xs uppercase tracking-wider text-muted mb-3">{ site.T("newest") }</h2>
+				<div class="grid-justified" id="grid">
+					for _, v := range latest {
+						@Tile(v)
+					}
+				</div>
+			</section>
+		}
+	}
+}
+
+func coverSrc(v *PhotoView) string {
+	if v == nil {
+		return ""
+	}
+	return v.Src(1024)
+}
+
+// PhotosPage is the filterable grid.
+templ PhotosPage(site *Site, p catalog.ProjectSummary, fv FilterView, photos []PhotoView, next string, bulk bool) {
+	@Page(site, Meta{Title: p.Title() + " · " + site.T("photos"), Canonical: site.Abs(fv.Href(fv.Filter.WithoutPage())), NoIndex: !fv.Filter.IsEmpty()}) {
+		<div class="pt-6">
+			<nav class="text-sm text-muted"><a href="/" class="hover:text-ink">{ site.Label("projects") }</a> / <a href={ templ.SafeURL("/" + p.Project.GallerySlug) } class="hover:text-ink">{ p.Title() }</a></nav>
+			<div class="flex items-baseline gap-3 mt-1">
+				<h1 class="text-2xl sm:text-3xl font-semibold">{ site.T("photos") }</h1>
+				if fv.Facets != nil {
+					<span class="text-muted tabular-nums">{ strconv.Itoa(fv.Facets.Total) }</span>
+				}
+				<span class="flex-1"></span>
+				if bulk && fv.Facets != nil && fv.Facets.Total > 0 {
+					<form method="post" action={ templ.SafeURL("/" + p.Project.GallerySlug + "/download" + queryString(fv.Filter.WithoutPage().Query())) }>
+						<button type="submit" class="btn-ghost text-sm">⤓ { site.T("download_all") }</button>
+					</form>
+				}
+			</div>
+		</div>
+		<div class="pt-4">
+			@FacetPanel(site, fv)
+		</div>
+		<div class="sticky top-14 z-20 bg-surface/90 backdrop-blur -mx-3 px-3 sm:mx-0 sm:px-0">
+			@FilterBar(site, fv)
+		</div>
+		<div class="grid-justified" id="grid" data-lb-return={ fv.Href(fv.Filter.WithoutPage()) }>
+			@Grid(site, fv, photos, next)
+		</div>
+	}
+}
+
+// PhotosPartial is the HTMX load-more response: tiles + the next sentinel.
+templ PhotosPartial(site *Site, fv FilterView, photos []PhotoView, next string) {
+	<div id="grid">
+		@Grid(site, fv, photos, next)
+	</div>
+}
+
+// DetailPage is the shareable photo page: hero, nav, spec sheet, download.
+templ DetailPage(site *Site, p catalog.ProjectSummary, fv FilterView, d *catalog.Detail, v PhotoView, prev *PhotoView, next *PhotoView, tags []Chip, stats *Stats, bulk bool) {
+	@Page(site, Meta{Title: v.FileName, Description: v.Caption, Image: v.Src(1024), Canonical: site.Abs("/" + p.Project.GallerySlug + "/p/" + v.ID), Compact: true}) {
+		<!-- #detail is what prev/next swap in place (hx-select on the full page); on
+		     desktop it is sized to the viewport below the header so nothing scrolls -->
+		<div id="detail" class="pt-4 lg:h-[calc(100dvh-3.5rem-1px)] lg:flex lg:flex-col lg:pb-4">
+			<div class="flex items-baseline gap-3 text-sm text-muted">
+				<a href={ templ.SafeURL(fv.Href(fv.Filter.WithoutPage()) + "#p-" + v.ID) } data-back class="hover:text-ink shrink-0">← { site.T("back") }</a>
+				<h1 class="text-lg sm:text-xl font-semibold text-ink truncate min-w-0">{ v.FileName }</h1>
+				<span class="flex-1"></span>
+				if d.Total > 0 {
+					<span class="tabular-nums shrink-0">{ strconv.Itoa(d.Position) } { site.T("of") } { strconv.Itoa(d.Total) }</span>
+				}
+			</div>
+			<div class="mt-3 lg:flex-1 lg:min-h-0 lg:grid lg:grid-cols-[1fr_22rem] lg:gap-6">
+				<figure class="relative lg:min-h-0 lg:h-full">
+					<div data-hero data-lb-src={ v.Src(2048) } data-hires={ v.Original } data-download={ "/d/" + v.ID } data-download-label={ site.T("download") } data-lb-caption={ v.Caption } class="relative bg-line rounded-theme overflow-hidden lg:h-full lg:flex lg:items-center lg:justify-center">
+						<div class="relative w-fit mx-auto lg:max-h-full">
+							<img src={ v.Src(2048) } srcset={ v.Srcset() } sizes="100vw" width={ strconv.Itoa(v.Width) } height={ strconv.Itoa(v.Height) } alt={ v.Caption } class="w-auto max-w-full h-auto max-h-[85dvh] lg:max-h-[calc(100dvh-8.5rem)] object-contain" decoding="async" fetchpriority="high" draggable="false"/>
+						</div>
+					</div>
+					<button type="button" data-fullscreen class="absolute top-3 right-3 z-10 rounded-full bg-black/50 text-white w-9 h-9 flex items-center justify-center hover:bg-black/70" title={ site.T("fullscreen") } aria-label={ site.T("fullscreen") }>⛶</button>
+					if prev != nil {
+						<a href={ templ.SafeURL(prev.Href) } hx-get={ prev.Href } hx-target="#detail" hx-select="#detail" hx-swap="outerHTML show:none" hx-push-url="true" data-nav-prev data-srcset={ prev.Srcset() } class="nav-edge left-2" aria-label={ site.T("prev") }>‹</a>
+					}
+					if next != nil {
+						<a href={ templ.SafeURL(next.Href) } hx-get={ next.Href } hx-target="#detail" hx-select="#detail" hx-swap="outerHTML show:none" hx-push-url="true" data-nav-next data-srcset={ next.Srcset() } class="nav-edge right-2" aria-label={ site.T("next") }>›</a>
+					}
+				</figure>
+				<aside class="mt-5 lg:mt-0 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+					<p class="text-muted text-sm">
+						if v.Photographer.Name != "" {
+							<a href={ templ.SafeURL(fv.ByHref(v.Photographer.ID)) } class="hover:text-ink">{ v.Photographer.Name }</a>
+						}
+						if v.CapturedAt != nil {
+							· <time datetime={ v.CapturedAt.UTC().Format("2006-01-02T15:04:05Z07:00") }>{ site.DateTime(v.CapturedAt) }</time>
+						}
+					</p>
+					<div class="mt-4 flex flex-wrap gap-3">
+						<a href={ templ.SafeURL("/d/" + v.ID) } class="btn" rel="nofollow">⤓ { site.T("download") }</a>
+						<button type="button" class="btn-ghost" data-copy-link={ site.Abs("/" + p.Project.GallerySlug + "/p/" + v.ID) }>{ site.T("share") }</button>
+						if bulk && !fv.Filter.IsEmpty() {
+							<form method="post" action={ templ.SafeURL("/" + p.Project.GallerySlug + "/download" + queryString(fv.Filter.WithoutPage().Query())) }>
+								<button type="submit" class="btn-ghost">{ site.T("download_all") } <span class="opacity-60 tabular-nums">{ strconv.Itoa(d.Total) }</span></button>
+							</form>
+						}
+					</div>
+					if len(tags) > 0 {
+						<div class="mt-4 flex flex-wrap gap-1.5">
+							for _, t := range tags {
+								<a href={ templ.SafeURL(t.Href) } class="chip">{ t.Label }</a>
+							}
+						</div>
+					}
+					<div class="mt-5 rounded-theme border border-line bg-card p-4">
+						<h2 class="text-xs uppercase tracking-wider text-muted mb-3">{ site.T("settings") }</h2>
+						<dl class="spec">
+							if v.Camera.Model != "" {
+								<dt>{ site.T("camera") }</dt><dd><a href={ templ.SafeURL(fv.CameraHref(v.Camera.Model)) } class="hover:text-accent">{ v.Camera.Model }</a></dd>
+							}
+							if v.Camera.Lens != "" {
+								<dt>{ site.T("lens") }</dt><dd>{ v.Camera.Lens }</dd>
+							}
+							if v.Camera.FocalLength != "" {
+								<dt>{ site.T("focal") }</dt><dd>{ v.Camera.FocalLength }</dd>
+							}
+							if v.Camera.Aperture != "" {
+								<dt>{ site.T("aperture") }</dt><dd>{ v.Camera.Aperture }</dd>
+							}
+							if v.Camera.Exposure != "" {
+								<dt>{ site.T("exposure") }</dt><dd>{ v.Camera.Exposure }</dd>
+							}
+							if v.Camera.ISO != "" {
+								<dt>{ site.T("iso") }</dt><dd>{ v.Camera.ISO }</dd>
+							}
+							if v.Width > 0 {
+								<dt>{ site.T("dimensions") }</dt><dd>{ strconv.Itoa(v.Width) } × { strconv.Itoa(v.Height) }</dd>
+							}
+							if v.Photographer.Name != "" {
+								<dt>{ site.Label("photographer") }</dt><dd>{ v.Photographer.Name }</dd>
+							}
+						</dl>
+					</div>
+					if stats != nil {
+						<p class="mt-4 text-xs text-muted tabular-nums">{ strconv.Itoa(stats.Views) } { site.T("views") } · { strconv.Itoa(stats.Downloads) } { site.T("downloads") }</p>
+					}
+				</aside>
+			</div>
+		</div>
+	}
+}
+
+// SearchPage is the cross-project search result.
+templ SearchPage(site *Site, q string, results []PhotoView, total int) {
+	@Page(site, Meta{Title: site.T("search"), NoIndex: true}) {
+		<div class="pt-8">
+			@SearchBox(site, q, "max-w-xl")
+			if q != "" {
+				<p class="mt-4 text-muted">{ strconv.Itoa(total) } { site.T("results_for") } “{ q }”</p>
+			}
+		</div>
+		<div class="grid-justified mt-6" id="grid">
+			for _, v := range results {
+				@Tile(v)
+			}
+		</div>
+	}
+}
+
+templ ErrorPage(site *Site, status int, message string) {
+	@Page(site, Meta{Title: strconv.Itoa(status), NoIndex: true}) {
+		<div class="py-24 text-center">
+			<p class="text-6xl font-heading font-semibold text-muted">{ strconv.Itoa(status) }</p>
+			<p class="mt-4 text-lg">{ message }</p>
+			<a href="/" class="btn mt-8">{ site.Label("projects") }</a>
+		</div>
+	}
+}
+
+// BarePage renders an error when not even the gallery could be resolved.
+templ BarePage(status int, message string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ strconv.Itoa(status) }</title><link rel="stylesheet" href="/static/app.css"/></head>
+		<body class="min-h-dvh flex items-center justify-center text-center p-8">
+			<div><p class="text-6xl font-semibold text-muted">{ strconv.Itoa(status) }</p><p class="mt-4">{ message }</p></div>
+		</body>
+	</html>
+}

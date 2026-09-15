@@ -130,3 +130,11 @@ version keeps serving.
 Version deployed, the GitOps commit, and what `/api/v1/health` reports. If the version
 never flipped, say so plainly rather than calling the deploy done — the GitOps push
 succeeding is not the same as prod running the new binary.
+
+## Public gallery
+
+Since the gallery lives in this repo, every release also publishes
+`ghcr.io/shutterbase/gallery:<tag>` (same SHA). Its manifests live in
+`shutterbase-gallery/` of the same GitOps repo: bump the image tag in
+`deployment-web.yml`, `deployment-worker.yml` and `job-migrate.yml` together with the server,
+verify with `https://<gallery domain>/healthz`.

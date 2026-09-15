@@ -22,6 +22,8 @@ type Tx struct {
 	Camera *CameraClient
 	// DownloadConfig is the client for interacting with the DownloadConfig builders.
 	DownloadConfig *DownloadConfigClient
+	// Gallery is the client for interacting with the Gallery builders.
+	Gallery *GalleryClient
 	// Image is the client for interacting with the Image builders.
 	Image *ImageClient
 	// ImageTag is the client for interacting with the ImageTag builders.
@@ -179,6 +181,7 @@ func (tx *Tx) init() {
 	tx.AuditLog = NewAuditLogClient(tx.config)
 	tx.Camera = NewCameraClient(tx.config)
 	tx.DownloadConfig = NewDownloadConfigClient(tx.config)
+	tx.Gallery = NewGalleryClient(tx.config)
 	tx.Image = NewImageClient(tx.config)
 	tx.ImageTag = NewImageTagClient(tx.config)
 	tx.ImageTagAssignment = NewImageTagAssignmentClient(tx.config)

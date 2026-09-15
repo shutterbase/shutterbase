@@ -13,6 +13,7 @@ func (s *Server) registerAPIRoutes() {
 	s.registerImageTagRoutes(api)
 	s.registerImageTagAssignmentRoutes(api)
 	s.registerProjectRoutes(api)
+	s.registerGalleryRoutes(api)
 	s.registerProjectAssignmentRoutes(api)
 	s.registerCameraRoutes(api)
 	s.registerUploadRoutes(api)

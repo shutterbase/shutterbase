@@ -4,6 +4,7 @@ import { projectRoutes } from "src/router/routes/project";
 import { userRoutes } from "src/router/routes/user";
 import { uploadRoutes } from "src/router/routes/upload";
 import { imageRoutes } from "src/router/routes/image";
+import { galleryRoutes } from "src/router/routes/gallery";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -19,6 +20,7 @@ const routes: RouteRecordRaw[] = [
       ...userRoutes,
       ...uploadRoutes,
       ...imageRoutes,
+      ...galleryRoutes,
       {
         name: "people",
         path: "/people",

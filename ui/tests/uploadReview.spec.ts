@@ -8,6 +8,9 @@ import {
   isReviewErrorTag,
   isReviewRejectedTag,
   isReviewerOnlyTag,
+  isPublicTag,
+  isPublished,
+  isReservedTag,
   nextStampedImageId,
   reviewVerdicts,
 } from "src/util/uploadReview";
@@ -43,6 +46,19 @@ describe("canEditTag", () => {
     expect(isReviewErrorTag("ERROR")).toBe(true);
     expect(isReviewRejectedTag("Rejected")).toBe(true);
     expect(isReviewerOnlyTag("rejects")).toBe(false);
+  });
+
+  it("reserves the public tag for the project admin, review flow or not", () => {
+    for (const reviewEnabled of [false, true]) {
+      expect(canEditTag({ ...base, reviewEnabled, uploadState: "open", tagType: "custom", tagName: "public" })).toBe(false);
+      expect(canEditTag({ ...base, reviewEnabled, uploadState: "open", tagType: "custom", tagName: "Public" })).toBe(false);
+      expect(canEditTag({ ...base, reviewEnabled, uploadState: "reviewed", tagType: "custom", tagName: "public", isReviewer: true })).toBe(true);
+    }
+    expect(isPublicTag("PUBLIC")).toBe(true);
+    expect(isReservedTag("internal")).toBe(true);
+    expect(isReservedTag("publicity")).toBe(false);
+    expect(isPublished([{ tag: { name: "Race" } }, { tag: { name: "public" } }])).toBe(true);
+    expect(isPublished([{ tag: { name: "Race" } }])).toBe(false);
   });
 
   it("never freezes the reviewer", () => {

@@ -32,3 +32,22 @@ seed:
 # Run the server with live reload (air, config in .air.toml). Needs `just up` from the repo root first.
 air:
     air
+
+# --- public gallery (cmd/gallery) ---
+
+# Regenerate templ components (internal/gallery/web/*.templ -> *_templ.go).
+gallery-templ:
+    templ generate -path internal/gallery/web
+
+# Rebuild the gallery stylesheet (bun + tailwind, tooling in internal/gallery/web/css).
+gallery-css:
+    cd internal/gallery/web/css && bun install --frozen-lockfile && bun run build
+
+# Run the gallery with live reload against the local shutterbase stack (`just up` first).
+# GALLERY_KEY selects the gallery row; create one in the SPA under /galleries.
+gallery-air:
+    GALLERY_KEY=${GALLERY_KEY:-dev} DEV=true air -c .air.gallery.toml
+
+# Build the gallery binary.
+gallery-build: gallery-templ
+    go build -o ./tmp/gallery ./cmd/gallery

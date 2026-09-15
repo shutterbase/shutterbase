@@ -39,6 +39,10 @@ type Options struct {
 	TimeZone string
 	// SQLite options
 	File string
+	// SkipMigrate opens the client without ent auto-migrate or the index/backfill
+	// fixups. For consumers that share the database under a read-only role (the
+	// public gallery): the schema is the server's to own.
+	SkipMigrate bool
 }
 
 func NewConnection(options *Options) (*Connection, error) {
@@ -95,6 +99,14 @@ func (d *Connection) initPostgres() error {
 	drv := entsql.OpenDB("postgres", db)
 	d.Client = ent.NewClient(ent.Driver(drv))
 	d.DB = db
+
+	if d.Options.SkipMigrate {
+		if err := db.PingContext(context.Background()); err != nil {
+			return fmt.Errorf("failed to reach postgres: %w", err)
+		}
+		log.Info().Msg("PostgreSQL database client initialized (no migration)")
+		return nil
+	}
 
 	// Fail closed: never serve a half-migrated schema.
 	if err := d.createSchema(context.Background()); err != nil {

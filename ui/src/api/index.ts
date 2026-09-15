@@ -3,6 +3,7 @@ import * as ai from "./ai";
 import * as images from "./images";
 import * as imageTags from "./imageTags";
 import * as imageTagAssignments from "./imageTagAssignments";
+import * as galleries from "./galleries";
 import * as projects from "./projects";
 import * as projectAssignments from "./projectAssignments";
 import * as cameras from "./cameras";
@@ -22,6 +23,7 @@ export const api = {
   images,
   imageTags,
   imageTagAssignments,
+  galleries,
   projects,
   projectAssignments,
   cameras,

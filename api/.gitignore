@@ -6,3 +6,6 @@
 # path — the Go harness holds the manifest in memory.
 seed-manifest.json
 testserver-manifest.json
+
+# locally built binaries (go build in api/)
+/gallery

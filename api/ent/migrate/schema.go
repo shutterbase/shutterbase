@@ -172,6 +172,39 @@ var (
 			},
 		},
 	}
+	// GalleriesColumns holds the columns for the "galleries" table.
+	GalleriesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeString, Size: 15},
+		{Name: "createdAt", Type: field.TypeTime},
+		{Name: "updatedAt", Type: field.TypeTime},
+		{Name: "created_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "updated_by", Type: field.TypeUUID, Nullable: true},
+		{Name: "key", Type: field.TypeString, Unique: true, Size: 40},
+		{Name: "name", Type: field.TypeString},
+		{Name: "domain", Type: field.TypeString, Nullable: true},
+		{Name: "tagline", Type: field.TypeString, Nullable: true},
+		{Name: "about_text", Type: field.TypeString, Nullable: true},
+		{Name: "footer_text", Type: field.TypeString, Nullable: true},
+		{Name: "imprint_url", Type: field.TypeString, Nullable: true},
+		{Name: "privacy_url", Type: field.TypeString, Nullable: true},
+		{Name: "locale", Type: field.TypeEnum, Enums: []string{"de", "en"}, Default: "de"},
+		{Name: "labels", Type: field.TypeJSON, Nullable: true},
+		{Name: "theme", Type: field.TypeJSON, Nullable: true},
+		{Name: "social_links", Type: field.TypeJSON, Nullable: true},
+		{Name: "logo_storage_id", Type: field.TypeString, Nullable: true},
+		{Name: "logo_dark_storage_id", Type: field.TypeString, Nullable: true},
+		{Name: "favicon_storage_id", Type: field.TypeString, Nullable: true},
+		{Name: "hero_storage_id", Type: field.TypeString, Nullable: true},
+		{Name: "bulk_download_enabled", Type: field.TypeBool, Default: true},
+		{Name: "bulk_download_max_images", Type: field.TypeInt, Default: 1000},
+		{Name: "active", Type: field.TypeBool, Default: true},
+	}
+	// GalleriesTable holds the schema information for the "galleries" table.
+	GalleriesTable = &schema.Table{
+		Name:       "galleries",
+		Columns:    GalleriesColumns,
+		PrimaryKey: []*schema.Column{GalleriesColumns[0]},
+	}
 	// ImagesColumns holds the columns for the "images" table.
 	ImagesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeString, Size: 15},
@@ -412,12 +445,34 @@ var (
 		{Name: "upload_review_enabled", Type: field.TypeBool, Default: false},
 		{Name: "start_at", Type: field.TypeTime, Nullable: true},
 		{Name: "end_at", Type: field.TypeTime, Nullable: true},
+		{Name: "gallery_slug", Type: field.TypeString, Nullable: true, Size: 80},
+		{Name: "gallery_title", Type: field.TypeString, Nullable: true},
+		{Name: "gallery_description", Type: field.TypeString, Nullable: true},
+		{Name: "gallery_cover_image_id", Type: field.TypeString, Nullable: true},
+		{Name: "gallery_published_at", Type: field.TypeTime, Nullable: true},
+		{Name: "gallery_featured_tag_ids", Type: field.TypeJSON, Nullable: true},
+		{Name: "gallery_id", Type: field.TypeString, Nullable: true, Size: 15},
 	}
 	// ProjectsTable holds the schema information for the "projects" table.
 	ProjectsTable = &schema.Table{
 		Name:       "projects",
 		Columns:    ProjectsColumns,
 		PrimaryKey: []*schema.Column{ProjectsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "projects_galleries_projects",
+				Columns:    []*schema.Column{ProjectsColumns[23]},
+				RefColumns: []*schema.Column{GalleriesColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "project_gallery_id_gallery_slug",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectsColumns[23], ProjectsColumns[17]},
+			},
+		},
 	}
 	// ProjectAssignmentsColumns holds the columns for the "project_assignments" table.
 	ProjectAssignmentsColumns = []*schema.Column{
@@ -746,6 +801,7 @@ var (
 		AuditLogsTable,
 		CamerasTable,
 		DownloadConfigsTable,
+		GalleriesTable,
 		ImagesTable,
 		ImageTagsTable,
 		ImageTagAssignmentsTable,
@@ -774,6 +830,7 @@ func init() {
 	ImageTagsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ImageTagAssignmentsTable.ForeignKeys[0].RefTable = ImagesTable
 	ImageTagAssignmentsTable.ForeignKeys[1].RefTable = ImageTagsTable
+	ProjectsTable.ForeignKeys[0].RefTable = GalleriesTable
 	ProjectAssignmentsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ProjectAssignmentsTable.ForeignKeys[1].RefTable = RolesTable
 	ProjectAssignmentsTable.ForeignKeys[2].RefTable = UsersTable

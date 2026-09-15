@@ -60,6 +60,26 @@ Create payload (all strings **required** unless marked optional):
 
 `aiSystemMessage`, `uploadReviewEnabled`, `startAt`, `endAt` are optional. Update accepts the same fields, all optional. `endAt` before `startAt` → 400 `invalid_period`; a zero timestamp clears a bound. Setting `uploadReviewEnabled: true` auto-creates the reserved custom tag `error` in the project.
 
+## Galleries (public gallery sites)
+
+`GET /galleries` (any user; the project settings need the list), `POST /galleries` /
+`PUT /galleries/:id` / `DELETE /galleries/:id` (platform admin). Fields: `key` (immutable slug,
+what a gallery deployment pins via `GALLERY_KEY`), `name`, `domain`, `tagline`, `aboutText`,
+`footerText`, `imprintUrl`, `privacyUrl`, `locale` (`de|en`), `labels` (white-label vocabulary),
+`theme` (hex colors, Google Fonts names, radius, `defaultDark`, `logoPosition`), `socialLinks`,
+`logoStorageId` / `logoDarkStorageId` / `faviconStorageId` / `heroStorageId` (S3 keys minted by
+`POST /galleries/:id/assets` `{contentType}` → `{uploadUrl, storageId}`; PUT the file to
+`uploadUrl`, then store `storageId`), `bulkDownloadEnabled`, `bulkDownloadMaxImages`, `active`.
+
+Publishing a project: `PUT /projects/:id` (project admin) with `galleryId` (`""` unpublishes),
+`gallerySlug` (required when published, unique per gallery), `galleryTitle`,
+`galleryDescription`, `galleryCoverImageId` (must be a public image of the project),
+`galleryFeaturedTagIds`. Every project write materializes the reserved tags
+`public` / `internal` / `error` / `rejected` (custom type, never exported as keywords).
+
+Only images carrying the `public` tag (project-admin-only, case-insensitive, whatever the review
+mode) appear on the public site; `internal` / `rejected` / `error` always hide an image.
+
 ## Image tags
 
 | Method & path | Auth | Notes |

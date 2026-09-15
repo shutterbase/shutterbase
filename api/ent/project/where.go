@@ -146,6 +146,36 @@ func EndAt(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldEndAt, v))
 }
 
+// GalleryID applies equality check predicate on the "gallery_id" field. It's identical to GalleryIDEQ.
+func GalleryID(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryID, v))
+}
+
+// GallerySlug applies equality check predicate on the "gallerySlug" field. It's identical to GallerySlugEQ.
+func GallerySlug(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGallerySlug, v))
+}
+
+// GalleryTitle applies equality check predicate on the "galleryTitle" field. It's identical to GalleryTitleEQ.
+func GalleryTitle(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryTitle, v))
+}
+
+// GalleryDescription applies equality check predicate on the "galleryDescription" field. It's identical to GalleryDescriptionEQ.
+func GalleryDescription(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryDescription, v))
+}
+
+// GalleryCoverImageId applies equality check predicate on the "galleryCoverImageId" field. It's identical to GalleryCoverImageIdEQ.
+func GalleryCoverImageId(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryCoverImageId, v))
+}
+
+// GalleryPublishedAt applies equality check predicate on the "galleryPublishedAt" field. It's identical to GalleryPublishedAtEQ.
+func GalleryPublishedAt(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryPublishedAt, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "createdAt" field.
 func CreatedAtEQ(v time.Time) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldCreatedAt, v))
@@ -1041,6 +1071,441 @@ func EndAtNotNil() predicate.Project {
 	return predicate.Project(sql.FieldNotNull(FieldEndAt))
 }
 
+// GalleryIDEQ applies the EQ predicate on the "gallery_id" field.
+func GalleryIDEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryID, v))
+}
+
+// GalleryIDNEQ applies the NEQ predicate on the "gallery_id" field.
+func GalleryIDNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldGalleryID, v))
+}
+
+// GalleryIDIn applies the In predicate on the "gallery_id" field.
+func GalleryIDIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldGalleryID, vs...))
+}
+
+// GalleryIDNotIn applies the NotIn predicate on the "gallery_id" field.
+func GalleryIDNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldGalleryID, vs...))
+}
+
+// GalleryIDGT applies the GT predicate on the "gallery_id" field.
+func GalleryIDGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldGalleryID, v))
+}
+
+// GalleryIDGTE applies the GTE predicate on the "gallery_id" field.
+func GalleryIDGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldGalleryID, v))
+}
+
+// GalleryIDLT applies the LT predicate on the "gallery_id" field.
+func GalleryIDLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldGalleryID, v))
+}
+
+// GalleryIDLTE applies the LTE predicate on the "gallery_id" field.
+func GalleryIDLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldGalleryID, v))
+}
+
+// GalleryIDContains applies the Contains predicate on the "gallery_id" field.
+func GalleryIDContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldGalleryID, v))
+}
+
+// GalleryIDHasPrefix applies the HasPrefix predicate on the "gallery_id" field.
+func GalleryIDHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldGalleryID, v))
+}
+
+// GalleryIDHasSuffix applies the HasSuffix predicate on the "gallery_id" field.
+func GalleryIDHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldGalleryID, v))
+}
+
+// GalleryIDIsNil applies the IsNil predicate on the "gallery_id" field.
+func GalleryIDIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGalleryID))
+}
+
+// GalleryIDNotNil applies the NotNil predicate on the "gallery_id" field.
+func GalleryIDNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGalleryID))
+}
+
+// GalleryIDEqualFold applies the EqualFold predicate on the "gallery_id" field.
+func GalleryIDEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldGalleryID, v))
+}
+
+// GalleryIDContainsFold applies the ContainsFold predicate on the "gallery_id" field.
+func GalleryIDContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldGalleryID, v))
+}
+
+// GallerySlugEQ applies the EQ predicate on the "gallerySlug" field.
+func GallerySlugEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGallerySlug, v))
+}
+
+// GallerySlugNEQ applies the NEQ predicate on the "gallerySlug" field.
+func GallerySlugNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldGallerySlug, v))
+}
+
+// GallerySlugIn applies the In predicate on the "gallerySlug" field.
+func GallerySlugIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldGallerySlug, vs...))
+}
+
+// GallerySlugNotIn applies the NotIn predicate on the "gallerySlug" field.
+func GallerySlugNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldGallerySlug, vs...))
+}
+
+// GallerySlugGT applies the GT predicate on the "gallerySlug" field.
+func GallerySlugGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldGallerySlug, v))
+}
+
+// GallerySlugGTE applies the GTE predicate on the "gallerySlug" field.
+func GallerySlugGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldGallerySlug, v))
+}
+
+// GallerySlugLT applies the LT predicate on the "gallerySlug" field.
+func GallerySlugLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldGallerySlug, v))
+}
+
+// GallerySlugLTE applies the LTE predicate on the "gallerySlug" field.
+func GallerySlugLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldGallerySlug, v))
+}
+
+// GallerySlugContains applies the Contains predicate on the "gallerySlug" field.
+func GallerySlugContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldGallerySlug, v))
+}
+
+// GallerySlugHasPrefix applies the HasPrefix predicate on the "gallerySlug" field.
+func GallerySlugHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldGallerySlug, v))
+}
+
+// GallerySlugHasSuffix applies the HasSuffix predicate on the "gallerySlug" field.
+func GallerySlugHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldGallerySlug, v))
+}
+
+// GallerySlugIsNil applies the IsNil predicate on the "gallerySlug" field.
+func GallerySlugIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGallerySlug))
+}
+
+// GallerySlugNotNil applies the NotNil predicate on the "gallerySlug" field.
+func GallerySlugNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGallerySlug))
+}
+
+// GallerySlugEqualFold applies the EqualFold predicate on the "gallerySlug" field.
+func GallerySlugEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldGallerySlug, v))
+}
+
+// GallerySlugContainsFold applies the ContainsFold predicate on the "gallerySlug" field.
+func GallerySlugContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldGallerySlug, v))
+}
+
+// GalleryTitleEQ applies the EQ predicate on the "galleryTitle" field.
+func GalleryTitleEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryTitle, v))
+}
+
+// GalleryTitleNEQ applies the NEQ predicate on the "galleryTitle" field.
+func GalleryTitleNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldGalleryTitle, v))
+}
+
+// GalleryTitleIn applies the In predicate on the "galleryTitle" field.
+func GalleryTitleIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldGalleryTitle, vs...))
+}
+
+// GalleryTitleNotIn applies the NotIn predicate on the "galleryTitle" field.
+func GalleryTitleNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldGalleryTitle, vs...))
+}
+
+// GalleryTitleGT applies the GT predicate on the "galleryTitle" field.
+func GalleryTitleGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldGalleryTitle, v))
+}
+
+// GalleryTitleGTE applies the GTE predicate on the "galleryTitle" field.
+func GalleryTitleGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldGalleryTitle, v))
+}
+
+// GalleryTitleLT applies the LT predicate on the "galleryTitle" field.
+func GalleryTitleLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldGalleryTitle, v))
+}
+
+// GalleryTitleLTE applies the LTE predicate on the "galleryTitle" field.
+func GalleryTitleLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldGalleryTitle, v))
+}
+
+// GalleryTitleContains applies the Contains predicate on the "galleryTitle" field.
+func GalleryTitleContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldGalleryTitle, v))
+}
+
+// GalleryTitleHasPrefix applies the HasPrefix predicate on the "galleryTitle" field.
+func GalleryTitleHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldGalleryTitle, v))
+}
+
+// GalleryTitleHasSuffix applies the HasSuffix predicate on the "galleryTitle" field.
+func GalleryTitleHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldGalleryTitle, v))
+}
+
+// GalleryTitleIsNil applies the IsNil predicate on the "galleryTitle" field.
+func GalleryTitleIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGalleryTitle))
+}
+
+// GalleryTitleNotNil applies the NotNil predicate on the "galleryTitle" field.
+func GalleryTitleNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGalleryTitle))
+}
+
+// GalleryTitleEqualFold applies the EqualFold predicate on the "galleryTitle" field.
+func GalleryTitleEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldGalleryTitle, v))
+}
+
+// GalleryTitleContainsFold applies the ContainsFold predicate on the "galleryTitle" field.
+func GalleryTitleContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldGalleryTitle, v))
+}
+
+// GalleryDescriptionEQ applies the EQ predicate on the "galleryDescription" field.
+func GalleryDescriptionEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionNEQ applies the NEQ predicate on the "galleryDescription" field.
+func GalleryDescriptionNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionIn applies the In predicate on the "galleryDescription" field.
+func GalleryDescriptionIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldGalleryDescription, vs...))
+}
+
+// GalleryDescriptionNotIn applies the NotIn predicate on the "galleryDescription" field.
+func GalleryDescriptionNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldGalleryDescription, vs...))
+}
+
+// GalleryDescriptionGT applies the GT predicate on the "galleryDescription" field.
+func GalleryDescriptionGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionGTE applies the GTE predicate on the "galleryDescription" field.
+func GalleryDescriptionGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionLT applies the LT predicate on the "galleryDescription" field.
+func GalleryDescriptionLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionLTE applies the LTE predicate on the "galleryDescription" field.
+func GalleryDescriptionLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionContains applies the Contains predicate on the "galleryDescription" field.
+func GalleryDescriptionContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionHasPrefix applies the HasPrefix predicate on the "galleryDescription" field.
+func GalleryDescriptionHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionHasSuffix applies the HasSuffix predicate on the "galleryDescription" field.
+func GalleryDescriptionHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionIsNil applies the IsNil predicate on the "galleryDescription" field.
+func GalleryDescriptionIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGalleryDescription))
+}
+
+// GalleryDescriptionNotNil applies the NotNil predicate on the "galleryDescription" field.
+func GalleryDescriptionNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGalleryDescription))
+}
+
+// GalleryDescriptionEqualFold applies the EqualFold predicate on the "galleryDescription" field.
+func GalleryDescriptionEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldGalleryDescription, v))
+}
+
+// GalleryDescriptionContainsFold applies the ContainsFold predicate on the "galleryDescription" field.
+func GalleryDescriptionContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldGalleryDescription, v))
+}
+
+// GalleryCoverImageIdEQ applies the EQ predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdNEQ applies the NEQ predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdNEQ(v string) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdIn applies the In predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldGalleryCoverImageId, vs...))
+}
+
+// GalleryCoverImageIdNotIn applies the NotIn predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdNotIn(vs ...string) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldGalleryCoverImageId, vs...))
+}
+
+// GalleryCoverImageIdGT applies the GT predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdGT(v string) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdGTE applies the GTE predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdGTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdLT applies the LT predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdLT(v string) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdLTE applies the LTE predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdLTE(v string) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdContains applies the Contains predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdContains(v string) predicate.Project {
+	return predicate.Project(sql.FieldContains(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdHasPrefix applies the HasPrefix predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdHasPrefix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasPrefix(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdHasSuffix applies the HasSuffix predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdHasSuffix(v string) predicate.Project {
+	return predicate.Project(sql.FieldHasSuffix(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdIsNil applies the IsNil predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGalleryCoverImageId))
+}
+
+// GalleryCoverImageIdNotNil applies the NotNil predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGalleryCoverImageId))
+}
+
+// GalleryCoverImageIdEqualFold applies the EqualFold predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdEqualFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldEqualFold(FieldGalleryCoverImageId, v))
+}
+
+// GalleryCoverImageIdContainsFold applies the ContainsFold predicate on the "galleryCoverImageId" field.
+func GalleryCoverImageIdContainsFold(v string) predicate.Project {
+	return predicate.Project(sql.FieldContainsFold(FieldGalleryCoverImageId, v))
+}
+
+// GalleryPublishedAtEQ applies the EQ predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldGalleryPublishedAt, v))
+}
+
+// GalleryPublishedAtNEQ applies the NEQ predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtNEQ(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldGalleryPublishedAt, v))
+}
+
+// GalleryPublishedAtIn applies the In predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldGalleryPublishedAt, vs...))
+}
+
+// GalleryPublishedAtNotIn applies the NotIn predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtNotIn(vs ...time.Time) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldGalleryPublishedAt, vs...))
+}
+
+// GalleryPublishedAtGT applies the GT predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtGT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldGalleryPublishedAt, v))
+}
+
+// GalleryPublishedAtGTE applies the GTE predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtGTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldGalleryPublishedAt, v))
+}
+
+// GalleryPublishedAtLT applies the LT predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtLT(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldGalleryPublishedAt, v))
+}
+
+// GalleryPublishedAtLTE applies the LTE predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtLTE(v time.Time) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldGalleryPublishedAt, v))
+}
+
+// GalleryPublishedAtIsNil applies the IsNil predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGalleryPublishedAt))
+}
+
+// GalleryPublishedAtNotNil applies the NotNil predicate on the "galleryPublishedAt" field.
+func GalleryPublishedAtNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGalleryPublishedAt))
+}
+
+// GalleryFeaturedTagIdsIsNil applies the IsNil predicate on the "galleryFeaturedTagIds" field.
+func GalleryFeaturedTagIdsIsNil() predicate.Project {
+	return predicate.Project(sql.FieldIsNull(FieldGalleryFeaturedTagIds))
+}
+
+// GalleryFeaturedTagIdsNotNil applies the NotNil predicate on the "galleryFeaturedTagIds" field.
+func GalleryFeaturedTagIdsNotNil() predicate.Project {
+	return predicate.Project(sql.FieldNotNull(FieldGalleryFeaturedTagIds))
+}
+
 // HasUploads applies the HasEdge predicate on the "uploads" edge.
 func HasUploads() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
@@ -1194,6 +1659,29 @@ func HasActiveForUsers() predicate.Project {
 func HasActiveForUsersWith(preds ...predicate.User) predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
 		step := newActiveForUsersStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGallery applies the HasEdge predicate on the "gallery" edge.
+func HasGallery() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, GalleryTable, GalleryColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGalleryWith applies the HasEdge predicate on the "gallery" edge with a given conditions (other predicates).
+func HasGalleryWith(preds ...predicate.Gallery) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newGalleryStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

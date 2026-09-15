@@ -8,7 +8,7 @@ import { ImageWithTagsType } from "src/types/custom";
 import { applyPersonPause, buildImageListParams } from "src/pages/image/imageListParams";
 import { emitter, showNotificationToast } from "src/boot/mitt";
 import { canEditImageTag } from "src/pages/upload/uploadUtil";
-import { isReviewerOnlyTag } from "src/util/uploadReview";
+import { isReviewerOnlyTag, isPublicTag } from "src/util/uploadReview";
 import { tagLabel } from "src/util/tagOrder";
 
 export { buildImageListParams };
@@ -346,7 +346,8 @@ export async function addImageTag(image: ImageWithTagsType, tag: ImageTag) {
   // this is the one place the review freeze has to be honored client-side.
   if (!canEditImageTag(image, tag)) {
     showNotificationToast({
-      headline: isReviewerOnlyTag(tag.name) ? `Only a project admin can set '${tagLabel(tag)}'` : `'${tagLabel(tag)}' is frozen while the upload is in review`,
+      headline:
+        isReviewerOnlyTag(tag.name) || isPublicTag(tag.name) ? `Only a project admin can set '${tagLabel(tag)}'` : `'${tagLabel(tag)}' is frozen while the upload is in review`,
       type: "warning",
     });
     return;

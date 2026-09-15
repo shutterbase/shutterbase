@@ -8,12 +8,14 @@ replace github.com/shutterbase/shutterbase/pkg/aiserver => ../pkg/aiserver
 
 require (
 	entgo.io/ent v0.14.5
+	github.com/a-h/templ v0.3.1020
 	github.com/gorilla/sessions v1.4.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.12.0
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/lib/pq v1.12.3
 	github.com/mxcd/go-basicauth v1.4.0
 	github.com/mxcd/go-config v1.5.1
 	github.com/sashabaranov/go-openai v1.41.2
@@ -155,7 +157,7 @@ require (
 	github.com/urfave/cli/v2 v2.27.3
 	golang.org/x/crypto v0.51.0
 	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
+	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/term v0.43.0 // indirect
 	golang.org/x/text v0.37.0 // indirect

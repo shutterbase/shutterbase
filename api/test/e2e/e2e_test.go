@@ -71,7 +71,10 @@ func TestSchemaAppliedAndSeedCounts(t *testing.T) {
 	assert.Equal(t, 3, c.Role.Query().CountX(ctx))
 	assert.Equal(t, 1, c.Project.Query().CountX(ctx))
 	assert.Equal(t, 2, c.Camera.Query().CountX(ctx))
-	assert.Equal(t, 4, c.ImageTag.Query().CountX(ctx)) // template + manual + default + internal
+	// template + manual + default + internal from the seed, plus public/error/
+	// rejected materialized for every project when the server boots
+	// (reserved namespace backfill).
+	assert.Equal(t, 7, c.ImageTag.Query().CountX(ctx))
 	assert.Equal(t, 2, c.TimeOffset.Query().CountX(ctx))
 	assert.Equal(t, 3, c.Image.Query().CountX(ctx))
 	assert.Equal(t, 3, c.ProjectAssignment.Query().CountX(ctx))

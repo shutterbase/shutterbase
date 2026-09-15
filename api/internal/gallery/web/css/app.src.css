@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme tokens are injected per request (see web/theme.go); these are the
+   light/dark fallbacks so the page never renders unstyled. */
+:root {
+  --c-primary: 17 24 39;
+  --c-accent: 37 99 235;
+  --c-surface: 250 250 249;
+  --c-card: 255 255 255;
+  --c-ink: 17 24 39;
+  --c-muted: 107 114 128;
+  --c-line: 229 231 235;
+  --font-heading: "Inter";
+  --font-body: "Inter";
+  --radius: 0.75rem;
+}
+[data-theme="dark"] {
+  --c-surface: 12 12 14;
+  --c-card: 24 24 27;
+  --c-ink: 244 244 245;
+  --c-muted: 161 161 170;
+  --c-line: 39 39 42;
+}
+
+@layer base {
+  html { @apply bg-surface text-ink font-body antialiased; }
+  h1, h2, h3 { @apply font-heading; }
+  img { @apply max-w-full h-auto; }
+  [x-cloak] { display: none; }
+}
+
+@layer components {
+  /* utility classes must not beat the hidden attribute (folded facet chips) */
+  [hidden] { display: none !important; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full border border-line bg-card px-3 py-1 text-sm leading-6 text-ink/80 hover:border-accent hover:text-ink transition-colors; }
+  .chip-on { @apply border-accent bg-accent text-white hover:text-white; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-theme bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110 active:brightness-95 transition; }
+  .btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-theme border border-line bg-card px-4 py-2 text-sm font-medium text-ink hover:border-accent transition; }
+  /* Justified rows: every tile's flex-basis is its aspect ratio × a row
+     height, rows shrink to fit and the trailing filler keeps a short last
+     row from stretching. Below sm the filler goes and tiles fill the width. */
+  /* --tile is the row height the grid aims for; gallery.js drives it with
+     Ctrl+wheel on desktop (persisted per visitor). */
+  .grid-justified { display: flex; flex-wrap: wrap; gap: 0.375rem; --tile: 260px; }
+  .grid-justified > a { flex-grow: calc(var(--ar) * 100); flex-basis: calc(var(--ar) * var(--tile)); position: relative; overflow: hidden; border-radius: var(--radius); background: rgb(var(--c-line)); }
+  /* the detail page's back link lands on #p-<id>; keep it clear of the sticky bar */
+  .grid-justified > a { scroll-margin-top: 8rem; }
+  .grid-justified > a > img { width: 100%; height: 100%; object-fit: cover; display: block; aspect-ratio: var(--ar); }
+  .grid-justified::after { content: ""; flex-grow: 1000000000; }
+  @media (max-width: 639px) {
+    .grid-justified::after { display: none; }
+    .grid-justified { --tile: 150px !important; }
+  }
+  .nav-edge { @apply absolute top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-black/40 text-white text-2xl leading-none flex items-center justify-center opacity-0 hover:bg-black/70 transition-opacity; }
+  figure:hover .nav-edge { @apply opacity-80; }
+  [data-suggest] a.active { @apply bg-line; }
+  .spec { @apply grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm; }
+  .spec dt { @apply text-muted; }
+  .spec dd { @apply font-medium tabular-nums; }
+}
+
+/* Lightbox (progressive enhancement over the detail page) */
+.lightbox { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / 0.96); display: flex; align-items: center; justify-content: center; touch-action: none; }
+.lightbox img { max-width: 100vw; max-height: 100dvh; object-fit: contain; user-select: none; }
+.lightbox.zoomed img, [data-hero].zoomed img { cursor: grab; }
+.lightbox.panning img, [data-hero].panning img { cursor: grabbing; }
+/* the stage (fitted image + hi-res overlay) is what zooms and pans */
+.lightbox .lb-stage, [data-hero] > div { position: relative; transform-origin: 0 0; transition: transform 220ms cubic-bezier(0.2, 0, 0, 1); }
+.lightbox.out .lb-stage, [data-hero].out > div { transform-origin: 50% 50%; transition: transform 120ms ease-out; }
+.lightbox.panning .lb-stage, [data-hero].panning > div { transition: none; }
+[data-hero] img, .lightbox img { -webkit-user-drag: none; user-select: none; }
+img.hires { position: absolute; inset: 0; width: 100%; height: 100%; visibility: hidden; }
+.zoomed img.hires.ready { visibility: visible; }
+.lightbox .lb-nav { position: absolute; top: 0; bottom: 0; width: 22%; cursor: pointer; }
+.lightbox .lb-prev { left: 0; }
+.lightbox .lb-next { right: 0; }
+.lightbox .lb-zoom { position: absolute; top: 0.75rem; right: 3.5rem; display: flex; gap: 0.25rem; }
+.lightbox .lb-zoom button { color: white; font-size: 1.5rem; line-height: 1; padding: 0.5rem; opacity: 0.8; cursor: pointer; }
+.lightbox .lb-close { position: absolute; top: 0.75rem; right: 0.75rem; color: white; font-size: 1.75rem; line-height: 1; padding: 0.5rem; cursor: pointer; opacity: 0.8; }
+.lightbox .lb-caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.75rem 1rem; color: white; font-size: 0.875rem; background: linear-gradient(transparent, rgb(0 0 0 / 0.6)); pointer-events: none; }
+
+/* custom right-click menu on the photo */
+.ctx-menu { position: fixed; z-index: 60; min-width: 12rem; padding: 0.25rem; border-radius: var(--radius); background: rgb(var(--c-card)); color: rgb(var(--c-ink)); border: 1px solid rgb(var(--c-line)); box-shadow: 0 8px 24px rgb(0 0 0 / 0.25); font-size: 0.875rem; }
+.ctx-menu a { display: block; padding: 0.4rem 0.75rem; border-radius: calc(var(--radius) - 2px); }
+.ctx-menu a:hover { background: rgb(var(--c-line)); }
