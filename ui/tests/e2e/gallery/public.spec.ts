@@ -59,6 +59,51 @@ test.describe("public gallery", () => {
     expect(hiddenDownload.status()).toBe(404);
   });
 
+  test("Ctrl+wheel sizes the grid into the detail page; wheel zooms the hero; fullscreen overlays", async ({ page }) => {
+    const fx = await publishSeedProject();
+    await expect.poll(async () => await (await page.request.get("/")).text(), { timeout: 45_000 }).toContain("/seed-event");
+    await page.goto("/seed-event/photos");
+    const tile = page.locator("#grid > a[data-lb-src]").first();
+    await expect(tile).toBeVisible();
+    const tileVar = () => page.evaluate(() => parseFloat(getComputedStyle(document.querySelector("#grid")!).getPropertyValue("--tile")));
+    const before = await tileVar();
+    await tile.hover();
+    await page.keyboard.down("Control");
+    await page.mouse.wheel(0, -300);
+    expect(await tileVar()).toBeGreaterThan(before);
+    // the +/− buttons drive the same axis
+    const mid = await tileVar();
+    await page.getByRole("button", { name: "Zoom out" }).click();
+    expect(await tileVar()).toBeLessThan(mid);
+    // keep zooming in: once the tile fills the row the axis continues on the detail page
+    await tile.hover();
+    for (let i = 0; i < 25 && !page.url().includes("/p/"); i++) await page.mouse.wheel(0, -300);
+    await page.keyboard.up("Control");
+    await expect(page).toHaveURL(new RegExp(`/seed-event/p/${fx.publicId}`));
+
+    // plain wheel over the hero zooms in place, click-drag pans
+    const hero = page.locator("[data-hero]");
+    await hero.hover();
+    await page.mouse.wheel(0, -300);
+    await expect(hero).toHaveClass(/zoomed/);
+    await expect(hero.locator("img")).toHaveAttribute("style", /scale\((1\.[0-9]+|[2-8])/);
+    await page.mouse.wheel(0, 300);
+    await page.mouse.wheel(0, 300);
+    await expect(hero).not.toHaveClass(/zoomed/);
+
+    // fullscreen button opens the overlay, Escape closes it
+    await page.getByRole("button", { name: "Fullscreen" }).click();
+    await expect(page.locator(".lightbox")).toHaveCount(1);
+    await expect(page).toHaveURL(/#fs$/);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".lightbox")).toHaveCount(0);
+
+    // a hard scroll-out of the fitted hero returns to the grid
+    await hero.hover();
+    for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 250);
+    await expect(page).toHaveURL(/\/seed-event\/photos/);
+  });
+
   test("unpublishing removes the image from the download route immediately", async ({ page }) => {
     const fx = await publishSeedProject();
     const api = await request.newContext({ baseURL: API });

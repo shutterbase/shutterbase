@@ -113,10 +113,13 @@ func (srv *Server) site(ctx context.Context, scope *policy.Scope) *Site {
 // PhotoView is a Photo with its presigned renditions and page links.
 type PhotoView struct {
 	catalog.Photo
-	Slug    string
-	URLs    map[int]string
-	Href    string // detail page (carries the filter)
-	Caption string
+	Slug string
+	URLs map[int]string
+	// Original is the full-resolution upload; signed only for the detail page,
+	// where the hero zoom swaps it in.
+	Original string
+	Href     string // detail page (carries the filter)
+	Caption  string
 }
 
 func (v PhotoView) Src(size int) string { return v.URLs[size] }
@@ -228,16 +231,18 @@ func (fv FilterView) Active(site *Site) []Chip {
 	return chips
 }
 
-func tagLabel(t *ent.ImageTag) string {
-	if t.DisplayName != "" {
-		return t.DisplayName
-	}
-	return t.Name
-}
+func tagLabel(t *ent.ImageTag) string { return catalog.TagLabels(t)[0] }
 
 func queryString(q url.Values) string {
 	if enc := q.Encode(); enc != "" {
 		return "?" + enc
 	}
 	return ""
+}
+
+// Suggestion is one typeahead row: a public tag and the grid it filters.
+type Suggestion struct {
+	Label   string
+	Project string
+	Href    string
 }

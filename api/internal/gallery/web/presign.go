@@ -49,6 +49,12 @@ func (p *Presigner) WithBaseURL(base string) (*Presigner, error) {
 
 func (p *Presigner) Sizes() []int { return p.sizes }
 
+// Original returns the URL of the full-resolution upload (the hero's zoom
+// overlay). Size 0 in GetObjectIds is the unsuffixed key.
+func (p *Presigner) Original(ctx context.Context, storageID string) string {
+	return p.sign(ctx, s3.GetObjectIds(storageID, nil)[0])
+}
+
 // Rendition returns the URL of one preview size; "" when the size is not a
 // configured rendition (never falls back to the original).
 func (p *Presigner) Rendition(ctx context.Context, storageID string, size int) string {

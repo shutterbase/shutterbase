@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -433,10 +434,11 @@ func (c *Catalog) Facets(ctx context.Context, f Filter) (*Facets, error) {
 				if n == 0 {
 					continue
 				}
-				fv := FacetValue{Key: t.ID, Label: tagLabel(t), Count: n}
-				out.Tags = append(out.Tags, fv)
+				for _, label := range TagLabels(t) {
+					out.Tags = append(out.Tags, FacetValue{Key: t.ID, Label: label, Count: n})
+				}
 				if t.IsAlbum {
-					out.Albums = append(out.Albums, fv)
+					out.Albums = append(out.Albums, FacetValue{Key: t.ID, Label: tagLabel(t), Count: n})
 				}
 			}
 		}
@@ -471,11 +473,24 @@ func (c *Catalog) Facets(ctx context.Context, f Filter) (*Facets, error) {
 	})
 }
 
-func tagLabel(t *ent.ImageTag) string {
+func tagLabel(t *ent.ImageTag) string { return TagLabels(t)[0] }
+
+// TagLabels are the public faces of one tag: the display name plus every part
+// of a combo name ("car_033|tid_248|CH Zürich ETH" → car_033, tid_248,
+// CH Zürich ETH). Each part is shown and searched as a tag of its own; they
+// all filter by the same id.
+func TagLabels(t *ent.ImageTag) []string {
+	var out []string
 	if t.DisplayName != "" {
-		return t.DisplayName
+		out = append(out, t.DisplayName)
 	}
-	return t.Name
+	for _, part := range strings.Split(t.Name, "|") {
+		part = strings.TrimSpace(part)
+		if part != "" && !slices.Contains(out, part) {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 func sortByCount(v []FacetValue) {

@@ -15,7 +15,7 @@ type Photo struct {
 	ID         string
 	ProjectID  string
 	FileName   string
-	StorageID  string // only ever used to presign renditions
+	StorageID  string // only ever used to presign renditions and the original
 	Width      int
 	Height     int
 	Size       int

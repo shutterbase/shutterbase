@@ -2,6 +2,7 @@ package web
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/shutterbase/shutterbase/internal/gallery/catalog"
 )
@@ -9,6 +10,7 @@ import (
 // Tile is one photo in the justified grid; data-lb-* feed the lightbox.
 templ Tile(v PhotoView) {
 	<a
+		id={ "p-" + v.ID }
 		href={ templ.SafeURL(v.Href) }
 		style={ "--ar:" + v.AR() }
 		data-lb-src={ v.Src(2048) }
@@ -62,6 +64,8 @@ templ FilterBar(site *Site, fv FilterView) {
 			<a href={ templ.SafeURL(fv.ResetHref()) } class="chip">{ site.T("reset") }</a>
 		}
 		<div class="flex-1"></div>
+		<button type="button" data-zoom="out" class="chip hidden sm:inline-flex" title={ site.T("zoom_out") } aria-label={ site.T("zoom_out") }>−</button>
+		<button type="button" data-zoom="in" class="chip hidden sm:inline-flex" title={ site.T("zoom_in") } aria-label={ site.T("zoom_in") }>+</button>
 		<a href={ templ.SafeURL(fv.OrientHref("landscape")) } class={ "chip", templ.KV("chip-on", fv.Filter.Orientation == "landscape") } title={ site.T("landscape") }>▭</a>
 		<a href={ templ.SafeURL(fv.OrientHref("portrait")) } class={ "chip", templ.KV("chip-on", fv.Filter.Orientation == "portrait") } title={ site.T("portrait") }>▯</a>
 		if fv.Filter.Sort == "oldest" {
@@ -72,53 +76,73 @@ templ FilterBar(site *Site, fv FilterView) {
 	</div>
 }
 
-// FacetPanel lists the ways into the set: albums, tags, days, photographers, cameras.
+// FacetPanel lists the ways into the set: albums, days, photographers, tags.
 templ FacetPanel(site *Site, fv FilterView) {
 	if fv.Facets != nil {
-		<div class="space-y-5 text-sm">
+		<div class="space-y-3 text-sm">
 			if len(fv.Facets.Albums) > 0 {
-				@facetGroup(site.T("albums"), fv.Facets.Albums, fv.Filter.TagIDs, fv.TagHref)
+				@facetGroup(site, site.T("albums"), fv.Facets.Albums, fv.Filter.TagIDs, fv.TagHref)
 			}
 			if len(fv.Facets.Days) > 0 {
-				@facetGroupSingle(site.Label("day"), dayLabels(fv.Facets.Days, site.Locale), fv.Filter.Day, fv.DayHref)
+				@facetGroup(site, site.Label("day"), dayLabels(fv.Facets.Days, site.Locale), []string{fv.Filter.Day}, fv.DayHref)
 			}
 			if len(fv.Facets.Photographers) > 0 {
-				@facetGroupSingle(site.T("photographers"), fv.Facets.Photographers, fv.Filter.Photographer, fv.ByHref)
+				@facetGroup(site, site.T("photographers"), fv.Facets.Photographers, []string{fv.Filter.Photographer}, fv.ByHref)
 			}
 			if len(fv.Facets.Tags) > 0 {
-				@facetGroup(site.T("tags"), fv.Facets.Tags, fv.Filter.TagIDs, fv.TagHref)
-			}
-			if len(fv.Facets.Cameras) > 0 {
-				@facetGroupSingle(site.T("cameras"), fv.Facets.Cameras, fv.Filter.Camera, fv.CameraHref)
+				@facetGroup(site, site.T("tags"), fv.Facets.Tags, fv.Filter.TagIDs, fv.TagHref)
 			}
 		</div>
 	}
 }
 
-templ facetGroup(title string, values []catalog.FacetValue, active []string, href func(string) string) {
-	<div>
-		<h3 class="text-xs uppercase tracking-wider text-muted mb-2">{ title }</h3>
-		<div class="flex flex-wrap gap-1.5">
-			for _, v := range values {
-				<a href={ templ.SafeURL(href(v.Key)) } class={ "chip", templ.KV("chip-on", contains(active, v.Key)) }>
-					{ v.Label } <span class="opacity-60 tabular-nums">{ strconv.Itoa(v.Count) }</span>
-				</a>
-			}
-		</div>
+// facetVisible is how many chips a group shows before the rest fold behind
+// the search box and the "show all" toggle (gallery.js drives both).
+const facetVisible = 6
+
+// facetGroup keeps every value in the DOM (so searching finds all of them)
+// but hides everything beyond the facetVisible most-counted ones. Active
+// values are always shown.
+templ facetGroup(site *Site, title string, values []catalog.FacetValue, active []string, href func(string) string) {
+	<div class="flex flex-wrap items-center gap-1.5" data-facet>
+		<span class="text-xs uppercase tracking-wider text-muted mr-1">{ title }</span>
+		for _, v := range values {
+			<a href={ templ.SafeURL(href(v.Key)) } class={ "chip", templ.KV("chip-on", contains(active, v.Key)) } data-label={ strings.ToLower(v.Label) } data-more?={ folded(values, v, active) } hidden?={ folded(values, v, active) }>
+				{ v.Label } <span class="opacity-60 tabular-nums">{ strconv.Itoa(v.Count) }</span>
+			</a>
+		}
+		if len(values) > facetVisible {
+			<input type="search" class="chip w-32 bg-transparent outline-none" placeholder={ site.T("facet_search") } aria-label={ site.T("facet_search") } data-facet-search/>
+			<button type="button" class="chip" data-facet-more>+{ strconv.Itoa(len(values) - facetVisible) }</button>
+		}
 	</div>
 }
 
-templ facetGroupSingle(title string, values []catalog.FacetValue, active string, href func(string) string) {
-	<div>
-		<h3 class="text-xs uppercase tracking-wider text-muted mb-2">{ title }</h3>
-		<div class="flex flex-wrap gap-1.5">
-			for _, v := range values {
-				<a href={ templ.SafeURL(href(v.Key)) } class={ "chip", templ.KV("chip-on", active == v.Key) }>
-					{ v.Label } <span class="opacity-60 tabular-nums">{ strconv.Itoa(v.Count) }</span>
-				</a>
-			}
-		</div>
-	</div>
+// folded reports whether v is outside the facetVisible highest counts (ties
+// broken by position) and not active.
+func folded(values []catalog.FacetValue, v catalog.FacetValue, active []string) bool {
+	if len(values) <= facetVisible || contains(active, v.Key) {
+		return false
+	}
+	rank := 0
+	for i, o := range values {
+		if o.Key == v.Key {
+			continue
+		}
+		if o.Count > v.Count || (o.Count == v.Count && i < indexOf(values, v.Key)) {
+			rank++
+		}
+	}
+	return rank >= facetVisible
+}
+
+func indexOf(values []catalog.FacetValue, key string) int {
+	for i, o := range values {
+		if o.Key == key {
+			return i
+		}
+	}
+	return -1
 }
 
 func contains(xs []string, x string) bool {
@@ -136,4 +160,37 @@ func dayLabels(days []catalog.FacetValue, locale string) []catalog.FacetValue {
 		out[i] = catalog.FacetValue{Key: d.Key, Label: catalog.FormatDay(d.Key, locale), Count: d.Count}
 	}
 	return out
+}
+
+// SearchBox is the site search with a tag typeahead underneath (HTMX swaps
+// /suggest into the list; Enter still submits the free-text search).
+templ SearchBox(site *Site, value string, class string) {
+	<form action="/search" method="get" class={ "relative", class } data-search>
+		<input
+			type="search"
+			name="q"
+			value={ value }
+			placeholder={ site.T("search_hint") }
+			autocomplete="off"
+			hx-get="/suggest"
+			hx-trigger="input changed delay:120ms, focus"
+			hx-target="next [data-suggest]"
+			hx-swap="innerHTML"
+			class="w-full rounded-full border border-line bg-card px-4 py-1.5 text-sm outline-none focus:border-accent"
+		/>
+		<div data-suggest class="absolute left-0 right-0 top-full mt-1 z-40 empty:hidden rounded-theme border border-line bg-card shadow-lg overflow-hidden"></div>
+	</form>
+}
+
+// Suggestions is the /suggest fragment.
+templ Suggestions(site *Site, hits []Suggestion, showProject bool) {
+	for _, h := range hits {
+		<a href={ templ.SafeURL(h.Href) } class="flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-line">
+			<span class="text-muted">#</span>
+			<span class="flex-1 truncate">{ h.Label }</span>
+			if showProject {
+				<span class="text-xs text-muted truncate">{ h.Project }</span>
+			}
+		</a>
+	}
 }

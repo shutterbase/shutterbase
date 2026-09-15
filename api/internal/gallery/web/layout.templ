@@ -43,10 +43,12 @@ templ Page(site *Site, meta Meta) {
 		</head>
 		<body class="min-h-dvh flex flex-col">
 			@header(site)
-			<main class="flex-1 w-full max-w-screen-2xl mx-auto px-3 sm:px-6 pb-16">
+			<main class={ "flex-1 w-full max-w-screen-2xl mx-auto px-3 sm:px-6", templ.KV("pb-16", !meta.Compact) }>
 				{ children... }
 			</main>
-			@footer(site)
+			<div class={ templ.KV("lg:hidden", meta.Compact) }>
+				@footer(site)
+			</div>
 		</body>
 	</html>
 }
@@ -67,9 +69,7 @@ templ header(site *Site) {
 			if site.Gallery.Theme.LogoPosition != "center" {
 				<div class="flex-1"></div>
 			}
-			<form action="/search" method="get" class="hidden sm:block">
-				<input type="search" name="q" placeholder={ site.T("search_hint") } class="rounded-full border border-line bg-card px-4 py-1.5 text-sm w-56 focus:w-72 transition-all outline-none focus:border-accent"/>
-			</form>
+			@SearchBox(site, "", "hidden sm:block w-56 focus-within:w-72 transition-all")
 			<button type="button" data-theme-toggle class="rounded-full border border-line p-2 text-muted hover:text-ink" aria-label="theme">
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
 			</button>
@@ -108,6 +108,9 @@ type Meta struct {
 	Image       string
 	Canonical   string
 	NoIndex     bool
+	// Compact fits the page to the viewport on desktop: no bottom padding and
+	// the footer only shows below lg (the detail page).
+	Compact bool
 }
 
 func themeAttr(site *Site) string {

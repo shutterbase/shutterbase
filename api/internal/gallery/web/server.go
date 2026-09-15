@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -75,8 +76,14 @@ func New(o *Options) (*Server, error) {
 		return nil, err
 	}
 	engine.GET("/static/*filepath", func(c *gin.Context) {
-		// Versioned URLs (?v=<image tag>) => cache hard; content changes with the deploy.
-		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		// Versioned URLs (?v=<image tag>) => cache hard; content changes with the
+		// deploy. In DEV the tag never changes, so air rebuilds would be stuck
+		// behind the browser cache.
+		if s.dev {
+			c.Header("Cache-Control", "no-store")
+		} else {
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		}
 		c.Request.URL.Path = strings.TrimPrefix(c.Request.URL.Path, "/static")
 		http.FileServer(http.FS(static)).ServeHTTP(c.Writer, c.Request)
 	})
@@ -85,6 +92,7 @@ func New(o *Options) (*Server, error) {
 	engine.GET("/sitemap.xml", s.sitemap)
 	engine.GET("/", s.landing)
 	engine.GET("/search", s.search)
+	engine.GET("/suggest", s.suggest)
 	engine.GET("/d/:id", s.download)
 	engine.GET("/jobs/:id", s.jobPage)
 	engine.GET("/jobs/:id/file", s.jobFile)
@@ -343,7 +351,9 @@ func (s *Server) detail(c *gin.Context) {
 	var tags []Chip
 	for _, id := range d.Photo.TagIDs {
 		if t, ok := scope.TagByID[id]; ok {
-			tags = append(tags, Chip{Label: tagLabel(t), Href: fv.Href(catalog.Filter{ProjectID: p.Project.ID, TagIDs: []string{id}})})
+			for _, label := range catalog.TagLabels(t) {
+				tags = append(tags, Chip{Label: label, Href: fv.Href(catalog.Filter{ProjectID: p.Project.ID, TagIDs: []string{id}})})
+			}
 		}
 	}
 	var stats *Stats
@@ -352,7 +362,44 @@ func (s *Server) detail(c *gin.Context) {
 		stats = &Stats{Views: int(views) + 1, Downloads: int(downloads)}
 		s.stats.View(d.Photo.ID)
 	}
+	v.Original = s.presigner.Original(c.Request.Context(), v.StorageID)
 	s.render(c, http.StatusOK, DetailPage(site, *p, fv, d, v, prev, next, tags, stats, s.bulkEnabled(scope.Gallery.BulkDownloadEnabled)))
+}
+
+// suggest is the search box typeahead: public tags whose name contains the
+// query, across every published project, as a fragment of links into the
+// filtered grid. Everything comes from the cached scope — no DB round trip.
+func (s *Server) suggest(c *gin.Context) {
+	scope, site, ok := s.scope(c)
+	if !ok {
+		return
+	}
+	q := strings.ToLower(strings.TrimSpace(c.Query("q")))
+	var hits []Suggestion
+	if q != "" {
+		for _, ps := range scope.Projects {
+			for _, t := range ps.Tags {
+				for _, label := range catalog.TagLabels(t) {
+					if strings.Contains(strings.ToLower(label), q) {
+						hits = append(hits, Suggestion{Label: label, Project: ps.Project.Name, Href: photosHref(ps.Project.GallerySlug, catalog.Filter{TagIDs: []string{t.ID}})})
+					}
+				}
+			}
+		}
+		// prefix matches first, then shorter names — the likelier completions
+		sort.SliceStable(hits, func(i, j int) bool {
+			pi, pj := strings.HasPrefix(strings.ToLower(hits[i].Label), q), strings.HasPrefix(strings.ToLower(hits[j].Label), q)
+			if pi != pj {
+				return pi
+			}
+			return len(hits[i].Label) < len(hits[j].Label)
+		})
+		if len(hits) > 8 {
+			hits = hits[:8]
+		}
+	}
+	c.Header("Cache-Control", "private, max-age=60")
+	s.render(c, http.StatusOK, Suggestions(site, hits, len(scope.Projects) > 1))
 }
 
 func (s *Server) search(c *gin.Context) {
