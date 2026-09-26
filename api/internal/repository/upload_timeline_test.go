@@ -22,7 +22,17 @@ import (
 // corrected capture time — the axis ApplyUploadTimeline reconciles on.
 func timelineImages(t *testing.T, repo *repository.Repository, m *seed.Manifest) []timelineImg {
 	t.Helper()
-	base := m.Images[:len(m.Images)-len(m.TimeRangeImages)]
+	// The slice below assumes TimeRangeImages is a SUFFIX of Images (the seeder
+	// appends the cluster last). Assert that property rather than a length
+	// comparison, which is true by construction and proves nothing: with an
+	// empty TimeRangeImages the subtraction is a no-op and the cluster photos
+	// would silently leak into the "base" set, quietly invalidating every
+	// assertion built on it.
+	require.NotEmpty(t, m.TimeRangeImages, "seed must have created the midnight fixture cluster")
+	baseCount := len(m.Images) - len(m.TimeRangeImages)
+	require.Positive(t, baseCount, "the seed must have created base images too")
+	assert.Equal(t, m.TimeRangeImages, m.Images[baseCount:], "the cluster must be the suffix of Images")
+	base := m.Images[:baseCount]
 	rows, err := repo.Client.Image.Query().Where(image.UploadID(m.Upload), image.IDIn(base...)).All(context.Background())
 	require.NoError(t, err)
 	out := make([]timelineImg, 0, len(rows))

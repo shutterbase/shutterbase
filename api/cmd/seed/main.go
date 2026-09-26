@@ -12,6 +12,8 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/mxcd/go-config/config"
@@ -76,13 +78,54 @@ func main() {
 			log.Fatal().Err(err).Msg("ensuring time-range fixtures failed")
 		}
 		if m == nil {
+			// No fixture context (e.g. only the server's default admin). The
+			// load seeders all need the seeded editor/upload/project, so they
+			// cannot run — but silently exiting 0 after a `--week 10000` writes
+			// zero photos and looks like success. Fail loudly instead.
+			var skipped []string
+			if *weekCount > 0 {
+				skipped = append(skipped, "--week")
+			}
+			if *lastWeekCount > 0 {
+				skipped = append(skipped, "--last-week")
+			}
+			if *tagExisting {
+				skipped = append(skipped, "--tag-existing")
+			}
+			if len(skipped) > 0 {
+				log.Error().Str("skipped", strings.Join(skipped, ", ")).
+					Msg("database has no seeded fixtures — those flags would seed nothing. Run against a fresh (empty) database for the full fixture set.")
+				os.Exit(1)
+			}
 			log.Info().Msg("no seeded fixtures found — run against a fresh database for the full fixture set")
 			return
 		}
-		log.Info().Str("manifest", manifestPath).Int("images", len(m.TimeRangeImages)).Msg("time-range fixtures ensured")
-		if err := m.Write(manifestPath); err != nil {
-			log.Warn().Err(err).Msg("failed to write manifest")
+		log.Info().Int("images", len(m.TimeRangeImages)).Msg("time-range fixtures ensured")
+
+		// m only knows the fixture cluster, the load photos and the tags; the
+		// on-disk manifest has the project, users, roles, offsets and base
+		// images, so every write folds m into a fresh read of that file.
+		//
+		// A READ failure is fatal. The file is written with a plain
+		// os.WriteFile (not atomic) and a 15k-image manifest is multi-MB, so a
+		// crash mid-write leaves it truncated — writing an empty manifest over
+		// that would destroy exactly the data this merge exists to preserve.
+		flushManifest := func() {
+			full, err := seed.ReadManifest(manifestPath)
+			if err != nil {
+				log.Fatal().Err(err).Str("manifest", manifestPath).
+					Msg("cannot read the existing manifest — refusing to overwrite it. Delete it to re-seed from scratch.")
+			}
+			if full == nil {
+				log.Warn().Str("manifest", manifestPath).Msg("no previous manifest found — writing the load-seeder subset only")
+				full = &seed.Manifest{}
+			}
+			full.Merge(m)
+			if err := full.Write(manifestPath); err != nil {
+				log.Fatal().Err(err).Msg("failed to write manifest")
+			}
 		}
+
 		// Still run week seeding if requested (idempotent via unique computedFileName)
 		if *weekCount > 0 {
 			log.Info().Int("count", *weekCount).Msg("seeding week of photos")
@@ -90,9 +133,9 @@ func main() {
 				log.Fatal().Err(err).Msg("seed week of photos failed")
 			}
 			log.Info().Int("totalImages", len(m.Images)).Msg("week of photos seeded")
-			if err := m.Write(manifestPath); err != nil {
-				log.Warn().Err(err).Msg("failed to write manifest")
-			}
+			// Written after EVERY phase: a later phase failing must not discard
+			// this one's photos from the manifest.
+			flushManifest()
 		}
 		// Seed last week photos if requested
 		if *lastWeekCount > 0 {
@@ -101,9 +144,7 @@ func main() {
 				log.Fatal().Err(err).Msg("seed last week photos failed")
 			}
 			log.Info().Int("totalImages", len(m.Images)).Msg("last week photos seeded")
-			if err := m.Write(manifestPath); err != nil {
-				log.Warn().Err(err).Msg("failed to write manifest")
-			}
+			flushManifest()
 		}
 		// Tag existing photos if requested
 		if *tagExisting {
@@ -112,10 +153,8 @@ func main() {
 				log.Fatal().Err(err).Msg("tag existing photos failed")
 			}
 			log.Info().Int("totalImages", len(m.Images)).Msg("existing photos tagged")
-			if err := m.Write(manifestPath); err != nil {
-				log.Warn().Err(err).Msg("failed to write manifest")
-			}
 		}
+		flushManifest()
 		return
 	}
 

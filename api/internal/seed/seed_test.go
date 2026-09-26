@@ -8,6 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	// The seeder falls back to UTC when the zone database is missing; embed it
+	// so the assertions below test the fixture's wall clock, not whether the
+	// host image ships tzdata.
+	_ "time/tzdata"
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
@@ -97,7 +101,7 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 	assert.Len(t, m.TimeRangeImages, 8)
 	assert.Equal(t, 15*time.Minute, m.TimeRangeEnd.Sub(m.TimeRangeStart))
 	berlin, err := time.LoadLocation(seed.TimeRangeZone)
-	require.NoError(t, err)
+	require.NoError(t, err, "time/tzdata is embedded, so the zone must resolve")
 	startLocal := m.TimeRangeStart.In(berlin)
 	assert.Equal(t, 23, startLocal.Hour())
 	assert.Equal(t, 55, startLocal.Minute())
