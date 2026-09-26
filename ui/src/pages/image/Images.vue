@@ -14,31 +14,56 @@
         :time-to="timeToFilter"
         :time-bounds="timeBounds"
         :time-ticks="timeTicks"
+        :time-range-suspended="timeRangeSuspended"
+        :sort-order="routeSortOrder"
         @search="updateSearchText"
         @semantic-search="setAskFilter"
         @filter-tags="updateFilterTags"
         @facets-needed="loadTagFacets"
         @aspect-ratio-filter="updateAspectRatioFilter"
         @time-range="setTimeRange"
+        @sort-order-change="setSortOrder"
         @time-bounds-needed="loadTimeBounds(); loadTimeTicks()"
         @rerun-ai="rerunSelection"
         @upload-filter="setUploadFilter"
         @slideshow="slideshowActive = true"
       />
       <div v-if="displayMode === DisplayMode.GRID">
-<div v-if="askFilter" class="mt-6 flex flex-wrap items-center gap-3">
-          <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300" data-testid="ask-chip">
+        <!-- ONE chip row for every active context. The person view and the
+             timespan view used to render two separate rows, each with its own
+             `filters-pill`, so a URL carrying both showed two identical
+             "Filters" pills and any selector by testid matched two elements. The
+             semantic `ask` chip joins that same row rather than bringing its
+             own, for the same reason.
+
+             The row is gated on "a range is active", NOT on rangeScopeAll:
+             setTimeRange deliberately drops ?rangeScope=, so gating on the
+             context flag meant every MANUALLY created range — the popover,
+             the slider, a shared plain ?from=&to= link — rendered no chip at
+             all: no label, no suspend toggle, no clear button.
+
+             askFilter is in the gate too: it is a context of its own, and an
+             ask-only URL would otherwise render no row at all. -->
+        <div
+          v-if="askFilter || personFilter || timeFromFilter || timeToFilter"
+          class="mt-6 flex flex-wrap items-center gap-3"
+          data-testid="context-chip-row"
+        >
+          <span
+            v-if="askFilter"
+            class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300"
+            data-testid="ask-chip"
+          >
             ask: <span class="normal-case italic">“{{ askFilter }}”</span>
             <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear ask filter" aria-label="Clear ask filter" @click="clearAskFilter()">×</button>
           </span>
-        </div>
-        <div v-if="rangeScopeAll && (timeFromFilter || timeToFilter)" class="mt-6 flex flex-wrap items-center gap-3" data-testid="time-range-chip-row">
           <span
+            v-if="timeFromFilter || timeToFilter"
             :class="[
               'label-mono-sm inline-flex items-center gap-2 rounded-full border px-3 py-1 transition-opacity',
               timeRangeSuspended
                 ? 'border-primary-300 bg-transparent text-primary-400 opacity-70 dark:border-primary-700 dark:text-primary-500'
-                : 'border-accent-400/60 bg-accent-500/10 text-accent-600 dark:text-accent-300',
+                : 'border-accent-400/60 bg-accent-500/10 text-accent-600 dark:border-accent-300',
             ]"
             data-testid="time-range-chip"
           >
@@ -54,42 +79,32 @@
             </button>
             <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear time range" @click="setTimeRange(null, null)">×</button>
           </span>
-          <button
-            v-if="rangeScopeAll && hasPausableFilters"
-            :class="[
-              'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
-              filtersPaused
-                ? 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200'
-                : 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300',
-            ]"
-            data-testid="filters-pill"
-            :title="
-              filtersPaused
-                ? 'Search, tag and orientation filters are paused — click to apply them again'
-                : 'Search, tag and orientation filters are applied — click to pause them'
-            "
-            @click="toggleFiltersPaused()"
-          >
-            Filters
-          </button>
-        </div>
-        <div v-if="personFilter" class="mt-6 flex flex-wrap items-center gap-3">
-          <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
-            photos of one person
-            <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear person filter" @click="clearPersonFilter()">×</button>
-          </span>
-          <button
-            :class="[
-              'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
-              personCrossProject
-                ? 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300'
-                : 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200',
-            ]"
-            :title="personCrossProject ? 'Showing this person across all your projects — click to limit to this project' : 'Also search your other projects for this person'"
-            @click="togglePersonScope()"
-          >
-            all my projects
-          </button>
+          <template v-if="personFilter">
+            <span class="label-mono-sm inline-flex items-center gap-2 rounded-full border border-accent-400/60 px-3 py-1 text-accent-600 dark:text-accent-300">
+              photos of one person
+              <button class="cursor-pointer font-bold hover:text-accent-400" title="Clear person filter" @click="clearPersonFilter()">×</button>
+            </span>
+            <button
+              :class="[
+                'label-mono-sm cursor-pointer rounded-full border px-3 py-1 transition-colors',
+                personCrossProject
+                  ? 'border-accent-400/60 bg-accent-600/10 text-accent-600 dark:text-accent-300'
+                  : 'border-primary-300 text-primary-500 hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200',
+              ]"
+              :title="personCrossProject ? 'Showing this person across all your projects — click to limit to this project' : 'Also search your other projects for this person'"
+              @click="togglePersonScope()"
+            >
+              all my projects
+            </button>
+            <button
+              v-if="isProjectAdminOrHigher"
+              class="label-mono-sm cursor-pointer rounded-full border border-primary-300 px-3 py-1 text-primary-500 transition-colors hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200"
+              title="Review face clusters similar to this person and merge them"
+              @click="openSimilarFaces()"
+            >
+              similar faces
+            </button>
+          </template>
           <button
             v-if="hasPausableFilters"
             :class="[
@@ -107,14 +122,6 @@
             @click="toggleFiltersPaused()"
           >
             Filters
-          </button>
-          <button
-            v-if="isProjectAdminOrHigher"
-            class="label-mono-sm cursor-pointer rounded-full border border-primary-300 px-3 py-1 text-primary-500 transition-colors hover:border-primary-400 hover:text-primary-700 dark:border-primary-700 dark:text-primary-400 dark:hover:text-primary-200"
-            title="Review face clusters similar to this person and merge them"
-            @click="openSimilarFaces()"
-          >
-            similar faces
           </button>
         </div>
         <div :class="['mt-8 select-none', gridClasses]">
@@ -282,6 +289,7 @@ import {
   timeToFilter,
   timeRangeSuspended,
   rangeScopeAll,
+  routeSortOrder,
   TIMESPAN_MINUTES,
   snapshotGrid,
   restoreGridSnapshot,
@@ -323,6 +331,13 @@ function pushQuery(mutate: (q: Record<string, any>) => void, replace = false) {
   else router.push(target);
 }
 
+// Picking a sort while the timespan context pins ?sort= must clear the pin, or
+// the preference write would be shadowed and the grid would not move.
+function setSortOrder(order: string) {
+  preferredImageSortOrder.value = order as SORT_ORDER;
+  pushQuery((q) => delete q.sort);
+}
+
 const openDetail = (imageId: string) => pushQuery((q) => (q.image = imageId));
 const closeDetail = () => pushQuery((q) => delete q.image);
 const clearPersonFilter = () =>
@@ -337,7 +352,11 @@ const setUploadFilter = (id: string | null) =>
     if (id) q.upload = id;
     else delete q.upload;
   });
-const setTimeRange = (from: string | null, to: string | null) =>
+// `opts.replace` is set by the popover's typing path: every debounced keystroke
+// would otherwise land as its own history entry ("2026-0", "2026-08", ...) that
+// the user has to click back through one character at a time. Slider commits
+// and the chip's × stay real history entries.
+const setTimeRange = (from: string | null, to: string | null, opts?: { replace?: boolean }) =>
   pushQuery((q) => {
     if (from) q.from = from;
     else delete q.from;
@@ -345,7 +364,8 @@ const setTimeRange = (from: string | null, to: string | null) =>
     else delete q.to;
     // a manual range edit leaves the timespan context — combining is the point
     delete q.rangeScope;
-  });
+    delete q.sort;
+  }, opts?.replace === true);
 
 // #117: from a photo to the gallery of its timespan — "unknown car here, what
 // happened around it?" Chronological reading order via OLDEST_FIRST; browser
@@ -356,13 +376,17 @@ function showTimespanAround(minutes = TIMESPAN_MINUTES) {
   const item = images.value[imageIndex.value];
   if (!item?.capturedAtCorrected) return;
   const t = new Date(item.capturedAtCorrected).getTime();
-  if (preferredImageSortOrder.value !== SORT_ORDER.OLDEST_FIRST) {
-    preferredImageSortOrder.value = SORT_ORDER.OLDEST_FIRST;
-  }
+  // The sort travels in the ROUTE, not in preferredImageSortOrder. Writing the
+  // persisted preference rewrote the user's global sort order for every
+  // project the moment they clicked this once, browser-back could not undo it,
+  // and the write also tripped watch(preferredImageSortOrder) — firing a
+  // loadImages under the OLD range before applyRoute fired its own under the
+  // new one. One push, one reload, preference untouched.
   pushQuery((q) => {
     q.from = new Date(t - minutes * 60_000).toISOString();
     q.to = new Date(t + minutes * 60_000).toISOString();
     q.rangeScope = "all";
+    q.sort = SORT_ORDER.OLDEST_FIRST;
     delete q.image;
     delete q.person;
     delete q.personScope;
@@ -416,8 +440,48 @@ function toggleTimeRangeSuspension() {
 const isProjectAdminOrHigher = useUserStore().isProjectAdminOrHigher();
 const openSimilarFaces = () => router.push({ name: "people", query: { person: personFilter.value } });
 
+// A query bound only counts when it is a real instant. Anything else (empty,
+// "null", a truncated paste, a stale format) is treated as absent so the URL
+// degrades to an open range instead of erroring the page.
+function validInstant(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw === "") return null;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+function isSortOrder(raw: string): boolean {
+  return (Object.values(SORT_ORDER) as string[]).includes(raw);
+}
+
+// An unparseable bound/sort is dropped from the APPLIED filter but left in the
+// URL, so the address bar, the chip label and the actual request disagree — and
+// the garbage rides along in every later pushQuery, including copies of the
+// link. Strip it in place (replace, not push) the moment it is seen.
+function stripInvalidQueryParams() {
+  const q: Record<string, any> = { ...route.query };
+  let changed = false;
+  for (const key of ["from", "to"] as const) {
+    const raw = q[key];
+    if (typeof raw === "string" && raw !== "" && validInstant(raw) === null) {
+      delete q[key];
+      changed = true;
+    }
+  }
+  const rawSort = q.sort;
+  if (typeof rawSort === "string" && rawSort !== "" && !isSortOrder(rawSort)) {
+    delete q.sort;
+    changed = true;
+  }
+  if (!changed) return;
+  if (!q.from && !q.to) delete q.rangeScope;
+  // replace, not push: the user did not navigate, and a junk param should not
+  // become a back-step.
+  router.replace({ query: q });
+}
+
 async function applyRoute(initial = false) {
   if (route.name !== "images") return;
+  stripInvalidQueryParams();
   const person = (route.query.person as string) || null;
   const crossProject = route.query.personScope === "all";
   const uploadId = (route.query.upload as string) || null;
@@ -428,15 +492,26 @@ async function applyRoute(initial = false) {
   // before any load so a combined person/upload change picks the new bounds up
   // in the same reload; an isolated range/scope change reloads here. Entering
   // the context auto-pauses the other narrowing filters, like a face click.
-  const from = (route.query.from as string) || null;
-  const to = (route.query.to as string) || null;
+  // An unparseable bound must not reach the API: the backend answers 400
+  // invalid_time_range and the whole grid renders as an error page. A
+  // hand-edited or stale shared link degrades to "no bound on that side".
+  const from = validInstant(route.query.from as string);
+  const to = validInstant(route.query.to as string);
   const scope = route.query.rangeScope === "all" && !!(from || to);
   const timeChanged = from !== timeFromFilter.value || to !== timeToFilter.value;
   const scopeChanged = scope !== rangeScopeAll.value;
-  if (timeChanged || scopeChanged) {
+  // ?sort= is view-local (the timespan context needs chronological order
+  // without rewriting the persisted preference); absent = follow the
+  // preference. Validated, because from/to are: a garbage value would otherwise
+  // fall through buildImageListParams' switch to latestFirst with no signal.
+  const rawSort = (route.query.sort as string) || null;
+  const sort = rawSort && isSortOrder(rawSort) ? rawSort : null;
+  const sortChanged = sort !== routeSortOrder.value;
+  if (timeChanged || scopeChanged || sortChanged) {
     timeFromFilter.value = from;
     timeToFilter.value = to;
     rangeScopeAll.value = scope;
+    routeSortOrder.value = sort;
     // a cleared or newly entered window always starts applying again
     if (!from && !to) timeRangeSuspended.value = false;
     if (scope) personFiltersPaused.value = true;
@@ -470,8 +545,11 @@ async function applyRoute(initial = false) {
         window.scrollTo({ top: scrollY, behavior: "instant" as ScrollBehavior });
       }
     }
-  } else if (timeChanged || scopeChanged) {
-    // only the range/scope moved: one reload, no snapshot churn
+  } else if (timeChanged || scopeChanged || sortChanged) {
+    // only the range/scope/sort moved: one reload, no snapshot churn. sortChanged
+    // belongs here too — writing routeSortOrder without reloading left the grid
+    // in the old order under a URL claiming a new one (a hand-edited or shared
+    // link with ?sort=).
     invalidateGridSnapshot();
     imageIndex.value = -1;
     await loadImages(true);
@@ -565,8 +643,10 @@ resetTransientFilters();
 
 onMounted(() => {
   applyRoute(true);
-  loadTimeBounds();
-  loadTimeTicks();
+  // The slider domain and its density ticks are deliberately NOT loaded here:
+  // they are fetched when the Time popover opens (ImagesHeader emits
+  // timeBoundsNeeded), which is where they are first needed. Loading on mount
+  // cost two extra requests on every /images visit.
 });
 // any other filter/sort change makes the saved unfiltered-grid position stale
 const reloadDebounced = useDebounceFn(() => {

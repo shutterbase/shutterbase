@@ -243,8 +243,10 @@
                 :from="timeFrom"
                 :to="timeTo"
                 :ticks="timeTicks"
+                :disabled="timeRangeSuspended"
                 @preview="(f, t) => setLocalsSilently(f, t)"
-                @change="(f, t) => emit('timeRange', f, t)"
+                @restore="(f, t) => setLocalsSilently(f, t)"
+                @change="(f, t, o) => emit('timeRange', f, widenToEndOfMinute(t), o)"
               />
               <label class="flex flex-col gap-1 text-xs font-medium text-primary-500 dark:text-primary-400">
                 From
@@ -265,9 +267,10 @@
                 />
               </label>
               <button
-                v-if="timeFrom || timeTo"
+                v-if="timeFrom || timeTo || fromLocal || toLocal"
                 class="rounded-md px-2.5 py-1.5 text-left text-sm font-medium text-accent-600 hover:bg-primary-100 dark:text-accent-300 dark:hover:bg-primary-800"
-                @click="fromLocal = ''; toLocal = ''"
+                data-testid="clear-time-range"
+                @click="clearTimeRange()"
               >
                 Clear time range
               </button>
@@ -335,8 +338,13 @@
         </div>
       </Listbox>
 
-      <!-- sort -->
-      <Listbox v-model="preferredImageSortOrder">
+      <!-- sort. `sortOrder` is the EFFECTIVE order: the timespan context pins
+           ?sort=oldestFirst for one view without rewriting the user's persisted
+           preference, so the trigger must show the order actually in force —
+           binding straight to the store made the label relabel to a choice that
+           then did nothing. Picking an option emits instead of writing the
+           store, so the page can clear the route pin. -->
+      <Listbox :model-value="effectiveSortOrder" @update:model-value="onSortSelect">
         <div class="relative">
           <ListboxButton :class="[triggerBase, triggerIdle]">
             <ArrowsUpDownIcon class="h-[18px] w-[18px]" />
@@ -389,13 +397,14 @@ import {
 } from "@heroicons/vue/24/outline";
 import { Popover, PopoverButton, PopoverPanel, Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
 import { storeToRefs } from "pinia";
+import { useDebounceFn } from "@vueuse/core";
 import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
 import { computed, h, nextTick, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
 import type { TagFacetsResponse, ImageTimeBounds } from "src/api/images";
 import { tagLabel } from "src/util/tagOrder";
-import { isoToLocalInput, localInputToIso } from "src/util/dateTimeUtil";
+import { isoToEndOfMinute, isoToLocalInput, localInputToIso, localInputToIsoInclusive } from "src/util/dateTimeUtil";
 import TimeRangeSlider from "src/components/image/TimeRangeSlider.vue";
 import { api } from "src/api";
 
@@ -416,6 +425,11 @@ interface Props {
   timeBounds?: ImageTimeBounds | null;
   // density ticks for the slider track — fetched alongside bounds
   timeTicks?: string[] | null;
+  // the range is currently suspended: the slider greys out so the thumbs
+  // cannot be dragged into a filter that is not being applied
+  timeRangeSuspended?: boolean;
+  // the sort order actually in force; omit to follow the persisted preference
+  sortOrder?: string | null;
   // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
   tagFacets?: TagFacetsResponse | null;
   // any narrowing filter active (search, tags, orientation, person, upload, ask)
@@ -430,6 +444,8 @@ const props = withDefaults(defineProps<Props>(), {
   timeTo: null,
   timeBounds: null,
   timeTicks: null,
+  timeRangeSuspended: false,
+  sortOrder: null,
   tagFacets: null,
   filterActive: false,
 });
@@ -442,9 +458,9 @@ const emit = defineEmits<{
   "update:density": [Density];
   rerunAi: [];
   uploadFilter: [string | null];
-  timeRange: [string | null, string | null];
+  timeRange: [string | null, string | null, { replace?: boolean }?];
   timeBoundsNeeded: [];
-  timeBoundsNeeded: [];
+  sortOrderChange: [string];
   slideshow: [];
   // true = force a refresh (popover open), false = only if the filter changed
   facetsNeeded: [boolean];
@@ -484,7 +500,12 @@ const sortOptions = [
   { value: "mostRecentlyUpdated", label: "Recently updated" },
   { value: "leastRecentlyUpdated", label: "Least recently updated" },
 ];
-const currentSort = computed(() => sortOptions.find((s) => s.value === preferredImageSortOrder.value) || sortOptions[0]);
+const effectiveSortOrder = computed(() => props.sortOrder || preferredImageSortOrder.value);
+const currentSort = computed(() => sortOptions.find((s) => s.value === effectiveSortOrder.value) || sortOptions[0]);
+// The page owns the route: it clears a pinned ?sort= and writes the preference.
+function onSortSelect(value: string) {
+  emit("sortOrderChange", value);
+}
 
 const densityOptions: { value: Density; label: string; icon: any }[] = [
   { value: "gallery", label: "Gallery", icon: RectangleStackIcon },
@@ -509,35 +530,95 @@ watch(orientation, () => emit("aspectRatioFilter", orientation.value));
 // A props->locals sync must NOT echo back out as an emit: the round trip goes
 // through Images.vue's setTimeRange, which is a USER-EDIT writer (it drops
 // ?rangeScope=). The flag marks exactly one inbound sync as non-emitting.
-// When no range is set, default to the slider domain bounds (first/last photo).
-const fromLocal = ref(isoToLocalInput(props.timeFrom) || (props.timeBounds?.min ? isoToLocalInput(props.timeBounds.min) : ""));
-const toLocal = ref(isoToLocalInput(props.timeTo) || (props.timeBounds?.max ? isoToLocalInput(props.timeBounds.max) : ""));
+//
+// The inputs start EMPTY when no range is applied. Prefilling them with the
+// slider domain bounds (first/last photo) meant that editing only "From"
+// silently committed ?to=<last photo> — a range the user never asked for, on a
+// panel whose "Clear time range" button was hidden because no range existed.
+const fromLocal = ref(isoToLocalInput(props.timeFrom));
+const toLocal = ref(isoToLocalInput(props.timeTo));
 let syncingFromProps = false;
+// Bumped by every INBOUND sync (props change, slider preview or restore) so a
+// debounced keystroke that was already in flight knows it has been overtaken and
+// must not write its stale value over the newer state.
+let inboundToken = 0;
+// A token the user actually typed, as opposed to one that arrived from outside.
+// An inbound sync that was NOT a slider preview (a props change, or a slider
+// restore) must not eat a pending edit: the user typed it, it is still the
+// truth, and the only thing that changed the fields under them is state the
+// route does not own. Those syncs re-arm the debounce instead of dropping it.
+let pendingUserEdit = false;
+function applyInbound(fLocal: string, tLocal: string, reArmPendingEdit = false) {
+  if (reArmPendingEdit) pendingUserEdit = true;
+  inboundToken++;
+  syncingFromProps = true;
+  if (fLocal !== fromLocal.value || tLocal !== toLocal.value) {
+    fromLocal.value = fLocal;
+    toLocal.value = tLocal;
+  }
+  nextTick(() => (syncingFromProps = false));
+}
 watch(
-  () => [props.timeFrom, props.timeTo, props.timeBounds?.min, props.timeBounds?.max],
-  ([f, t, bMin, bMax]) => {
-    const fLocal = isoToLocalInput(f) || (bMin ? isoToLocalInput(bMin as string) : "");
-    const tLocal = isoToLocalInput(t) || (bMax ? isoToLocalInput(bMax as string) : "");
-    if (fLocal !== fromLocal.value || tLocal !== toLocal.value) {
-      syncingFromProps = true;
-      fromLocal.value = fLocal;
-      toLocal.value = tLocal;
-      nextTick(() => (syncingFromProps = false));
-    }
-  },
+  () => [props.timeFrom, props.timeTo],
+  ([f, t]) => applyInbound(isoToLocalInput(f), isoToLocalInput(t), true),
 );
+
+// Typing is debounced and lands as a history REPLACE: emitting on every
+// keystroke meant one router.push + one full loadImages(true) per character,
+// and every intermediate value ("2026-0", "2026-08") became a back-step the
+// user had to click through.
+const emitTimeRange = useDebounceFn((token: number) => {
+  const stale = token !== inboundToken;
+  // A stale token is only forgivable when an inbound sync re-armed the edit.
+  if (stale && !pendingUserEdit) return;
+  pendingUserEdit = false;
+  const from = localInputToIso(fromLocal.value);
+  // Inclusive upper bound: the input and the slider both carry minute
+  // precision, and the backend compares `to` with LTE — without widening to the
+  // last millisecond of the minute, every photo inside that final minute is
+  // dropped.
+  let to = localInputToIsoInclusive(toLocal.value);
+  // The backend rejects an inverted range with 400 invalid_time_range, which
+  // renders the whole grid as an error page. Clamp instead: a user whose To
+  // lands before the From gets a valid range, not a dead end.
+  if (from && to && new Date(to) < new Date(from)) {
+    // Clamp to the END of the From minute, not its start, and show the user the
+    // value that was actually applied — an unwidened `to === from` is a
+    // one-instant range (an empty grid) while the input still shows the earlier
+    // time they typed, which reads as the app ignoring them.
+    to = widenToEndOfMinute(from);
+    applyInbound(fromLocal.value, isoToLocalInput(to));
+  }
+  emit("timeRange", from, to, { replace: true });
+}, 400);
 watch([fromLocal, toLocal], () => {
   if (syncingFromProps) return;
-  emit("timeRange", localInputToIso(fromLocal.value), localInputToIso(toLocal.value));
+  pendingUserEdit = true;
+  emitTimeRange(inboundToken);
 });
 
 // slider drag feedback: mirror the thumbs into the inputs so their values
 // update live — silently, like a props sync (the actual commit is `change`)
 function setLocalsSilently(f: string, t: string) {
-  syncingFromProps = true;
-  fromLocal.value = isoToLocalInput(f);
-  toLocal.value = isoToLocalInput(t);
-  nextTick(() => (syncingFromProps = false));
+  applyInbound(isoToLocalInput(f), isoToLocalInput(t));
+}
+
+// The slider works in whole minutes, so its `to` needs the same inclusive
+// widening as the manual input — otherwise releasing the thumb at 23:59 cuts
+// the last minute off the range. A null side stays null: that is the slider
+// signalling an open-ended range, and widening would close it. Delegates to
+// localInputToIsoInclusive so there is ONE end-of-minute rule, not two that can
+// drift.
+function widenToEndOfMinute(iso: string | null): string | null {
+  return isoToEndOfMinute(iso);
+}
+
+// Clear from the panel: the locals are reset through the same inbound path
+// (so the pending debounce is invalidated) and the route is cleared directly,
+// so the button works even when only the inputs (not the URL) carried a range.
+function clearTimeRange() {
+  applyInbound("", "");
+  emit("timeRange", null, null);
 }
 
 // tags — Grafana-style polarity filter: + narrows to images WITH the tag,

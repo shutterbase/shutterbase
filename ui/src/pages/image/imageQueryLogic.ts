@@ -6,6 +6,7 @@ import type { TagFacetsResponse } from "src/api/images";
 import { ImageTag } from "src/types/api";
 import { ImageWithTagsType } from "src/types/custom";
 import { applyPersonPause, buildImageListParams } from "src/pages/image/imageListParams";
+import { SORT_ORDER } from "src/components/image/sortOrder";
 import { emitter, showNotificationToast } from "src/boot/mitt";
 import { canEditImageTag } from "src/pages/upload/uploadUtil";
 import { isReviewerOnlyTag } from "src/util/uploadReview";
@@ -85,6 +86,12 @@ export const TIMESPAN_MINUTES = 15;
 // Session-only like the rest of the pause machinery.
 export const personFiltersPaused = ref(true);
 
+// Sort order for the CURRENT view only. Null = follow the user's persisted
+// preference (preferredImageSortOrder). Set by the timespan context view,
+// which needs chronological reading order but must NOT rewrite a persisted,
+// cross-project preference just because someone clicked "show ±15 min" once.
+export const routeSortOrder = ref<string | null>(null);
+
 // Timespan context view (?rangeScope=all next to ?from=/?to=): show ALL photos
 // in the window regardless of search/tags/orientation. Route-driven so
 // browser-back leaves the context cleanly. Set by the detail view's
@@ -102,7 +109,13 @@ export function resetTransientFilters() {
     excludeFilterTags.value.length === 0 &&
     aspectRatioFilter.value === "neutral" &&
     !timeFromFilter.value &&
-    !timeToFilter.value
+    !timeToFilter.value &&
+    // The context flag and the view-local sort must clear together with the
+    // window: leaving rangeScopeAll set with no window kept search/tags/
+    // orientation suspended behind a chip row that rendered nothing, so the
+    // filters were silently off with no on-screen explanation.
+    !rangeScopeAll.value &&
+    !routeSortOrder.value
   )
     return;
   invalidateGridSnapshot(); // the snapshot was taken under the filters being cleared
@@ -113,6 +126,8 @@ export function resetTransientFilters() {
   timeFromFilter.value = null;
   timeToFilter.value = null;
   timeRangeSuspended.value = false;
+  rangeScopeAll.value = false;
+  routeSortOrder.value = null;
 }
 
 // Implicit person filter: set by clicking a face box in the detail view,
@@ -204,7 +219,7 @@ function currentFilterInput() {
     orientation: aspectRatioFilter.value,
     timeFrom: timeFromFilter.value ?? undefined,
     timeTo: timeToFilter.value ?? undefined,
-    sortOrder: preferredImageSortOrder.value,
+    sortOrder: (routeSortOrder.value ?? preferredImageSortOrder.value) as SORT_ORDER,
   };
   // Global override: suspended time range always disables the window
   if (timeRangeSuspended.value) {
@@ -401,18 +416,28 @@ export async function loadTagFacets(force = false) {
 // under the filter MINUS the time range itself (the range being edited must not
 // shift its own domain). Fetched on popover open; key memo like the facets.
 export const timeBounds = ref<{ min: string | null; max: string | null } | null>(null);
+// The memo tracks the key that was last REQUESTED, not the key whose value is
+// currently held: with the resolved value in the condition, two popover opens
+// inside one round trip both saw a stale/null value and both fetched.
 let lastBoundsKey = "";
+let boundsSeq = 0;
 
 export async function loadTimeBounds() {
   if (!activeProject.value?.id) return;
   const { timeFrom: _f, timeTo: _t, ...rest } = currentFilterInput();
   const params = buildImageListParams(rest);
   const key = JSON.stringify(params);
-  if (key === lastBoundsKey && timeBounds.value) return;
+  if (key === lastBoundsKey) return;
   lastBoundsKey = key;
+  const seq = ++boundsSeq;
   try {
-    timeBounds.value = await api.images.timeBounds(params);
+    const result = await api.images.timeBounds(params);
+    // latest-wins, like loadImages: a slow response for an older filter must
+    // not overwrite the domain of the filter the user is actually looking at
+    if (seq !== boundsSeq) return;
+    timeBounds.value = result;
   } catch {
+    if (seq !== boundsSeq) return;
     // bounds are decoration — the popover degrades to manual inputs only
     timeBounds.value = null;
     lastBoundsKey = "";
@@ -424,18 +449,25 @@ export async function loadTimeBounds() {
 // same memo key so they stay in sync.
 export const timeTicks = ref<string[] | null>(null);
 let lastTicksKey = "";
+let ticksSeq = 0;
 
 export async function loadTimeTicks() {
   if (!activeProject.value?.id) return;
   const { timeFrom: _f, timeTo: _t, ...rest } = currentFilterInput();
   const params = buildImageListParams(rest);
   const key = JSON.stringify(params);
-  if (key === lastTicksKey && timeTicks.value) return;
+  if (key === lastTicksKey) return;
   lastTicksKey = key;
+  const seq = ++ticksSeq;
   try {
     const result = await api.images.timeTicks(params);
+    if (seq !== ticksSeq) return; // stale response — a newer request is in flight
+    // `ticks` is always an array on the wire (never null), so this is a length
+    // check and nothing more; a null here would throw on .length and reset the
+    // memo key into a refetch loop.
     timeTicks.value = result.ticks.length > 0 ? result.ticks : null;
   } catch {
+    if (seq !== ticksSeq) return;
     timeTicks.value = null;
     lastTicksKey = "";
   }

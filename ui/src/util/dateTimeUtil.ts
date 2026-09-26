@@ -91,13 +91,74 @@ export function isoToLocalInput(iso?: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+  // The year is padded to 4 digits: datetime-local requires it, and an unpadded
+  // "999" is a value the control silently refuses to show — which then fails
+  // the round-trip guard below and deletes the bound.
+  return `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** `<input type="datetime-local">` value → ISO string (UTC), null when empty/invalid. */
-export function localInputToIso(value?: string | null): string | null {
+// The canonical shape of a datetime-local value: YYYY-MM-DDTHH:mm. Anything the
+// browser produces is minute-precision, so only the first 16 characters take
+// part in the round-trip check.
+const LOCAL_INPUT_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/**
+ * `<input type="datetime-local">` value → ISO string (UTC), null when empty or
+ * unparseable.
+ *
+ * `endOfMinute` widens the instant to the last millisecond of the entered
+ * minute. The backend applies the `to` bound as an inclusive `LTE`, and both
+ * the input and the slider only carry minute precision — so without this every
+ * photo captured inside the final minute of a range is silently dropped
+ * ("through 23:59" excluding 23:59:40).
+ *
+ * DST spring-forward gap: a wall-clock time inside the gap (e.g. 02:30 on the
+ * transition day, which never happens) is rolled forward by the Date parser,
+ * shifting the filter by an hour with nothing visible on screen. That is the one
+ * mismatch worth rejecting, and it is detected by formatting the parsed instant
+ * back to a local input string and comparing the minute.
+ *
+ * Only the MINUTE is compared, on purpose. An exact string comparison also
+ * rejected perfectly valid values — one carrying seconds
+ * ("2026-08-11T10:00:30"), or a date-only one ("2026-08-11", which `new Date`
+ * reads as UTC midnight and would shift by the UTC offset). Rejecting those
+ * returns null, the caller treats null as "no bound", and the range silently
+ * opens to every photo — a much worse outcome than accepting them.
+ */
+export function localInputToIso(value?: string | null, endOfMinute = false): string | null {
   if (!value) return null;
   const d = new Date(value);
-  return isNaN(d.getTime()) ? null : d.toISOString();
+  if (isNaN(d.getTime())) return null;
+  if (LOCAL_INPUT_SHAPE.test(value) && isoToLocalInput(d.toISOString()) !== value.slice(0, 16)) {
+    // A full minute-precision value that does not map back to itself: the
+    // entered wall clock does not exist (DST gap).
+    return null;
+  }
+  if (endOfMinute) {
+    d.setSeconds(59, 999);
+  }
+  return d.toISOString();
+}
+
+/**
+ * Last millisecond of the minute a `datetime-local` value names, as ISO.
+ * Returns null for empty/invalid input. Used for the inclusive `to` bound.
+ */
+export function localInputToIsoInclusive(value?: string | null): string | null {
+  return localInputToIso(value, true);
+}
+
+/**
+ * Last millisecond of the minute an INSTANT falls in, as ISO. For callers that
+ * already hold an ISO timestamp (the slider, and the inverted-range clamp) and
+ * need the same inclusive bound the inputs produce — one rule, so the two
+ * producers cannot drift.
+ */
+export function isoToEndOfMinute(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  d.setSeconds(59, 999);
+  return d.toISOString();
 }

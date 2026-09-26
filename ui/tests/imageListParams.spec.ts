@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyPersonPause, buildImageListParams } from "src/pages/image/imageListParams";
+import { buildImageListParams } from "src/pages/image/imageListParams";
 import { SORT_ORDER } from "src/components/image/sortOrder";
 
 describe("buildImageListParams (UI state -> §4.3 list params)", () => {
@@ -103,18 +103,4 @@ describe("time-range params", () => {
     expect(openFrom.to).toBeUndefined();
   });
 
-  it("person-view pause suspends the time range with the other narrowing filters", () => {
-    const paused = applyPersonPause({
-      projectId: "p1",
-      search: "x",
-      tags: [{ id: "t1" }],
-      excludeTags: [],
-      orientation: "portrait",
-      timeFrom: "2026-08-25T22:55:00Z",
-      timeTo: "2026-08-25T23:10:00Z",
-    });
-    expect(paused.search).toBe("");
-    expect(paused.timeFrom).toBeUndefined();
-    expect(paused.timeTo).toBeUndefined();
-  });
 });
