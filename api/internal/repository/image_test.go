@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/shutterbase/shutterbase/internal/repository"
+	"github.com/shutterbase/shutterbase/internal/seed"
 )
 
 func TestGetImagePosition(t *testing.T) {
@@ -129,17 +131,19 @@ func TestGetImagesTimeRange(t *testing.T) {
 	// combined with another narrowing predicate of the shared builder (tag
 	// AND/exclude predicates use jsonb containment, which the Postgres tier
 	// alone supports — their composition with the range is proven by the same
-	// AND-append there)
+	// AND-append there). The pattern is deliberately narrower than the range:
+	// matching all 8 would also be what an implementation that DROPPED the
+	// Search predicate returns, so the AND would stay unproven.
 	from = start
 	searched := params()
 	searched.FromCapturedAtCorrected = &start
 	searched.ToCapturedAtCorrected = &end
-	pattern := "FSG_90"
+	pattern := "FSG_9002"
 	searched.Search = &pattern
 	items, total, err = repo.GetImages(ctx, searched)
 	require.NoError(t, err)
-	assert.Equal(t, 8, total, "range AND name pattern")
-	assert.Equal(t, m.TimeRangeImages[0], items[0].ID)
+	assert.Equal(t, 1, total, "range AND name pattern")
+	assert.Equal(t, m.TimeRangeImages[2], items[0].ID)
 }
 
 // The Time popover's slider domain: MIN/MAX capturedAtCorrected under the
@@ -232,9 +236,15 @@ func TestGetImageTimeTicks(t *testing.T) {
 	sampled, err := repo.GetImageTimeTicks(ctx, params(), 5)
 	require.NoError(t, err)
 	require.Len(t, sampled, 5, "downsampled to maxTicks")
-	// first and last should still be present (linear sampling picks index 0 and near-end)
-	assert.True(t, sampled[0].Equal(ticks[0]), "first tick preserved")
-	assert.True(t, sampled[len(sampled)-1].Equal(ticks[len(ticks)-1]) || sampled[len(sampled)-1].After(ticks[0]), "last tick near end")
+	// The strip must span the whole range: the oldest AND the newest match are
+	// always sampled, everything between is spread evenly. Asserting the exact
+	// endpoints is what catches a sampler that silently drops the right end.
+	assert.True(t, sampled[0].Equal(ticks[0]), "oldest tick preserved")
+	assert.True(t, sampled[len(sampled)-1].Equal(ticks[len(ticks)-1]), "newest tick preserved")
+	for i := 1; i < len(sampled); i++ {
+		assert.False(t, sampled[i].Before(sampled[i-1]), "sampled ticks stay ascending")
+		assert.NotEqual(t, sampled[i], sampled[i-1], "sampled ticks are distinct")
+	}
 
 	// filter matching nothing returns nil
 	none := params()
@@ -242,4 +252,84 @@ func TestGetImageTimeTicks(t *testing.T) {
 	empty, err := repo.GetImageTimeTicks(ctx, none, 200)
 	require.NoError(t, err)
 	assert.Nil(t, empty)
+}
+
+// A degenerate domain: 40 photos sharing ONE capture second, plus one clearly
+// older and one clearly newer. Every interior sample lands in the tie group, so
+// this pins the property that actually matters for the strip — both extremes
+// survive a domain whose interior has no ordering of its own.
+//
+// It is NOT a guard for the sampler's `id` tiebreak: SQLite's unspecified order
+// within a tie group is stable across identical query plans, so dropping the
+// tiebreak still passes here. The tiebreak is there so each probe is
+// deterministic by construction rather than by luck of the plan; two identical
+// calls agreeing (asserted below) is a smoke test for that, nothing more.
+func TestGetImageTimeTicksSurvivesADegenerateDomain(t *testing.T) {
+	ctx := context.Background()
+	repo, m := seededRepo(t)
+
+	// 40 photos all sharing ONE instant, plus one clearly older and one clearly
+	// newer, so a duplicate or an out-of-order seek is unmistakable.
+	shared := m.TimeRangeStart.Add(-90 * time.Minute)
+	newest := m.TimeRangeEnd.Add(90 * time.Minute)
+	ids := make([]string, 0, 42)
+	for i := range 40 {
+		img, err := repo.Client.Image.Create().
+			SetFileName(fmt.Sprintf("TIE_%03d.jpg", i)).
+			SetComputedFileName(fmt.Sprintf("FSG_TIE%03d.jpg", i)).
+			SetStorageId(fmt.Sprintf("tie%08d", i)).
+			SetSize(1024).
+			SetWidth(6000).
+			SetHeight(4000).
+			SetCapturedAt(shared.Add(-seed.Drift)).
+			SetCapturedAtCorrected(shared).
+			SetUserID(m.Users["projectEditor"]).
+			SetUploadID(m.Upload).
+			SetProjectID(m.Project).
+			SetCameraID(m.Cameras["fresh"]).
+			Save(ctx)
+		require.NoError(t, err)
+		ids = append(ids, img.ID)
+	}
+	for _, c := range []struct {
+		name string
+		at   time.Time
+	}{{"older", shared.Add(-time.Hour)}, {"newest", newest}} {
+		img, err := repo.Client.Image.Create().
+			SetFileName("TIE_" + c.name + ".jpg").
+			SetComputedFileName("FSG_TIE_" + c.name + ".jpg").
+			SetStorageId("tie_" + c.name).
+			SetSize(1024).
+			SetWidth(6000).
+			SetHeight(4000).
+			SetCapturedAt(c.at.Add(-seed.Drift)).
+			SetCapturedAtCorrected(c.at).
+			SetUserID(m.Users["projectEditor"]).
+			SetUploadID(m.Upload).
+			SetProjectID(m.Project).
+			SetCameraID(m.Cameras["fresh"]).
+			Save(ctx)
+		require.NoError(t, err)
+		ids = append(ids, img.ID)
+	}
+
+	params := func() *repository.GetImageParameters {
+		return &repository.GetImageParameters{ProjectID: m.Project, IDs: ids}
+	}
+
+	// Sampled far below the row count so the seek path runs against the ties.
+	sampled, err := repo.GetImageTimeTicks(ctx, params(), 8)
+	require.NoError(t, err)
+	require.Len(t, sampled, 8, "downsampled to maxTicks")
+	for i := 1; i < len(sampled); i++ {
+		assert.False(t, sampled[i].Before(sampled[i-1]), "sampled ticks stay ascending across a tie group")
+	}
+	// Both extremes survive, even though every interior sample lands in the tie.
+	assert.True(t, sampled[0].Equal(shared.Add(-time.Hour)), "oldest match sampled")
+	assert.True(t, sampled[len(sampled)-1].Equal(newest), "newest match sampled")
+
+	// Two identical calls agree (see the func comment for how weak this is).
+	again, err := repo.GetImageTimeTicks(ctx, params(), 8)
+	require.NoError(t, err)
+	assert.Equal(t, sampled, again, "repeated sampling agrees")
 }

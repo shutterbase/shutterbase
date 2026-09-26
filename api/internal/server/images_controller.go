@@ -208,34 +208,33 @@ func (s *Server) getImagePosition(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"position": position})
 }
 
-// ImageTimeBoundsResponse backs the Time popover's slider: the [min,max]
+// getImageTimeBounds backs the Time popover's slider: the [min,max]
 // capturedAtCorrected span of everything matching the filter. The repository
 // always strips the time-range bounds themselves — the range being edited must
-// not shift its own domain.
-type ImageTimeBoundsResponse struct {
-	Min *time.Time `json:"min"`
-	Max *time.Time `json:"max"`
-}
-
+// not shift its own domain. repository.ImageTimeBounds already carries the
+// wire tags, so it is serialized directly (no second shape to keep in sync).
 func (s *Server) getImageTimeBounds(c *gin.Context) {
 	params, emptyResult, ok := s.parseImageFilterParams(c)
 	if !ok {
 		return
 	}
 	if emptyResult {
-		c.JSON(http.StatusOK, ImageTimeBoundsResponse{})
+		c.JSON(http.StatusOK, repository.ImageTimeBounds{})
 		return
 	}
 	bounds, err := s.Repository.GetImageTimeBounds(c.Request.Context(), params)
 	if abortRepoListError(c, err) {
 		return
 	}
-	c.JSON(http.StatusOK, ImageTimeBoundsResponse{Min: bounds.Min, Max: bounds.Max})
+	c.JSON(http.StatusOK, bounds)
 }
 
 // ImageTimeTicksResponse backs the slider density strip: sampled image
 // timestamps over the currently filtered gallery's time span (range stripped).
 // The frontend renders each as a thin vertical tick mark on the slider track.
+// Ticks is always a JSON array, never null: the SPA reads .length off it
+// unguarded, and a null there throws a TypeError that resets its memo key and
+// turns the failure into a refetch loop.
 type ImageTimeTicksResponse struct {
 	Ticks []string `json:"ticks"`
 }
@@ -255,7 +254,7 @@ func (s *Server) getImageTimeTicks(c *gin.Context) {
 		return
 	}
 	if emptyResult {
-		c.JSON(http.StatusOK, ImageTimeTicksResponse{})
+		c.JSON(http.StatusOK, ImageTimeTicksResponse{Ticks: []string{}})
 		return
 	}
 	timestamps, err := s.Repository.GetImageTimeTicks(c.Request.Context(), params, maxTimeTicks)

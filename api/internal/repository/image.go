@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"time"
 
@@ -186,9 +187,12 @@ type ImageTimeBounds struct {
 // SQLite hands aggregates back as untyped strings, and both queries are
 // index-covered anyway.
 func (r *Repository) GetImageTimeBounds(ctx context.Context, parameters *GetImageParameters) (*ImageTimeBounds, error) {
-	parameters.FromCapturedAtCorrected = nil
-	parameters.ToCapturedAtCorrected = nil
-	predicates, err := buildImagePredicates(parameters)
+	// Work on a copy: stripping the caller's struct would silently drop the
+	// range from any later reuse of the same *GetImageParameters.
+	stripped := *parameters
+	stripped.FromCapturedAtCorrected = nil
+	stripped.ToCapturedAtCorrected = nil
+	predicates, err := buildImagePredicates(&stripped)
 	if err != nil {
 		return nil, err
 	}
@@ -214,56 +218,105 @@ func (r *Repository) GetImageTimeBounds(ctx context.Context, parameters *GetImag
 }
 
 // ImageTimeTicks returns sampled capturedAtCorrected timestamps for the slider
-// density strip. For ≤ maxTicks images every position is returned; above that
-// the list is linearly downsampled so the frontend always renders a bounded
-// number of DOM nodes (max 200).
+// density strip. The result always spans the full range: the first and the
+// NEWEST matching photo are always included, with maxTicks-2 samples spread
+// evenly between them.
 //
-// PERFORMANCE: Fetches ALL matching timestamps via index scan on
-// captured_at_corrected, then down-samples in Go.
-//   - 1k images   → ~10 ms
-//   - 10k images  → ~30 ms
-//   - 100k images → ~150 ms (may need SQL-level bucketing in future)
-//   - 1M images   → ~1-3 s (not recommended; consider SQL optimization)
-// Like GetImageTimeBounds, the time-range itself is always STRIPPED so the
-// ticks stay stable while thumbs move.
+// PERFORMANCE: the scan is bounded by maxTicks, not by the gallery size.
+//   - ≤ maxTicks images: one ordered scan, every position returned.
+//   - more: a COUNT plus maxTicks indexed (OFFSET … LIMIT 1) seeks. Each seek
+//     is an index range scan, so the cost is ~maxTicks index probes regardless
+//     of whether the project holds 10k or 10M photos — the frontend calls this
+//     on popover open and on every filter change, so an O(rows) scan would
+//     make a 100k-photo project pay for its whole index on every keystroke.
+//     That costs 1+maxTicks round trips instead of 1; it is a deliberate
+//     trade, and the comment at the sampling loop spells out why.
+// Like GetImageTimeBounds, the time-range itself is always STRIPPED (on a copy
+// of the parameters) so the ticks stay stable while thumbs move.
 func (r *Repository) GetImageTimeTicks(ctx context.Context, parameters *GetImageParameters, maxTicks int) ([]time.Time, error) {
-	parameters.FromCapturedAtCorrected = nil
-	parameters.ToCapturedAtCorrected = nil
-	predicates, err := buildImagePredicates(parameters)
+	if maxTicks < 2 {
+		maxTicks = 2
+	}
+	stripped := *parameters
+	stripped.FromCapturedAtCorrected = nil
+	stripped.ToCapturedAtCorrected = nil
+	predicates, err := buildImagePredicates(&stripped)
 	if err != nil {
 		return nil, err
 	}
 	where := image.And(append(predicates, image.CapturedAtCorrectedNotNil())...)
 
-	var rows []struct {
-		CapturedAtCorrected time.Time `json:"captured_at_corrected"`
-	}
-	if err := r.Client.Image.Query().Where(where).
-		Order(ent.Asc(image.FieldCapturedAtCorrected)).
-		Select(image.FieldCapturedAtCorrected).
-		Scan(ctx, &rows); err != nil {
-		log.Error().Err(err).Msg("error loading timestamps for time ticks")
+	total, err := r.Client.Image.Query().Where(where).Count(ctx)
+	if err != nil {
+		log.Error().Err(err).Msg("error counting images for time ticks")
 		return nil, err
 	}
-	if len(rows) == 0 {
+	if total == 0 {
 		return nil, nil
 	}
 
-	timestamps := make([]time.Time, len(rows))
-	for i, r := range rows {
-		timestamps[i] = r.CapturedAtCorrected
-	}
-
-	if len(timestamps) <= maxTicks {
+	// Small enough to return every position.
+	if total <= maxTicks {
+		var rows []struct {
+			CapturedAtCorrected time.Time `json:"captured_at_corrected"`
+		}
+		if err := r.Client.Image.Query().Where(where).
+			Order(ent.Asc(image.FieldCapturedAtCorrected), ent.Asc(image.FieldID)).
+			Select(image.FieldCapturedAtCorrected).
+			Scan(ctx, &rows); err != nil {
+			log.Error().Err(err).Msg("error loading timestamps for time ticks")
+			return nil, err
+		}
+		timestamps := make([]time.Time, len(rows))
+		for i, r := range rows {
+			timestamps[i] = r.CapturedAtCorrected
+		}
 		return timestamps, nil
 	}
 
-	// Linear downsample: pick every Nth timestamp so the result fits maxTicks.
-	step := float64(len(timestamps)) / float64(maxTicks)
+	// Offsets span [0, total-1] inclusive, so index 0 is the oldest match and
+	// index maxTicks-1 is the newest one — the right end of the strip is never
+	// dropped. Spacing varies by at most one row, which is invisible on the
+	// track but keeps the sampling exact.
+	//
+	// The ORDER BY includes `id` because captured_at_corrected alone is NOT a
+	// total order: burst photos routinely share a second, and N independent
+	// seeks over a tie group can land on the same row twice, which the single
+	// ordered scan this replaced could not do. With the id tiebreak every
+	// (offset, limit 1) probe is deterministic and the result is strictly
+	// ascending.
+	//
+	// TRADE-OFF: 1 + maxTicks round trips instead of 1 query materialising every
+	// matching row. That is the point — the old scan was O(rows), so a 100k-photo
+	// project paid for its whole index on every popover open, and this is
+	// O(maxTicks) index probes whether the project holds 10k or 10M photos. The
+	// offsets come from a COUNT taken in an earlier statement, so a concurrent
+	// write can only make an offset resolve to nothing (a shorter strip), never
+	// a duplicate or an error — hence the skip instead of a hard failure.
+	last := total - 1
 	sampled := make([]time.Time, 0, maxTicks)
 	for i := 0; i < maxTicks; i++ {
-		idx := int(float64(i) * step)
-		sampled = append(sampled, timestamps[idx])
+		offset := int(math.Round(float64(i) * float64(last) / float64(maxTicks-1)))
+		var rows []struct {
+			CapturedAtCorrected time.Time `json:"captured_at_corrected"`
+		}
+		if err := r.Client.Image.Query().Where(where).
+			Order(ent.Asc(image.FieldCapturedAtCorrected), ent.Asc(image.FieldID)).
+			Offset(offset).Limit(1).
+			Select(image.FieldCapturedAtCorrected).
+			Scan(ctx, &rows); err != nil {
+			log.Error().Err(err).Msg("error sampling timestamp for time ticks")
+			return nil, err
+		}
+		if len(rows) == 0 {
+			// The set shrank between the COUNT and this seek. Keep the strip we
+			// have: a slightly sparse density strip is a cosmetic artefact, a 500
+			// on the slider is not.
+			log.Warn().Int("offset", offset).Int("total", total).
+				Msg("time ticks: offset past the end of a shrinking set — returning a shorter strip")
+			break
+		}
+		sampled = append(sampled, rows[0].CapturedAtCorrected)
 	}
 	return sampled, nil
 }

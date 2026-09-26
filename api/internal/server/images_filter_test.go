@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -80,4 +81,43 @@ func TestParseImageFilterTimeRange(t *testing.T) {
 	assert.False(t, got.ok, "inverted range rejected")
 	assert.Equal(t, http.StatusBadRequest, got.code)
 	assert.Equal(t, "invalid_time_range", got.errCode)
+}
+
+// The two slider endpoints (getImageTimeBounds / getImageTimeTicks) run every
+// request through parseImageFilterParams, so the CanViewProject gate is their
+// only authorization. A non-admin who is not assigned to the project must get
+// 403 — an admin-only test would pass even if the gate were missing.
+//
+// Driven through a real gin.Engine with the REAL route group, not by calling
+// the parser directly: a direct call would keep passing if a handler stopped
+// calling parseImageFilterParams, or if the route lost its gate on the way in.
+func TestImageSliderEndpointsRequireProjectAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{}
+	projectID := uuid.NewString()
+	outsider := &ent.User{ID: uuid.New(), Role: user.RoleUser, Active: true}
+
+	engine := gin.New()
+	api := engine.Group("/api/v1")
+	s.registerImageRoutes(api)
+
+	// Guard the premise: the routes exist at these paths under this group.
+	registered := map[string]bool{}
+	for _, r := range engine.Routes() {
+		registered[r.Method+" "+r.Path] = true
+	}
+	require.True(t, registered["GET /api/v1/images/time-bounds"], "time-bounds route is registered")
+	require.True(t, registered["GET /api/v1/images/time-ticks"], "time-ticks route is registered")
+
+	for _, path := range []string{"/api/v1/images/time-bounds", "/api/v1/images/time-ticks"} {
+		t.Run(path, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, "http://test"+path+"?projectId="+projectID, nil)
+			c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), util.UserKey, outsider))
+			engine.ServeHTTP(w, c.Request)
+
+			assert.Equal(t, http.StatusForbidden, w.Code, "non-member must be rejected before any repository access")
+		})
+	}
 }
