@@ -25,4 +25,4 @@ If applicable, add screenshots to help explain the problem.
 
 - Instance: production / self-hosted
 - Browser: e.g. Chrome 140
-- Your role: admin / projectAdmin / editor / viewer
+- Your role: admin / user / projectAdmin / projectEditor / projectViewer (global roles are admin or user; the rest are per-project)
