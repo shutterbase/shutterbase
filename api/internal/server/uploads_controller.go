@@ -252,6 +252,21 @@ func (s *Server) createUpload(c *gin.Context) {
 	if abortMutationError(c, err) {
 		return
 	}
+	// MQTT: publish upload created event if enabled.
+	if s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, "uploadCreated") {
+		ctx := c.Request.Context()
+		if s.isMqttPublishEventsEnabled(ctx, up.ProjectID) {
+			s.publishToProject(ctx, up.ProjectID, s.getMqttTopicPrefix(ctx, up.ProjectID)+"/"+up.ProjectID+"/upload/"+up.ID+"/created", gin.H{
+				"uploadName": up.Name,
+				"userId":     userID,
+			})
+		}
+		if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
+			wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, "uploadCreated")
+			duration := s.getMqttDuration(ctx, up.ProjectID, "uploadCreated")
+			s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
+		}
+	}
 	s.respondUpload(c, http.StatusCreated, up)
 }
 
@@ -302,6 +317,36 @@ func (s *Server) updateUpload(c *gin.Context) {
 	up, err := s.Repository.UpdateUpload(c.Request.Context(), id, params)
 	if abortMutationError(c, err) {
 		return
+	}
+	// MQTT: publish state transition events for WLED / smart-home integration.
+	if payload.State != nil {
+		oldState := existing.State
+		newState := up.State
+		eventName := ""
+		switch {
+		case oldState == "open" && newState == "ready":
+			eventName = "ready"
+		case oldState == "ready" && newState == "reviewed":
+			eventName = "approved"
+		case (oldState == "ready" || oldState == "reviewed") && newState == "open":
+			eventName = "rejected"
+		}
+		if eventName != "" && s.isMqttEventEnabled(c.Request.Context(), up.ProjectID, eventName) {
+			ctx := c.Request.Context()
+			if s.isMqttPublishEventsEnabled(ctx, up.ProjectID) {
+				s.publishToProject(ctx, up.ProjectID, s.getMqttTopicPrefix(ctx, up.ProjectID)+"/"+up.ProjectID+"/upload/"+up.ID+"/"+eventName, gin.H{
+					"uploadName": up.Name,
+					"oldState":   oldState,
+					"newState":   newState,
+					"userId":     authUser(c).ID,
+				})
+			}
+			if s.isMqttWledControlEnabled(ctx, up.ProjectID) {
+				wledCmd := s.getMqttWledCommand(ctx, up.ProjectID, eventName)
+				duration := s.getMqttDuration(ctx, up.ProjectID, eventName)
+				s.publishToWled(ctx, up.ProjectID, wledCmd, duration)
+			}
+		}
 	}
 	s.respondUpload(c, http.StatusOK, up)
 }

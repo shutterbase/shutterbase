@@ -22,6 +22,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/personname"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/projectsetting"
 	"github.com/shutterbase/shutterbase/ent/role"
 	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/timeoffset"
@@ -97,6 +98,7 @@ func checkColumn(t, c string) error {
 			personname.Table:         personname.ValidColumn,
 			project.Table:            project.ValidColumn,
 			projectassignment.Table:  projectassignment.ValidColumn,
+			projectsetting.Table:     projectsetting.ValidColumn,
 			role.Table:               role.ValidColumn,
 			scheduleitem.Table:       scheduleitem.ValidColumn,
 			timeoffset.Table:         timeoffset.ValidColumn,

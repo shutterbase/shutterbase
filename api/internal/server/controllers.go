@@ -23,6 +23,8 @@ func (s *Server) registerAPIRoutes() {
 	s.registerApiKeyRoutes(api)
 	s.registerDownloadConfigRoutes(api)
 	s.registerCustomRoutes(api)
+	s.registerMQTTRoutes(api)
+	s.registerProjectSettingsRoutes(api)
 
 	// DEV quick-actions are registered ONLY when DEV=true — the hard gate. The
 	// securityMiddleware dev-gate additionally 404s /api/v1/dev/* when DEV=false.

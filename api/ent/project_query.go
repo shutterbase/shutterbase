@@ -19,6 +19,7 @@ import (
 	"github.com/shutterbase/shutterbase/ent/predicate"
 	"github.com/shutterbase/shutterbase/ent/project"
 	"github.com/shutterbase/shutterbase/ent/projectassignment"
+	"github.com/shutterbase/shutterbase/ent/projectsetting"
 	"github.com/shutterbase/shutterbase/ent/scheduleitem"
 	"github.com/shutterbase/shutterbase/ent/upload"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -37,6 +38,7 @@ type ProjectQuery struct {
 	withScheduleItems      *ScheduleItemQuery
 	withProjectAssignments *ProjectAssignmentQuery
 	withDownloadConfigs    *DownloadConfigQuery
+	withSettings           *ProjectSettingQuery
 	withActiveForUsers     *UserQuery
 	modifiers              []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
@@ -200,6 +202,28 @@ func (_q *ProjectQuery) QueryDownloadConfigs() *DownloadConfigQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(downloadconfig.Table, downloadconfig.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.DownloadConfigsTable, project.DownloadConfigsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySettings chains the current query on the "settings" edge.
+func (_q *ProjectQuery) QuerySettings() *ProjectSettingQuery {
+	query := (&ProjectSettingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(projectsetting.Table, projectsetting.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.SettingsTable, project.SettingsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -427,6 +451,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withScheduleItems:      _q.withScheduleItems.Clone(),
 		withProjectAssignments: _q.withProjectAssignments.Clone(),
 		withDownloadConfigs:    _q.withDownloadConfigs.Clone(),
+		withSettings:           _q.withSettings.Clone(),
 		withActiveForUsers:     _q.withActiveForUsers.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -497,6 +522,17 @@ func (_q *ProjectQuery) WithDownloadConfigs(opts ...func(*DownloadConfigQuery)) 
 		opt(query)
 	}
 	_q.withDownloadConfigs = query
+	return _q
+}
+
+// WithSettings tells the query-builder to eager-load the nodes that are connected to
+// the "settings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithSettings(opts ...func(*ProjectSettingQuery)) *ProjectQuery {
+	query := (&ProjectSettingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSettings = query
 	return _q
 }
 
@@ -589,13 +625,14 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			_q.withUploads != nil,
 			_q.withImages != nil,
 			_q.withImageTags != nil,
 			_q.withScheduleItems != nil,
 			_q.withProjectAssignments != nil,
 			_q.withDownloadConfigs != nil,
+			_q.withSettings != nil,
 			_q.withActiveForUsers != nil,
 		}
 	)
@@ -661,6 +698,13 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadDownloadConfigs(ctx, query, nodes,
 			func(n *Project) { n.Edges.DownloadConfigs = []*DownloadConfig{} },
 			func(n *Project, e *DownloadConfig) { n.Edges.DownloadConfigs = append(n.Edges.DownloadConfigs, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSettings; query != nil {
+		if err := _q.loadSettings(ctx, query, nodes,
+			func(n *Project) { n.Edges.Settings = []*ProjectSetting{} },
+			func(n *Project, e *ProjectSetting) { n.Edges.Settings = append(n.Edges.Settings, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -849,6 +893,37 @@ func (_q *ProjectQuery) loadDownloadConfigs(ctx context.Context, query *Download
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadSettings(ctx context.Context, query *ProjectSettingQuery, nodes []*Project, init func(*Project), assign func(*Project, *ProjectSetting)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[string]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	query.Where(predicate.ProjectSetting(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.SettingsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.project_settings
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "project_settings" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_settings" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}
