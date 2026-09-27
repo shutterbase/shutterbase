@@ -115,6 +115,25 @@
                 </div>
               </li>
             </ul>
+
+            <!-- matching tags that are already on the image, below the actionable
+                 results so picking a new tag is never blocked by them -->
+            <div v-if="searchText !== '' && appliedMatchingTags.length > 0" class="mt-4 border-t border-primary-200 pt-4 dark:border-primary-800">
+              <p class="label-mono mb-2 flex items-center gap-1.5 text-success-600 dark:text-success-400">
+                <CheckCircleIcon class="h-4 w-4" />
+                already applied
+              </p>
+              <ul class="flex flex-wrap gap-2">
+                <li
+                  v-for="tag in appliedMatchingTags"
+                  :key="tag.id"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-success-400/60 bg-success-500/10 px-3 py-1 text-sm font-medium text-success-700 dark:border-success-400/40 dark:text-success-300"
+                >
+                  <CheckIcon class="h-4 w-4" />
+                  {{ tagLabel(tag) }}
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
 
@@ -123,9 +142,7 @@
           <template v-if="appliedMatchingTags.length > 0">
             <CheckCircleIcon class="mx-auto h-6 w-6 text-success-500 dark:text-success-400" />
             <p class="mt-4 font-semibold text-primary-900 dark:text-white">Already applied</p>
-            <p class="mt-2 text-primary-500 dark:text-primary-400">
-              The matching {{ appliedMatchingTags.length === 1 ? "tag is" : "tags are" }} already applied to this image
-            </p>
+            <p class="mt-2 text-primary-500 dark:text-primary-400">The matching {{ appliedMatchingTags.length === 1 ? "tag is" : "tags are" }} already applied to this image</p>
             <ul class="mt-4 flex flex-wrap justify-center gap-2">
               <li
                 v-for="tag in appliedMatchingTags"
@@ -172,6 +189,7 @@ import { Image } from "src/util/fileProcessor";
 import { ImageTagsResponse } from "src/types/pocketbase";
 import { tagStack } from "src/pages/image/imageQueryLogic";
 import { tagLabel } from "src/util/tagOrder";
+import { byTagSearchRank, tagSearchRank } from "src/util/tagSearch";
 import { api } from "src/api";
 
 interface Props {
@@ -198,39 +216,30 @@ const filteredTags = computed(() => {
   if (searchText.value === "") {
     return [];
   }
-  return projectTags.value.filter((tag) => {
-    if (tag.type === "template") {
-      return false;
-    }
-    if (tag.type === "default" && !userStore.isProjectAdminOrHigher()) {
-      return false;
-    }
-    if (props.image?.tags?.some((assignment) => assignment.tag.id === tag.id)) {
-      return false;
-    }
-    if (tag.name.toLowerCase().includes(searchText.value.toLowerCase())) {
+  return projectTags.value
+    .filter((tag) => {
+      if (tag.type === "template") {
+        return false;
+      }
+      if (tag.type === "default" && !userStore.isProjectAdminOrHigher()) {
+        return false;
+      }
+      if (props.image?.tags?.some((assignment) => assignment.tag.id === tag.id)) {
+        return false;
+      }
       return true;
-    }
-    if (tagLabel(tag).toLowerCase().includes(searchText.value.toLowerCase())) {
-      return true;
-    }
-    if (tag.description.toLowerCase().includes(searchText.value.toLowerCase())) {
-      return true;
-    }
-    return false;
-  });
+    })
+    .filter((tag) => tagSearchRank(tag, searchText.value) >= 0)
+    .sort(byTagSearchRank(searchText.value));
 });
 
-// matching tags that are already on the image — without this, "No matching
-// tags" reads as "tag missing" when it is in fact already applied
+// matching tags that are already on the image — shown below the results so a
+// wrong-but-matching entry can never hide that the right tag is already applied
 const appliedMatchingTags = computed(() => {
   if (!props.image?.tags || searchText.value === "") {
     return [];
   }
-  const query = searchText.value.toLowerCase();
-  return props.image.tags
-    .map((assignment) => assignment.tag)
-    .filter((tag) => tag.name.toLowerCase().includes(query) || tagLabel(tag).toLowerCase().includes(query) || tag.description.toLowerCase().includes(query));
+  return props.image.tags.map((assignment) => assignment.tag).filter((tag) => tagSearchRank(tag, searchText.value) >= 0);
 });
 
 const recentTags = computed(() => {
