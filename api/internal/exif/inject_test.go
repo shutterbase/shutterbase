@@ -203,3 +203,15 @@ func TestBuildMetadataNoPrefixLeavesTagsUntouched(t *testing.T) {
 		t.Fatalf("By-lineTitle = %v, want mm", m["IPTC:By-lineTitle"])
 	}
 }
+
+// The AI description is an internal search aid, not part of the delivered
+// file (it briefly leaked into Caption-Abstract/ImageDescription in v1.34.0).
+func TestBuildMetadataOmitsAiDescription(t *testing.T) {
+	image := &ent.Image{AiDescription: "a red car on track"}
+	m := buildMetadata(image)
+	for _, k := range []string{"IPTC:Caption-Abstract", "EXIF:ImageDescription"} {
+		if _, ok := m[k]; ok {
+			t.Fatalf("%s must not be exported, got %v", k, m[k])
+		}
+	}
+}
