@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DateTime } from "luxon";
 import { appliedTimeOffset, timeOffsetUpToDate, toWasmTimeOffsets, backendTimeToUnixSeconds } from "src/util/dateTimeUtil";
-import { isoToLocalInput, localInputToIso, localInputToIsoInclusive } from "src/util/dateTimeUtil";
+import { isoToLocalInput, localInputToIso, localInputToIsoInclusive, isoToEndOfMinute } from "src/util/dateTimeUtil";
 import { TimeOffset } from "src/types/api";
 
 function offsetWithServerTime(serverTime: string): TimeOffset {
@@ -166,5 +166,49 @@ describe("datetime-local conversions", () => {
   it("pads the year to 4 digits so pre-1000 dates stay valid input values", () => {
     expect(isoToLocalInput("0999-01-01T00:00:00.000Z")).toMatch(/^\d{4}-01-01T/);
     expect(isoToLocalInput("0999-01-01T00:00:00.000Z").startsWith("0999-")).toBe(true);
+  });
+});
+
+describe("isoToEndOfMinute (instant -> inclusive minute end)", () => {
+  it("widens an ISO instant to the last millisecond of its minute", () => {
+    const iso = "2026-08-25T20:55:00.000Z";
+    expect(isoToEndOfMinute(iso)).toBe("2026-08-25T20:55:59.999Z");
+    // an instant already carrying seconds keeps them, like the input path does
+    expect(isoToEndOfMinute("2026-08-25T20:55:30.123Z")).toBe("2026-08-25T20:55:59.999Z");
+    // and never moves backwards
+    expect(new Date(isoToEndOfMinute(iso)!).getTime()).toBeGreaterThanOrEqual(new Date(iso).getTime());
+  });
+
+  it("maps null/empty and unparseable values to null", () => {
+    expect(isoToEndOfMinute(null)).toBeNull();
+    expect(isoToEndOfMinute("")).toBeNull();
+    expect(isoToEndOfMinute("bogus")).toBeNull();
+  });
+
+  // One rule, two producers: an ISO instant and the datetime-local value naming
+  // the same minute must widen identically, or the slider and the popover disagree
+  // about the last included instant.
+  it("agrees with localInputToIsoInclusive for the same minute", () => {
+    const local = isoToLocalInput("2026-08-11T10:00:00.000Z")!;
+    expect(isoToEndOfMinute("2026-08-11T10:00:00.000Z")).toBe(localInputToIsoInclusive(local));
+  });
+
+  // The suite pins TZ=Europe/Berlin (package.json test script). On 2026-10-25
+  // 03:00→02:00 (01:00 UTC) the local clock repeats 02:00–03:00, so 00:30Z and
+  // 01:30Z are BOTH local 02:30 under different UTC offsets. The old
+  // setSeconds(59, 999) re-resolved that wall clock to its earlier occurrence,
+  // rewinding the bound by an hour: 01:30Z came back as 00:30:59.999Z, dropping
+  // the last 30 real minutes of the `to` filter.
+  it("widens correctly across the DST repeated hour (fall-back)", () => {
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe("Europe/Berlin");
+    // 00:30Z is local 02:30 CEST (first pass), 01:30Z is local 02:30 CET (second)
+    expect(isoToLocalInput("2026-10-25T00:30:00.000Z")).toBe("2026-10-25T02:30");
+    expect(isoToLocalInput("2026-10-25T01:30:00.000Z")).toBe("2026-10-25T02:30");
+    // both widen to the end of THEIR own minute — no rewinding by the DST offset
+    expect(isoToEndOfMinute("2026-10-25T00:30:00.000Z")).toBe("2026-10-25T00:30:59.999Z");
+    expect(isoToEndOfMinute("2026-10-25T01:30:00.000Z")).toBe("2026-10-25T01:30:59.999Z");
+    // and the ordinary minutes either side of the transition are untouched
+    expect(isoToEndOfMinute("2026-10-24T23:30:00.000Z")).toBe("2026-10-24T23:30:59.999Z");
+    expect(isoToEndOfMinute("2026-10-25T02:30:00.000Z")).toBe("2026-10-25T02:30:59.999Z");
   });
 });
