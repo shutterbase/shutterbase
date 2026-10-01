@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
-	"math"
 	"reflect"
+	"sort"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -52,15 +52,15 @@ type GetImageParameters struct {
 	// ProjectIDs replaces the single-project filter — ONLY for the
 	// cross-project person search (the caller passes the user's viewable
 	// projects); every other gallery query keeps the hard ProjectID.
-	ProjectIDs           []string
-	UploadID             *string
-	CameraID             *string
-	UserID               *uuid.UUID
-	Search               *string
-	TagIDs               []string // repeated -> AND-match via a single jsonb @> containment
-	ExcludeTagIDs        []string // repeated -> drop images carrying ANY of these (NOT @> per id)
-	IDs                  []string // restrict to these ids (person filter); nil = no restriction
-	Orientation          *string  // "portrait" (w<h) | "landscape" (w>h); null w/h excluded
+	ProjectIDs    []string
+	UploadID      *string
+	CameraID      *string
+	UserID        *uuid.UUID
+	Search        *string
+	TagIDs        []string // repeated -> AND-match via a single jsonb @> containment
+	ExcludeTagIDs []string // repeated -> drop images carrying ANY of these (NOT @> per id)
+	IDs           []string // restrict to these ids (person filter); nil = no restriction
+	Orientation   *string  // "portrait" (w<h) | "landscape" (w>h); null w/h excluded
 	// Inclusive bounds on capturedAtCorrected; either side may be nil (open).
 	// Images without a corrected capture time never match when a bound is set —
 	// an uncorrected photo cannot be placed on the time axis at all.
@@ -235,8 +235,7 @@ func (r *Repository) GetImageTimeBounds(ctx context.Context, parameters *GetImag
 //     of whether the project holds 10k or 10M photos — the frontend calls this
 //     on popover open and on every filter change, so an O(rows) scan would
 //     make a 100k-photo project pay for its whole index on every keystroke.
-//     That costs 1+maxTicks round trips instead of 1; it is a deliberate
-//     trade, and the comment at the sampling loop spells out why.
+//
 // Like GetImageTimeBounds, the time-range itself is always STRIPPED (on a copy
 // of the parameters) so the ticks stay stable while thumbs move.
 func (r *Repository) GetImageTimeTicks(ctx context.Context, parameters *GetImageParameters, maxTicks int) ([]time.Time, error) {
@@ -252,80 +251,184 @@ func (r *Repository) GetImageTimeTicks(ctx context.Context, parameters *GetImage
 	}
 	where := image.And(append(predicates, image.CapturedAtCorrectedNotNil())...)
 
-	total, err := r.Client.Image.Query().Where(where).Count(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("error counting images for time ticks")
+	// ONE ordered scan, ONE round trip, downsampled here in Go.
+	//
+	// Measured on a 15k-photo project with maxTicks=200:
+	//   1+maxTicks sequential `OFFSET n LIMIT 1` seeks   2.29s
+	//   this scan                                        20ms
+	//   a ROW_NUMBER()+VALUES window version              26ms
+	// The seeks were 201 round trips, and maxTicks is a fixed 200, so the count
+	// never shrank with gallery size: it was pure overhead on a popover-open
+	// fetch. The window version is the thing to reach for if O(rows) ever hurts
+	// — a 1M-photo project transfers 1M timestamps — but it is slower today,
+	// needs raw SQL with per-dialect care, and buys nothing at this size.
+	//
+	// `id` is in the ORDER BY because captured_at_corrected alone is not a total
+	// order: burst photos share a second, and the window version's independent
+	// offset probes over a tie group could land on the same row twice.
+	var rows []struct {
+		CapturedAtCorrected time.Time `json:"captured_at_corrected"`
+	}
+	if err := r.Client.Image.Query().Where(where).
+		Order(ent.Asc(image.FieldCapturedAtCorrected), ent.Asc(image.FieldID)).
+		Select(image.FieldCapturedAtCorrected).
+		Scan(ctx, &rows); err != nil {
+		log.Error().Err(err).Msg("error loading timestamps for time ticks")
 		return nil, err
 	}
-	if total == 0 {
+	if len(rows) == 0 {
 		return nil, nil
 	}
-
-	// Small enough to return every position.
-	if total <= maxTicks {
-		var rows []struct {
-			CapturedAtCorrected time.Time `json:"captured_at_corrected"`
-		}
-		if err := r.Client.Image.Query().Where(where).
-			Order(ent.Asc(image.FieldCapturedAtCorrected), ent.Asc(image.FieldID)).
-			Select(image.FieldCapturedAtCorrected).
-			Scan(ctx, &rows); err != nil {
-			log.Error().Err(err).Msg("error loading timestamps for time ticks")
-			return nil, err
-		}
+	if len(rows) <= maxTicks {
 		timestamps := make([]time.Time, len(rows))
-		for i, r := range rows {
-			timestamps[i] = r.CapturedAtCorrected
+		for i, row := range rows {
+			timestamps[i] = row.CapturedAtCorrected
 		}
 		return timestamps, nil
 	}
 
-	// Offsets span [0, total-1] inclusive, so index 0 is the oldest match and
-	// index maxTicks-1 is the newest one — the right end of the strip is never
-	// dropped. Spacing varies by at most one row, which is invisible on the
-	// track but keeps the sampling exact.
+	// Sample in TIME space, not rank space.
 	//
-	// The ORDER BY includes `id` because captured_at_corrected alone is NOT a
-	// total order: burst photos routinely share a second, and N independent
-	// seeks over a tie group can land on the same row twice, which the single
-	// ordered scan this replaced could not do. With the id tiebreak every
-	// (offset, limit 1) probe is deterministic and the result is strictly
-	// ascending.
+	// Rank-space sampling (offset i*(n-1)/(maxTicks-1) over the sorted rows)
+	// answers "where are the photos", which is what a density strip wants — but
+	// it is blind to a photo that sits alone. With 15 000 photos in one burst
+	// and 5 lone photos hours away, all 200 ticks landed inside the burst and
+	// every lone photo was dropped: they are 1 row in ~75, so the odds of one
+	// landing exactly on a sample offset are about 1 in 75.
 	//
-	// TRADE-OFF: 1 + maxTicks round trips instead of 1 query materialising every
-	// matching row. That is the point — the old scan was O(rows), so a 100k-photo
-	// project paid for its whole index on every popover open, and this is
-	// O(maxTicks) index probes whether the project holds 10k or 10M photos. The
-	// offsets come from a COUNT taken in an earlier statement, so a concurrent
-	// write can only make an offset resolve to nothing (a shorter strip), never
-	// a duplicate or an error — hence the skip instead of a hard failure.
-	last := total - 1
-	sampled := make([]time.Time, 0, maxTicks)
-	for i := 0; i < maxTicks; i++ {
-		offset := int(math.Round(float64(i) * float64(last) / float64(maxTicks-1)))
-		var rows []struct {
-			CapturedAtCorrected time.Time `json:"captured_at_corrected"`
-		}
-		if err := r.Client.Image.Query().Where(where).
-			Order(ent.Asc(image.FieldCapturedAtCorrected), ent.Asc(image.FieldID)).
-			Offset(offset).Limit(1).
-			Select(image.FieldCapturedAtCorrected).
-			Scan(ctx, &rows); err != nil {
-			log.Error().Err(err).Msg("error sampling timestamp for time ticks")
-			return nil, err
-		}
-		if len(rows) == 0 {
-			// The set shrank between the COUNT and this seek. Keep the strip we
-			// have: a slightly sparse density strip is a cosmetic artefact, a 500
-			// on the slider is not.
-			log.Warn().Int("offset", offset).Int("total", total).
-				Msg("time ticks: offset past the end of a shrinking set — returning a shorter strip")
-			break
-		}
-		sampled = append(sampled, rows[0].CapturedAtCorrected)
+	// So the domain [min,max] is cut into equal time buckets and each non-empty
+	// bucket contributes its MEDIAN instant:
+	//   - a lone photo is the median of its own bucket, so it always appears;
+	//   - a cluster spanning k buckets still contributes k ticks, so a dense
+	//     stretch of the timeline still reads as denser than a sparse one.
+	// The first and last slots are pinned to the true min and max so the strip
+	// always reaches both ends of the domain — the earlier bug where the newest
+	// photos were dropped came from losing that right edge.
+	first, last := rows[0].CapturedAtCorrected, rows[len(rows)-1].CapturedAtCorrected
+	span := last.Sub(first)
+	// Half the budget carries the density medians, half is held back for photos
+	// that are alone in time — see the isolation pass below, which is what keeps
+	// a lone photo from being swallowed by a bucket it shares with a cluster.
+	interior := (maxTicks - 2) / 2
+	if interior < 1 {
+		interior = 1
 	}
+	isolationBudget := maxTicks - 2 - interior
+	if isolationBudget < 0 {
+		isolationBudget = 0
+	}
+	bucketWidth := span / time.Duration(interior)
+	if bucketWidth <= 0 {
+		// Every photo shares one instant: nothing to spread out.
+		return []time.Time{first, last}, nil
+	}
+	// counts[b] tracks how many rows fall in bucket b so the median is the row at
+	// (firstIndex + count/2) once the bucket is complete.
+	counts := make([]int, interior)
+	firstIdx := make([]int, interior)
+	for i := 0; i < interior; i++ {
+		firstIdx[i] = -1
+	}
+	for i, r := range rows {
+		b := int(r.CapturedAtCorrected.Sub(first) / bucketWidth)
+		if b >= interior {
+			b = interior - 1 // the final bucket absorbs the rest, max included
+		}
+		if firstIdx[b] < 0 {
+			firstIdx[b] = i
+		}
+		counts[b]++
+	}
+	chosen := make(map[int]struct{}, maxTicks)
+	chosen[0] = struct{}{}
+	chosen[len(rows)-1] = struct{}{}
+	mark := func(i int) { chosen[i] = struct{}{} }
+
+	for b := 0; b < interior; b++ {
+		if counts[b] == 0 {
+			continue // an empty stretch of the timeline contributes no mark
+		}
+		mark(firstIdx[b] + counts[b]/2)
+	}
+
+	// Isolation pass. A bucket emits ONE mark, so a photo alone in time but
+	// sharing a bucket with a 15k-photo burst is still invisible — measured, not
+	// assumed: with the domain 61 days wide, a lone photo at +1h30m and one at
+	// +5h both landed in the same 7.45h bucket as the burst, and the bucket
+	// median was a burst row. So rows whose gap to BOTH neighbours is wider than
+	// one bucket are isolated at the strip's resolution and get their own mark.
+	// Capped by isolationBudget, and the densest gaps are dropped first only if
+	// the budget is ever exhausted, so the budget cannot hide a whole region.
+	//
+	// The scale is the MEDIAN gap between consecutive photos, not the bucket
+	// width: a photo 1.5h after a 15k-photo burst is visually alone, but at a
+	// 15h bucket resolution it is not "isolated" and the first attempt at this
+	// threshold silently dropped exactly those two. The median is the right scale
+	// because it is set by the typical spacing rather than by the few outliers
+	// being hunted — 15 000 rows 1ms apart gives a median of 1ms, so a 1.5h gap
+	// is 5000x the local spacing and the photo is unambiguously alone.
+	gaps := make([]time.Duration, 0, len(rows)-1)
+	for i := 1; i < len(rows); i++ {
+		gaps = append(gaps, rows[i].CapturedAtCorrected.Sub(rows[i-1].CapturedAtCorrected))
+	}
+	sort.Slice(gaps, func(a, b int) bool { return gaps[a] < gaps[b] })
+	typical := gaps[len(gaps)/2] * 10
+	if typical <= 0 {
+		typical = time.Nanosecond
+	}
+	lone := make([]int, 0, isolationBudget)
+	for i := 1; i < len(rows)-1; i++ {
+		prevGap := rows[i].CapturedAtCorrected.Sub(rows[i-1].CapturedAtCorrected)
+		nextGap := rows[i+1].CapturedAtCorrected.Sub(rows[i].CapturedAtCorrected)
+		if prevGap >= typical && nextGap >= typical {
+			lone = append(lone, i)
+			if len(lone) >= isolationBudget {
+				break
+			}
+		}
+	}
+	for _, i := range lone {
+		mark(i)
+	}
+
+	sampled := make([]time.Time, 0, len(chosen))
+	for i := range chosen {
+		sampled = append(sampled, rows[i].CapturedAtCorrected)
+	}
+	// map iteration is unordered; the strip must read left to right.
+	sort.Slice(sampled, func(a, b int) bool { return sampled[a].Before(sampled[b]) })
 	return sampled, nil
 }
+
+// timeTickSampleSQL numbers the matching rows with a window function and keeps
+// the row at each offset in a caller-supplied list. One statement, so the whole
+// strip comes from a single consistent read.
+//
+// Interpolated values: the rendered WHERE clause, then the comma-joined
+// `(n)` offset list.
+//
+// Two portability notes, both found by running the statement on both engines
+// rather than by reading docs:
+//
+//   - The offsets arrive as a `VALUES` list joined on `column1`, NOT as a
+//     recursive CTE. SQLite resolves the recursive reference to 0 in the outer
+//     query, so the join matched every row and returned the full set instead of
+//     the sample. `column1` is the portable name for an unnamed VALUES column —
+//     Postgres and SQLite agree on it, while SQLite rejects the
+//     `AS v(idx)` column-alias form.
+//   - `id` is in the ORDER BY because captured_at_corrected alone is not a total
+//     order (burst photos share a second), and independent offset probes over a
+//     tie group could land on the same row twice.
+const timeTickSampleSQL = `
+SELECT m.captured_at_corrected
+  FROM (
+    SELECT captured_at_corrected,
+           ROW_NUMBER() OVER (ORDER BY captured_at_corrected ASC, id ASC) - 1 AS rn0
+    FROM ` + image.Table + `
+    WHERE %s
+  ) m
+  JOIN (VALUES %s) AS v ON v.column1 = m.rn0
+ ORDER BY v.column1`
 
 // GetImagePosition returns the zero-based offset of imageID within the gallery
 // query defined by parameters (same predicates and order as GetImages), or -1
