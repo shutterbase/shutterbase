@@ -206,13 +206,19 @@ func (r *Repository) GetImageTimeBounds(ctx context.Context, parameters *GetImag
 	}
 	if first != nil {
 		bounds.Min = first.CapturedAtCorrected
+		// Same race as the pick above: the whole matching set can be deleted
+		// between the two ordered statements, and NotFound here means exactly
+		// that. Mirror the (min) branch — a missing Max is a cosmetic gap in the
+		// slider domain, a 500 on the slider endpoint is not.
 		last, err := r.Client.Image.Query().Where(where).
 			Order(ent.Desc(image.FieldCapturedAtCorrected)).First(ctx)
-		if err != nil {
+		if err != nil && !ent.IsNotFound(err) {
 			log.Error().Err(err).Msg("error getting image time bounds (max)")
 			return nil, err
 		}
-		bounds.Max = last.CapturedAtCorrected
+		if last != nil {
+			bounds.Max = last.CapturedAtCorrected
+		}
 	}
 	return bounds, nil
 }
@@ -352,6 +358,18 @@ func (r *Repository) GetImagePosition(ctx context.Context, parameters *GetImageP
 	return -1, nil
 }
 
+// imageTagScope enumerates the tags a facet map can carry: every tag of every
+// project the COUNT above covers. It must mirror buildImagePredicates' project
+// precedence, which prefers ProjectIDs over ProjectID — the cross-project person
+// search sets BOTH, so reading ProjectID alone left the other projects' tags out
+// of the map and let a shared project's counts span every project in the search.
+func imageTagScope(parameters *GetImageParameters) predicate.ImageTag {
+	if len(parameters.ProjectIDs) > 0 {
+		return imagetag.ProjectIDIn(parameters.ProjectIDs...)
+	}
+	return imagetag.ProjectID(parameters.ProjectID)
+}
+
 // GetImageTagFacets returns the filter's own match count plus, per project tag,
 // how many of those matches also carry the tag — i.e. the result size if the tag
 // were added as an include filter. Tags matching zero images are omitted.
@@ -369,7 +387,7 @@ func (r *Repository) GetImageTagFacets(ctx context.Context, parameters *GetImage
 		log.Error().Err(err).Msg("error counting images for tag facets")
 		return 0, nil, err
 	}
-	tags, err := r.Client.ImageTag.Query().Where(imagetag.ProjectID(parameters.ProjectID)).All(ctx)
+	tags, err := r.Client.ImageTag.Query().Where(imageTagScope(parameters)).All(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("error loading project tags for facets")
 		return 0, nil, err
