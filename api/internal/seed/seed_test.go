@@ -3,6 +3,7 @@ package seed_test
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -115,8 +116,16 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, first.CapturedAtCorrected.Equal(m.TimeRangeStart), "first photo sits on the start boundary")
 	assert.True(t, last.CapturedAtCorrected.Equal(m.TimeRangeEnd), "last photo sits on the end boundary")
-	// Untagged by design: capture time must be the only varying dimension.
-	assert.Empty(t, first.QueryImageTagAssignments().AllX(ctx))
+	// Untagged by design: capture time must be the only varying dimension. All
+	// eight, not just the first — the invariant is about the cluster, and the
+	// seeder skips rows it cannot date, so a later photo is exactly the one that
+	// could quietly pick up a tag.
+	for _, id := range m.TimeRangeImages {
+		img, err := c.Image.Get(ctx, id)
+		require.NoError(t, err)
+		assert.Empty(t, img.QueryImageTagAssignments().AllX(ctx),
+			"cluster photo %s must carry no tag assignments", img.ComputedFileName)
+	}
 
 	freshOff, err := c.TimeOffset.Get(ctx, m.Offsets["fresh"])
 	require.NoError(t, err)
@@ -138,5 +147,86 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 		u, err := c.User.Get(ctx, id)
 		require.NoError(t, err)
 		assert.NotEmpty(t, u.CopyrightTag, "seeded user %s needs a copyrightTag", key)
+	}
+}
+
+// The `internal` tag is what keeps a photo out of slideshows and EXIF exports,
+// and both the gallery filter (buildImagePredicates -> sqljson.ValueContains) and
+// ToImageResponse read the denormalized images.imageTags jsonb — never the
+// assignment rows. Seeding image 2's `internal` ROW without adding it to the jsonb
+// therefore made the tag invisible to the whole app: the row existed, the
+// property did not hold.
+func TestSeedInternalTagIsInTheJSONBReadModel(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+	require.Len(t, m.Images, 11, "3 base + 8 cluster photos")
+	require.Len(t, m.TimeRangeImages, 8)
+	base := m.Images[:3]
+
+	internalTag := m.Tags["internal"]
+	require.NotEmpty(t, internalTag)
+
+	for i, id := range base {
+		img, err := c.Image.Get(ctx, id)
+		require.NoError(t, err)
+		rowTags := make([]string, 0)
+		for _, a := range img.QueryImageTagAssignments().AllX(ctx) {
+			rowTags = append(rowTags, a.ImageTagID)
+		}
+		inJSONB := slices.Contains(img.ImageTags, internalTag)
+		inRows := slices.Contains(rowTags, internalTag)
+		if i == 2 {
+			assert.True(t, inRows, "the last base image carries the internal assignment")
+			assert.True(t, inJSONB, "the internal tag must be in the jsonb read-model or the app cannot filter on it")
+		} else {
+			assert.False(t, inRows, "base image %d is not internal", i)
+			assert.False(t, inJSONB, "base image %d must not carry the internal tag", i)
+		}
+		assert.ElementsMatch(t, rowTags, img.ImageTags,
+			"the jsonb read-model and the assignment rows must agree for %s", img.ComputedFileName)
+	}
+}
+
+// The cluster start used to be built as local midnight + 23h55m — an ABSOLUTE
+// duration. On the two days a year when Europe's transition falls inside the
+// 23:55→00:10 span that arithmetic lands the cluster at 00:55→01:10 (spring) or
+// 22:55→23:10 (autumn), and every midnight-crossing assertion in this file fails
+// twice a year. referenceNow values are pinned to the days either side of the
+// 2026 transitions, so the regression is deterministic rather than seasonal.
+func TestSeedTimeRangeClusterCrossesMidnightOnDSTTransitionDays(t *testing.T) {
+	berlin, err := time.LoadLocation(seed.TimeRangeZone)
+	require.NoError(t, err, "time/tzdata is embedded, so the zone must resolve")
+
+	for _, tc := range []struct {
+		name string
+		ref  time.Time
+	}{
+		// Yesterday is 2026-03-29, the day Berlin springs forward at 02:00
+		// CET→03:00 CEST, so local midnight + 23h55m walks into the gap and lands
+		// the cluster at 00:55→01:10 instead of 23:55→00:10.
+		{"spring forward", time.Date(2026, 3, 30, 12, 0, 0, 0, time.UTC)},
+		// Yesterday is 2026-10-25, the day Berlin falls back at 03:00
+		// CEST→02:00 CET, so the same arithmetic lands the cluster one hour early
+		// at 22:55→23:10 and it no longer crosses midnight at all.
+		{"fall back", time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			c := sqliteClient(t)
+			m, err := seed.Seed(ctx, c, tc.ref)
+			require.NoError(t, err)
+
+			require.Len(t, m.TimeRangeImages, 8)
+			assert.Equal(t, 15*time.Minute, m.TimeRangeEnd.Sub(m.TimeRangeStart))
+			startLocal := m.TimeRangeStart.In(berlin)
+			assert.Equal(t, 23, startLocal.Hour(), "cluster must start at 23:00 local on the day before referenceNow")
+			assert.Equal(t, 55, startLocal.Minute())
+			endLocal := m.TimeRangeEnd.In(berlin)
+			assert.Equal(t, 0, endLocal.Hour(), "cluster must end at 00:00 local the next day")
+			assert.Equal(t, 10, endLocal.Minute())
+			assert.NotEqual(t, startLocal.YearDay(), endLocal.YearDay(), "cluster crosses midnight")
+		})
 	}
 }

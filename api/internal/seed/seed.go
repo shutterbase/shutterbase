@@ -9,6 +9,7 @@ package seed
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -245,6 +246,15 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 		capturedAt := freshCameraTime.Add(time.Duration(i) * time.Second)
 		corrected := capturedAt.Add(Drift)
 		storageID := fmt.Sprintf("seedimg%08d", i)
+		// The denormalized jsonb must mirror the assignment rows written below.
+		// The gallery filter (buildImagePredicates -> sqljson.ValueContains) and
+		// ToImageResponse read the jsonb, NEVER the assignment rows, so an
+		// `internal` row left out of the list is a tag the app cannot see and the
+		// "never in a slideshow or an EXIF export" property silently does not hold.
+		jsonb := []string{defaultTag}
+		if i == 2 {
+			jsonb = append(jsonb, m.Tags["internal"])
+		}
 		img, err := client.Image.Create().
 			SetFileName(fmt.Sprintf("DSC_%04d.jpg", i)).
 			SetComputedFileName(fmt.Sprintf("FSG_%04d.jpg", i)).
@@ -254,7 +264,7 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 			SetHeight(4000).
 			SetCapturedAt(capturedAt).
 			SetCapturedAtCorrected(corrected).
-			SetImageTags([]string{defaultTag}).
+			SetImageTags(jsonb).
 			SetUserID(editor).
 			SetUploadID(upload.ID).
 			SetProjectID(project.ID).
@@ -318,8 +328,12 @@ func SeedTimeRangeCluster(ctx context.Context, client *ent.Client, m *Manifest, 
 		loc = time.UTC
 	}
 	local := referenceNow.In(loc)
-	yesterdayMidnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -1)
-	start := yesterdayMidnight.Add(23*time.Hour + 55*time.Minute)
+	yesterday := local.AddDate(0, 0, -1)
+	// Built from wall-clock components, NOT as midnight + 23h55m. The latter is
+	// an absolute duration, so on the two days a year when the transition falls
+	// inside the 23:55→00:10 span the cluster lands at 00:55→01:10 (spring) or
+	// 22:55→23:10 (autumn) and every midnight-crossing assertion fails.
+	start := time.Date(yesterday.Year(), yesterday.Month(), yesterday.Day(), 23, 55, 0, 0, loc)
 
 	// Captured instants of the photos as they end up in the database (see the
 	// assignment at the end of the loop).
@@ -353,15 +367,23 @@ func SeedTimeRangeCluster(ctx context.Context, client *ent.Client, m *Manifest, 
 		if img.CapturedAtCorrected == nil {
 			// A pre-existing FSG_90xx row with no corrected time: the column is
 			// optional, so a hand-edited or partially migrated database can hold
-			// one. The cluster's whole point is its capture times, so there is
-			// nothing to report — skip it rather than dereference nil.
+			// one. Every other index is skippable — capture time stays the only
+			// varying dimension. Index 0 is not: TimeRangeStart is the cluster's
+			// real start boundary, and silently promoting index 1's instant into
+			// its name would point a time-range filter at an instant no photo was
+			// captured at.
+			if i == 0 {
+				return fmt.Errorf("time-range fixture %s (index 0) has no corrected capture time — the cluster's start boundary cannot be reported", computed)
+			}
 			log.Warn().Str("computedFileName", computed).Int("index", i).
 				Msg("time-range fixture has no corrected capture time — skipping")
 			continue
 		}
 		m.TimeRangeImages = append(m.TimeRangeImages, img.ID)
 		m.Images = append(m.Images, img.ID)
-		if firstInstant.IsZero() {
+		// Gated on the INDEX, not on "is this the first one I kept": the manifest
+		// documents TimeRangeStart as the first photo's instant and tests pin it.
+		if i == 0 {
 			firstInstant = *img.CapturedAtCorrected
 		}
 		lastInstant = *img.CapturedAtCorrected
@@ -388,7 +410,23 @@ func EnsureTimeRangeFixtures(ctx context.Context, client *ent.Client, referenceN
 		return nil, fmt.Errorf("find seeded editor: %w", err)
 	}
 
-	up, err := client.Upload.Query().Where(upload.UserID(editor.ID)).Order(ent.Desc(upload.FieldCreatedAt)).First(ctx)
+	if editor.ActiveProjectID == nil {
+		// No active project means every image insert below would carry an empty
+		// project_id and die on the foreign key. Treat it like "no fixture
+		// context" so the caller reports it instead of crashing on an FK.
+		return nil, nil //nolint:nilnil
+	}
+	activeProject := *editor.ActiveProjectID
+
+	// Scoped to the ACTIVE project. The query used to take the editor's newest
+	// upload whatever its project, while m.Project came from the editor's active
+	// project: a cross-project editor then produced cluster images with
+	// project_id = active project but upload_id — and with it the upload's camera —
+	// from a different project. Same FK-satisfying, semantically wrong row.
+	up, err := client.Upload.Query().
+		Where(upload.UserID(editor.ID), upload.ProjectID(activeProject)).
+		Order(ent.Desc(upload.FieldCreatedAt)).
+		First(ctx)
 	if ent.IsNotFound(err) {
 		return nil, nil //nolint:nilnil
 	} else if err != nil {
@@ -403,14 +441,8 @@ func EnsureTimeRangeFixtures(ctx context.Context, client *ent.Client, referenceN
 		Offsets:      map[string]string{},
 		Roles:        map[string]string{},
 		Upload:       up.ID,
+		Project:      activeProject,
 	}
-	if editor.ActiveProjectID == nil {
-		// No active project means every image insert below would carry an empty
-		// project_id and die on the foreign key. Treat it like "no fixture
-		// context" so the caller reports it instead of crashing on an FK.
-		return nil, nil //nolint:nilnil
-	}
-	m.Project = *editor.ActiveProjectID
 	cam, err := client.Camera.Get(ctx, up.CameraID)
 	if err != nil {
 		return nil, fmt.Errorf("get seed camera %s: %w", up.CameraID, err)
@@ -567,6 +599,83 @@ func drawExtraTags(rng *rand.Rand, pool []string, n int) []string {
 	return picked
 }
 
+// photoExtras draws one photo's whole extra-tag set: the documented 30/50/20
+// count split AND n distinct tags, both off ONE stream.
+//
+// The count used to be drawn from a second rng re-seeded with the same value as
+// the one the tags came from, so extraTagCount and drawExtraTags each consumed
+// the SAME first Intn(10) of a 10-element pool. Measured over 20000 indices
+// that left a 1-extra photo's first tag with 3 reachable pool indices and a
+// 3-extra photo's with 2, so whole facets of the tag pool were unreachable.
+func photoExtras(rng *rand.Rand, pool []string) []string {
+	return drawExtraTags(rng, pool, extraTagCount(rng))
+}
+
+// hashSeed is FNV-1a over the prefix BYTES followed by the index, folded through
+// a SplitMix64 finalizer.
+func hashSeed(prefix string, index uint64) int64 {
+	const (
+		offset64 = 14695981039346656037
+		prime64  = 1099511628211
+	)
+	h := uint64(offset64)
+	for i := 0; i < len(prefix); i++ {
+		h = (h ^ uint64(prefix[i])) * prime64
+	}
+	h = (h ^ index) * prime64
+	// FNV-1a's low bits depend on only a few input bytes, so fold the high half
+	// back down before handing the word to math/rand.
+	h ^= h >> 33
+	h *= 0xff51afd7ed558ccd
+	h ^= h >> 33
+	h *= 0xff51afd7ed558ccd
+	h ^= h >> 33
+	return int64(h)
+}
+
+// indexSeed derives a stable per-photo seed. The prefix keeps the two load
+// seeders' streams independent even though both index from 0 — and it is hashed
+// by its BYTES, so "W" and "LW" cannot collide. The old term was
+// index*1_000_003 + len(prefix): prefixes of equal length produced literally
+// the same stream, which is exactly the independence the comment claims.
+func indexSeed(prefix string, index int) int64 {
+	return hashSeed(prefix, uint64(index))
+}
+
+// idSeed derives a per-image seed from an image's id STRING.
+//
+// The LENGTH is useless here: StringIDMixin is field.String("id").MaxLen(15), so
+// len(id) == 15 for EVERY image and seeding on it handed the whole project one
+// stream — every photo drew the identical extra-tag set, the documented
+// 30/50/20 split collapsed to 0/100/0 and eight of the ten tags sat on zero
+// images. The id VALUE is unique per row, so hash its bytes instead.
+func idSeed(id string) int64 {
+	return hashSeed(id, 0)
+}
+
+// burstSeed derives the stream for slot `slot` inside burst `burstIdx`. The two
+// indices are packed into one word rather than folded into a single int, so no
+// burst can spill into another burst's slots however large the counts get.
+func burstSeed(burstIdx, slot int) int64 {
+	return hashSeed("LWB", uint64(uint32(burstIdx))<<32|uint64(uint32(slot)))
+}
+
+// requireDefaultTag resolves the Default tag id the load seeders denormalize onto
+// every photo.
+//
+// An empty id is NOT recoverable the way it is for the assignment backfill, where
+// "" means "Default is expected to be absent": here the image jsonb would carry
+// "" too, and the empty-string foreign key aborts a whole 500-row chunk with an
+// opaque constraint error. Fail up front with a message that names the cause —
+// the usual source is a manifest merged from a hand-edited file whose project has
+// no Default tag.
+func requireDefaultTag(tags map[string]string) (string, error) {
+	if id := tags["Default"]; id != "" {
+		return id, nil
+	}
+	return "", errors.New("no \"Default\" tag in the manifest — the seed project is missing its Default tag, or the manifest was merged from a hand-edited file")
+}
+
 // existingFileNames maps every already-present name to its image id, so an
 // idempotent re-run skips them in ONE query per chunk and still knows the id it
 // needs for the manifest and the tag backfill — no per-photo lookup afterwards.
@@ -623,7 +732,10 @@ func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, refe
 	if count <= 0 {
 		count = 10000
 	}
-	defaultTag := m.Tags["Default"]
+	defaultTag, err := requireDefaultTag(m.Tags)
+	if err != nil {
+		return fmt.Errorf("seed week of photos: %w", err)
+	}
 	freshCam := m.Cameras["fresh"]
 	editor := m.Users["projectEditor"]
 	upload := m.Upload
@@ -680,7 +792,7 @@ func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, refe
 	// appending tags until every photo carried all ten.
 	extras := make([][]string, count)
 	for i := range count {
-		extras[i] = drawExtraTags(rngFor(indexSeed("W", i)), extraTags, extraTagCount(rngFor(indexSeed("W", i))))
+		extras[i] = photoExtras(rngFor(indexSeed("W", i)), extraTags)
 	}
 
 	batch := make([]int, 0, seedBulkChunk)
@@ -759,12 +871,6 @@ func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, refe
 	return flush()
 }
 
-// indexSeed derives a stable per-photo seed. The prefix keeps the two load
-// seeders' streams independent even though both index from 0.
-func indexSeed(prefix string, index int) int64 {
-	return int64(index)*1_000_003 + int64(len(prefix))
-}
-
 func rngFor(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
 
 // inTx runs fn inside a transaction, committing on success and rolling back on
@@ -784,7 +890,17 @@ func inTx(ctx context.Context, client *ent.Client, fn func(*ent.Tx) error) error
 // createTagAssignments writes the Default + extra assignment rows for a brand
 // new image and rebuilds its jsonb read-model. Duplicates within the batch were
 // already removed by drawExtraTags.
+//
+// defaultTag must be non-empty. The sibling assignMissingTagAssignments reads ""
+// as "Default is expected to be absent" and skips it, which is right for a
+// backfill of an existing photo but not here: the caller denormalizes the same
+// id into the image's jsonb, so "" would be written into both the assignment
+// row's foreign key and the read model, and the empty-string FK aborts the whole
+// chunk. Say so plainly instead of surfacing a constraint error.
 func createTagAssignments(ctx context.Context, tx *ent.Tx, imageID string, defaultTag string, extra []string) error {
+	if defaultTag == "" {
+		return fmt.Errorf("create tag assignments for image %s: no Default tag id — refusing to write an empty-string foreign key", imageID)
+	}
 	builders := make([]*ent.ImageTagAssignmentCreate, 0, len(extra)+1)
 	builders = append(builders, tx.ImageTagAssignment.Create().
 		SetType(imagetagassignment.TypeDefault).
@@ -900,20 +1016,43 @@ func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ref
 		skip[id] = struct{}{}
 	}
 
-	// Per-image tag set, derived from the image id rather than a running rng:
-	// cmd/seed passes a fresh time.Now() on every run, so a stateful draw chose
-	// a different set each time and kept appending tags until every photo
-	// carried all ten.
+	// Per-image tag set, derived from the image id's VALUE rather than from a
+	// running rng: cmd/seed passes a fresh time.Now() on every run, so a stateful
+	// draw chose a different set each time and kept appending tags until every
+	// photo carried all ten. All the draws are made up front so the writes below
+	// can be batched.
+	type target struct {
+		id    string
+		extra []string
+	}
+	targets := make([]target, 0, len(images))
 	for _, img := range images {
 		if _, excluded := skip[img.ID]; excluded {
 			continue
 		}
-		rng := rngFor(int64(len(img.ID)))
-		extra := drawExtraTags(rng, extraTags, extraTagCount(rng))
+		targets = append(targets, target{id: img.ID, extra: photoExtras(rngFor(idSeed(img.ID)), extraTags)})
+	}
+
+	// One tx per chunk instead of one per photo. This used to be a BEGIN /
+	// SELECT / INSERT / UPDATE / COMMIT for every image — and rebuildImageTagsJSON
+	// adds a SELECT + UPDATE inside each of those — so a 15k-photo project paid
+	// 15k transactions and 45k round trips. Mirrors the chunked pattern the load
+	// seeders already use. A chunk that fails leaves its photos untagged, which
+	// assignMissingTagAssignments makes safe to resume.
+	for start := 0; start < len(targets); start += seedBulkChunk {
+		chunk := targets[start:min(start+seedBulkChunk, len(targets))]
 		if err := inTx(ctx, client, func(tx *ent.Tx) error {
-			return assignMissingTagAssignments(ctx, tx, img.ID, "", extra)
+			for _, t := range chunk {
+				// defaultTag is "" on purpose: these photos already carry their
+				// Default assignment, and re-adding it would be a guaranteed
+				// conflict.
+				if err := assignMissingTagAssignments(ctx, tx, t.id, "", t.extra); err != nil {
+					return fmt.Errorf("assign extra tags to image %s: %w", t.id, err)
+				}
+			}
+			return nil
 		}); err != nil {
-			return fmt.Errorf("assign extra tags to image %s: %w", img.ID, err)
+			return err
 		}
 	}
 	return nil
@@ -929,7 +1068,10 @@ func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, re
 	if count <= 0 {
 		count = 5000
 	}
-	defaultTag := m.Tags["Default"]
+	defaultTag, err := requireDefaultTag(m.Tags)
+	if err != nil {
+		return fmt.Errorf("seed last week photos: %w", err)
+	}
 	freshCam := m.Cameras["fresh"]
 	editor := m.Users["projectEditor"]
 	upload := m.Upload
@@ -963,22 +1105,32 @@ func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, re
 	}
 
 	weekStart := referenceNow.AddDate(0, 0, -7)
-	rng := rand.New(rand.NewSource(referenceNow.UnixNano() + 42))
 
 	// Generate organic timestamps: cluster around "events" (5 per day)
 	// Each event produces a burst of photos over 30-90 minutes.
+	//
+	// INVARIANT: nothing in the layout is drawn from the wall clock. Every burst
+	// gets its own stream, keyed by (day, event), so the layout for indices
+	// 0..N-1 depends only on the window — never on when the seeder ran, and
+	// never on the order the draws happen to come out in. The previous single rng
+	// was seeded from referenceNow.UnixNano(), so `--last-week 200` at 10:00 and
+	// `--last-week 700` at 11:00 redrew the whole layout and a top-up was not a
+	// superset of a single 700 run. (Which burst photo i lands in does depend on
+	// the final count, since the per-burst counts are an apportionment of it —
+	// but for a GIVEN count the layout and every instant are now reproducible.)
 	type burst struct {
 		center   time.Time
 		duration time.Duration
 		count    int
 	}
+	// Events favor golden hours: 6-9am, 5-8pm, plus some midday
+	goldenHours := [5]int{7, 8, 17, 18, 12}
 	var bursts []burst
 	for d := 0; d < 7; d++ {
 		dayStart := weekStart.AddDate(0, 0, d)
-		for e := 0; e < 5; e++ {
-			// Events favor golden hours: 6-9am, 5-8pm, plus some midday
-			hour := []int{7, 8, 17, 18, 12}[e]
-			center := dayStart.Add(time.Duration(hour)*time.Hour + time.Duration(rng.Intn(60))*time.Minute)
+		for e := range goldenHours {
+			rng := rngFor(indexSeed("LWL", d*len(goldenHours)+e))
+			center := dayStart.Add(time.Duration(goldenHours[e])*time.Hour + time.Duration(rng.Intn(60))*time.Minute)
 			duration := time.Duration(30+rng.Intn(60)) * time.Minute
 			burstCount := 10 + rng.Intn(40) // 10-50 photos per burst
 			bursts = append(bursts, burst{center: center, duration: duration, count: burstCount})
@@ -1012,10 +1164,13 @@ func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, re
 		bursts[i].count = int(scaled[i])
 		assigned += bursts[i].count
 	}
-	// Largest-remainder order: hand the leftover photos to the bursts with the
-	// biggest fractional claim first, and take them back from the smallest
-	// claims. Both passes walk the same permutation, so this converges in at
-	// most len(bursts) steps and the total is exactly `count`.
+	// Largest-remainder apportionment: the floors above lose up to one photo per
+	// burst, so hand the leftovers to the bursts with the biggest fractional
+	// claim first. sum(scaled) == count, so the floors can only ever UNDER-count
+	// and a decrement is unreachable — the old `else if` branch was dead code
+	// that made the loop look self-correcting when it cannot overshoot. Walking
+	// the permutation once is enough: the leftovers are the fractional parts,
+	// fewer than len(bursts) of them.
 	sort.SliceStable(order, func(a, b int) bool {
 		return math.Mod(scaled[order[a]], 1) > math.Mod(scaled[order[b]], 1)
 	})
@@ -1023,13 +1178,8 @@ func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, re
 		if assigned == count {
 			break
 		}
-		if assigned < count {
-			bursts[i].count++
-			assigned++
-		} else if bursts[i].count > 0 {
-			bursts[i].count--
-			assigned--
-		}
+		bursts[i].count++
+		assigned++
 	}
 
 	// Precompute the whole batch so the photos land in ONE set of bulk inserts
@@ -1038,10 +1188,12 @@ func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, re
 	correcteds := make([]time.Time, 0, count)
 	extras := make([][]string, 0, count)
 	imgIdx := 0
-	for _, b := range bursts {
-		for j := 0; j < b.count && imgIdx < count; j++ {
-			// Photos distributed around burst center with slight skew toward start
-			offset := time.Duration(rng.Float64()*float64(b.duration)) - b.duration/2
+	for bIdx, b := range bursts {
+		for slot := 0; slot < b.count && imgIdx < count; slot++ {
+			// Photos distributed around burst center with slight skew toward
+			// start, drawn from the (burst, slot) stream — not a running one, for
+			// the same reason as the layout above.
+			offset := time.Duration(rngFor(burstSeed(bIdx, slot)).Float64()*float64(b.duration)) - b.duration/2
 			corrected := b.center.Add(offset)
 			if corrected.Before(weekStart) {
 				corrected = weekStart
@@ -1051,7 +1203,9 @@ func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, re
 			}
 			names = append(names, fmt.Sprintf("FSG_LW%05d.jpg", imgIdx))
 			correcteds = append(correcteds, corrected)
-			extras = append(extras, drawExtraTags(rng, extraTags, extraTagCount(rng)))
+			// Keyed on the PHOTO's index, not the slot: the tag set must not shift
+			// when the same photo is reached through a different count.
+			extras = append(extras, photoExtras(rngFor(indexSeed("LW", imgIdx)), extraTags))
 			imgIdx++
 		}
 	}

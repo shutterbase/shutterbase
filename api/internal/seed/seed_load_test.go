@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,19 +47,28 @@ func loadPhotos(t *testing.T, c *ent.Client, prefix string) []*ent.Image {
 //     assignment rows — a seeder that writes assignments without rebuilding it
 //     produces tags the app cannot see.
 func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
+	// 500 per seeder: the per-bucket tag-coverage check below needs ~150 photos
+	// per extra-count bucket before a legitimately uniform draw is safe from
+	// flaking.
+	const perSeeder = 500
+
 	ctx := context.Background()
 	c := sqliteClient(t)
 	m, err := seed.Seed(ctx, c, time.Now())
 	require.NoError(t, err)
 	now := time.Now()
 
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now, 300))
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, now, 250))
+	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now, perSeeder))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, now, perSeeder))
 
 	week := loadPhotos(t, c, "FSG_W")
 	lastWeek := loadPhotos(t, c, "FSG_LW")
-	assert.Len(t, week, 300, "--week N must seed exactly N photos")
-	assert.Len(t, lastWeek, 250, "--last-week N must seed exactly N photos")
+	// require, not assert: every count-derived assertion below (the 30/50/20
+	// split, the per-bucket tag coverage) is only meaningful on the exact
+	// requested population, and a short set cascades into a wall of unrelated
+	// failures instead of stopping at the count regression.
+	require.Len(t, week, perSeeder, "--week N must seed exactly N photos")
+	require.Len(t, lastWeek, perSeeder, "--last-week N must seed exactly N photos")
 
 	all := make([]*ent.Image, 0, len(week)+len(lastWeek))
 	all = append(all, week...)
@@ -74,6 +84,10 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	// constraint error, so the photo silently ended up with fewer tags.
 	defaultTag := m.Tags["Default"]
 	extraByCount := map[int]int{}
+	pool := make([]string, 0, 10)
+	for n := 0; n < 10; n++ {
+		pool = append(pool, m.Tags[fmt.Sprintf("Tag%02d", n)])
+	}
 	for _, img := range all {
 		require.NotEmpty(t, img.ImageTags, "imageTags jsonb must be populated")
 		assert.Contains(t, img.ImageTags, defaultTag, "Default must be in the jsonb read-model")
@@ -88,20 +102,59 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 		assert.LessOrEqual(t, extra, 3, "Default + at most three extra tags")
 		extraByCount[extra]++
 	}
-	// Over 550 photos the documented 30/50/20 split is unambiguous. A constant
+	// Over 1000 photos the documented 30/50/20 split is unambiguous. A constant
 	// draw (always 1 extra tag) would put everything in extraByCount[1].
-	assert.Greater(t, extraByCount[1], 100, "some photos carry exactly 1 extra tag")
-	assert.Greater(t, extraByCount[2], 200, "some photos carry exactly 2 extra tags")
-	assert.Greater(t, extraByCount[3], 50, "some photos carry exactly 3 extra tags")
+	assert.Greater(t, extraByCount[1], 200, "some photos carry exactly 1 extra tag")
+	assert.Greater(t, extraByCount[2], 400, "some photos carry exactly 2 extra tags")
+	assert.Greater(t, extraByCount[3], 100, "some photos carry exactly 3 extra tags")
+
+	// …and WHICH tags matters just as much as how many, checked PER SEEDER. The
+	// count and the first tag used to be drawn from two rngs seeded with the same
+	// value, so both consumed the same first Intn(10) of a 10-element pool: a
+	// 1-extra photo's single tag was confined to 3 of the 10 entries and a
+	// 3-extra photo's to 2. Seven pool tags were unreachable for those photos.
+	// Merging both seeders into one bucket map would hide exactly that — the
+	// healthy seeder covers the dead one's gaps.
+	for _, group := range []struct {
+		name  string
+		imgs  []*ent.Image
+		share string
+	}{
+		{"FSG_W", week, "week"},
+		{"FSG_LW", lastWeek, "last-week"},
+	} {
+		bucketsUsed := map[int]map[string]int{}
+		counts := map[int]int{}
+		for _, img := range group.imgs {
+			extra := len(img.ImageTags) - 1
+			counts[extra]++
+			if bucketsUsed[extra] == nil {
+				bucketsUsed[extra] = map[string]int{}
+			}
+			for _, tagID := range img.ImageTags {
+				if tagID != defaultTag {
+					bucketsUsed[extra][tagID]++
+				}
+			}
+		}
+		for n := 1; n <= 3; n++ {
+			require.Positive(t, counts[n], "%s: no photos with %d extra tags", group.name, n)
+			for _, tagID := range pool {
+				assert.Positive(t, bucketsUsed[n][tagID],
+					"%s: tag %s never appears on a photo with %d extra tag(s) — the draw is not uniform over the pool",
+					group.share, tagID, n)
+			}
+		}
+	}
 
 	// Re-run: same photo count, and no duplicate assignments anywhere.
 	countsBefore := make(map[string]int, len(week))
 	for _, img := range week {
 		countsBefore[img.ID] = assignmentCount(t, c, img.ID)
 	}
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now, 300))
+	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now, perSeeder))
 	week2 := loadPhotos(t, c, "FSG_W")
-	assert.Len(t, week2, 300, "re-run stays idempotent")
+	require.Len(t, week2, perSeeder, "re-run stays idempotent")
 	for _, img := range week2 {
 		if before, ok := countsBefore[img.ID]; ok {
 			assert.Equal(t, before, assignmentCount(t, c, img.ID), "re-run adds no duplicate assignments")
@@ -112,13 +165,109 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	// to be seeded from referenceNow, and cmd/seed passes a fresh time.Now() on
 	// every run, so each re-run picked a different set and kept appending tags
 	// until every photo carried all ten.
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now.Add(72*time.Hour), 300))
+	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now.Add(72*time.Hour), perSeeder))
 	after := loadPhotos(t, c, "FSG_W")
-	require.Len(t, after, 300, "a later re-run adds no photos")
+	require.Len(t, after, perSeeder, "a later re-run adds no photos")
 	for _, img := range after {
 		assert.LessOrEqual(t, len(img.ImageTags), 4,
 			"re-running at a different wall clock must not append tags to %s", img.ComputedFileName)
 	}
+
+	// The same guard for the last-week seeder, which had the identical bug: its
+	// extras came off the single wall-clock-seeded rng, so every re-run at a new
+	// time appended up to 3 more tags per photo until all ten were present. It
+	// was invisible because only the week seeder was ever re-run here.
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, now.Add(72*time.Hour), perSeeder))
+	afterLW := loadPhotos(t, c, "FSG_LW")
+	require.Len(t, afterLW, perSeeder, "a later last-week re-run adds no photos")
+	for _, img := range afterLW {
+		assert.LessOrEqual(t, len(img.ImageTags), 4,
+			"re-running the last-week seeder at a different wall clock must not append tags to %s", img.ComputedFileName)
+	}
+}
+
+// The last-week seeder draws its whole burst layout AND its tag sets. Both used
+// to come off one rng seeded from referenceNow.UnixNano(), so the same
+// `--last-week N` at two different moments produced two different timelines: a
+// top-up was not a superset of a single larger run, and each re-run appended
+// tags. The invariant is that a photo's instant and its tag set depend only on
+// its index and the window.
+//
+// UTC reference instants keep the comparison honest: weekStart is derived with
+// AddDate, so a reference pair straddling a DST transition in the host's zone
+// would shift whole days by an hour and the instants would legitimately differ.
+func TestLastWeekLayoutIgnoresWallClock(t *testing.T) {
+	ctx := context.Background()
+	refA := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
+	refB := refA.Add(72 * time.Hour)
+
+	cA := sqliteClient(t)
+	mA, err := seed.Seed(ctx, cA, refA)
+	require.NoError(t, err)
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cA, mA, refA, 300))
+
+	cB := sqliteClient(t)
+	mB, err := seed.Seed(ctx, cB, refB)
+	require.NoError(t, err)
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, refB, 300))
+
+	byNameA := tagNameSetsByName(t, cA, mA, "FSG_LW")
+	byNameB := tagNameSetsByName(t, cB, mB, "FSG_LW")
+	require.Len(t, byNameA, 300)
+	require.Len(t, byNameB, 300)
+	for name, tagsA := range byNameA {
+		assert.Equal(t, tagsA, byNameB[name],
+			"a photo's tag set must not depend on the wall clock: %s", name)
+	}
+
+	// Instants: compare each photo's position WITHIN the seeded window, so the
+	// two 7-day windows 72h apart line up.
+	relA := relativeToWeekStart(t, loadPhotos(t, cA, "FSG_LW"), refA)
+	relB := relativeToWeekStart(t, loadPhotos(t, cB, "FSG_LW"), refB)
+	require.Len(t, relA, 300)
+	for name, offsetA := range relA {
+		require.Contains(t, relB, name)
+		assert.Equal(t, offsetA, relB[name],
+			"a photo's instant within the window must not depend on the wall clock: %s", name)
+	}
+}
+
+func relativeToWeekStart(t *testing.T, imgs []*ent.Image, referenceNow time.Time) map[string]time.Duration {
+	t.Helper()
+	weekStart := referenceNow.AddDate(0, 0, -7)
+	out := make(map[string]time.Duration, len(imgs))
+	for _, img := range imgs {
+		require.NotNil(t, img.CapturedAtCorrected, "%s has no corrected capture time", img.ComputedFileName)
+		out[img.ComputedFileName] = img.CapturedAtCorrected.Sub(weekStart)
+	}
+	return out
+}
+
+// The load seeders denormalize the Default tag into every photo's jsonb and into
+// every assignment row. A manifest merged from a hand-edited file — or a project
+// whose Default tag was deleted — resolves to the empty string, and both writes
+// then carry "" as a foreign key: an opaque constraint error that aborts the
+// whole 500-row chunk. The empty case has to be reported by name instead.
+func TestLoadSeedersRejectAnEmptyDefaultTag(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+	now := time.Now()
+	delete(m.Tags, "Default")
+
+	errWeek := seed.SeedWeekOfPhotos(ctx, c, m, now, 20)
+	require.Error(t, errWeek, "a manifest with no Default tag must fail loudly, not write an empty-string FK")
+	assert.Contains(t, errWeek.Error(), "Default", "the error must name the missing tag")
+
+	errLastWeek := seed.SeedLastWeekPhotos(ctx, c, m, now, 20)
+	require.Error(t, errLastWeek, "a manifest with no Default tag must fail loudly, not write an empty-string FK")
+	assert.Contains(t, errLastWeek.Error(), "Default", "the error must name the missing tag")
+
+	// Nothing may be half-written: the images are created inside the same tx as
+	// their assignments, so the failed chunk left nothing behind.
+	assert.Empty(t, loadPhotos(t, c, "FSG_W"), "the failed week chunk must not leave photos behind")
+	assert.Empty(t, loadPhotos(t, c, "FSG_LW"), "the failed last-week chunk must not leave photos behind")
 }
 
 // Growing the counts exercises the paths a single-chunk run never reaches: the
@@ -130,8 +279,8 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 // same (wrong) value, so they stay perfectly self-consistent. The invariant that
 // does catch it is that a photo's tag set is a function of its INDEX alone — it
 // does not depend on how many photos existed when the seeder ran. So: seed 700
-// in one shot on one database, seed 200-then-700 on another, and require the
-// overlapping photos to carry identical tag sets.
+// in one shot on one database, seed 200-then-700 on another, and require all 700
+// photos — the 200 the top-up inherited included — to carry identical tag sets.
 func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	ctx := context.Background()
 
@@ -155,6 +304,10 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 
 	// Compare by tag NAME, not id: each seed run mints fresh tag ids, so the raw
 	// id sets of two independent databases never match.
+	//
+	// EVERY photo is compared, including the 200 run B created in its first
+	// pass. The skip that used to sit here (`idx < 200`) excused exactly the
+	// overlapping photos the test exists to compare.
 	byNameA := tagNameSetsByName(t, cA, mA, "FSG_LW")
 	byNameB := tagNameSetsByName(t, cB, mB, "FSG_LW")
 	require.Len(t, byNameA, 700)
@@ -162,9 +315,6 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 
 	mismatched := 0
 	for name, tagsA := range byNameA {
-		if idx, ok := indexOfName(name); !ok || idx < 200 {
-			continue
-		}
 		if !slices.Equal(tagsA, byNameB[name]) {
 			mismatched++
 		}
@@ -231,6 +381,86 @@ func TestTagExistingPhotosRebuildsTheJSONBReadModel(t *testing.T) {
 	assert.Greater(t, grew, 0, "TagExistingPhotos must actually add tags, or this proves nothing")
 }
 
+// Every photo in the project must get its OWN tag set. The per-image stream was
+// seeded from len(img.ID), and StringIDMixin is field.String("id").MaxLen(15) —
+// so that value is 15 for EVERY image and the whole project shared one stream:
+// the documented 30/50/20 split collapsed and eight of the ten tags sat on zero
+// photos while the tenth landed on all of them. Seeding from the id VALUE fixes
+// it. This needs a population: the base fixtures are only 3 photos, and 3 draws
+// collide by chance too often for a test.
+func TestTagExistingPhotosVariesTagsPerImage(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+
+	const bare = 400
+	bareIDs := insertBareImages(t, c, m, bare)
+
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, time.Now()))
+
+	distinct := map[string]int{}
+	used := map[string]int{}
+	for _, id := range bareIDs {
+		img, err := c.Image.Get(ctx, id)
+		require.NoError(t, err)
+		tags := uniqueSorted(img.ImageTags)
+		require.Len(t, tags, assignmentCount(t, c, id), "jsonb must match the assignment rows for %s", img.ComputedFileName)
+		key := strings.Join(tags, ",")
+		distinct[key]++
+		for _, tagID := range tags {
+			used[tagID]++
+		}
+	}
+	// 400 photos over 175 possible (count, set) combinations: the expected number
+	// of distinct sets is ~157, so >50 has no flakiness, while the seeded-on-
+	// length bug produces exactly 1.
+	assert.Greater(t, len(distinct), 50,
+		"TagExistingPhotos must draw a different tag set per image; got %d distinct sets over %d photos", len(distinct), bare)
+	for n := 0; n < 10; n++ {
+		tagID := m.Tags[fmt.Sprintf("Tag%02d", n)]
+		require.NotEmpty(t, tagID, "Tag%02d must exist", n)
+		assert.Positive(t, used[tagID], "Tag%02d is on zero photos", n)
+	}
+}
+
+// insertBareImages adds `n` photos to the seeded project carrying no tag
+// assignments and no jsonb, so TagExistingPhotos is measured on images whose
+// whole tag set comes from its own draw. Bulk-inserted in batches: SQLite caps
+// the number of bound variables per statement, so one CreateBulk over a few
+// thousand images fails outright.
+func insertBareImages(t *testing.T, c *ent.Client, m *seed.Manifest, n int) []string {
+	t.Helper()
+	const batch = 500
+	ids := make([]string, 0, n)
+	for start := 0; start < n; start += batch {
+		build := make([]*ent.ImageCreate, 0, min(batch, n-start))
+		for i := start; i < min(start+batch, n); i++ {
+			build = append(build, c.Image.Create().
+				SetFileName(fmt.Sprintf("BARE_%05d.jpg", i)).
+				SetComputedFileName(fmt.Sprintf("FSG_B%05d.jpg", i)).
+				SetStorageId(fmt.Sprintf("seedbare%08d", i)).
+				SetSize(1024).
+				SetWidth(6000).
+				SetHeight(4000).
+				SetCapturedAt(time.Now()).
+				SetCapturedAtCorrected(time.Now()).
+				SetUserID(m.Users["projectEditor"]).
+				SetUploadID(m.Upload).
+				SetProjectID(m.Project).
+				SetCameraID(m.Cameras["fresh"]))
+		}
+		rows, err := c.Image.CreateBulk(build...).Save(context.Background())
+		require.NoError(t, err)
+		require.Len(t, rows, len(build))
+		for _, r := range rows {
+			ids = append(ids, r.ID)
+		}
+	}
+	require.Len(t, ids, n)
+	return ids
+}
+
 func findImage(in []*ent.Image, id string) *ent.Image {
 	for _, i := range in {
 		if i.ID == id {
@@ -238,14 +468,6 @@ func findImage(in []*ent.Image, id string) *ent.Image {
 		}
 	}
 	return nil
-}
-
-func indexOfName(name string) (int, bool) {
-	var n int
-	if _, err := fmt.Sscanf(name, "FSG_LW%05d.jpg", &n); err != nil {
-		return 0, false
-	}
-	return n, true
 }
 
 // tagNameSetsByName maps each photo's jsonb read-model to sorted tag NAMES, so
@@ -305,6 +527,80 @@ func TestLoadSeedersBelowBurstCountStillFill(t *testing.T) {
 		days[img.CapturedAtCorrected.Format("2006-01-02")] = struct{}{}
 	}
 	assert.Greater(t, len(days), 1, "photos must spread across days, not pile into the oldest")
+}
+
+// EnsureTimeRangeFixtures runs against a database it did not create (cmd/seed
+// re-seeds a live dev DB), so it resolves the fixture context by query. The
+// upload query had no project predicate while m.Project came from the editor's
+// ACTIVE project: an editor who also shoots in another project then produced
+// cluster images whose project_id and whose upload_id — and with it the
+// upload's camera — came from different projects. Every foreign key is
+// satisfied, so nothing fails; the rows are just wrong.
+func TestEnsureTimeRangeFixturesStaysInsideTheActiveProject(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+
+	// A newer upload by the same editor, in a DIFFERENT project.
+	other, err := c.Project.Create().
+		SetName("other").
+		SetDescription("other project").
+		SetCopyright("other team").
+		SetCopyrightReference("https://other.test").
+		SetLocationName("Elsewhere").
+		SetLocationCode("OTH").
+		SetLocationCity("Elsewhere").
+		Save(ctx)
+	require.NoError(t, err)
+	otherUpload, err := c.Upload.Create().
+		SetName("elsewhere").
+		SetProjectID(other.ID).
+		SetUserID(m.Users["projectEditor"]).
+		SetCameraID(m.Cameras["fresh"]).
+		Save(ctx)
+	require.NoError(t, err)
+	require.NotEqual(t, m.Upload, otherUpload.ID, "the cross-project upload must be the newer one")
+
+	// Clear the cluster so the run has to create photos, not find them.
+	_, err = c.Image.Delete().Where(image.ComputedFileNameHasPrefix("FSG_90")).Exec(ctx)
+	require.NoError(t, err)
+
+	ensured, err := seed.EnsureTimeRangeFixtures(ctx, c, time.Now())
+	require.NoError(t, err)
+	require.NotNil(t, ensured)
+	assert.Equal(t, m.Project, ensured.Project, "the project must be the editor's active one")
+	assert.Equal(t, m.Upload, ensured.Upload,
+		"the upload must come from the active project, not the editor's newest upload anywhere")
+	require.Len(t, ensured.TimeRangeImages, 8)
+	for _, id := range ensured.TimeRangeImages {
+		img, err := c.Image.Get(ctx, id)
+		require.NoError(t, err)
+		assert.Equal(t, ensured.Project, img.ProjectID, "cluster image %s is in the wrong project", img.ComputedFileName)
+		assert.Equal(t, ensured.Upload, img.UploadID, "cluster image %s hangs off the wrong upload", img.ComputedFileName)
+	}
+}
+
+// TimeRangeStart is the cluster's real start boundary and the time-range e2e
+// specs filter on it. FSG_9000 is the photo on that boundary, and
+// capturedAtCorrected is optional, so a hand-edited or partially migrated
+// database can hold one with no instant. The old code took the first NON-SKIPPED
+// photo's instant instead, quietly promoting index 1's to TimeRangeStart and
+// pointing every range filter at an instant nothing was captured at.
+func TestEnsureTimeRangeFixturesRejectsAnUndatedStartPhoto(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+	require.NotEmpty(t, m.TimeRangeImages)
+
+	_, err = c.Image.UpdateOneID(m.TimeRangeImages[0]).ClearCapturedAtCorrected().Save(ctx)
+	require.NoError(t, err)
+
+	ensured, err := seed.EnsureTimeRangeFixtures(ctx, c, time.Now())
+	require.Error(t, err, "an undated index 0 must not be papered over with the next photo's instant")
+	assert.Nil(t, ensured)
+	assert.Contains(t, err.Error(), "FSG_9000", "the error must name the offending fixture")
 }
 
 func uniqueSorted(in []string) []string {

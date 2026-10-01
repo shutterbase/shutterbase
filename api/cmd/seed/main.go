@@ -106,10 +106,20 @@ func main() {
 		// on-disk manifest has the project, users, roles, offsets and base
 		// images, so every write folds m into a fresh read of that file.
 		//
-		// A READ failure is fatal. The file is written with a plain
-		// os.WriteFile (not atomic) and a 15k-image manifest is multi-MB, so a
-		// crash mid-write leaves it truncated — writing an empty manifest over
-		// that would destroy exactly the data this merge exists to preserve.
+		// A MISSING or unreadable manifest is fatal, for the same reason and one
+		// step further along. The file is written with a plain os.WriteFile (not
+		// atomic) and a 15k-image manifest is multi-MB, so a crash mid-write
+		// leaves it truncated — and "not there at all" is that same failure seen
+		// a moment later. Writing an empty manifest over either would destroy
+		// exactly the data this merge exists to preserve: this branch got here
+		// because EnsureTimeRangeFixtures resolved a full fixture context, so
+		// the database plainly holds a base seed, and the subset-only write
+		// would publish a manifest without the project, users, roles, cameras,
+		// offsets or a single base image id. Rebuilding those fields from the DB
+		// would mean re-deriving the base seed's identities — the work
+		// seed.Seed does — inside a path whose whole purpose is merging into an
+		// existing file. So refuse and let the user re-seed from scratch, the
+		// same remedy the read failure already recommends.
 		flushManifest := func() {
 			full, err := seed.ReadManifest(manifestPath)
 			if err != nil {
@@ -117,8 +127,8 @@ func main() {
 					Msg("cannot read the existing manifest — refusing to overwrite it. Delete it to re-seed from scratch.")
 			}
 			if full == nil {
-				log.Warn().Str("manifest", manifestPath).Msg("no previous manifest found — writing the load-seeder subset only")
-				full = &seed.Manifest{}
+				log.Fatal().Str("manifest", manifestPath).
+					Msg("no manifest found — refusing to write the load-seeder subset alone. Delete it to re-seed from scratch.")
 			}
 			full.Merge(m)
 			if err := full.Write(manifestPath); err != nil {
@@ -162,17 +172,28 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("seed failed")
 	}
+	// After EVERY phase, exactly like the already-seeded path above: a later
+	// phase failing log.Fatal()s, and a manifest written only at the very end
+	// would leave every photo seeded so far — a `--week 10000` is 10k of them —
+	// on disk and in no manifest at all.
+	writeManifest := func() {
+		if err := manifest.Write(manifestPath); err != nil {
+			log.Fatal().Err(err).Msg("failed to write manifest")
+		}
+	}
 	if *weekCount > 0 {
 		log.Info().Int("count", *weekCount).Msg("seeding week of photos")
 		if err := seed.SeedWeekOfPhotos(ctx, conn.Client, manifest, time.Now(), *weekCount); err != nil {
 			log.Fatal().Err(err).Msg("seed week of photos failed")
 		}
+		writeManifest()
 	}
 	if *lastWeekCount > 0 {
 		log.Info().Int("count", *lastWeekCount).Msg("seeding last week photos")
 		if err := seed.SeedLastWeekPhotos(ctx, conn.Client, manifest, time.Now(), *lastWeekCount); err != nil {
 			log.Fatal().Err(err).Msg("seed last week photos failed")
 		}
+		writeManifest()
 	}
 	if *tagExisting {
 		log.Info().Msg("tagging existing photos with random tags")
@@ -180,9 +201,7 @@ func main() {
 			log.Fatal().Err(err).Msg("tag existing photos failed")
 		}
 	}
-	if err := manifest.Write(manifestPath); err != nil {
-		log.Fatal().Err(err).Msg("failed to write manifest")
-	}
+	writeManifest()
 	log.Info().Str("manifest", manifestPath).
 		Int("images", len(manifest.Images)).
 		Int("timeRangeImages", len(manifest.TimeRangeImages)).
