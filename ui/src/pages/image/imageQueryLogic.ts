@@ -204,6 +204,17 @@ export async function triggerInfiniteScroll() {
 // dropped and a stale in-flight response is discarded.
 let requestId = 0;
 
+// The persisted sort is user-writable localStorage (a stale app version, a
+// hand-edited value), so it gets the same validation the route's ?sort= gets in
+// Images.vue: an unknown value fell through buildImageListParams' switch to
+// latestFirst with no signal at all, so a corrupted preference silently sorted
+// the grid and nothing on screen said so.
+const SORT_ORDERS = Object.values(SORT_ORDER) as string[];
+function resolveSortOrder(): SORT_ORDER {
+  const raw = routeSortOrder.value ?? preferredImageSortOrder.value;
+  return SORT_ORDERS.includes(raw) ? (raw as SORT_ORDER) : SORT_ORDER.LATEST_FIRST;
+}
+
 // shared filter/sort state → buildImageListParams input; one source of truth
 // for the list, the facets and the deep-link position queries
 function currentFilterInput() {
@@ -219,7 +230,7 @@ function currentFilterInput() {
     orientation: aspectRatioFilter.value,
     timeFrom: timeFromFilter.value ?? undefined,
     timeTo: timeToFilter.value ?? undefined,
-    sortOrder: (routeSortOrder.value ?? preferredImageSortOrder.value) as SORT_ORDER,
+    sortOrder: resolveSortOrder(),
   };
   // Global override: suspended time range always disables the window
   if (timeRangeSuspended.value) {
@@ -233,6 +244,11 @@ function currentFilterInput() {
   // Timespan context view (?rangeScope=all): while paused, the other narrowing
   // filters suspend but the window stays — the range IS the context here. The
   // Filters pill un-pauses, combining the window with search/tags/orientation.
+  // This branch is only ever reached WITHOUT a person filter: Images.vue's
+  // applyRoute clears rangeScopeAll when ?person= is set, because the person
+  // pause above already returns first and would drop the window anyway — the
+  // two contexts are exclusive, so the chip row never advertises a window the
+  // query ignores.
   if (rangeScopeAll.value) {
     if (personFiltersPaused.value) {
       return { ...input, search: "", tags: [], excludeTags: [], orientation: "neutral" };
@@ -422,10 +438,19 @@ export const timeBounds = ref<{ min: string | null; max: string | null } | null>
 let lastBoundsKey = "";
 let boundsSeq = 0;
 
+// The slider domain must not be part of its own domain, and the tick strip
+// neither: both queries run the filter MINUS the time range being edited (see
+// the repository comment on GetImageTimeBounds) so the domain stays stable while
+// thumbs move. One helper so the two cannot drift into editing-then-resetting
+// the popover they just opened.
+function omitTimeBounds<T extends { timeFrom?: string; timeTo?: string }>(input: T) {
+  const { timeFrom: _from, timeTo: _to, ...rest } = input;
+  return rest;
+}
+
 export async function loadTimeBounds() {
   if (!activeProject.value?.id) return;
-  const { timeFrom: _f, timeTo: _t, ...rest } = currentFilterInput();
-  const params = buildImageListParams(rest);
+  const params = buildImageListParams(omitTimeBounds(currentFilterInput()));
   const key = JSON.stringify(params);
   if (key === lastBoundsKey) return;
   lastBoundsKey = key;
@@ -453,8 +478,7 @@ let ticksSeq = 0;
 
 export async function loadTimeTicks() {
   if (!activeProject.value?.id) return;
-  const { timeFrom: _f, timeTo: _t, ...rest } = currentFilterInput();
-  const params = buildImageListParams(rest);
+  const params = buildImageListParams(omitTimeBounds(currentFilterInput()));
   const key = JSON.stringify(params);
   if (key === lastTicksKey) return;
   lastTicksKey = key;

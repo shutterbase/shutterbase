@@ -154,11 +154,16 @@ export function localInputToIsoInclusive(value?: string | null): string | null {
  * already hold an ISO timestamp (the slider, and the inverted-range clamp) and
  * need the same inclusive bound the inputs produce — one rule, so the two
  * producers cannot drift.
+ *
+ * Pure epoch arithmetic, deliberately NOT `d.setSeconds(59, 999)`: that setter
+ * re-resolves the LOCAL wall clock, so an instant inside the DST repeated hour
+ * is rewound by the DST offset. In Europe/Berlin, 2026-10-25T01:30Z (local 02:30
+ * CET, the second pass through 02:00–03:00) came back as 00:30:59.999Z — silently
+ * dropping the last 30 real minutes of the `to` bound.
  */
 export function isoToEndOfMinute(iso?: string | null): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  d.setSeconds(59, 999);
-  return d.toISOString();
+  const ms = new Date(iso).getTime();
+  if (isNaN(ms)) return null;
+  return new Date(Math.floor(ms / 60_000) * 60_000 + 59_999).toISOString();
 }

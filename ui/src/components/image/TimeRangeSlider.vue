@@ -31,10 +31,10 @@
       <!-- low thumb -->
       <div
         role="slider"
-        tabindex="0"
+        :tabindex="disabled ? -1 : 0"
         aria-label="Range start"
         :aria-valuemin="minStep"
-        :aria-valuemax="maxStep"
+        :aria-valuemax="highStep"
         :aria-valuenow="lowStep"
         :aria-valuetext="describeStep(lowStep)"
         :aria-disabled="disabled ? 'true' : undefined"
@@ -47,9 +47,9 @@
       <!-- high thumb -->
       <div
         role="slider"
-        tabindex="0"
+        :tabindex="disabled ? -1 : 0"
         aria-label="Range end"
-        :aria-valuemin="minStep"
+        :aria-valuemin="lowStep"
         :aria-valuemax="maxStep"
         :aria-valuenow="highStep"
         :aria-valuetext="describeStep(highStep)"
@@ -121,27 +121,64 @@ const highStep = ref(toStep(props.to, maxStep.value));
 // Which thumbs the user has actually moved. Drives the null-vs-ISO decision on
 // commit, so an untouched thumb leaves its side of the range open.
 const touched = ref({ low: false, high: false });
+// Which thumb the pointer owns right now, if any. Declared with the rest of the
+// gesture state because the props watcher below has to consult it.
+const dragging = ref<"low" | "high" | null>(null);
+
+// Assign both thumbs from the route, in the order the route states them. Does
+// NOT touch `touched` — whether an inbound range ends the current gesture is
+// the caller's decision (a pure min/max tick update must not).
+//
+// Deliberately NOT sorted: this used to swap an inverted incoming pair, so a
+// link (or a stale history entry) carrying from=14:00&to=12:00 displayed as a
+// perfectly plausible 12:00-14:00 slider while the filter stayed inverted and
+// the backend answered 400 invalid_time_range. Keeping the pair as given makes
+// the control agree with the URL, and commit() below repairs the order the
+// moment the user touches anything.
+function syncThumbsFromProps() {
+  lowStep.value = toStep(props.from, minStep.value);
+  highStep.value = toStep(props.to, maxStep.value);
+}
 
 watch(
   () => [props.min, props.max, props.from, props.to],
-  () => {
-    lowStep.value = toStep(props.from, minStep.value);
-    highStep.value = toStep(props.to, maxStep.value);
-    if (lowStep.value > highStep.value) {
-      const mid = lowStep.value;
-      lowStep.value = highStep.value;
-      highStep.value = mid;
-    }
-    touched.value = { low: false, high: false };
+  (_next, prev) => {
+    // A bounds/tick response can land mid-drag: the popover-open fetch is not
+    // awaited before the pointer goes down, so re-syncing here snapped the
+    // thumb out from under the pointer and the release then committed the
+    // parent's values, losing the gesture outright.
+    if (dragging.value !== null) return;
+    const domainChanged = props.min !== prev[0] || props.max !== prev[1];
+    const rangeChanged = props.from !== prev[2] || props.to !== prev[3];
+    if (!domainChanged && !rangeChanged) return;
+    syncThumbsFromProps();
+    // A pure domain update that did not move either thumb must NOT clear
+    // `touched`: doing so made the next commit fall back to the parent's values
+    // and swallow the in-flight adjustment.
+    if (rangeChanged) touched.value = { low: false, high: false };
   },
 );
 
-watch(lowStep, (v) => {
-  if (v > highStep.value) highStep.value = v;
-});
-watch(highStep, (v) => {
-  if (v < lowStep.value) lowStep.value = v;
-});
+// The thumbs cannot pass through each other. Returns the side that had to be
+// dragged along, so the caller can mark it touched: it DID move, and a commit
+// that left it out went out straddled — from=14:00, to=12:00, which the backend
+// rejects with 400 invalid_time_range, turning the whole grid into an error
+// page.
+//
+// This runs where a thumb is MOVED, never on a props re-sync: a route that
+// arrives inverted is shown as it is (see syncThumbsFromProps) and only the
+// user's own gesture drags the other thumb.
+function crossClamp(moved: "low" | "high"): "low" | "high" | null {
+  if (moved === "low" && lowStep.value > highStep.value) {
+    highStep.value = lowStep.value;
+    return "high";
+  }
+  if (moved === "high" && highStep.value < lowStep.value) {
+    lowStep.value = highStep.value;
+    return "low";
+  }
+  return null;
+}
 
 const lowPct = computed(() => ((lowStep.value - minStep.value) / span.value) * 100);
 const highPct = computed(() => ((highStep.value - minStep.value) / span.value) * 100);
@@ -162,18 +199,24 @@ const tickPositions = computed<TickPosition[]>(() => {
   if (!ticks || ticks.length === 0) return [];
   const domainSpan = maxStep.value - minStep.value;
   if (domainSpan <= 0) return [];
-  return ticks.map((iso) => {
+  return ticks.map((iso, i) => {
     const ms = new Date(iso).getTime();
     const pct = ((ms / MINUTE - minStep.value) / domainSpan) * 100;
-    return { key: iso, pct: Math.max(0, Math.min(100, pct)) };
+    // Indexed, not the bare ISO: two photos can share a capturedAtCorrected
+    // (the sampler returns every row up to maxTicks), and a duplicate v-for key
+    // drops a node and logs a Vue warning.
+    return { key: `${iso}-${i}`, pct: Math.max(0, Math.min(100, pct)) };
   });
 });
 
 // --- pointer drag ---
-const dragging = ref<"low" | "high" | null>(null);
-// The active drag's target, and its listener teardown. `detach` must NOT be the
-// function that calls it — that is an infinite recursion.
+// The active drag's target, its pointer, and the listener teardown. `detach`
+// must NOT be the function that calls it — that is an infinite recursion.
 let activeTarget: "low" | "high" | null = null;
+// The pointer that started the gesture. A second finger on a phone is a
+// separate pointer with its own move and up events: without this filter it
+// dragged the range around and committed it on release.
+let activePointerId: number | null = null;
 let detach: (() => void) | null = null;
 
 function stepFromClientX(clientX: number): number {
@@ -184,31 +227,56 @@ function stepFromClientX(clientX: number): number {
   return clampStep(Math.round(minStep.value + pct * (maxStep.value - minStep.value)));
 }
 
+// Move a thumb, clamp it against the other one, record what moved and announce
+// the live pair. Every gesture funnels through here (pointer and keyboard), so
+// the cross-clamp cannot be bypassed by one of them.
 function applyStep(target: "low" | "high", step: number) {
   if (target === "low") lowStep.value = step;
   else highStep.value = step;
-  touched.value = { ...touched.value, [target]: true };
+  const dragged = crossClamp(target);
+  // A thumb the cross-clamp carried is touched too — it is part of the gesture,
+  // and dropping it is what used to emit the straddled pair.
+  touched.value = dragged ? { low: true, high: true } : { ...touched.value, [target]: true };
   emit("preview", isoForStep(lowStep.value), isoForStep(highStep.value));
 }
 
 // A side the user never touched must go back out EXACTLY as it came in.
 // Emitting null for it would mean "no bound on that side": dragging or arrowing
 // ONE thumb of an existing 10:00-12:00 range would delete the other bound from
-// the route and silently widen the filter to an open end.
-//
-// This matters for the cross-clamp too: watch(lowStep)/watch(highStep) move the
-// other thumb when they cross, but do not mark it touched — so the untouched
-// side is still the parent's value, which is what we want.
+// the route and silently widen the filter to an open end. applyStep keeps that
+// true — it only widens `touched` when the clamp actually carried a thumb.
 function commit(opts?: { replace?: boolean }) {
-  const from = touched.value.low ? isoForStep(lowStep.value) : (props.from ?? null);
-  const to = touched.value.high ? isoForStep(highStep.value) : (props.to ?? null);
+  const fromTouched = touched.value.low;
+  const toTouched = touched.value.high;
+  let from = fromTouched ? isoForStep(lowStep.value) : (props.from ?? null);
+  let to = toTouched ? isoForStep(highStep.value) : (props.to ?? null);
+  // Backstop for a pair the thumbs cannot explain: the untouched side comes
+  // straight back out of props, and props are live (the route can change under
+  // an in-flight drag), so a value that lands before the dragged thumb would go
+  // out straddled. A TOUCHED side is the user's decision and wins — the other
+  // side is pulled onto it, the same rule the header applies to an inverted
+  // range it types by hand. An already-ordered pair passes through untouched, so
+  // an untouched bound is never rewritten.
+  if (from && to && new Date(to).getTime() < new Date(from).getTime()) {
+    if (fromTouched === toTouched) {
+      // no gesture to defer to: just order the pair
+      const mid = from;
+      from = to;
+      to = mid;
+    } else if (fromTouched) {
+      to = from;
+    } else {
+      from = to;
+    }
+  }
   emit("change", from, to, opts);
 }
 
 const onDragMove = (ev: PointerEvent) => {
-  if (activeTarget) applyStep(activeTarget, stepFromClientX(ev.clientX));
+  if (activeTarget && ev.pointerId === activePointerId) applyStep(activeTarget, stepFromClientX(ev.clientX));
 };
-const onDragEnd = () => {
+const onDragEnd = (ev: PointerEvent) => {
+  if (ev.pointerId !== activePointerId) return;
   detach?.();
   commit();
 };
@@ -218,23 +286,30 @@ const onDragEnd = () => {
 // also UNDO: `preview` has already moved the thumbs and, through the header, the
 // datetime inputs, so tearing down without restoring leaves the panel showing a
 // range the route never applied.
-const onDragCancel = () => {
+const onDragCancel = (ev: PointerEvent) => {
+  if (ev.pointerId !== activePointerId) return;
+  detach?.();
+  restoreFromProps();
+};
+// Losing window focus (Alt-Tab, a native menu) is not a pointer event at all, so
+// it carries no pointerId and must be handled on its own.
+const onWindowBlur = () => {
   detach?.();
   restoreFromProps();
 };
 
 // Put the thumbs back where the route says they are, and tell the parent to
 // re-sync its inputs to match.
+//
+// The emit carries the route's OWN bounds, not the thumb positions: an
+// open-ended range has no thumb on one side, and `toStep(null, minStep)` put the
+// DOMAIN edge in the parent's From/To input. The panel then showed a bound the
+// route does not carry, and the "Clear time range" button appeared for a range
+// that was never applied.
 function restoreFromProps() {
-  lowStep.value = toStep(props.from, minStep.value);
-  highStep.value = toStep(props.to, maxStep.value);
-  if (lowStep.value > highStep.value) {
-    const mid = lowStep.value;
-    lowStep.value = highStep.value;
-    highStep.value = mid;
-  }
+  syncThumbsFromProps();
   touched.value = { low: false, high: false };
-  emit("restore", isoForStep(lowStep.value), isoForStep(highStep.value));
+  emit("restore", props.from ?? "", props.to ?? "");
 }
 
 function onPointerDown(e: PointerEvent) {
@@ -247,6 +322,7 @@ function onPointerDown(e: PointerEvent) {
   const distLow = Math.abs(clickStep - lowStep.value);
   const distHigh = Math.abs(clickStep - highStep.value);
   activeTarget = distLow <= distHigh ? "low" : "high";
+  activePointerId = e.pointerId;
   dragging.value = activeTarget;
   applyStep(activeTarget, clickStep);
 
@@ -254,15 +330,16 @@ function onPointerDown(e: PointerEvent) {
     window.removeEventListener("pointermove", onDragMove);
     window.removeEventListener("pointerup", onDragEnd);
     window.removeEventListener("pointercancel", onDragCancel);
-    window.removeEventListener("blur", onDragCancel);
+    window.removeEventListener("blur", onWindowBlur);
     activeTarget = null;
+    activePointerId = null;
     dragging.value = null;
     detach = null;
   };
   window.addEventListener("pointermove", onDragMove);
   window.addEventListener("pointerup", onDragEnd);
   window.addEventListener("pointercancel", onDragCancel);
-  window.addEventListener("blur", onDragCancel);
+  window.addEventListener("blur", onWindowBlur);
 }
 
 function onKeyDown(target: "low" | "high", e: KeyboardEvent) {
@@ -295,11 +372,10 @@ function onKeyDown(target: "low" | "high", e: KeyboardEvent) {
   }
   e.preventDefault();
   e.stopPropagation();
-  next = clampStep(next);
-  if (target === "low") lowStep.value = next;
-  else highStep.value = next;
-  touched.value = { ...touched.value, [target]: true };
-  emit("preview", isoForStep(lowStep.value), isoForStep(highStep.value));
+  // applyStep, not a bare assignment: the keyboard commits in the SAME handler,
+  // so a cross-clamp that only ran on the next tick would emit the straddled
+  // pair before it ever got the chance.
+  applyStep(target, clampStep(next));
   commit({ replace: true });
 }
 
@@ -330,6 +406,7 @@ watch(
 onUnmounted(() => {
   detach?.();
   activeTarget = null;
+  activePointerId = null;
   dragging.value = null;
   observer?.disconnect();
   observer = null;
