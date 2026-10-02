@@ -3,6 +3,7 @@ package seed_test
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -113,4 +115,53 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, u.CopyrightTag, "seeded user %s needs a copyrightTag", key)
 	}
+}
+
+// The base fixture's own jsonb read model must match its assignment rows.
+//
+// Found by seeding a real database and diffing images.image_tags against the
+// assignment table: FSG_0002.jpg carried `internal` in both, but the jsonb held
+// only `Default`. That is not cosmetic — the gallery filter
+// (buildImagePredicates -> sqljson.ValueContains) and ToImageResponse read the
+// jsonb and never the assignment rows, so a photo marked internal in the
+// assignment table but not in the jsonb still reaches an EXIF export and a
+// slideshow. seed.Seed wrote allTags into the jsonb BEFORE inserting the
+// internal row and never rebuilt it.
+func TestSeedRebuildsTheJSONBReadModelForEveryImage(t *testing.T) {
+	c := sqliteClient(t)
+	ctx := context.Background()
+	_, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+
+	images, err := c.Image.Query().All(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, images)
+
+	for _, img := range images {
+		rows, err := c.ImageTagAssignment.Query().
+			Where(imagetagassignment.ImageID(img.ID)).
+			Select(imagetagassignment.FieldImageTagID).
+			Strings(ctx)
+		require.NoError(t, err)
+		slices.Sort(rows)
+		assert.ElementsMatch(t, slices.Compact(rows), img.ImageTags,
+			"imageTags jsonb must match the assignment rows for %s", img.ComputedFileName)
+	}
+}
+
+// The internal marker specifically: it is the one assignment Seed adds after the
+// image row exists, so it is the one that used to be missed.
+func TestSeedKeepsTheInternalImageVisibleToTheReadModel(t *testing.T) {
+	c := sqliteClient(t)
+	ctx := context.Background()
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+
+	internalTag := m.Tags["internal"]
+	require.NotEmpty(t, internalTag)
+
+	img, err := c.Image.Query().Where(image.ComputedFileName("FSG_0002.jpg")).Only(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, img.ImageTags, internalTag,
+		"the internal-tagged image must carry it in the jsonb, or it leaks into exports and slideshows")
 }

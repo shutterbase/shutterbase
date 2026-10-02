@@ -272,6 +272,19 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 				Save(ctx); err != nil {
 				return nil, fmt.Errorf("assign internal tag to image %d: %w", i, err)
 			}
+			// The jsonb read model was written ABOVE, from allTags, which does not
+			// know about this row yet. Left stale it is not cosmetic: the gallery
+			// filter (buildImagePredicates -> sqljson.ValueContains) and
+			// ToImageResponse read images.imageTags and never the assignment rows,
+			// so an image carrying `internal` in the assignment table but not in
+			// the jsonb would still reach an EXIF export and a slideshow — which is
+			// the whole point of the tag. The loaders below hit the same trap and
+			// call rebuildImageTagsJSON for exactly this reason.
+			if err := inTx(ctx, client, func(tx *ent.Tx) error {
+				return rebuildImageTagsJSON(ctx, tx, img.ID)
+			}); err != nil {
+				return nil, fmt.Errorf("rebuild imageTags of internal image: %w", err)
+			}
 		}
 	}
 
@@ -290,6 +303,52 @@ func (m *Manifest) Write(path string) error {
 		return err
 	}
 	return os.WriteFile(path, b, 0o644)
+}
+
+// Shape is how photos are distributed across the load window.
+type Shape string
+
+const (
+	// ShapeBurst is the 7-days x 5-events-per-day model the loaders were built
+	// around: organic-looking clusters with quiet gaps between them, which is
+	// what makes the time-range density strip worth looking at.
+	ShapeBurst Shape = "burst"
+	// ShapeUniform spreads photos evenly across the window. Useful when the
+	// point is a predictable count per time span rather than a realistic shoot.
+	ShapeUniform Shape = "uniform"
+)
+
+// LoadOptions is one request to fill a project with photos.
+type LoadOptions struct {
+	Count int
+	Shape Shape
+	// Seed makes the run reproducible. Left at its zero value the draw is
+	// derived from each photo's index and the image id, which is stable — so
+	// re-running adds nothing new. Seed is an extra salt for the case where two
+	// different fixture sets are wanted from the same indexes.
+	Seed int64
+	// TagCount overrides how many extra tags each photo carries. Zero keeps the
+	// documented 30/50/20 split over 1, 2 and 3.
+	TagCount int
+}
+
+// LoadPhotos adds Count photos to the project in the manifest, using the shape to
+// decide how they are distributed. It is the single entry point cmd/seed needs;
+// the three loaders below remain exported because their tests pin their exact
+// behaviour and it is worth being able to call each one directly.
+func LoadPhotos(ctx context.Context, client *ent.Client, m *Manifest, opts LoadOptions) error {
+	if opts.Count <= 0 {
+		return nil
+	}
+	referenceNow := time.Now()
+	switch opts.Shape {
+	case ShapeUniform:
+		return SeedWeekOfPhotos(ctx, client, m, referenceNow, opts.Count)
+	case ShapeBurst, "":
+		return SeedLastWeekPhotos(ctx, client, m, referenceNow, opts.Count)
+	default:
+		return fmt.Errorf("unknown shape %q", opts.Shape)
+	}
 }
 
 // TimeRangeClusterPrefix is the computedFileName prefix of the midnight cluster
@@ -1056,4 +1115,88 @@ func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, re
 		}
 	}
 	return nil
+}
+
+// ReadManifest loads a manifest previously written by Write. A missing file is
+// not an error: it returns (nil, nil), because "no manifest yet" is a normal
+// state that callers distinguish from a corrupt one.
+func ReadManifest(path string) (*Manifest, error) {
+	b, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil //nolint:nilnil — absent manifest is a normal state
+	} else if err != nil {
+		return nil, err
+	}
+	m := &Manifest{}
+	if err := json.Unmarshal(b, m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// Merge folds a manifest produced by a loader run into a full one read back from
+// disk. The two are complementary: the on-disk manifest carries the project,
+// users, roles, tags, offsets and base image ids; the loader run contributes the
+// photos it added. Writing the loader's alone would drop everything the file
+// knows, and writing the file's alone would drop the new photos — so maps are
+// overlaid and image id lists are unioned.
+//
+// Upload is deliberately NOT taken from the loader side. A loader run resolves
+// the editor's NEWEST upload, while m.Images is the file's list, whose base
+// images belong to the ORIGINAL upload. Taking the newer id would make the
+// manifest internally inconsistent, and any consumer filtering by uploadId plus
+// image id would silently lose the base photos.
+func (m *Manifest) Merge(load *Manifest) {
+	if m.Users == nil {
+		m.Users = map[string]uuid.UUID{}
+	}
+	for k, v := range load.Users {
+		m.Users[k] = v
+	}
+	for k, v := range load.Tags {
+		if m.Tags == nil {
+			m.Tags = map[string]string{}
+		}
+		m.Tags[k] = v
+	}
+	for k, v := range load.Cameras {
+		if m.Cameras == nil {
+			m.Cameras = map[string]string{}
+		}
+		m.Cameras[k] = v
+	}
+	for k, v := range load.Offsets {
+		if m.Offsets == nil {
+			m.Offsets = map[string]string{}
+		}
+		m.Offsets[k] = v
+	}
+	for k, v := range load.Roles {
+		if m.Roles == nil {
+			m.Roles = map[string]string{}
+		}
+		m.Roles[k] = v
+	}
+	if load.Project != "" {
+		m.Project = load.Project
+	}
+	m.Images = unionStrings(m.Images, load.Images)
+}
+
+// unionStrings concatenates two id lists and drops repeats, preserving order.
+// Image ids are unique per row, so a repeat means the same photo was recorded by
+// two runs — exactly what an idempotent re-run must collapse rather than append.
+func unionStrings(a, b []string) []string {
+	seen := make(map[string]struct{}, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, list := range [][]string{a, b} {
+		for _, s := range list {
+			if _, dup := seen[s]; dup {
+				continue
+			}
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
 }
