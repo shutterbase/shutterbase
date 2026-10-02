@@ -207,23 +207,36 @@ Names are pipe-triples (`car_000|tid_000|AT Daxstein HS`), display names are
 interesting group and eight flat ones is not a fixture.
 
 **2. `--tags-file`.** A TSV of `name<TAB>displayName<TAB>description`, one tag per
-line. Blank lines and lines starting with `#` are skipped. `displayName` may be
-empty (it falls back to the name, otherwise the tag renders as a blank chip);
-`description` may NOT — `image_tags.description` is `NotEmpty` in the schema, so a
-row without one is refused here rather than failing later as an ent validator error
-once the fixture is already committed. `name` may not be empty. A duplicate name is
-refused rather than
+line. Blank lines — including ones holding only whitespace — and lines starting
+with `#` are skipped.
+
+**All three columns are required.** A row with fewer is refused rather than padded,
+because each way of padding was a real failure: a missing description became an ent
+validator error from inside the loader, after the base fixture was already
+committed, and a missing `displayName` became a blank chip in the tag filter with
+nothing in the file to explain it. Columns *beyond* the third are ignored, so a file
+exported with a trailing delimiter still loads.
+
+`displayName` may be present but **empty** — the schema makes it optional — and then
+falls back to the name. Only the missing column is an error. `description` may NOT be
+empty: `image_tags.description` is `NotEmpty` in the schema. `name` may not be empty.
+
+A duplicate name is refused rather than
 deduped, because the writer is find-or-create and the second row would silently
-overwrite the first. An unreadable file, a file holding no rows, an empty name, a
-missing description and a
+overwrite the first. An unreadable file, a file holding no rows, a short row, an
+empty name, an empty description and a
 duplicate name all fail:
 
 ```
-tags.tsv line 12: empty tag name
-tags.tsv line 9: "fsa_beta" has no description — image_tags.description is NOT NULL and must not be empty
-tags.tsv line 7: "Podium" already defined on line 4 — a tag set cannot hold it twice
-tags.tsv holds no tag rows — refusing to seed an empty set
+--tags-file: tags.tsv line 12: empty tag name
+--tags-file: tags.tsv line 9: got 2 tab-separated column(s), want 3 — each row is name<TAB>displayName<TAB>description
+--tags-file: tags.tsv line 8: "fsa_beta" has an empty description — image_tags.description is NotEmpty
+--tags-file: tags.tsv line 7: "Podium" already defined on line 4 — a tag set cannot hold it twice
+--tags-file: tags.tsv holds no tag rows — refusing to seed an empty set
 ```
+
+The `--tags-file: ` prefix is cmd/seed's; the message after it comes from the parser. All
+five are raised before anything is written, so a bad file costs nothing.
 
 A file that cannot be read is an **error**, never a silent fallback to the
 generated 80 tags.

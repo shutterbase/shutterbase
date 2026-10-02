@@ -254,7 +254,7 @@ func TestParseTagFile(t *testing.T) {
 		"\n" +
 		"car_001|1|AT Daxstein HS\tCar One\tTeam One - Technische Hochschule Daxstein\n" +
 		"car_002|2|BE Groenveld U\tCar Two\tTeam Two - Universiteit Groenveld\n" +
-		"onlyname\tOnly Name\tTeam Three - Some University\n" + // displayName omitted, falls back
+		"onlyname\tOnly Name\tTeam Three - Some University\n" + // displayName narrower than the name
 		"car_004\tCar Four\tFour\tExtra\tignored\r\n" // CRLF, extra columns dropped
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
@@ -273,7 +273,7 @@ func TestParseTagFile(t *testing.T) {
 	assert.Equal(t, "Car Two", got[1].DisplayName)
 	assert.Equal(t, "Team Two - Universiteit Groenveld", got[1].Description)
 
-	assert.Equal(t, "Only Name", got[2].DisplayName, "displayName must fall back to the name, or the tag chip renders blank")
+	assert.Equal(t, "Only Name", got[2].DisplayName, "displayName is used verbatim; only an EMPTY column falls back, which its own test covers")
 	assert.Equal(t, "onlyname", got[2].Name)
 
 	assert.Equal(t, "Car Four", got[3].DisplayName, "the trailing CR must not end up in the field")
@@ -351,15 +351,20 @@ func TestParseTagFileAllowsACommentedDuplicateLookingFile(t *testing.T) {
 // so a two-field row used to parse fine and then fail inside LoadPhotos as
 // `create team tag X: validator failed` — after the base fixture was committed and
 // the manifest written, i.e. a half-applied run. Refused at parse time instead.
+//
+// Every case here has all THREE columns and an empty third, because a two-field
+// row now trips the column-count check instead — and that message also contains
+// the word "description", so a two-field fixture here would pass whether or not
+// this rule existed.
 func TestParseTagFileRequiresADescription(t *testing.T) {
 	dir := t.TempDir()
 	for _, tc := range []struct {
 		name string
 		body string
 	}{
-		{"omitted entirely", "alpha\tAlpha Car\n"},
-		{"trailing tab, nothing after it", "alpha\tAlpha Car\t\n"},
+		{"present but empty", "alpha\tAlpha Car\t\n"},
 		{"whitespace only", "alpha\tAlpha Car\t   \n"},
+		{"after a valid row", "beta\tBeta Car\tBeta Racing\nalpha\tAlpha Car\t\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(dir, strings.ReplaceAll(tc.name, " ", "_")+".tsv")
@@ -367,14 +372,107 @@ func TestParseTagFileRequiresADescription(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err := seed.ParseTagFile(path)
-			require.Error(t, err, "image_tags.description is NOT NULL and must not be empty")
-			assert.Contains(t, err.Error(), "description")
+			require.Error(t, err, "image_tags.description is NotEmpty")
+			assert.Contains(t, err.Error(), "empty description")
+			assert.NotContains(t, err.Error(), "columns, want 3",
+				"this case must fail on the missing description, not on the column count")
 
 			// And it must be refused by TagSet too, which is what cmd/seed calls
 			// before it writes anything.
 			if _, err := seed.TagSet(path); err == nil {
-				t.Error("TagSet accepted a row with no description")
+				t.Error("TagSet accepted a row with an empty description")
 			}
 		})
 	}
+}
+
+// All three columns are required. A row with fewer used to be padded: a missing
+// description became an ent validator error from inside LoadPhotos after the base
+// fixture was committed, and a missing displayName became a blank chip in the tag
+// filter with nothing in the file to explain it.
+func TestParseTagFileRequiresThreeColumns(t *testing.T) {
+	dir := t.TempDir()
+	for _, tc := range []struct {
+		name     string
+		body     string
+		want     string
+		wantLine string
+	}{
+		{"one column", "alpha\n", "1 tab-separated column(s), want 3", "line 1"},
+		{"two columns", "alpha\tAlpha Car\n", "2 tab-separated column(s), want 3", "line 1"},
+		{"trailing tab only", "alpha\t\n", "2 tab-separated column(s), want 3", "line 1"},
+		// The line number matters: an operator with a 200-row file needs to know
+		// WHICH row is short, not merely that one is.
+		{"valid first row, short second", "beta\tBeta Car\tBeta Racing\nalpha\tAlpha Car\n", "2 tab-separated column(s), want 3", "line 2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(dir, strings.ReplaceAll(tc.name, " ", "_")+".tsv")
+			if err := os.WriteFile(path, []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := seed.ParseTagFile(path)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.want)
+			// The message has to say what the format IS, or the fix is guesswork.
+			assert.Contains(t, err.Error(), "name<TAB>displayName<TAB>description")
+			assert.Contains(t, err.Error(), tc.wantLine, "the message must name which line is wrong")
+
+			if _, err := seed.TagSet(path); err == nil {
+				t.Error("TagSet accepted a short row")
+			}
+		})
+	}
+}
+
+// A displayName column that is PRESENT but empty is still fine — the schema makes
+// it optional — and falls back to the name. Only the missing COLUMN is an error,
+// so this distinction has to hold or the strict column rule becomes useless for
+// files that legitimately omit the label.
+func TestParseTagFileAcceptsAnEmptyDisplayNameColumn(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tags.tsv")
+	if err := os.WriteFile(path, []byte("fsa_alpha\t\tAlpha Racing\na_long_tag_name\tLong Name\tLong Racing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := seed.ParseTagFile(path)
+	require.NoError(t, err, "an empty displayName column is legal; only a missing one is not")
+	require.Len(t, rows, 2)
+	assert.Equal(t, "fsa_alpha", rows[0].DisplayName, "an empty displayName falls back to the name")
+	assert.Equal(t, "Alpha Racing", rows[0].Description)
+	assert.Equal(t, "Long Name", rows[1].DisplayName)
+}
+
+// Columns beyond the third are ignored, not refused, so a file exported with a
+// trailing delimiter still loads.
+func TestParseTagFileIgnoresExtraColumns(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tags.tsv")
+	if err := os.WriteFile(path, []byte("alpha\tAlpha Car\tAlpha Racing\tignored\textra\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := seed.ParseTagFile(path)
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	assert.Equal(t, "Alpha Racing", rows[0].Description)
+}
+
+// A line holding only whitespace is blank to whoever edited the file. It used to
+// fall through to the column check and be reported as "1 columns, want 3", which
+// tells the operator to add tabs to a line that looks empty.
+func TestParseTagFileSkipsWhitespaceOnlyLines(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tags.tsv")
+	body := "alpha\tAlpha Car\tAlpha Racing\n" +
+		"   \n" +
+		"\t\t\t\n" +
+		"  \n" +
+		"beta\tBeta Car\tBeta Racing\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := seed.ParseTagFile(path)
+	require.NoError(t, err, "whitespace-only lines are blank, not malformed")
+	require.Len(t, rows, 2)
+	assert.Equal(t, "alpha", rows[0].Name)
+	assert.Equal(t, "beta", rows[1].Name)
 }

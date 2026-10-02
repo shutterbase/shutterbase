@@ -184,8 +184,20 @@ func TagSet(path string) ([]TeamTag, error) {
 }
 
 // ParseTagFile reads a tag TSV: name<TAB>displayName<TAB>description per line.
-// Blank lines and lines starting with "#" are skipped. displayName may be empty
-// and falls back to the name; description may NOT — the schema requires it.
+// Blank lines and lines starting with "#" are skipped.
+//
+// ALL THREE columns are required. A row with fewer is refused rather than padded,
+// because each way of padding was a real failure: a missing description became an
+// ent validator error from inside LoadPhotos, after the base fixture was already
+// committed; and a missing displayName became a blank chip in the tag filter with
+// nothing in the file to explain it. Refusing the row names the line and says what
+// the format is, so the fix is obvious from the message alone.
+//
+// Columns beyond the third are ignored rather than refused, so a file exported with
+// a trailing delimiter still loads.
+//
+// displayName may be present but EMPTY — the schema makes it optional — and then
+// falls back to the name. Only the missing COLUMN is an error.
 func ParseTagFile(path string) ([]TeamTag, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -195,10 +207,18 @@ func ParseTagFile(path string) ([]TeamTag, error) {
 	seen := make(map[string]int)
 	for i, line := range strings.Split(string(b), "\n") {
 		line = strings.TrimRight(line, "\r")
-		if line == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+		// TrimSpace, not a bare =="": a line holding only spaces is blank to whoever
+		// edited the file, and reporting it as "1 columns, want 3" tells them to add
+		// tabs to a line that looks empty.
+		if strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
 			continue
 		}
 		fields := strings.Split(line, "\t")
+		if len(fields) < 3 {
+			return nil, fmt.Errorf(
+				"%s line %d: got %d tab-separated column(s), want 3 — each row is name<TAB>displayName<TAB>description",
+				path, i+1, len(fields))
+		}
 		name := strings.TrimSpace(fields[0])
 		if name == "" {
 			return nil, fmt.Errorf("%s line %d: empty tag name", path, i+1)
@@ -211,20 +231,16 @@ func ParseTagFile(path string) ([]TeamTag, error) {
 			return nil, fmt.Errorf("%s line %d: %q already defined on line %d — a tag set cannot hold it twice", path, i+1, name, first)
 		}
 		seen[name] = i + 1
-		row := TeamTag{Name: name}
-		if len(fields) > 1 {
-			row.DisplayName = strings.TrimSpace(fields[1])
+		row := TeamTag{
+			Name:        name,
+			DisplayName: strings.TrimSpace(fields[1]),
+			Description: strings.TrimSpace(fields[2]),
 		}
-		if len(fields) > 2 {
-			row.Description = strings.TrimSpace(fields[2])
-		}
-		// Description is required by the schema (ent/schema/image_tag.go declares
-		// it NotEmpty), so an omitted one is refused HERE rather than surfacing as
-		// `create team tag X: validator failed` from inside LoadPhotos — by which
-		// point the base fixture is already committed and the run has half-applied.
-		// Same reasoning as the empty-name check above it.
+		// Required by the schema (ent/schema/image_tag.go declares it NotEmpty), so
+		// checked before the row is accepted rather than surfacing as
+		// `create team tag X: validator failed` from inside LoadPhotos.
 		if row.Description == "" {
-			return nil, fmt.Errorf("%s line %d: %q has no description — image_tags.description is NOT NULL and must not be empty", path, i+1, name)
+			return nil, fmt.Errorf("%s line %d: %q has an empty description — image_tags.description is NotEmpty", path, i+1, name)
 		}
 		// displayName falls back to the name: the UI renders it, and an empty one
 		// shows as a blank chip in the tag filter.

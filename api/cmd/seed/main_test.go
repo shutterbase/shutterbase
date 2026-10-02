@@ -440,9 +440,9 @@ func writeTagTSV(t *testing.T, contents string) string {
 	return path
 }
 
-// Both rows carry a description: ent/schema/image_tag.go declares
-// description NotEmpty, so a two-field row is refused at parse time rather than
-// failing later as an ent validator error.
+// Both rows carry all three columns: a short row is refused by the column-count
+// rule before any write, and a present-but-empty description would be refused by
+// the NotEmpty rule on image_tags.description.
 const goodTagTSV = "FSG_LW\tFormula Student Lightweight\tLW cars\n# a comment\nFSG_RT\tFormula Student Race Team\tRace Team\n"
 
 // checkTagsFileReadable exists because ParseTagFile runs inside LoadPhotos, which
