@@ -192,6 +192,7 @@ func ParseTagFile(path string) ([]TeamTag, error) {
 		return nil, fmt.Errorf("read tag file: %w", err)
 	}
 	var out []TeamTag
+	seen := make(map[string]int)
 	for i, line := range strings.Split(string(b), "\n") {
 		line = strings.TrimRight(line, "\r")
 		if line == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
@@ -202,6 +203,14 @@ func ParseTagFile(path string) ([]TeamTag, error) {
 		if name == "" {
 			return nil, fmt.Errorf("%s line %d: empty tag name", path, i+1)
 		}
+		// A duplicate name is refused rather than deduped. ensureTags is
+		// find-or-create, so the second row would silently overwrite the first and
+		// its description would vanish with no warning — the file would look
+		// applied and hold a different tag set than it appears to.
+		if first, dup := seen[name]; dup {
+			return nil, fmt.Errorf("%s line %d: %q already defined on line %d — a tag set cannot hold it twice", path, i+1, name, first)
+		}
+		seen[name] = i + 1
 		row := TeamTag{Name: name}
 		if len(fields) > 1 {
 			row.DisplayName = strings.TrimSpace(fields[1])

@@ -112,6 +112,67 @@ func checkWindowNotFuture(w seed.Window, now time.Time, force bool) error {
 		w.To.Sub(now).Round(time.Second), w.To.Format(time.RFC3339), now.Format(time.RFC3339))
 }
 
+// printDryRunPlan reports what a real run would do, touching nothing. Reads the
+// manifest when one is there and says so when it is not, rather than seeding one
+// to find out — a dry run on an empty database reports the base fixture as
+// pending, which is the honest answer.
+func printDryRunPlan(manifestPath string, w seed.Window, photos int, alreadySeeded bool) {
+	ev := log.Info().
+		Bool("dryRun", true).
+		Str("from", w.From.Format(time.RFC3339)).
+		Str("to", w.To.Format(time.RFC3339)).
+		Int("days", w.Days()).
+		Int("photosToAdd", photos)
+
+	switch {
+	case alreadySeeded:
+		if m, err := seed.ReadManifest(manifestPath); err != nil {
+			ev.Bool("manifestReadable", false).Str("manifest", manifestPath).
+				Msg("dry run — database already seeded, manifest unreadable; a real run would refuse")
+			return
+		} else if m == nil {
+			ev.Bool("manifestReadable", false).Str("manifest", manifestPath).
+				Int("existingImages", 0).
+				Msg("dry run — database already seeded but no manifest; a real run would refuse")
+			return
+		} else {
+			ev.Int("existingImages", len(m.Images)).
+				Msg("dry run — loaders would extend the existing fixture")
+		}
+	case photos > 0:
+		ev.Int("existingImages", 0).
+			Msg("dry run — would seed the base fixture, then the photos")
+	default:
+		ev.Int("existingImages", 0).
+			Msg("dry run — would seed the base fixture only")
+	}
+}
+
+// seedUnset is the "no seed given" sentinel: a fresh draw on every run.
+const seedUnset = -1
+
+// checkSeedValue rejects a negative --seed other than the sentinel. -5 used to
+// parse, run, and behave exactly like no seed at all — saltOf special-cases zero,
+// not "negative" — so the run looked seeded and reproduced the previous fixture
+// instead of the one asked for.
+func checkSeedValue(n int) error {
+	if n < seedUnset {
+		return fmt.Errorf("--seed %d is not a valid seed: use %d or higher (%d means \"no seed\")", n, seedUnset, seedUnset)
+	}
+	return nil
+}
+
+// checkTagsFileNeedsPhotos refuses --tags-file without --photos. The flag names
+// the tag set a load draws from, and LoadPhotos returns before seeding tags when
+// the count is zero — so the combination was accepted, counted as a load request,
+// and wrote nothing at all.
+func checkTagsFileNeedsPhotos(path string, photos int) error {
+	if path != "" && photos <= 0 {
+		return fmt.Errorf("--tags-file needs --photos: it names the tag set a load draws from, and a load of zero photos draws none")
+	}
+	return nil
+}
+
 // checkTagCount bounds --tag-count. Outside 0-3 the flag is refused rather than
 // clamped: the tag pool holds ten tags, and silently turning --tag-count 40 into
 // 3 would seed a run nobody asked for while reporting success.
@@ -270,6 +331,12 @@ func main() {
 	if err := checkTagCount(*tagCount); err != nil {
 		log.Fatal().Err(err).Msg("invalid flag")
 	}
+	if err := checkSeedValue(*seedValue); err != nil {
+		log.Fatal().Err(err).Msg("invalid flag")
+	}
+	if err := checkTagsFileNeedsPhotos(*tagsFile, *photos); err != nil {
+		log.Fatal().Err(err).Msg("invalid flag")
+	}
 	window, err := resolveWindow(*fromFlag, *toFlag, time.Now())
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid flag")
@@ -284,6 +351,17 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("error checking existing seed")
 	}
+
+	// --dry-run must be decided BEFORE anything writes. This branch used to sit
+	// below writeManifest(), so on an empty database the run seeded the base
+	// fixture and wrote the manifest and then logged "nothing was written" — the
+	// one flag whose whole contract is that it changes nothing, silently changing
+	// the database. Everything below this point assumes it may write.
+	if *dryRun {
+		printDryRunPlan(manifestPath, window, *photos, alreadySeeded)
+		return
+	}
+
 	switch chooseRun(alreadySeeded, loadRequested) {
 	case runSkip:
 		log.Info().Msg("database already has users and no loader flags — skipping seed")
@@ -332,17 +410,6 @@ func main() {
 		if err := checkCeiling(*photos, *force); err != nil {
 			log.Fatal().Err(err).Msg("refusing to seed")
 		}
-	}
-
-	if *dryRun {
-		log.Info().Bool("dryRun", true).
-			Str("from", window.From.Format(time.RFC3339)).
-			Str("to", window.To.Format(time.RFC3339)).
-			Int("days", window.Days()).
-			Int("existingImages", len(manifest.Images)).
-			Int("photosToAdd", *photos).
-			Msg("dry run — nothing was written")
-		return
 	}
 
 	if *photos > 0 {

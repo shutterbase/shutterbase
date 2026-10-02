@@ -290,3 +290,34 @@ func TestCheckWindowNotFuture(t *testing.T) {
 		t.Errorf("--force must allow a future window: %v", err)
 	}
 }
+
+func TestCheckSeedValue(t *testing.T) {
+	// -1 is the "no seed" sentinel and anything >= 0 is a real salt.
+	for _, n := range []int{-1, 0, 1, 42, 1 << 40} {
+		if err := checkSeedValue(n); err != nil {
+			t.Errorf("checkSeedValue(%d) = %v, want nil", n, err)
+		}
+	}
+	// A negative seed used to parse, run, and behave exactly like no seed —
+	// saltOf special-cases zero, not "negative" — so the run reported success
+	// while reproducing the previous fixture.
+	for _, n := range []int{-2, -5, -1000} {
+		if err := checkSeedValue(n); err == nil {
+			t.Errorf("checkSeedValue(%d) = nil, want an error", n)
+		}
+	}
+}
+
+func TestCheckTagsFileNeedsPhotos(t *testing.T) {
+	if err := checkTagsFileNeedsPhotos("", 0); err != nil {
+		t.Errorf("no tags file and no photos must be fine: %v", err)
+	}
+	if err := checkTagsFileNeedsPhotos("tags.tsv", 10); err != nil {
+		t.Errorf("a tags file with photos must be fine: %v", err)
+	}
+	// LoadPhotos returns before seeding tags when the count is zero, so this
+	// combination was accepted, counted as a load request, and wrote nothing.
+	if err := checkTagsFileNeedsPhotos("tags.tsv", 0); err == nil {
+		t.Error("--tags-file without --photos must be refused, not silently ignored")
+	}
+}

@@ -307,3 +307,39 @@ func TestEnsureTagSetSeedsFromAFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 6, count, "4 from the base fixture plus the file's 2")
 }
+
+// A duplicate name is a real hazard, not a cosmetic one: ensureTags is
+// find-or-create, so the second row silently overwrites the first and its
+// description vanishes while the file still looks applied.
+func TestParseTagFileRejectsDuplicateNames(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dup.tsv")
+	body := "a\tA\tfirst\na\tA\tsecond\nb\tB\tthird\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := seed.ParseTagFile(path)
+	require.Error(t, err, "a tag set cannot hold the same name twice")
+	assert.Contains(t, err.Error(), "line 2", "the error must name the offending line")
+	assert.Contains(t, err.Error(), "line 1", "and the line that defined it first")
+
+	// And it must be refused before anything is written, not deduped quietly.
+	if _, err := seed.TagSet(path); err == nil {
+		t.Error("TagSet accepted a file with duplicate names")
+	}
+}
+
+// The same name twice is an error; the same name in two different files is not,
+// since only one file is ever read.
+func TestParseTagFileAllowsACommentedDuplicateLookingFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ok.tsv")
+	body := "# header\n\na\tA\tfirst\nb\tB\tsecond\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := seed.ParseTagFile(path)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+}
