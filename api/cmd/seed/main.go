@@ -12,8 +12,6 @@ package main
 import (
 	"context"
 	"flag"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/mxcd/go-config/config"
@@ -25,9 +23,6 @@ import (
 )
 
 func main() {
-	weekCount := flag.Int("week", 0, "seed N photos spread over 7 days (e.g. 10000)")
-	lastWeekCount := flag.Int("last-week", 0, "seed N photos from last week with organic timestamps (e.g. 5000)")
-	tagExisting := flag.Bool("tag-existing", false, "assign random tags to all existing photos in project")
 	manifestPath := "./seed-manifest.json"
 
 	flag.Parse()
@@ -78,31 +73,15 @@ func main() {
 			log.Fatal().Err(err).Msg("ensuring time-range fixtures failed")
 		}
 		if m == nil {
-			// No fixture context (e.g. only the server's default admin). The
-			// load seeders all need the seeded editor/upload/project, so they
-			// cannot run — but silently exiting 0 after a `--week 10000` writes
-			// zero photos and looks like success. Fail loudly instead.
-			var skipped []string
-			if *weekCount > 0 {
-				skipped = append(skipped, "--week")
-			}
-			if *lastWeekCount > 0 {
-				skipped = append(skipped, "--last-week")
-			}
-			if *tagExisting {
-				skipped = append(skipped, "--tag-existing")
-			}
-			if len(skipped) > 0 {
-				log.Error().Str("skipped", strings.Join(skipped, ", ")).
-					Msg("database has no seeded fixtures — those flags would seed nothing. Run against a fresh (empty) database for the full fixture set.")
-				os.Exit(1)
-			}
+			// No fixture context (e.g. only the server's default admin), so the
+			// cluster cannot be placed. There is nothing left to do either way
+			// now that the load seeders are gone: log it and exit 0.
 			log.Info().Msg("no seeded fixtures found — run against a fresh database for the full fixture set")
 			return
 		}
 		log.Info().Int("images", len(m.TimeRangeImages)).Msg("time-range fixtures ensured")
 
-		// m only knows the fixture cluster, the load photos and the tags; the
+		// m only knows the fixture cluster and its tags; the
 		// on-disk manifest has the project, users, roles, offsets and base
 		// images, so every write folds m into a fresh read of that file.
 		//
@@ -136,34 +115,6 @@ func main() {
 			}
 		}
 
-		// Still run week seeding if requested (idempotent via unique computedFileName)
-		if *weekCount > 0 {
-			log.Info().Int("count", *weekCount).Msg("seeding week of photos")
-			if err := seed.SeedWeekOfPhotos(ctx, conn.Client, m, time.Now(), *weekCount); err != nil {
-				log.Fatal().Err(err).Msg("seed week of photos failed")
-			}
-			log.Info().Int("totalImages", len(m.Images)).Msg("week of photos seeded")
-			// Written after EVERY phase: a later phase failing must not discard
-			// this one's photos from the manifest.
-			flushManifest()
-		}
-		// Seed last week photos if requested
-		if *lastWeekCount > 0 {
-			log.Info().Int("count", *lastWeekCount).Msg("seeding last week photos")
-			if err := seed.SeedLastWeekPhotos(ctx, conn.Client, m, time.Now(), *lastWeekCount); err != nil {
-				log.Fatal().Err(err).Msg("seed last week photos failed")
-			}
-			log.Info().Int("totalImages", len(m.Images)).Msg("last week photos seeded")
-			flushManifest()
-		}
-		// Tag existing photos if requested
-		if *tagExisting {
-			log.Info().Msg("tagging existing photos with random tags")
-			if err := seed.TagExistingPhotos(ctx, conn.Client, m, time.Now()); err != nil {
-				log.Fatal().Err(err).Msg("tag existing photos failed")
-			}
-			log.Info().Int("totalImages", len(m.Images)).Msg("existing photos tagged")
-		}
 		flushManifest()
 		return
 	}
@@ -172,36 +123,9 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("seed failed")
 	}
-	// After EVERY phase, exactly like the already-seeded path above: a later
-	// phase failing log.Fatal()s, and a manifest written only at the very end
-	// would leave every photo seeded so far — a `--week 10000` is 10k of them —
-	// on disk and in no manifest at all.
-	writeManifest := func() {
-		if err := manifest.Write(manifestPath); err != nil {
-			log.Fatal().Err(err).Msg("failed to write manifest")
-		}
+	if err := manifest.Write(manifestPath); err != nil {
+		log.Fatal().Err(err).Msg("failed to write manifest")
 	}
-	if *weekCount > 0 {
-		log.Info().Int("count", *weekCount).Msg("seeding week of photos")
-		if err := seed.SeedWeekOfPhotos(ctx, conn.Client, manifest, time.Now(), *weekCount); err != nil {
-			log.Fatal().Err(err).Msg("seed week of photos failed")
-		}
-		writeManifest()
-	}
-	if *lastWeekCount > 0 {
-		log.Info().Int("count", *lastWeekCount).Msg("seeding last week photos")
-		if err := seed.SeedLastWeekPhotos(ctx, conn.Client, manifest, time.Now(), *lastWeekCount); err != nil {
-			log.Fatal().Err(err).Msg("seed last week photos failed")
-		}
-		writeManifest()
-	}
-	if *tagExisting {
-		log.Info().Msg("tagging existing photos with random tags")
-		if err := seed.TagExistingPhotos(ctx, conn.Client, manifest, time.Now()); err != nil {
-			log.Fatal().Err(err).Msg("tag existing photos failed")
-		}
-	}
-	writeManifest()
 	log.Info().Str("manifest", manifestPath).
 		Int("images", len(manifest.Images)).
 		Int("timeRangeImages", len(manifest.TimeRangeImages)).
