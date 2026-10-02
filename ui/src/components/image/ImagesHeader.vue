@@ -202,6 +202,91 @@
         </transition>
       </Popover>
 
+      <!-- time range -->
+      <Popover class="relative" v-slot="{ open: timeOpen }">
+        <PopoverButton
+          :class="[triggerBase, timeFrom || timeTo ? triggerActive : triggerIdle]"
+          data-testid="time-range-button"
+          title="Filter by capture time"
+          @click="!timeOpen && emit('timeBoundsNeeded')"
+        >
+          <ClockIcon class="h-[18px] w-[18px]" />
+          <span>Time</span>
+          <span
+            v-if="timeFrom || timeTo"
+            class="ml-0.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent-500/20 px-1.5 font-data text-xs font-semibold text-accent-700 dark:text-accent-200"
+          >
+            <span class="sr-only">Time range active</span>
+            <span aria-hidden="true">·</span>
+          </span>
+          <ChevronDownIcon class="h-4 w-4 opacity-60" />
+        </PopoverButton>
+        <transition
+          enter-active-class="transition duration-150 ease-out"
+          enter-from-class="opacity-0 translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition duration-100 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-1"
+        >
+          <PopoverPanel
+            class="absolute right-0 z-30 mt-2 w-64 rounded-lg border border-primary-200 bg-surface p-3 shadow-xl dark:border-primary-700 dark:bg-surface-dark"
+            data-testid="time-range-panel"
+          >
+            <div class="flex flex-col gap-2.5">
+              <!-- quick way: two thumbs over the currently filtered gallery's
+                   time span (excluding the range itself). Hidden when the
+                   domain is empty/degenerate; manual inputs stay the override. -->
+              <TimeRangeSlider
+                v-if="sliderDomain"
+                :min="sliderDomain.min"
+                :max="sliderDomain.max"
+                :from="timeFrom"
+                :to="timeTo"
+                :ticks="timeTicks"
+                :disabled="timeRangeSuspended"
+                @preview="(f, t) => setLocalsSilently(f, t)"
+                @restore="(f, t) => setLocalsSilently(f, t)"
+                @change="(f, t, o) => emit('timeRange', f, widenToEndOfMinute(t), o)"
+              />
+              <label class="flex flex-col gap-1 text-xs font-medium text-primary-500 dark:text-primary-400">
+                From
+                <input
+                  v-model="fromLocal"
+                  type="datetime-local"
+                  :disabled="timeRangeSuspended"
+                  :aria-invalid="fromInvalid"
+                  :class="timeInputClass(fromInvalid)"
+                  data-testid="time-from-input"
+                />
+              </label>
+              <label class="flex flex-col gap-1 text-xs font-medium text-primary-500 dark:text-primary-400">
+                To
+                <input
+                  v-model="toLocal"
+                  type="datetime-local"
+                  :disabled="timeRangeSuspended"
+                  :aria-invalid="toInvalid"
+                  :class="timeInputClass(toInvalid)"
+                  data-testid="time-to-input"
+                />
+              </label>
+              <p v-if="fromInvalid || toInvalid" class="text-xs text-error-600 dark:text-error-400" data-testid="time-range-invalid">
+                That wall clock does not exist on this date — the clocks jump forward. The applied range was left unchanged.
+              </p>
+              <button
+                v-if="timeFrom || timeTo || fromLocal || toLocal"
+                class="rounded-md px-2.5 py-1.5 text-left text-sm font-medium text-accent-600 hover:bg-primary-100 dark:text-accent-300 dark:hover:bg-primary-800"
+                data-testid="clear-time-range"
+                @click="clearTimeRange()"
+              >
+                Clear time range
+              </button>
+            </div>
+          </PopoverPanel>
+        </transition>
+      </Popover>
+
       <!-- upload batch -->
       <Listbox :model-value="uploadFilter" @update:model-value="onUploadSelect">
         <div class="relative">
@@ -261,8 +346,13 @@
         </div>
       </Listbox>
 
-      <!-- sort -->
-      <Listbox v-model="preferredImageSortOrder">
+      <!-- sort. `sortOrder` is the EFFECTIVE order: the timespan context pins
+           ?sort=oldestFirst for one view without rewriting the user's persisted
+           preference, so the trigger must show the order actually in force —
+           binding straight to the store made the label relabel to a choice that
+           then did nothing. Picking an option emits instead of writing the
+           store, so the page can clear the route pin. -->
+      <Listbox :model-value="effectiveSortOrder" @update:model-value="onSortSelect">
         <div class="relative">
           <ListboxButton :class="[triggerBase, triggerIdle]">
             <ArrowsUpDownIcon class="h-[18px] w-[18px]" />
@@ -311,15 +401,19 @@ import {
   SparklesIcon,
   ArrowUpTrayIcon,
   PlayIcon,
+  ClockIcon,
 } from "@heroicons/vue/24/outline";
 import { Popover, PopoverButton, PopoverPanel, Listbox, ListboxButton, ListboxOptions, ListboxOption } from "@headlessui/vue";
 import { storeToRefs } from "pinia";
+import { useDebounceFn } from "@vueuse/core";
 import { useUserStore } from "src/stores/user-store";
 import { emitter } from "src/boot/mitt";
-import { computed, h, ref, watch } from "vue";
+import { computed, h, nextTick, onUnmounted, ref, watch } from "vue";
 import { ImageTag, Upload } from "src/types/api";
-import type { TagFacetsResponse } from "src/api/images";
+import type { TagFacetsResponse, ImageTimeBounds } from "src/api/images";
 import { tagLabel } from "src/util/tagOrder";
+import { isoToEndOfMinute, isoToLocalInput, localInputToIso, localInputToIsoInclusive } from "src/util/dateTimeUtil";
+import TimeRangeSlider from "src/components/image/TimeRangeSlider.vue";
 import { api } from "src/api";
 
 type Density = "gallery" | "comfortable" | "dense";
@@ -332,6 +426,18 @@ interface Props {
   selectionCount?: number;
   // active upload-batch filter — route-driven, Images.vue owns the query sync
   uploadFilter?: string | null;
+  // inclusive capture-time bounds (ISO) — route-driven like uploadFilter
+  timeFrom?: string | null;
+  timeTo?: string | null;
+  // slider domain for the Time popover — fetched on popover open
+  timeBounds?: ImageTimeBounds | null;
+  // density ticks for the slider track — fetched alongside bounds
+  timeTicks?: string[] | null;
+  // the range is currently suspended: the slider greys out so the thumbs
+  // cannot be dragged into a filter that is not being applied
+  timeRangeSuspended?: boolean;
+  // the sort order actually in force; omit to follow the persisted preference
+  sortOrder?: string | null;
   // per-tag counts under the current filter — Images.vue fetches on facetsNeeded
   tagFacets?: TagFacetsResponse | null;
   // any narrowing filter active (search, tags, orientation, person, upload, ask)
@@ -342,6 +448,12 @@ const props = withDefaults(defineProps<Props>(), {
   density: "comfortable",
   selectionCount: 0,
   uploadFilter: null,
+  timeFrom: null,
+  timeTo: null,
+  timeBounds: null,
+  timeTicks: null,
+  timeRangeSuspended: false,
+  sortOrder: null,
   tagFacets: null,
   filterActive: false,
 });
@@ -354,12 +466,22 @@ const emit = defineEmits<{
   "update:density": [Density];
   rerunAi: [];
   uploadFilter: [string | null];
+  timeRange: [string | null, string | null, { replace?: boolean }?];
+  timeBoundsNeeded: [];
+  sortOrderChange: [string];
   slideshow: [];
   // true = force a refresh (popover open), false = only if the filter changed
   facetsNeeded: [boolean];
 }>();
 
 const { activeProject, preferredImageSortOrder, projectTags } = storeToRefs(useUserStore());
+
+// slider domain: only render when both ends exist and span at least a minute
+const sliderDomain = computed(() => {
+  const b = props.timeBounds;
+  if (!b?.min || !b?.max) return null;
+  return new Date(b.max).getTime() - new Date(b.min).getTime() >= 60_000 ? { min: b.min, max: b.max } : null;
+});
 
 // shared trigger styling so every control aligns to one spec
 const triggerBase =
@@ -386,7 +508,12 @@ const sortOptions = [
   { value: "mostRecentlyUpdated", label: "Recently updated" },
   { value: "leastRecentlyUpdated", label: "Least recently updated" },
 ];
-const currentSort = computed(() => sortOptions.find((s) => s.value === preferredImageSortOrder.value) || sortOptions[0]);
+const effectiveSortOrder = computed(() => props.sortOrder || preferredImageSortOrder.value);
+const currentSort = computed(() => sortOptions.find((s) => s.value === effectiveSortOrder.value) || sortOptions[0]);
+// The page owns the route: it clears a pinned ?sort= and writes the preference.
+function onSortSelect(value: string) {
+  emit("sortOrderChange", value);
+}
 
 const densityOptions: { value: Density; label: string; icon: any }[] = [
   { value: "gallery", label: "Gallery", icon: RectangleStackIcon },
@@ -405,6 +532,133 @@ const semanticSearch = () => {
 // orientation
 const orientation = ref<string>("neutral");
 watch(orientation, () => emit("aspectRatioFilter", orientation.value));
+
+// time range — props are the source of truth (route-driven in Images.vue);
+// the datetime-local inputs work in local wall clock, so convert both ways.
+// A props->locals sync must NOT echo back out as an emit: the round trip goes
+// through Images.vue's setTimeRange, which is a USER-EDIT writer (it drops
+// ?rangeScope=). The flag marks exactly one inbound sync as non-emitting.
+//
+// The inputs start EMPTY when no range is applied. Prefilling them with the
+// slider domain bounds (first/last photo) meant that editing only "From"
+// silently committed ?to=<last photo> — a range the user never asked for, on a
+// panel whose "Clear time range" button was hidden because no range existed.
+const fromLocal = ref(isoToLocalInput(props.timeFrom));
+const toLocal = ref(isoToLocalInput(props.timeTo));
+let syncingFromProps = false;
+// Bumped by every INBOUND sync (props change, slider preview or restore) so a
+// debounced keystroke that was already in flight knows it has been overtaken and
+// must not write its stale value over the newer state.
+let inboundToken = 0;
+// A token the user actually typed, as opposed to one that arrived from outside.
+// An inbound sync that was NOT a slider preview (a props change, or a slider
+// restore) must not eat a pending edit: the user typed it, it is still the
+// truth, and the only thing that changed the fields under them is state the
+// route does not own. Those syncs re-arm the debounce instead of dropping it.
+let pendingUserEdit = false;
+function applyInbound(fLocal: string, tLocal: string, reArmPendingEdit = false) {
+  if (reArmPendingEdit) pendingUserEdit = true;
+  inboundToken++;
+  syncingFromProps = true;
+  if (fLocal !== fromLocal.value || tLocal !== toLocal.value) {
+    fromLocal.value = fLocal;
+    toLocal.value = tLocal;
+  }
+  nextTick(() => (syncingFromProps = false));
+}
+watch(
+  () => [props.timeFrom, props.timeTo],
+  ([f, t]) => applyInbound(isoToLocalInput(f), isoToLocalInput(t), true),
+);
+
+// A non-empty field that cannot be turned into an instant is INVALID, not "no
+// bound on that side". localInputToIso returns null for both — the input empty
+// and the wall clock refused (a DST spring-forward gap, which really does not
+// happen) — and collapsing the two made a rejected time silently DELETED that
+// side of the route: the filter quietly widened while the input still showed
+// the text that was refused. Computed rather than latched, so the field can
+// never show a stale error after the next keystroke makes it valid again.
+const fromInvalid = computed(() => !!fromLocal.value && localInputToIso(fromLocal.value) === null);
+const toInvalid = computed(() => !!toLocal.value && localInputToIsoInclusive(toLocal.value) === null);
+function timeInputClass(invalid: boolean) {
+  return [
+    // `surface` has no 900 shade (DEFAULT/muted/dark/dark-muted only), so a
+    // dark:bg-surface-900 compiled to nothing and left the light
+    // bg-surface-muted under dark:text-primary-100 — white on white. The
+    // dark surface for inputs is primary-900, as every other input here uses.
+    "h-8 rounded-md border bg-surface-muted px-2.5 text-sm text-primary-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-900 dark:text-primary-100",
+    invalid ? "border-error-500 text-error-700 dark:border-error-500 dark:text-error-300" : "border-primary-200 dark:border-primary-700",
+  ];
+}
+
+// Typing is debounced and lands as a history REPLACE: emitting on every
+// keystroke meant one router.push + one full loadImages(true) per character,
+// and every intermediate value ("2026-0", "2026-08") became a back-step the
+// user had to click through.
+let disposed = false;
+const emitTimeRange = useDebounceFn((token: number) => {
+  // vueuse 10's useDebounceFn exposes no cancel and registers no scope
+  // dispose, so an armed timer fired after unmount and wrote ?from/?to onto
+  // whatever route the user had navigated to in the meantime.
+  if (disposed) return;
+  const stale = token !== inboundToken;
+  // A stale token is only forgivable when an inbound sync re-armed the edit.
+  if (stale && !pendingUserEdit) return;
+  pendingUserEdit = false;
+  // Refused wall clock: leave the route on the last good range rather than
+  // dropping the side, and let the invalid input say so.
+  if (fromInvalid.value || toInvalid.value) return;
+  const from = localInputToIso(fromLocal.value);
+  // Inclusive upper bound: the input and the slider both carry minute
+  // precision, and the backend compares `to` with LTE — without widening to the
+  // last millisecond of the minute, every photo inside that final minute is
+  // dropped.
+  let to = localInputToIsoInclusive(toLocal.value);
+  // The backend rejects an inverted range with 400 invalid_time_range, which
+  // renders the whole grid as an error page. Clamp instead: a user whose To
+  // lands before the From gets a valid range, not a dead end.
+  if (from && to && new Date(to) < new Date(from)) {
+    // Clamp to the END of the From minute, not its start, and show the user the
+    // value that was actually applied — an unwidened `to === from` is a
+    // one-instant range (an empty grid) while the input still shows the earlier
+    // time they typed, which reads as the app ignoring them.
+    to = widenToEndOfMinute(from);
+    applyInbound(fromLocal.value, isoToLocalInput(to));
+  }
+  emit("timeRange", from, to, { replace: true });
+}, 400);
+watch([fromLocal, toLocal], () => {
+  if (syncingFromProps) return;
+  pendingUserEdit = true;
+  emitTimeRange(inboundToken);
+});
+onUnmounted(() => {
+  disposed = true;
+});
+
+// slider drag feedback: mirror the thumbs into the inputs so their values
+// update live — silently, like a props sync (the actual commit is `change`)
+function setLocalsSilently(f: string, t: string) {
+  applyInbound(isoToLocalInput(f), isoToLocalInput(t));
+}
+
+// The slider works in whole minutes, so its `to` needs the same inclusive
+// widening as the manual input — otherwise releasing the thumb at 23:59 cuts
+// the last minute off the range. A null side stays null: that is the slider
+// signalling an open-ended range, and widening would close it. Delegates to
+// localInputToIsoInclusive so there is ONE end-of-minute rule, not two that can
+// drift.
+function widenToEndOfMinute(iso: string | null): string | null {
+  return isoToEndOfMinute(iso);
+}
+
+// Clear from the panel: the locals are reset through the same inbound path
+// (so the pending debounce is invalidated) and the route is cleared directly,
+// so the button works even when only the inputs (not the URL) carried a range.
+function clearTimeRange() {
+  applyInbound("", "");
+  emit("timeRange", null, null);
+}
 
 // tags — Grafana-style polarity filter: + narrows to images WITH the tag,
 // − drops images WITH the tag. Selected entries pin above the list.

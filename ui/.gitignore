@@ -43,3 +43,5 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+# seed manifest captured by global-setup for the specs to read
+/.playwright/seed-manifest.json

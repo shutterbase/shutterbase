@@ -133,8 +133,8 @@ test.describe.serial("schedule module", () => {
 });
 
 // The upload page rebuild: dropzone -> timeline -> tile grid. The seeded
-// upload has three images, so the grid and the (empty) timeline must render
-// without JS errors for the owner.
+// upload has eleven images (three base + the midnight cluster), so the grid
+// and the (empty) timeline must render without JS errors for the owner.
 test("upload detail page shows timeline and tile grid", async ({ page }) => {
   const errors = collectJsErrors(page);
   await loginAs(page, "projectEditor");
@@ -151,8 +151,8 @@ test("upload detail page shows timeline and tile grid", async ({ page }) => {
   await page.goto(`/uploads/${uploadId}/edit`);
   await expect(page.getByRole("heading", { name: "Tagging timeline" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Images", exact: true })).toBeVisible();
-  // The three seeded images render as tiles.
-  await expect(page.locator("figure")).toHaveCount(3, { timeout: 10_000 });
+  // All seeded images render as tiles.
+  await expect(page.locator("figure")).toHaveCount(11, { timeout: 10_000 });
 
   // Add a tag lane through the searchable picker; the lane spans the full
   // image axis and, being user-added, carries a delete "x".

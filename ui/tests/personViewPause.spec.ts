@@ -11,11 +11,13 @@ const filtered = {
   crossProject: true,
   uploadId: "u1",
   orientation: "portrait",
+  timeFrom: "2026-08-25T22:55:00.000Z",
+  timeTo: "2026-08-25T23:10:00.000Z",
   sortOrder: SORT_ORDER.LATEST_FIRST,
 };
 
 describe("applyPersonPause (person-view filter suspension)", () => {
-  it("strips search, include/exclude tags and orientation", () => {
+  it("strips search, include/exclude tags, orientation and the time range", () => {
     expect(applyPersonPause(filtered)).toEqual({
       projectId: "p1",
       search: "",
@@ -25,6 +27,8 @@ describe("applyPersonPause (person-view filter suspension)", () => {
       crossProject: true,
       uploadId: "u1",
       orientation: "neutral",
+      timeFrom: undefined,
+      timeTo: undefined,
       sortOrder: SORT_ORDER.LATEST_FIRST,
     });
   });
@@ -51,6 +55,8 @@ describe("applyPersonPause (person-view filter suspension)", () => {
     expect(params.tagId).toBeUndefined();
     expect(params.excludeTagId).toBeUndefined();
     expect(params.orientation).toBeUndefined();
+    expect(params.from).toBeUndefined();
+    expect(params.to).toBeUndefined();
   });
 
   it("is a no-op on an already-narrow input", () => {

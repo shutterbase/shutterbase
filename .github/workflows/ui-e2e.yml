@@ -72,7 +72,7 @@ jobs:
           curl -fs http://localhost:9000/login >/dev/null || { echo "::error::quasar dev never became ready"; cat ui/quasar-dev.log; exit 1; }
 
       - name: Run Playwright e2e
-        run: cd ui && bunx playwright test
+        run: cd ui && TZ=Europe/Berlin bunx playwright test
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}

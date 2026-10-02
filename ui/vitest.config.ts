@@ -1,7 +1,12 @@
 import { defineConfig, configDefaults } from "vitest/config";
+import vue from "@vitejs/plugin-vue";
 import { fileURLToPath } from "node:url";
 
 export default defineConfig({
+  // Single-file components. Quasar's build pipeline compiles the SPA, but
+  // vitest runs off this config, and without the plugin a test cannot import a
+  // .vue file at all.
+  plugins: [vue()],
   resolve: {
     alias: {
       src: fileURLToPath(new URL("./src", import.meta.url)),

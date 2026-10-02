@@ -72,9 +72,10 @@ type recordInference struct {
 }
 
 func (r *recordInference) Infer(_ context.Context, req InferenceRequest) (InferenceResult, error) {
-	// object name looks like "se/seedimg00000001-512.jpg"; capture the storage id.
+	// object name looks like "se/seedimg00000001-512.jpg"; capture the storage
+	// id (base fixtures use seedimg*, the midnight cluster seedtr*).
 	for _, part := range strings.Split(req.ImageURL, "/") {
-		if strings.HasPrefix(part, "seedimg") {
+		if strings.HasPrefix(part, "seed") {
 			r.seen = append(r.seen, strings.SplitN(part, "-", 2)[0])
 		}
 	}
@@ -132,7 +133,13 @@ func TestFIFOOrder(t *testing.T) {
 	}
 
 	require.Len(t, rec.seen, len(m.Images))
-	assert.Equal(t, []string{"seedimg00000000", "seedimg00000001", "seedimg00000002"}, rec.seen)
+	// Drain order must match enqueue order (m.Images order): base photos first,
+	// then the midnight cluster.
+	expected := make([]string, 0, len(m.Images))
+	for _, id := range m.Images {
+		expected = append(expected, svc.repo.Client.Image.GetX(ctx, id).StorageId)
+	}
+	assert.Equal(t, expected, rec.seen)
 	for _, id := range m.Images {
 		assert.Equal(t, "done", aiStatus(t, svc, id))
 	}

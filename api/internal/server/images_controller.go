@@ -19,6 +19,8 @@ func (s *Server) registerImageRoutes(api *gin.RouterGroup) {
 	api.GET("/images", s.listImages)
 	api.GET("/images/tag-facets", s.listImageTagFacets)
 	api.GET("/images/position", s.getImagePosition)
+	api.GET("/images/time-bounds", s.getImageTimeBounds)
+	api.GET("/images/time-ticks", s.getImageTimeTicks)
 	api.GET("/images/:id", s.getImage)
 	api.POST("/images", s.createImage)
 	api.PUT("/images/:id", s.updateImage)
@@ -71,8 +73,11 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		}
 		params.Orientation = &v
 	}
-	// Semantic "ask" filter: the AI server ranks the project's images by their
+// Semantic "ask" filter: the AI server ranks the project's images by their
 	// description; the grid then shows that id set under its normal sort.
+	//
+	// Must stay BEFORE the personRef block below, which intersects its own ids
+	// against params.IDs — so ask sets params.IDs and person refines it.
 	if v := strings.TrimSpace(c.Query("ask")); v != "" {
 		ids, idsOk := s.askImageIDs(c, projectID, v)
 		if !idsOk {
@@ -83,6 +88,20 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		}
 		params.IDs = ids
 	}
+	// Inclusive capturedAtCorrected bounds as RFC3339 (the SPA sends
+	// date.toISOString()); either side alone is an open-ended range. Disjoint
+	// from the ask/person id narrowing above, so the order between them is free.
+	from, fromOk := parseTimeParam(c, "from")
+	to, toOk := parseTimeParam(c, "to")
+	if !fromOk || !toOk {
+		return nil, false, false
+	}
+	if from != nil && to != nil && from.After(*to) {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", "from must not be after to")
+		return nil, false, false
+	}
+	params.FromCapturedAtCorrected = from
+	params.ToCapturedAtCorrected = to
 	if v := c.Query("personRef"); v != "" {
 		ids, idsOk := s.personImageIDs(c, projectID, v)
 		if !idsOk {
@@ -112,6 +131,21 @@ func (s *Server) parseImageFilterParams(c *gin.Context) (params *repository.GetI
 		params.IDs = ids
 	}
 	return params, false, true
+}
+
+// parseTimeParam reads an optional RFC3339 query parameter. Missing/empty →
+// (nil, true). Malformed → 400 invalid_time_range and (nil, false).
+func parseTimeParam(c *gin.Context, name string) (*time.Time, bool) {
+	v := c.Query(name)
+	if v == "" {
+		return nil, true
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		apiError(c, http.StatusBadRequest, "invalid_time_range", name+" must be an RFC3339 timestamp")
+		return nil, false
+	}
+	return &t, true
 }
 
 func (s *Server) listImages(c *gin.Context) {
@@ -172,6 +206,66 @@ func (s *Server) getImagePosition(c *gin.Context) {
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"position": position})
+}
+
+// getImageTimeBounds backs the Time popover's slider: the [min,max]
+// capturedAtCorrected span of everything matching the filter. The repository
+// always strips the time-range bounds themselves — the range being edited must
+// not shift its own domain. repository.ImageTimeBounds already carries the
+// wire tags, so it is serialized directly (no second shape to keep in sync).
+func (s *Server) getImageTimeBounds(c *gin.Context) {
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	if emptyResult {
+		c.JSON(http.StatusOK, repository.ImageTimeBounds{})
+		return
+	}
+	bounds, err := s.Repository.GetImageTimeBounds(c.Request.Context(), params)
+	if abortRepoListError(c, err) {
+		return
+	}
+	c.JSON(http.StatusOK, bounds)
+}
+
+// ImageTimeTicksResponse backs the slider density strip: sampled image
+// timestamps over the currently filtered gallery's time span (range stripped).
+// The frontend renders each as a thin vertical tick mark on the slider track.
+// Ticks is always a JSON array, never null: the SPA reads .length off it
+// unguarded, and a null there throws a TypeError that resets its memo key and
+// turns the failure into a refetch loop.
+type ImageTimeTicksResponse struct {
+	Ticks []string `json:"ticks"`
+}
+
+// maxTimeTicks bounds the number of DOM nodes the frontend renders on the
+// slider track. For ≤ maxTimeTicks images every position is returned; above
+// that the list is linearly downsampled server-side.
+//
+// 200 is chosen as the sweet spot: visible density resolution without DOM
+// overload. Frontend renders each tick as a 1px vertical line (w-px).
+// See GetImageTimeTicks for performance characteristics.
+const maxTimeTicks = 200
+
+func (s *Server) getImageTimeTicks(c *gin.Context) {
+	params, emptyResult, ok := s.parseImageFilterParams(c)
+	if !ok {
+		return
+	}
+	if emptyResult {
+		c.JSON(http.StatusOK, ImageTimeTicksResponse{Ticks: []string{}})
+		return
+	}
+	timestamps, err := s.Repository.GetImageTimeTicks(c.Request.Context(), params, maxTimeTicks)
+	if abortRepoListError(c, err) {
+		return
+	}
+	ticks := make([]string, len(timestamps))
+	for i, t := range timestamps {
+		ticks[i] = t.Format(time.RFC3339)
+	}
+	c.JSON(http.StatusOK, ImageTimeTicksResponse{Ticks: ticks})
 }
 
 // TagFacetsResponse backs the tag filter popover: facets[tagId] = images the
