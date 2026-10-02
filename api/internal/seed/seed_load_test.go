@@ -28,6 +28,36 @@ func assignmentCount(t *testing.T, c *ent.Client, imageID string) int {
 	return n
 }
 
+// drawPool resolves the ids the loaders draw their random extras from.
+//
+// The pool GREW: it used to be Tag00–Tag09 alone, and now holds every generated
+// team tag as well, because the loaders create those tags for the facets and then
+// never assigned them — 80 tags on zero photos, which is worse than useless
+// because repository.GetImageTagFacets drops zero-count tags, so they showed up in
+// no facet at all.
+//
+// Spelled out from the generator rather than swept out of m.Tags: the manifest also
+// holds Default, the internal marker and the $DATE/$WEEKDAY templates, none of
+// which the draw can pick, and a pool silently padded with them would make the
+// per-bucket coverage checks below pass without the draw having reached the team
+// tags.
+func drawPool(t *testing.T, m *seed.Manifest) []string {
+	t.Helper()
+	generated := seed.GeneratedTeamTags()
+	pool := make([]string, 0, len(generated)+10)
+	for _, tag := range generated {
+		id := m.Tags[tag.Name]
+		require.NotEmpty(t, id, "generated team tag %q is not on the manifest", tag.Name)
+		pool = append(pool, id)
+	}
+	for n := 0; n < 10; n++ {
+		id := m.Tags[fmt.Sprintf("Tag%02d", n)]
+		require.NotEmpty(t, id, "Tag%02d must exist", n)
+		pool = append(pool, id)
+	}
+	return pool
+}
+
 func loadPhotos(t *testing.T, c *ent.Client, prefix string) []*ent.Image {
 	t.Helper()
 	rows, err := c.Image.Query().Where(image.ComputedFileNameHasPrefix(prefix)).All(context.Background())
@@ -86,10 +116,7 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	// constraint error, so the photo silently ended up with fewer tags.
 	defaultTag := m.Tags["Default"]
 	extraByCount := map[int]int{}
-	pool := make([]string, 0, 10)
-	for n := 0; n < 10; n++ {
-		pool = append(pool, m.Tags[fmt.Sprintf("Tag%02d", n)])
-	}
+	pool := drawPool(t, m)
 	for _, img := range all {
 		require.NotEmpty(t, img.ImageTags, "imageTags jsonb must be populated")
 		assert.Contains(t, img.ImageTags, defaultTag, "Default must be in the jsonb read-model")
@@ -174,13 +201,37 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 			}
 			counts[extra]++
 		}
+		// The pool GREW from 10 ids to 90, and "every pool tag in every bucket" is no
+		// longer an affordable assertion at this population: reaching all 90 from a
+		// bucket of ~150 single-tag photos is a coupon-collector problem, so ~17 tags
+		// per bucket would be unseen on any given run and the check would be a coin
+		// flip rather than a check. Two assertions replace it, neither of which the
+		// old pool satisfied by accident:
+		//
+		//   - each bucket still draws WIDELY. The defect being caught is a bucket
+		//     confined to two or three pool entries (the 3-of-10 / 2-of-10 skew above),
+		//     so a floor at half the pool is four standard deviations below what the
+		//     SMALLEST bucket reaches and still fails loudly on it.
+		//   - every pool tag reaches SOME photo in this seeder. That is the property
+		//     the skew broke — vocabulary the draw can never produce — and 500 photos
+		//     (~1000 draws) clears a 90-entry pool with room to spare.
+		floor := len(pool) / 2
+		used := map[string]bool{}
 		for n := 1; n <= 3; n++ {
 			require.Positive(t, counts[n], "%s: no photos with %d extra tags", group.name, n)
+			assert.GreaterOrEqual(t, len(bucketsUsed[n]), floor,
+				"%s: a photo with %d extra tag(s) drew from only %d of the %d pool tags — the draw is not uniform over the pool",
+				group.share, n, len(bucketsUsed[n]), len(pool))
 			for _, tagID := range pool {
-				assert.Positive(t, bucketsUsed[n][tagID],
-					"%s: tag %s never appears on a photo with %d extra tag(s) — the draw is not uniform over the pool",
-					group.share, tagID, n)
+				if bucketsUsed[n][tagID] > 0 {
+					used[tagID] = true
+				}
 			}
+		}
+		for _, tagID := range pool {
+			assert.True(t, used[tagID],
+				"%s: tag %s is on no photo at all — it is in the draw pool and the draw cannot reach it",
+				group.share, tagID)
 		}
 	}
 

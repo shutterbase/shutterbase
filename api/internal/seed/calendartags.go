@@ -65,11 +65,26 @@ func CalendarTagNames(w Window) []string {
 // EnsureCalendarTags find-or-creates the day and weekday tags a window needs and
 // returns them indexed by name. Convergent, like EnsureTagSet: a re-run resolves
 // the same ids and refreshes a description that drifted.
+//
+// The rows are created as TypeDefault, and that is load-bearing rather than
+// cosmetic. image_tags carries a unique index on (name, project_id), and the app's
+// findOrCreateDefaultTag filters on TypeEQ(TypeDefault) — so a manual-typed
+// 20260925 is invisible to it, and the next upload's INSERT for $DATE dies on the
+// unique constraint and 500s. Creating them as the app would have is what lets the
+// two agree. The weekday tags need the same agreement, and it carries a second
+// half: Seed must ship a $WEEKDAY template beside $DATE, for the same reason. That
+// is a requirement on Seed's tag list, not a remark about it — without the template
+// the weekday tags live only in fixtures, a real upload renders no weekday of its
+// own, and the two drift apart again. Assert the requirement where the tag list is
+// built, so this comment states what must hold rather than what happened to be true
+// when it was written.
 func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID string, w Window) (map[string]string, error) {
 	names := CalendarTagNames(w)
 	out := make(map[string]string, len(names))
 	err := inTx(ctx, client, func(tx *ent.Tx) error {
 		for _, name := range names {
+			// Matched on name ALONE, not name-and-type: the row may already exist
+			// from an earlier run or an upload, and the unique index is on the name.
 			existing, err := tx.ImageTag.Query().
 				Where(imagetag.ProjectID(projectID), imagetag.Name(name)).
 				Only(ctx)
@@ -79,7 +94,7 @@ func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID strin
 					SetName(name).
 					SetDisplayName(name).
 					SetDescription(calendarTagDescription(name, w)).
-					SetType(imagetag.TypeManual).
+					SetType(imagetag.TypeDefault).
 					SetProjectID(projectID).
 					Save(ctx)
 				if err != nil {
@@ -89,9 +104,18 @@ func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID strin
 			case err != nil:
 				return fmt.Errorf("look up calendar tag %s: %w", name, err)
 			default:
-				if want := calendarTagDescription(name, w); existing.Description != want {
+				changed := existing.Description != calendarTagDescription(name, w)
+				if existing.Type != imagetag.TypeDefault {
+					// Promote rather than skip: the app can only see a default row.
+					if _, err := tx.ImageTag.UpdateOneID(existing.ID).
+						SetType(imagetag.TypeDefault).Save(ctx); err != nil {
+						return fmt.Errorf("promote calendar tag %s: %w", name, err)
+					}
+					changed = true
+				}
+				if changed {
 					updated, err := tx.ImageTag.UpdateOneID(existing.ID).
-						SetDescription(want).
+						SetDescription(calendarTagDescription(name, w)).
 						Save(ctx)
 					if err != nil {
 						return fmt.Errorf("update calendar tag %s: %w", name, err)
@@ -109,15 +133,48 @@ func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID strin
 
 // calendarTagDescription makes the tag readable in the tag filter. A weekday gets
 // the short form ("Thu 02 Oct 2026"), a date gets the long one.
+//
+// The short form is derived from the WINDOW because a weekday name carries no date
+// of its own — nothing in "Thursday" says which Thursday. It names the FIRST day in
+// the window falling on that weekday: first rather than any because
+// EnsureCalendarTags rewrites a row whose description drifted, so a reading that
+// moved between runs would rewrite every weekday row on every run and the rows
+// would never settle.
+//
+// A weekday the window never reaches — a window shorter than a week covers only
+// some of them — has no day to name, and falls back to the bare weekday name. That
+// is what the app's own $WEEKDAY template renders (the "Monday" layout in
+// image_service), so the two agree without the seeder inventing a date for a shoot
+// it never created.
 func calendarTagDescription(name string, w Window) string {
-	t, err := time.ParseInLocation("20060102", name, w.From.Location())
-	if err != nil {
-		return name // a weekday name, not a date
+	loc := w.From.Location()
+	if t, err := time.ParseInLocation("20060102", name, loc); err == nil {
+		return t.Format("Monday, 2 January 2006")
 	}
-	if t.Weekday().String() == name {
-		return t.Format("Mon 02 Jan 2006")
+	weekday, ok := weekdayByName(name)
+	if !ok {
+		return name // neither a date nor a weekday: nothing to render
 	}
-	return t.Format("Monday, 2 January 2006")
+	from, to := w.From.In(loc), w.To.In(loc)
+	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
+		if d.Weekday() == weekday {
+			return d.Format("Mon 02 Jan 2006")
+		}
+	}
+	return name
+}
+
+// weekdayByName resolves a full weekday name, the shape WeekdayTagName writes and
+// the shape $WEEKDAY renders. The single definition of "is a weekday name", shared
+// with CalendarTagPrefix so the two cannot drift apart and start disagreeing about
+// which strings are calendar tags.
+func weekdayByName(name string) (time.Weekday, bool) {
+	for i := range 7 {
+		if wd := time.Weekday(i); wd.String() == name {
+			return wd, true
+		}
+	}
+	return 0, false
 }
 
 // calendarTagsFor returns the two tag ids a photo captured at t carries. Ids
@@ -172,10 +229,6 @@ func CalendarTagPrefix(name string) bool {
 	if len(name) == len("20060102") && strings.Trim(name, "0123456789") == "" {
 		return true
 	}
-	for i := range 7 {
-		if name == time.Weekday(i).String() {
-			return true
-		}
-	}
-	return false
+	_, ok := weekdayByName(name)
+	return ok
 }

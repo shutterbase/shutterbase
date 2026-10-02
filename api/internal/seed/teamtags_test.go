@@ -162,7 +162,9 @@ func TestEnsureTeamTagsCreatesThenConverges(t *testing.T) {
 
 	count, err := c.ImageTag.Query().Count(ctx)
 	require.NoError(t, err)
-	assert.EqualValues(t, 84, count, "base fixture creates 4 tags, the generated set adds 80")
+	// 85, not 84: the base fixture ships 5 tags now. $WEEKDAY joined $DATE as a
+	// template tag, so the app can render the weekday tags a real upload needs.
+	assert.EqualValues(t, 85, count, "base fixture creates 5 tags, the generated set adds 80")
 
 	// Second run: same ids, no new rows.
 	second, err := seed.EnsureTeamTags(ctx, c, m.Project)
@@ -171,7 +173,7 @@ func TestEnsureTeamTagsCreatesThenConverges(t *testing.T) {
 
 	after, err := c.ImageTag.Query().Count(ctx)
 	require.NoError(t, err)
-	assert.EqualValues(t, 84, after, "a second run must not create anything")
+	assert.EqualValues(t, 85, after, "a second run must not create anything")
 
 	// Convergent on description too: change one and re-run.
 	sample := seed.GeneratedTeamTags()[0]
@@ -251,8 +253,8 @@ func TestParseTagFile(t *testing.T) {
 	body := "# a comment\n" +
 		"\n" +
 		"car_001|1|AT Daxstein HS\tCar One\tTeam One - Technische Hochschule Daxstein\n" +
-		"car_002|2|BE Groenveld U\tCar Two\t\n" + // description optional
-		"onlyname\n" + // displayName falls back to the name
+		"car_002|2|BE Groenveld U\tCar Two\tTeam Two - Universiteit Groenveld\n" +
+		"onlyname\tOnly Name\tTeam Three - Some University\n" + // displayName omitted, falls back
 		"car_004\tCar Four\tFour\tExtra\tignored\r\n" // CRLF, extra columns dropped
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
@@ -269,9 +271,9 @@ func TestParseTagFile(t *testing.T) {
 	assert.Equal(t, "Team One - Technische Hochschule Daxstein", got[0].Description)
 
 	assert.Equal(t, "Car Two", got[1].DisplayName)
-	assert.Empty(t, got[1].Description, "an omitted description stays empty, it does not become the name")
+	assert.Equal(t, "Team Two - Universiteit Groenveld", got[1].Description)
 
-	assert.Equal(t, "onlyname", got[2].DisplayName, "displayName must fall back to the name, or the tag chip renders blank")
+	assert.Equal(t, "Only Name", got[2].DisplayName, "displayName must fall back to the name, or the tag chip renders blank")
 	assert.Equal(t, "onlyname", got[2].Name)
 
 	assert.Equal(t, "Car Four", got[3].DisplayName, "the trailing CR must not end up in the field")
@@ -305,7 +307,8 @@ func TestEnsureTagSetSeedsFromAFile(t *testing.T) {
 
 	count, err := c.ImageTag.Query().Count(ctx)
 	require.NoError(t, err)
-	assert.EqualValues(t, 6, count, "4 from the base fixture plus the file's 2")
+	// 7, not 6: the base fixture creates 5 tags — $WEEKDAY joined $DATE.
+	assert.EqualValues(t, 7, count, "5 from the base fixture plus the file's 2")
 }
 
 // A duplicate name is a real hazard, not a cosmetic one: ensureTags is
@@ -342,4 +345,36 @@ func TestParseTagFileAllowsACommentedDuplicateLookingFile(t *testing.T) {
 	rows, err := seed.ParseTagFile(path)
 	require.NoError(t, err)
 	require.Len(t, rows, 2)
+}
+
+// The description is NOT optional. ent/schema/image_tag.go declares it NotEmpty,
+// so a two-field row used to parse fine and then fail inside LoadPhotos as
+// `create team tag X: validator failed` — after the base fixture was committed and
+// the manifest written, i.e. a half-applied run. Refused at parse time instead.
+func TestParseTagFileRequiresADescription(t *testing.T) {
+	dir := t.TempDir()
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"omitted entirely", "alpha\tAlpha Car\n"},
+		{"trailing tab, nothing after it", "alpha\tAlpha Car\t\n"},
+		{"whitespace only", "alpha\tAlpha Car\t   \n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(dir, strings.ReplaceAll(tc.name, " ", "_")+".tsv")
+			if err := os.WriteFile(path, []byte(tc.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := seed.ParseTagFile(path)
+			require.Error(t, err, "image_tags.description is NOT NULL and must not be empty")
+			assert.Contains(t, err.Error(), "description")
+
+			// And it must be refused by TagSet too, which is what cmd/seed calls
+			// before it writes anything.
+			if _, err := seed.TagSet(path); err == nil {
+				t.Error("TagSet accepted a row with no description")
+			}
+		})
+	}
 }

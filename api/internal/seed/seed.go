@@ -53,6 +53,45 @@ type Manifest struct {
 	Upload       string               `json:"upload"`
 	Images       []string             `json:"images"`
 	DriftSeconds int                  `json:"driftSeconds"`
+
+	// seen is the set of ids already in Images, so an id can enter the list once
+	// and only once. Unexported, and that is load-bearing: encoding/json skips
+	// unexported fields, so the written manifest keeps exactly the documented
+	// shape the harness and cmd/seed read back. Built from Images on first use
+	// rather than here, because a manifest is read back from disk by
+	// ReadManifest and then grown in place.
+	seen map[string]struct{}
+}
+
+// recordImage appends an image id to the manifest unless it is already in it.
+//
+// Every path that records a photo goes through it: Seed's base fixture, and both
+// loaders, for the photos they created AND for the ones they skipped because
+// computedFileName already matched a row.
+//
+// That skip path is the one that matters. The loaders' idempotency lives in the
+// DATABASE, and nothing fed it back into this list, so re-running an identical
+// command appended every id it skipped: measured against a real database, a
+// second run left 803 manifest entries over 403 photos, and a `--photos 200`
+// then `--photos 500` top-up left 703 over 503. Manifest.Images is what the
+// Playwright and test harness read, so a re-seeded database handed consumers
+// every photo twice and anything iterating the list did double work or asserted
+// the wrong length.
+func recordImage(m *Manifest, id string) {
+	if id == "" {
+		return
+	}
+	if m.seen == nil {
+		m.seen = make(map[string]struct{}, len(m.Images)+1)
+		for _, have := range m.Images {
+			m.seen[have] = struct{}{}
+		}
+	}
+	if _, dup := m.seen[id]; dup {
+		return
+	}
+	m.seen[id] = struct{}{}
+	m.Images = append(m.Images, id)
 }
 
 // Seed wipes nothing — it expects an empty (freshly migrated) database — and
@@ -197,6 +236,12 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 		typ        imagetag.Type
 	}{
 		{"$DATE", "date template tag", imagetag.TypeTemplate},
+		// $WEEKDAY beside $DATE for the app's sake, not this package's: the weekday
+		// tags EnsureCalendarTags writes are TypeDefault so the app can find them,
+		// and the app only ever RENDERS a weekday from a template. Without this one
+		// it had no way to produce them and would INSERT them as manual, colliding
+		// the unique (name, project_id) index on the next upload.
+		{"$WEEKDAY", "weekday template tag", imagetag.TypeTemplate},
 		{"Podium", "manual tag", imagetag.TypeManual},
 		{"Default", "auto-applied tag", imagetag.TypeDefault},
 		{"internal", "reserved management tag", imagetag.TypeManual},
@@ -250,7 +295,7 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 		if err != nil {
 			return nil, fmt.Errorf("create image %d: %w", i, err)
 		}
-		m.Images = append(m.Images, img.ID)
+		recordImage(m, img.ID)
 
 		// Link the default tag (denormalized list above mirrors this).
 		if _, err := client.ImageTagAssignment.Create().
@@ -297,12 +342,29 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 }
 
 // Write serializes the manifest to path as JSON (consumed by Playwright/tests).
+//
+// Through a sibling temp file and a rename, never in place. cmd/seed writes the
+// manifest after every phase, so a crash mid-write — or a kill — used to leave
+// half a JSON document on disk, and ReadManifest then failed on it for the rest
+// of the database's life: every later run died at "cannot read the existing
+// manifest", which points at the file rather than at the interrupted write that
+// made it unparseable. A rename is atomic, so a reader sees either the old
+// manifest or the new one.
 func (m *Manifest) Write(path string) error {
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, b, 0o644)
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		// Leaving the partial file behind would make the next run trip over it.
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // Shape is how photos are distributed across the load window.
@@ -356,12 +418,17 @@ func LoadPhotos(ctx context.Context, client *ent.Client, m *Manifest, opts LoadO
 	if err != nil {
 		return fmt.Errorf("seed team tags: %w", err)
 	}
-	for name, id := range ids {
-		m.Tags[name] = id
+	// …and they are part of the DRAW pool, not just the tag list: resolved as ids
+	// and then merged into m.Tags, while every pool stayed hardcoded to
+	// Tag00-Tag09, so all 80 sat on zero photos — and a tag on zero photos is
+	// invisible, because repository.GetImageTagFacets drops zero-count tags.
+	pool, err := resolveTagPool(ctx, client, m, ids)
+	if err != nil {
+		return err
 	}
 	window := opts.Window
 	if window.From.IsZero() && window.To.IsZero() {
-		window = SevenDaysEndingAt(time.Now())
+		window = SevenDaysEndingAt(defaultReferenceNow(m))
 	}
 	if err := window.Validate(); err != nil {
 		return fmt.Errorf("load photos: %w", err)
@@ -374,16 +441,131 @@ func LoadPhotos(ctx context.Context, client *ent.Client, m *Manifest, opts LoadO
 		return fmt.Errorf("seed calendar tags: %w", err)
 	}
 	for name, id := range cal {
-		m.Tags[name] = id
+		recordTag(m, name, id)
 	}
 	switch opts.Shape {
 	case ShapeUniform:
-		return seedWeekOfPhotos(ctx, client, m, window, opts.Count, opts.TagCount, cal, opts.Seed)
+		return seedWeekOfPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.Seed)
 	case ShapeBurst, "":
-		return seedLastWeekPhotos(ctx, client, m, window, opts.Count, opts.TagCount, cal, opts.Seed)
+		return seedLastWeekPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.Seed)
 	default:
 		return fmt.Errorf("unknown shape %q", opts.Shape)
 	}
+}
+
+// defaultReferenceNow is the instant a default window ends at: the manifest's own
+// referenceNow, which is what the base fixture was built against.
+//
+// The wall clock made "re-running adds nothing" false for the plain invocation.
+// The photo NAMES matched, so the photos were skipped — but the calendar tags the
+// window enumerated were the new run's dates, and EnsureCalendarTags created
+// them. `seed --photos 200` on Monday and again on Tuesday therefore left the
+// project with two sets of day tags for a shoot that only ever had one.
+func defaultReferenceNow(m *Manifest) time.Time {
+	if m.ReferenceNow.IsZero() {
+		// A manifest that never recorded one — a hand-written file, not one this
+		// package wrote. The wall clock is the bug above, but photos dated in the
+		// year 1 are a worse fixture than either, so this only guards the field
+		// being absent altogether.
+		return time.Now()
+	}
+	return m.ReferenceNow
+}
+
+// recordTag writes one resolved tag id onto the manifest, creating the map when
+// there is none.
+//
+// ReadManifest of a hand-edited file with no "tags" object unmarshals to a nil
+// map, and assigning into a nil map panics — the same empty-manifest case
+// requireDefaultTag exists to report by name. ensureCalendarTags guards each write
+// the same way; this is the one place all of them go through.
+func recordTag(m *Manifest, name, id string) {
+	if m.Tags == nil {
+		m.Tags = map[string]string{}
+	}
+	m.Tags[name] = id
+}
+
+// resolveTagPool resolves the project's tag set into the id pool the loaders draw
+// their random extras from: every generated team tag plus Tag00-Tag09.
+//
+// ids may be nil, in which case the set is resolved here. LoadPhotos has already
+// resolved it (it must, to honour --tags-file) and passes it down; a direct loader
+// call resolves its own, exactly as it resolves its own calendar tags. A loader
+// that quietly drew from ten tags because nobody went through LoadPhotos would be
+// a worse bug than one redundant find-or-create.
+//
+// Every id is recorded on the manifest, so a photo carrying one of these tags has
+// a name the tests and the caller can resolve.
+func resolveTagPool(ctx context.Context, client *ent.Client, m *Manifest, ids map[string]string) ([]string, error) {
+	if len(ids) == 0 {
+		got, err := EnsureTagSet(ctx, client, m.Project, "")
+		if err != nil {
+			return nil, fmt.Errorf("seed team tags: %w", err)
+		}
+		ids = got
+	}
+	for name, id := range ids {
+		recordTag(m, name, id)
+	}
+	autoTags, err := ensureAutoTags(ctx, client, m)
+	if err != nil {
+		return nil, err
+	}
+	// Sorted by NAME, not in map order: the per-photo draw is seeded off the
+	// photo's index and has to reproduce the same set on every re-run, and Go
+	// randomises map iteration — an unsorted pool would reshuffle the vocabulary
+	// between two runs of the same command and re-run would append tags.
+	names := make([]string, 0, len(ids))
+	for name := range ids {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	pool := make([]string, 0, len(names)+len(autoTags))
+	for _, name := range names {
+		if id := ids[name]; id != "" {
+			pool = append(pool, id)
+		}
+	}
+	// Tag00-Tag09 last: they stay in the pool (the loader tests pin their
+	// per-bucket reachability, and a project seeded before the team tags existed
+	// has only these) but no longer monopolise it.
+	return append(pool, autoTags...), nil
+}
+
+// ensureAutoTags resolves Tag00-Tag09, creating whatever the project lacks, and
+// records them on the manifest.
+//
+// Three copies of this loop used to live in the three loaders, which is how the
+// pool drifted between them.
+func ensureAutoTags(ctx context.Context, client *ent.Client, m *Manifest) ([]string, error) {
+	tags := make([]string, 10)
+	for t := range tags {
+		tagName := fmt.Sprintf("Tag%02d", t)
+		existing, err := client.ImageTag.Query().
+			Where(imagetag.ProjectID(m.Project), imagetag.Name(tagName)).
+			Only(ctx)
+		switch {
+		case ent.IsNotFound(err):
+			created, err := client.ImageTag.Create().
+				SetName(tagName).
+				SetDescription(fmt.Sprintf("auto tag %d", t)).
+				SetType(imagetag.TypeManual).
+				SetProjectID(m.Project).
+				Save(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("create extra tag %s: %w", tagName, err)
+			}
+			recordTag(m, tagName, created.ID)
+			tags[t] = created.ID
+		case err != nil:
+			return nil, fmt.Errorf("query extra tag %s: %w", tagName, err)
+		default:
+			recordTag(m, tagName, existing.ID)
+			tags[t] = existing.ID
+		}
+	}
+	return tags, nil
 }
 
 // saltOf reads the optional --seed. Absent, or explicitly 0, means "no salt".
@@ -475,8 +657,19 @@ func extraTagCount(rng *rand.Rand) int {
 // same tag to one photo twice, and the duplicate insert then trips the unique
 // (image_id, image_tag_id) index and is discarded as a constraint error — so
 // the photo silently ends up with fewer tags than the distribution promises.
-
+//
+// n is clamped to the pool because the resample loop has no other exit: it needs
+// a UNSEEN candidate on every iteration, so n > len(pool) spins forever and an
+// empty pool dies in rng.Intn(0). Both are reachable — LoadOptions.TagCount is
+// unbounded (only cmd/seed range-checks it) and the pool is whatever
+// EnsureTagSet/the manifest resolved — and the result is a hung or panicking
+// process rather than a diagnostic. Asking for more tags than exist now yields
+// the whole pool, which is the best a distinct draw can do.
 func drawExtraTags(rng *rand.Rand, pool []string, n int) []string {
+	if len(pool) == 0 || n <= 0 {
+		return nil
+	}
+	n = min(n, len(pool))
 	picked := make([]string, 0, n)
 	for len(picked) < n {
 		candidate := pool[rng.Intn(len(pool))]
@@ -608,6 +801,63 @@ func requireDefaultTag(tags map[string]string) (string, error) {
 	return "", errors.New("no \"Default\" tag in the manifest — the seed project is missing its Default tag, or the manifest was merged from a hand-edited file")
 }
 
+// requireFixtureIdentities rejects a manifest whose own rows cannot be written as
+// images, before the first chunk starts.
+//
+// Every seeded photo carries project_id, upload_id, user_id and camera_id straight
+// from the manifest, and an empty string in any of them is an empty-string FOREIGN
+// KEY: the whole 500-row chunk aborts with a constraint error naming a column and
+// not the manifest entry at fault. requireDefaultTag reports one of these ids by
+// name because its absence can sometimes be legitimate; these four have no absent
+// case, so they are all checked, and all reported together — a manifest missing
+// three of them should say so once rather than fail three times.
+//
+// The upload is checked for OWNERSHIP, not existence. A stale manifest — one whose
+// project was recreated, or one hand-edited to point at another shoot — still
+// resolves an upload row, and the photos then land in one project while being filed
+// under another's upload: a gallery filtering by upload shows a different set than
+// the one filtering by project. The camera and the editor are checked against that
+// same upload for the same reason; mixing ids from two fixtures produces rows whose
+// columns disagree about who took them.
+func requireFixtureIdentities(ctx context.Context, client *ent.Client, m *Manifest) error {
+	freshCam := m.Cameras["fresh"]
+	editor := m.Users["projectEditor"]
+	var missing []string
+	if m.Project == "" {
+		missing = append(missing, "project")
+	}
+	if m.Upload == "" {
+		missing = append(missing, "upload")
+	}
+	if freshCam == "" {
+		missing = append(missing, `cameras["fresh"]`)
+	}
+	if editor == uuid.Nil {
+		missing = append(missing, `users["projectEditor"]`)
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("the manifest records no %s — every photo row carries all four, and an empty one is an empty-string foreign key that aborts the chunk with a bare constraint error",
+			strings.Join(missing, ", "))
+	}
+
+	upload, err := client.Upload.Get(ctx, m.Upload)
+	if err != nil {
+		return fmt.Errorf("the manifest's upload %s cannot be read: %w — delete the manifest to re-seed from scratch", m.Upload, err)
+	}
+	switch {
+	case upload.ProjectID != m.Project:
+		return fmt.Errorf("the manifest's upload %s belongs to project %s, not %s — the photos would be filed under another project's upload; delete the manifest to re-seed from scratch",
+			upload.ID, upload.ProjectID, m.Project)
+	case upload.CameraID != freshCam:
+		return fmt.Errorf("the manifest's upload %s was recorded against camera %s, but the manifest names %q — the photos would carry a camera that did not take them; delete the manifest to re-seed from scratch",
+			upload.ID, upload.CameraID, freshCam)
+	case upload.UserID != editor:
+		return fmt.Errorf("the manifest's upload %s belongs to user %s, not the projectEditor %s — the photos would be attributed to another user; delete the manifest to re-seed from scratch",
+			upload.ID, upload.UserID, editor)
+	}
+	return nil
+}
+
 // existingFileNames maps every already-present name to its image id, so an
 // idempotent re-run skips them in ONE query per chunk and still knows the id it
 // needs for the manifest and the tag backfill — no per-photo lookup afterwards.
@@ -620,13 +870,22 @@ func requireDefaultTag(tags map[string]string) (string, error) {
 // shifted --from/--to recomputes the layout, but an existing photo keeps the
 // instant it was created with; deriving its tags from the new window gave it a
 // second, wrong date tag and the re-run stopped being a no-op.
-func existingFileNames(ctx context.Context, client *ent.Client, names []string) (map[string]string, map[string]*time.Time, error) {
+//
+// SCOPED TO ONE PROJECT. The photo names are hardcoded per loader
+// (FSG_W%05d.jpg), so an unscoped lookup let a second project running the same
+// loader find the FIRST project's rows, treat them as its own already-seeded
+// photos and write its Default and extra tag assignments onto another project's
+// images. images.computedFileName is globally UNIQUE, so that cross-assignment
+// was the only outcome possible once the names collided — a collision now fails
+// loudly at the INSERT instead, which is the wanted outcome. Namespacing the
+// filenames to hide it would give up the cross-project id the loader reuses.
+func existingFileNames(ctx context.Context, client *ent.Client, projectID string, names []string) (map[string]string, map[string]*time.Time, error) {
 	found := make(map[string]string, len(names))
 	times := make(map[string]*time.Time, len(names))
 	for start := 0; start < len(names); start += seedBulkChunk {
 		end := min(start+seedBulkChunk, len(names))
 		rows, err := client.Image.Query().
-			Where(image.ComputedFileNameIn(names[start:end]...)).
+			Where(image.ComputedFileNameIn(names[start:end]...), image.ProjectID(projectID)).
 			Select(image.FieldID, image.FieldComputedFileName, image.FieldCapturedAtCorrected).
 			All(ctx)
 		if err != nil {
@@ -667,11 +926,13 @@ func rebuildImageTagsJSON(ctx context.Context, tx *ent.Tx, imageID string) error
 }
 
 // SeedWeekOfPhotos creates `count` photos with capturedAtCorrected spread
-// evenly across the 7 days ENDING at referenceNow, so nothing is dated in the
-// future. Used for load-testing the time-range slider density ticks. Each photo
-// gets the Default tag plus 1-3 random extra tags out of 10. Idempotent: photos
-// that already exist (matched by computedFileName) are skipped, as are tag
-// assignments that are already in place.
+// evenly across the given window — the newest on window.To, the oldest on
+// window.From — so nothing is dated beyond the end of the range. Used for
+// load-testing the time-range slider density ticks. Each photo gets the Default
+// tag plus 1-3 random extra tags drawn from the project's generated team tags
+// and Tag00-Tag09. Idempotent: photos that already exist (matched by
+// computedFileName, WITHIN this project) are skipped — their id stays on the
+// manifest, recorded once — as are tag assignments that are already in place.
 
 // salt is the optional run seed (--seed). Variadic so the existing call sites and
 // their tests are untouched: a loader called without one behaves exactly as
@@ -679,52 +940,37 @@ func rebuildImageTagsJSON(ctx context.Context, tx *ent.Tx, imageID string) error
 // extrasPerPhoto is the optional pinned extra-tag count (--tag-count); 0 keeps
 // the 30/50/20 split.
 func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count int, salt ...int64) error {
-	return seedWeekOfPhotos(ctx, client, m, window, count, 0, nil, salt...)
+	return seedWeekOfPhotos(ctx, client, m, window, count, 0, nil, nil, salt...)
 }
 
-func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, cal map[string]string, salt ...int64) error {
-	var err error
+// pool is the resolved draw pool, nil when the caller has none: this loader then
+// resolves the tag set itself, the same way it resolves its own calendar tags.
+func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, salt ...int64) error {
+	// The identities are checked before anything is created: unlike a missing
+	// tag there is no partial recovery from them, and a failure after the tags
+	// were ensured leaves rows behind for a run that was never going to finish.
+	if err := requireFixtureIdentities(ctx, client, m); err != nil {
+		return fmt.Errorf("seed week of photos: %w", err)
+	}
+	defaultTag, err := requireDefaultTag(m.Tags)
+	if err != nil {
+		return fmt.Errorf("seed week of photos: %w", err)
+	}
+	if pool == nil {
+		if pool, err = resolveTagPool(ctx, client, m, nil); err != nil {
+			return err
+		}
+	}
 	if cal, err = ensureCalendarTags(ctx, client, m, window, cal); err != nil {
 		return err
 	}
 	if count <= 0 {
 		count = 10000
 	}
-	defaultTag, err := requireDefaultTag(m.Tags)
-	if err != nil {
-		return fmt.Errorf("seed week of photos: %w", err)
-	}
 	freshCam := m.Cameras["fresh"]
 	editor := m.Users["projectEditor"]
 	upload := m.Upload
 	project := m.Project
-
-	// Create 10 additional tags if they don't exist
-	extraTags := make([]string, 10)
-	for t := 0; t < 10; t++ {
-		tagName := fmt.Sprintf("Tag%02d", t)
-		existing, err := client.ImageTag.Query().
-			Where(imagetag.ProjectID(project), imagetag.Name(tagName)).
-			Only(ctx)
-		if ent.IsNotFound(err) {
-			newTag, err := client.ImageTag.Create().
-				SetName(tagName).
-				SetDescription(fmt.Sprintf("auto tag %d", t)).
-				SetType(imagetag.TypeManual).
-				SetProjectID(project).
-				Save(ctx)
-			if err != nil {
-				return fmt.Errorf("create extra tag %s: %w", tagName, err)
-			}
-			m.Tags[tagName] = newTag.ID
-			extraTags[t] = newTag.ID
-		} else if err != nil {
-			return fmt.Errorf("query extra tag %s: %w", tagName, err)
-		} else {
-			m.Tags[tagName] = existing.ID
-			extraTags[t] = existing.ID
-		}
-	}
 
 	if err := window.Validate(); err != nil {
 		return fmt.Errorf("seed week of photos: %w", err)
@@ -742,7 +988,7 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	for i := range count {
 		names[i] = fmt.Sprintf("FSG_W%05d.jpg", i)
 	}
-	existing, existingTimes, err := existingFileNames(ctx, client, names)
+	existing, existingTimes, err := existingFileNames(ctx, client, project, names)
 	if err != nil {
 		return err
 	}
@@ -762,7 +1008,7 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	extras := make([][]string, count)
 	for i := range count {
 		extras[i] = withCalendarTags(
-			photoExtrasFixed(rngFor(saltedIndexSeed("W", i, saltOf(salt))), extraTags, extrasPerPhoto),
+			photoExtrasFixed(rngFor(saltedIndexSeed("W", i, saltOf(salt))), pool, extrasPerPhoto),
 			cal, correcteds[i])
 	}
 
@@ -815,7 +1061,7 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 			return fmt.Errorf("commit week chunk: %w", err)
 		}
 		for _, img := range created {
-			m.Images = append(m.Images, img.ID)
+			recordImage(m, img.ID)
 		}
 		batch = batch[:0]
 		return nil
@@ -824,14 +1070,14 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	for i := range count {
 		if id, ok := existing[names[i]]; ok {
 			// Already seeded: keep the manifest complete and the re-run cheap.
-			m.Images = append(m.Images, id)
+			recordImage(m, id)
 			// Calendar tags follow the PHOTO's stored instant, not the window this
 			// run recomputed. A top-up with a shifted --from/--to must not give an
 			// existing photo a second, wrong date tag.
 			tags := extras[i]
 			if at := existingTimes[names[i]]; at != nil {
 				tags = withCalendarTags(photoExtrasFixed(
-					rngFor(saltedIndexSeed("W", i, saltOf(salt))), extraTags, extrasPerPhoto), cal, *at)
+					rngFor(saltedIndexSeed("W", i, saltOf(salt))), pool, extrasPerPhoto), cal, *at)
 			}
 			if err := inTx(ctx, client, func(tx *ent.Tx) error {
 				return assignMissingTagAssignments(ctx, tx, id, defaultTag, tags)
@@ -855,7 +1101,7 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	// in the gallery carrying only Default, and any facet query groups them as one
 	// flat bucket next to thousands with a full tag set. FSG_W is this loader's own
 	// prefix, so those are skipped — they were just tagged from the same pool.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, "FSG_W", salt...)
+	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, "FSG_W", salt...)
 }
 
 func rngFor(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
@@ -958,122 +1204,135 @@ func assignMissingTagAssignments(ctx context.Context, tx *ent.Tx, imageID string
 
 // TagExistingPhotos assigns random extra tags to all existing images in the
 // project that don't already have them. Used to backfill the original seed
-// images. Each photo gets 1-3 extra tags from Tag00–Tag09. Assignments that
-// are already recorded are skipped, so a re-run costs one query per photo
-// instead of 3 guaranteed-conflict inserts.
+// images. Each photo gets 1-3 extra tags drawn from the project's generated team
+// tags and Tag00–Tag09. Assignments that are already recorded are skipped, so a
+// re-run costs one query per photo instead of 3 guaranteed-conflict inserts.
 
 // salt is the optional run seed (--seed); see SeedWeekOfPhotos.
 func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, salt ...int64) error {
-	return tagExistingPhotos(ctx, client, m, 0, "", salt...)
+	return tagExistingPhotos(ctx, client, m, 0, nil, "", salt...)
 }
 
 // tagExistingPhotos with extrasPerPhoto 0 keeping the 30/50/20 split; see
 // photoExtrasFixed. ownPrefix skips the photos the calling loader just made —
-// they are already tagged — so the backfill only pays for what it changes.
-func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, extrasPerPhoto int, ownPrefix string, salt ...int64) error {
+// they are already tagged — so the backfill only pays for what it changes. pool is
+// the loader's resolved draw pool, nil when the caller has none.
+func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, extrasPerPhoto int, pool []string, ownPrefix string, salt ...int64) error {
 	project := m.Project
-
-	// Ensure 10 extra tags exist
-	extraTags := make([]string, 10)
-	for t := 0; t < 10; t++ {
-		tagName := fmt.Sprintf("Tag%02d", t)
-		existing, err := client.ImageTag.Query().
-			Where(imagetag.ProjectID(project), imagetag.Name(tagName)).
-			Only(ctx)
-		if ent.IsNotFound(err) {
-			newTag, err := client.ImageTag.Create().
-				SetName(tagName).
-				SetDescription(fmt.Sprintf("auto tag %d", t)).
-				SetType(imagetag.TypeManual).
-				SetProjectID(project).
-				Save(ctx)
-			if err != nil {
-				return fmt.Errorf("create extra tag %s: %w", tagName, err)
-			}
-			m.Tags[tagName] = newTag.ID
-			extraTags[t] = newTag.ID
-		} else if err != nil {
-			return fmt.Errorf("query extra tag %s: %w", tagName, err)
-		} else {
-			m.Tags[tagName] = existing.ID
-			extraTags[t] = existing.ID
+	if pool == nil {
+		var err error
+		if pool, err = resolveTagPool(ctx, client, m, nil); err != nil {
+			return err
 		}
 	}
 
-	// Fetch all images in the project
-	images, err := client.Image.Query().Where(image.ProjectID(project)).All(ctx)
-	if err != nil {
-		return fmt.Errorf("query images: %w", err)
+	// The pool-tag count this run considers a photo to have reached.
+	//
+	// A PINNED --tag-count is a target, not a floor, so the test is against the
+	// count and a photo holding fewer pool tags than asked for is topped up.
+	// Testing mere PRESENCE made the flag unreachable through this backfill: any
+	// photo a previous run had drawn once — at a lower count, or under the default
+	// split — was skipped forever, whatever --tag-count the next run carried. Being
+	// append-only, this cannot LOWER an over-pinned photo; it can only reach a
+	// photo the old test never looked at again.
+	//
+	// The default 1-3 draw keeps presence, as 1: there is no target count to reach
+	// without one, and testing against the drawn count would give every
+	// already-tagged photo a fresh draw on every re-run. That is exactly the
+	// run-away tagging the per-id stream below exists to prevent.
+	want := extrasPerPhoto
+	if want <= 0 {
+		want = 1
 	}
-
-	// The midnight cluster (FSG_90xx) is the time-range filter's UNTAGGED
-	// control: it carries no assignments on purpose, so capture time is the only
-	// varying dimension. Backfilling it with random tags destroys that, and
-	// pollutes the fixture the time-range e2e specs filter on, so it is excluded.
-	//
-	// Matched by NAME PREFIX rather than by manifest id. SeedTimeRangeCluster is
-	// the only writer of Manifest.TimeRangeImages and it names every photo
-	// FSG_9000.jpg..FSG_9007.jpg, so the two are equivalent — but the prefix also
-	// works on a database whose manifest was never written, which the id list
-	// does not. That matters because this backfill also runs before the cluster
-	// seeder exists at all.
-	//
-	// ownPrefix skips the photos THIS loader just created, and pool additionally
-	// skips any photo already carrying a pool tag.
-	//
-	// The pool test is the load-bearing one. The two loaders draw DIFFERENT tag
-	// sets for the same photo — SeedWeekOfPhotos keys on the photo's index,
-	// TagExistingPhotos keys on the image id — so a prefix check alone let the
-	// second loader's backfill add its own draw on top of the first loader's, and
-	// a photo came out with up to six random tags instead of three. A photo that
-	// already carries a pool tag has been drawn for and is left alone.
-	hasPoolTag := make(map[string]struct{}, len(extraTags))
-	for _, id := range extraTags {
+	hasPoolTag := make(map[string]struct{}, len(pool))
+	for _, id := range pool {
 		hasPoolTag[id] = struct{}{}
 	}
-	skip := make(map[string]struct{}, len(images))
-	tagged := make(map[string]bool, len(images))
-	for _, img := range images {
-		for _, id := range img.ImageTags {
-			if _, isPool := hasPoolTag[id]; isPool {
-				tagged[img.ID] = true
-				break
+
+	// The photos, one page at a time. Three columns: the id the draw is keyed on,
+	// the name the prefix exclusions match, and the jsonb read model the pool test
+	// counts. Everything else is dead weight — exifData alone is kilobytes per
+	// photo, so the whole-project select this replaced was a multi-gigabyte fetch at
+	// the 250k ceiling to build one map entry per photo.
+	//
+	// Paged by id cursor rather than by offset: ids are unique and ordered, so the
+	// cursor names exactly one row and cannot be perturbed by the updates each page
+	// writes. An offset window would hold only as long as no row was added or
+	// removed underneath it — true here, but by a property of the caller rather than
+	// of this loop.
+	after := ""
+	for {
+		images, err := client.Image.Query().
+			Where(image.ProjectID(project), image.IDGT(after)).
+			Order(ent.Asc(image.FieldID)).
+			Limit(seedBulkChunk).
+			Select(image.FieldID, image.FieldComputedFileName, image.FieldImageTags).
+			All(ctx)
+		if err != nil {
+			return fmt.Errorf("query images: %w", err)
+		}
+		if len(images) == 0 {
+			return nil
+		}
+		after = images[len(images)-1].ID
+
+		// The midnight cluster (FSG_90xx) is the time-range filter's UNTAGGED
+		// control: it carries no assignments on purpose, so capture time is the only
+		// varying dimension. Backfilling it with random tags destroys that, and
+		// pollutes the fixture the time-range e2e specs filter on, so it is excluded.
+		//
+		// Matched by NAME PREFIX rather than by manifest id. On this branch the
+		// prefix is the ONLY handle on those photos: there is no cluster seeder and
+		// no manifest field listing them, so an id list would have nothing to read.
+		// The prefix is also the choice that keeps working on a database whose
+		// manifest was never written at all — a hand-seeded dev project, or photos
+		// loaded from a dump — where every id-based answer is empty and this
+		// backfill would tag the very control fixture it exists to protect.
+		//
+		// ownPrefix skips the photos THIS loader just created, and the pool count
+		// skips a photo already drawn for.
+		//
+		// The pool test is the load-bearing one. The two loaders draw DIFFERENT tag
+		// sets for the same photo — SeedWeekOfPhotos keys on the photo's index,
+		// TagExistingPhotos keys on the image id — so a prefix check alone let the
+		// second loader's backfill add its own draw on top of the first loader's, and
+		// a photo came out with up to six random tags instead of three.
+		//
+		// Per-image tag set, derived from the image id's VALUE rather than from a
+		// running rng: cmd/seed passes a fresh time.Now() on every run, so a stateful
+		// draw chose a different set each time and kept appending tags until every
+		// photo carried the whole pool. All the draws for a page are made up front
+		// so the writes below can be batched.
+		type target struct {
+			id    string
+			extra []string
+		}
+		targets := make([]target, 0, len(images))
+		for _, img := range images {
+			if strings.HasPrefix(img.ComputedFileName, TimeRangeClusterPrefix) ||
+				(ownPrefix != "" && strings.HasPrefix(img.ComputedFileName, ownPrefix)) {
+				continue
 			}
+			poolTags := 0
+			for _, id := range img.ImageTags {
+				if _, isPool := hasPoolTag[id]; isPool {
+					poolTags++
+				}
+			}
+			if poolTags >= want {
+				continue
+			}
+			targets = append(targets, target{id: img.ID, extra: photoExtrasFixed(rngFor(saltedIDSeed(img.ID, saltOf(salt))), pool, extrasPerPhoto)})
 		}
-		if strings.HasPrefix(img.ComputedFileName, TimeRangeClusterPrefix) ||
-			(ownPrefix != "" && strings.HasPrefix(img.ComputedFileName, ownPrefix)) ||
-			tagged[img.ID] {
-			skip[img.ID] = struct{}{}
-		}
-	}
 
-	// Per-image tag set, derived from the image id's VALUE rather than from a
-	// running rng: cmd/seed passes a fresh time.Now() on every run, so a stateful
-	// draw chose a different set each time and kept appending tags until every
-	// photo carried all ten. All the draws are made up front so the writes below
-	// can be batched.
-	type target struct {
-		id    string
-		extra []string
-	}
-	targets := make([]target, 0, len(images))
-	for _, img := range images {
-		if _, excluded := skip[img.ID]; excluded {
-			continue
-		}
-		targets = append(targets, target{id: img.ID, extra: photoExtrasFixed(rngFor(saltedIDSeed(img.ID, saltOf(salt))), extraTags, extrasPerPhoto)})
-	}
-
-	// One tx per chunk instead of one per photo. This used to be a BEGIN /
-	// SELECT / INSERT / UPDATE / COMMIT for every image — and rebuildImageTagsJSON
-	// adds a SELECT + UPDATE inside each of those — so a 15k-photo project paid
-	// 15k transactions and 45k round trips. Mirrors the chunked pattern the load
-	// seeders already use. A chunk that fails leaves its photos untagged, which
-	// assignMissingTagAssignments makes safe to resume.
-	for start := 0; start < len(targets); start += seedBulkChunk {
-		chunk := targets[start:min(start+seedBulkChunk, len(targets))]
+		// One tx per chunk instead of one per photo. This used to be a BEGIN /
+		// SELECT / INSERT / UPDATE / COMMIT for every image — and rebuildImageTagsJSON
+		// adds a SELECT + UPDATE inside each of those — so a 15k-photo project paid
+		// 15k transactions and 45k round trips. Mirrors the chunked pattern the load
+		// seeders already use. A chunk that fails leaves its photos untagged, which
+		// assignMissingTagAssignments makes safe to resume.
 		if err := inTx(ctx, client, func(tx *ent.Tx) error {
-			for _, t := range chunk {
+			for _, t := range targets {
 				// defaultTag is "" on purpose: these photos already carry their
 				// Default assignment, and re-adding it would be a guaranteed
 				// conflict.
@@ -1085,65 +1344,56 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 		}); err != nil {
 			return err
 		}
+
+		if len(images) < seedBulkChunk {
+			return nil
+		}
 	}
-	return nil
 }
 
-// SeedLastWeekPhotos creates ~5,000 photos with capturedAtCorrected spread
-// organically across the previous 7 days (ending at referenceNow).
+// SeedLastWeekPhotos creates `count` photos (5000 when count is 0 or less) with
+// capturedAtCorrected spread organically across the given window, in bursts
+// centred on five golden-hour events per day.
 // Timestamps use a Poisson-like distribution to simulate realistic shooting
 // bursts (events, golden hour) instead of uniform spacing. Each photo gets
-// the default tag plus 1-3 random extra tags from Tag00–Tag09.
-// Idempotent: skips images that already exist (by computedFileName).
+// the default tag plus 1-3 random extra tags drawn from the project's generated
+// team tags and Tag00–Tag09. Idempotent: skips images that already exist (by
+// computedFileName, WITHIN this project), keeping their id on the manifest —
+// recorded once — and adding only the assignments still missing.
 
 // salt is the optional run seed (--seed); see SeedWeekOfPhotos.
 func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count int, salt ...int64) error {
-	return seedLastWeekPhotos(ctx, client, m, window, count, 0, nil, salt...)
+	return seedLastWeekPhotos(ctx, client, m, window, count, 0, nil, nil, salt...)
 }
 
-func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, cal map[string]string, salt ...int64) error {
-	var err error
+// pool is the resolved draw pool, nil when the caller has none; see
+// seedWeekOfPhotos.
+func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, salt ...int64) error {
+	// The identities are checked before anything is created: unlike a missing
+	// tag there is no partial recovery from them, and a failure after the tags
+	// were ensured leaves rows behind for a run that was never going to finish.
+	if err := requireFixtureIdentities(ctx, client, m); err != nil {
+		return fmt.Errorf("seed last week photos: %w", err)
+	}
+	defaultTag, err := requireDefaultTag(m.Tags)
+	if err != nil {
+		return fmt.Errorf("seed last week photos: %w", err)
+	}
+	if pool == nil {
+		if pool, err = resolveTagPool(ctx, client, m, nil); err != nil {
+			return err
+		}
+	}
 	if cal, err = ensureCalendarTags(ctx, client, m, window, cal); err != nil {
 		return err
 	}
 	if count <= 0 {
 		count = 5000
 	}
-	defaultTag, err := requireDefaultTag(m.Tags)
-	if err != nil {
-		return fmt.Errorf("seed last week photos: %w", err)
-	}
 	freshCam := m.Cameras["fresh"]
 	editor := m.Users["projectEditor"]
 	upload := m.Upload
 	project := m.Project
-
-	// Ensure 10 extra tags exist
-	extraTags := make([]string, 10)
-	for t := 0; t < 10; t++ {
-		tagName := fmt.Sprintf("Tag%02d", t)
-		existing, err := client.ImageTag.Query().
-			Where(imagetag.ProjectID(project), imagetag.Name(tagName)).
-			Only(ctx)
-		if ent.IsNotFound(err) {
-			newTag, err := client.ImageTag.Create().
-				SetName(tagName).
-				SetDescription(fmt.Sprintf("auto tag %d", t)).
-				SetType(imagetag.TypeManual).
-				SetProjectID(project).
-				Save(ctx)
-			if err != nil {
-				return fmt.Errorf("create extra tag %s: %w", tagName, err)
-			}
-			m.Tags[tagName] = newTag.ID
-			extraTags[t] = newTag.ID
-		} else if err != nil {
-			return fmt.Errorf("query extra tag %s: %w", tagName, err)
-		} else {
-			m.Tags[tagName] = existing.ID
-			extraTags[t] = existing.ID
-		}
-	}
 
 	if err := window.Validate(); err != nil {
 		return fmt.Errorf("seed last week of photos: %w", err)
@@ -1250,13 +1500,13 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 			// Keyed on the PHOTO's index, not the slot: the tag set must not shift
 			// when the same photo is reached through a different count.
 			extras = append(extras, withCalendarTags(
-				photoExtrasFixed(rngFor(saltedIndexSeed("LW", imgIdx, saltOf(salt))), extraTags, extrasPerPhoto),
+				photoExtrasFixed(rngFor(saltedIndexSeed("LW", imgIdx, saltOf(salt))), pool, extrasPerPhoto),
 				cal, corrected))
 			imgIdx++
 		}
 	}
 
-	existing, existingTimes, err := existingFileNames(ctx, client, names)
+	existing, existingTimes, err := existingFileNames(ctx, client, project, names)
 	if err != nil {
 		return err
 	}
@@ -1316,7 +1566,7 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 			return fmt.Errorf("commit last-week chunk: %w", err)
 		}
 		for _, img := range created {
-			m.Images = append(m.Images, img.ID)
+			recordImage(m, img.ID)
 		}
 	}
 
@@ -1327,13 +1577,13 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 		if !ok {
 			continue
 		}
-		m.Images = append(m.Images, id)
+		recordImage(m, id)
 		// See seedWeekOfPhotos: the calendar tags follow the photo's own instant,
 		// so a top-up against a shifted window stays a no-op.
 		tags := extras[i]
 		if at := existingTimes[name]; at != nil {
 			tags = withCalendarTags(photoExtrasFixed(
-				rngFor(saltedIndexSeed("LW", i, saltOf(salt))), extraTags, extrasPerPhoto), cal, *at)
+				rngFor(saltedIndexSeed("LW", i, saltOf(salt))), pool, extrasPerPhoto), cal, *at)
 		}
 		if err := inTx(ctx, client, func(tx *ent.Tx) error {
 			return assignMissingTagAssignments(ctx, tx, id, defaultTag, tags)
@@ -1343,7 +1593,7 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 	}
 	// See seedWeekOfPhotos for why the backfold is inline rather than behind a
 	// flag. FSG_LW is this loader's own prefix.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, "FSG_LW", salt...)
+	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, "FSG_LW", salt...)
 }
 
 // ReadManifest loads a manifest previously written by Write. A missing file is
@@ -1361,71 +1611,4 @@ func ReadManifest(path string) (*Manifest, error) {
 		return nil, err
 	}
 	return m, nil
-}
-
-// Merge folds a manifest produced by a loader run into a full one read back from
-// disk. The two are complementary: the on-disk manifest carries the project,
-// users, roles, tags, offsets and base image ids; the loader run contributes the
-// photos it added. Writing the loader's alone would drop everything the file
-// knows, and writing the file's alone would drop the new photos — so maps are
-// overlaid and image id lists are unioned.
-//
-// Upload is deliberately NOT taken from the loader side. A loader run resolves
-// the editor's NEWEST upload, while m.Images is the file's list, whose base
-// images belong to the ORIGINAL upload. Taking the newer id would make the
-// manifest internally inconsistent, and any consumer filtering by uploadId plus
-// image id would silently lose the base photos.
-func (m *Manifest) Merge(load *Manifest) {
-	if m.Users == nil {
-		m.Users = map[string]uuid.UUID{}
-	}
-	for k, v := range load.Users {
-		m.Users[k] = v
-	}
-	for k, v := range load.Tags {
-		if m.Tags == nil {
-			m.Tags = map[string]string{}
-		}
-		m.Tags[k] = v
-	}
-	for k, v := range load.Cameras {
-		if m.Cameras == nil {
-			m.Cameras = map[string]string{}
-		}
-		m.Cameras[k] = v
-	}
-	for k, v := range load.Offsets {
-		if m.Offsets == nil {
-			m.Offsets = map[string]string{}
-		}
-		m.Offsets[k] = v
-	}
-	for k, v := range load.Roles {
-		if m.Roles == nil {
-			m.Roles = map[string]string{}
-		}
-		m.Roles[k] = v
-	}
-	if load.Project != "" {
-		m.Project = load.Project
-	}
-	m.Images = unionStrings(m.Images, load.Images)
-}
-
-// unionStrings concatenates two id lists and drops repeats, preserving order.
-// Image ids are unique per row, so a repeat means the same photo was recorded by
-// two runs — exactly what an idempotent re-run must collapse rather than append.
-func unionStrings(a, b []string) []string {
-	seen := make(map[string]struct{}, len(a)+len(b))
-	out := make([]string, 0, len(a)+len(b))
-	for _, list := range [][]string{a, b} {
-		for _, s := range list {
-			if _, dup := seen[s]; dup {
-				continue
-			}
-			seen[s] = struct{}{}
-			out = append(out, s)
-		}
-	}
-	return out
 }

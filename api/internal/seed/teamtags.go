@@ -184,8 +184,8 @@ func TagSet(path string) ([]TeamTag, error) {
 }
 
 // ParseTagFile reads a tag TSV: name<TAB>displayName<TAB>description per line.
-// Blank lines and lines starting with "#" are skipped. displayName and
-// description may be empty; name may not.
+// Blank lines and lines starting with "#" are skipped. displayName may be empty
+// and falls back to the name; description may NOT — the schema requires it.
 func ParseTagFile(path string) ([]TeamTag, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -217,6 +217,14 @@ func ParseTagFile(path string) ([]TeamTag, error) {
 		}
 		if len(fields) > 2 {
 			row.Description = strings.TrimSpace(fields[2])
+		}
+		// Description is required by the schema (ent/schema/image_tag.go declares
+		// it NotEmpty), so an omitted one is refused HERE rather than surfacing as
+		// `create team tag X: validator failed` from inside LoadPhotos — by which
+		// point the base fixture is already committed and the run has half-applied.
+		// Same reasoning as the empty-name check above it.
+		if row.Description == "" {
+			return nil, fmt.Errorf("%s line %d: %q has no description — image_tags.description is NOT NULL and must not be empty", path, i+1, name)
 		}
 		// displayName falls back to the name: the UI renders it, and an empty one
 		// shows as a blank chip in the tag filter.
