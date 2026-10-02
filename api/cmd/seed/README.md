@@ -100,7 +100,7 @@ Each of these refuses loudly — the tool never half-seeds and exits 0.
 The three window/`--tags-file` pairing guards run before the dry-run branch, so
 `--dry-run` cannot validate a window that nothing could load photos into.
 
-`--shape`, `--seed` and `--tag-count` are **not** guarded this way. Passed on their
+`--shape`, `--seed` and `--tag-count` are **not** guarded without `--photos` this way. Passed on their
 own with `--photos 0` they are accepted, they count as a load request, and they
 seed nothing — the loaders are skipped because the count is zero. Pair every flag
 with `--photos`.
@@ -209,13 +209,18 @@ interesting group and eight flat ones is not a fixture.
 **2. `--tags-file`.** A TSV of `name<TAB>displayName<TAB>description`, one tag per
 line. Blank lines and lines starting with `#` are skipped. `displayName` may be
 empty (it falls back to the name, otherwise the tag renders as a blank chip);
-`description` may be empty; `name` may not. A duplicate name is refused rather than
+`description` may NOT — `image_tags.description` is `NotEmpty` in the schema, so a
+row without one is refused here rather than failing later as an ent validator error
+once the fixture is already committed. `name` may not be empty. A duplicate name is
+refused rather than
 deduped, because the writer is find-or-create and the second row would silently
-overwrite the first. An unreadable file, a file holding no rows, an empty name, and
-a duplicate name all fail:
+overwrite the first. An unreadable file, a file holding no rows, an empty name, a
+missing description and a
+duplicate name all fail:
 
 ```
 tags.tsv line 12: empty tag name
+tags.tsv line 9: "fsa_beta" has no description — image_tags.description is NOT NULL and must not be empty
 tags.tsv line 7: "Podium" already defined on line 4 — a tag set cannot hold it twice
 tags.tsv holds no tag rows — refusing to seed an empty set
 ```

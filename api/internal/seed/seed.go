@@ -21,6 +21,7 @@ import (
 
 	"github.com/google/uuid"
 	basicauth "github.com/mxcd/go-basicauth"
+	"github.com/rs/zerolog/log"
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/image"
@@ -77,6 +78,51 @@ type Manifest struct {
 // Playwright and test harness read, so a re-seeded database handed consumers
 // every photo twice and anything iterating the list did double work or asserted
 // the wrong length.
+// photosPerSecond is the measured write rate of a bulk load on the dev machine:
+// 15 023 photos in 2m50s, tag assignments and the jsonb rebuild included. Used
+// only to print an estimate, so a 250k run does not look like a 500-photo one.
+// Raise it by measuring, never by guessing — an estimate nobody checks stops
+// being read at all.
+const photosPerSecond = 88
+
+// logLoadVolume prints what a loader is about to write, before it writes any of
+// it. A 250k run is minutes of work; without this the operator cannot tell a
+// mistyped --photos from a healthy one until the first row lands.
+//
+// Photos already present are excluded, because the number that matters is the work
+// about to happen, not the size of the final set: a re-run of an identical command
+// reports zero and takes zero time, which is the correct answer and the reason the
+// log is not just count.
+func logLoadVolume(loader string, names []string, existing map[string]string, extrasPerPhoto, poolSize int) {
+	toCreate := 0
+	for _, name := range names {
+		if _, exists := existing[name]; !exists {
+			toCreate++
+		}
+	}
+	if toCreate == 0 {
+		log.Info().Str("loader", loader).Int("requested", len(names)).
+			Msg("every requested photo already exists — nothing to write")
+		return
+	}
+	// +1 for the Default assignment, which every photo carries.
+	assignments := toCreate * (extrasPerPhoto + 1)
+	if extrasPerPhoto <= 0 {
+		// The documented 30/50/20 split over 1, 2 and 3 averages 1.8.
+		assignments = toCreate * 3
+	}
+	log.Info().
+		Str("loader", loader).
+		Int("requested", len(names)).
+		Int("photosToCreate", toCreate).
+		Int("alreadyPresent", len(names)-toCreate).
+		Int("tagAssignments", assignments).
+		Int("jsonbRebuilds", assignments).
+		Int("tagPoolSize", poolSize).
+		Dur("estimated", time.Duration(float64(toCreate)/photosPerSecond)*time.Second).
+		Msg("seeding photos")
+}
+
 func recordImage(m *Manifest, id string) {
 	if id == "" {
 		return
@@ -992,6 +1038,7 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	if err != nil {
 		return err
 	}
+	logLoadVolume("week", names, existing, extrasPerPhoto, len(pool))
 
 	// Backwards from the window end: i=0 is the newest photo, the oldest lands on
 	// window.From. Spreading forwards from the start would date every photo in the
@@ -1510,6 +1557,7 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 	if err != nil {
 		return err
 	}
+	logLoadVolume("last-week", names, existing, extrasPerPhoto, len(pool))
 
 	for start := 0; start < len(names); start += seedBulkChunk {
 		end := min(start+seedBulkChunk, len(names))
