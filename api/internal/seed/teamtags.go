@@ -11,6 +11,7 @@ package seed
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/shutterbase/shutterbase/ent"
@@ -147,14 +148,79 @@ type TeamTag struct {
 // read model, so sharing would buy nothing and would couple two independent
 // concerns. A failure here leaves tags without photos, which the next run fills.
 func EnsureTeamTags(ctx context.Context, client *ent.Client, projectID string) (map[string]string, error) {
-	out := make(map[string]string, teamTagsPerCountry*len(teamTagCountries))
+	return EnsureTagSet(ctx, client, projectID, "")
+}
+
+// EnsureTagSet find-or-creates the tag set for a project. An empty path seeds the
+// generated set; a path seeds that TSV instead.
+//
+// A file that cannot be read or parsed is an ERROR. Silently falling back to the
+// generated set would write 80 tags nobody asked for and report success, which is
+// the failure mode this whole package exists to avoid.
+func EnsureTagSet(ctx context.Context, client *ent.Client, projectID, path string) (map[string]string, error) {
+	tags, err := TagSet(path)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(tags))
 	return out, inTx(ctx, client, func(tx *ent.Tx) error {
-		return ensureTeamTags(ctx, tx, projectID, out)
+		return ensureTags(ctx, tx, projectID, tags, out)
 	})
 }
 
-func ensureTeamTags(ctx context.Context, tx *ent.Tx, projectID string, out map[string]string) error {
-	for _, tag := range GeneratedTeamTags() {
+// TagSet resolves the requested source to the rows to seed.
+func TagSet(path string) ([]TeamTag, error) {
+	if path == "" {
+		return GeneratedTeamTags(), nil
+	}
+	rows, err := ParseTagFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("%s holds no tag rows — refusing to seed an empty set", path)
+	}
+	return rows, nil
+}
+
+// ParseTagFile reads a tag TSV: name<TAB>displayName<TAB>description per line.
+// Blank lines and lines starting with "#" are skipped. displayName and
+// description may be empty; name may not.
+func ParseTagFile(path string) ([]TeamTag, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read tag file: %w", err)
+	}
+	var out []TeamTag
+	for i, line := range strings.Split(string(b), "\n") {
+		line = strings.TrimRight(line, "\r")
+		if line == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		name := strings.TrimSpace(fields[0])
+		if name == "" {
+			return nil, fmt.Errorf("%s line %d: empty tag name", path, i+1)
+		}
+		row := TeamTag{Name: name}
+		if len(fields) > 1 {
+			row.DisplayName = strings.TrimSpace(fields[1])
+		}
+		if len(fields) > 2 {
+			row.Description = strings.TrimSpace(fields[2])
+		}
+		// displayName falls back to the name: the UI renders it, and an empty one
+		// shows as a blank chip in the tag filter.
+		if row.DisplayName == "" {
+			row.DisplayName = name
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
+func ensureTags(ctx context.Context, tx *ent.Tx, projectID string, tags []TeamTag, out map[string]string) error {
+	for _, tag := range tags {
 		existing, err := tx.ImageTag.Query().
 			Where(imagetag.ProjectID(projectID), imagetag.Name(tag.Name)).
 			Only(ctx)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/shutterbase/shutterbase/ent"
 	"github.com/shutterbase/shutterbase/ent/image"
+	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/internal/seed"
 )
@@ -59,8 +60,8 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	require.NoError(t, err)
 	now := time.Now()
 
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now, perSeeder))
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, now, perSeeder))
+	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder))
 
 	week := loadPhotos(t, c, "FSG_W")
 	lastWeek := loadPhotos(t, c, "FSG_LW")
@@ -98,10 +99,34 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 		assert.ElementsMatch(t, uniqueSorted(assignmentTags(t, c, img.ID)), uniqueSorted(img.ImageTags),
 			"imageTags jsonb must match the assignment rows for %s", img.ComputedFileName)
 
+		// Every photo also carries two unconditional tags: its capture date
+		// (20261002) and its weekday (Thursday). They are derived from the instant,
+		// not drawn, so they do not count against the 1-3 random pool — hence 5 as
+		// the ceiling: Default + 3 random + date + weekday.
 		extra := len(img.ImageTags) - 1 // minus Default
-		assert.GreaterOrEqual(t, extra, 1, "Default + at least one extra tag")
-		assert.LessOrEqual(t, extra, 3, "Default + at most three extra tags")
-		extraByCount[extra]++
+		assert.GreaterOrEqual(t, extra, 3, "Default + at least one random extra + date + weekday")
+		assert.LessOrEqual(t, extra, 5, "%s: Default + at most three random extras + date + weekday, got %v",
+			img.ComputedFileName, tagNames(t, c, img.ID))
+
+		names := tagNames(t, c, img.ID)
+		assert.Contains(t, names, seed.DayTagName(*img.CapturedAtCorrected),
+			"%s must carry its capture date", img.ComputedFileName)
+		assert.Contains(t, names, seed.WeekdayTagName(*img.CapturedAtCorrected),
+			"%s must carry its capture weekday", img.ComputedFileName)
+
+		// The 30/50/20 split is about the RANDOM pool only. The two calendar tags
+		// are derived from the instant and are present on every photo, so counting
+		// them here would shift every bucket by two and make the split unfalsifiable.
+		random := 0
+		for _, id := range img.ImageTags {
+			if slices.Contains(pool, id) {
+				random++
+			}
+		}
+		assert.GreaterOrEqual(t, random, 1, "%s: at least one random extra tag", img.ComputedFileName)
+		assert.LessOrEqual(t, random, 3, "%s: at most three random extra tags, got %v",
+			img.ComputedFileName, names)
+		extraByCount[random]++
 	}
 	// Over 1000 photos the documented 30/50/20 split is unambiguous. A constant
 	// draw (always 1 extra tag) would put everything in extraByCount[1].
@@ -127,16 +152,27 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 		bucketsUsed := map[int]map[string]int{}
 		counts := map[int]int{}
 		for _, img := range group.imgs {
-			extra := len(img.ImageTags) - 1
-			counts[extra]++
+			// Pool tags only. The two calendar tags ride along on every photo, so
+			// counting by len(ImageTags) would shift every bucket by two and this
+			// whole uniformity check would look at counts that never occur.
+			// Two passes on purpose: the bucket key is the photo's FINAL
+			// count, so crediting inside the counting loop would file a 2-tag
+			// photo's first tag under bucket 1 and hide exactly the skew this
+			// check exists to catch.
+			poolTags := make([]string, 0, 3)
+			for _, tagID := range img.ImageTags {
+				if slices.Contains(pool, tagID) {
+					poolTags = append(poolTags, tagID)
+				}
+			}
+			extra := len(poolTags)
 			if bucketsUsed[extra] == nil {
 				bucketsUsed[extra] = map[string]int{}
 			}
-			for _, tagID := range img.ImageTags {
-				if tagID != defaultTag {
-					bucketsUsed[extra][tagID]++
-				}
+			for _, tagID := range poolTags {
+				bucketsUsed[extra][tagID]++
 			}
+			counts[extra]++
 		}
 		for n := 1; n <= 3; n++ {
 			require.Positive(t, counts[n], "%s: no photos with %d extra tags", group.name, n)
@@ -153,7 +189,7 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	for _, img := range week {
 		countsBefore[img.ID] = assignmentCount(t, c, img.ID)
 	}
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now, perSeeder))
+	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder))
 	week2 := loadPhotos(t, c, "FSG_W")
 	require.Len(t, week2, perSeeder, "re-run stays idempotent")
 	for _, img := range week2 {
@@ -166,11 +202,14 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	// to be seeded from referenceNow, and cmd/seed passes a fresh time.Now() on
 	// every run, so each re-run picked a different set and kept appending tags
 	// until every photo carried all ten.
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, now.Add(72*time.Hour), perSeeder))
+	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), perSeeder))
 	after := loadPhotos(t, c, "FSG_W")
 	require.Len(t, after, perSeeder, "a later re-run adds no photos")
 	for _, img := range after {
-		assert.LessOrEqual(t, len(img.ImageTags), 4,
+		// Default + 3 random + date + weekday. The ceiling matters more than the
+		// count: a re-run that re-drew would keep appending until every pool tag
+		// was present, and only an upper bound catches that.
+		assert.LessOrEqual(t, len(img.ImageTags), 6,
 			"re-running at a different wall clock must not append tags to %s", img.ComputedFileName)
 	}
 
@@ -178,11 +217,11 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	// extras came off the single wall-clock-seeded rng, so every re-run at a new
 	// time appended up to 3 more tags per photo until all ten were present. It
 	// was invisible because only the week seeder was ever re-run here.
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, now.Add(72*time.Hour), perSeeder))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), perSeeder))
 	afterLW := loadPhotos(t, c, "FSG_LW")
 	require.Len(t, afterLW, perSeeder, "a later last-week re-run adds no photos")
 	for _, img := range afterLW {
-		assert.LessOrEqual(t, len(img.ImageTags), 4,
+		assert.LessOrEqual(t, len(img.ImageTags), 6,
 			"re-running the last-week seeder at a different wall clock must not append tags to %s", img.ComputedFileName)
 	}
 }
@@ -205,20 +244,31 @@ func TestLastWeekLayoutIgnoresWallClock(t *testing.T) {
 	cA := sqliteClient(t)
 	mA, err := seed.Seed(ctx, cA, refA)
 	require.NoError(t, err)
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cA, mA, refA, 300))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cA, mA, seed.SevenDaysEndingAt(refA), 300))
 
 	cB := sqliteClient(t)
 	mB, err := seed.Seed(ctx, cB, refB)
 	require.NoError(t, err)
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, refB, 300))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(refB), 300))
 
-	byNameA := tagNameSetsByName(t, cA, mA, "FSG_LW")
-	byNameB := tagNameSetsByName(t, cB, mB, "FSG_LW")
+	byNameA := randomTagSetsByName(t, cA, mA, "FSG_LW")
+	byNameB := randomTagSetsByName(t, cB, mB, "FSG_LW")
 	require.Len(t, byNameA, 300)
 	require.Len(t, byNameB, 300)
 	for name, tagsA := range byNameA {
 		assert.Equal(t, tagsA, byNameB[name],
 			"a photo's tag set must not depend on the wall clock: %s", name)
+	}
+
+	// The calendar tags are the deliberate exception: they are derived from the
+	// capture instant, so two windows 72h apart MUST disagree on them. Asserting
+	// that here is the point — a loader that resolved them from the clock instead
+	// of the instant would put both runs' photos in the same day bucket.
+	for name, tagsA := range tagNameSetsByName(t, cA, mA, "FSG_LW") {
+		if a, b := tagsA, tagNameSetsByName(t, cB, mB, "FSG_LW")[name]; slices.Equal(a, b) {
+			t.Errorf("%s: two windows 72h apart produced identical tag sets; the calendar "+
+				"tags are not tracking the capture instant", name)
+		}
 	}
 
 	// Instants: compare each photo's position WITHIN the seeded window, so the
@@ -257,11 +307,11 @@ func TestLoadSeedersRejectAnEmptyDefaultTag(t *testing.T) {
 	now := time.Now()
 	delete(m.Tags, "Default")
 
-	errWeek := seed.SeedWeekOfPhotos(ctx, c, m, now, 20)
+	errWeek := seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 20)
 	require.Error(t, errWeek, "a manifest with no Default tag must fail loudly, not write an empty-string FK")
 	assert.Contains(t, errWeek.Error(), "Default", "the error must name the missing tag")
 
-	errLastWeek := seed.SeedLastWeekPhotos(ctx, c, m, now, 20)
+	errLastWeek := seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 20)
 	require.Error(t, errLastWeek, "a manifest with no Default tag must fail loudly, not write an empty-string FK")
 	assert.Contains(t, errLastWeek.Error(), "Default", "the error must name the missing tag")
 
@@ -290,7 +340,7 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	mA, err := seed.Seed(ctx, cA, time.Now())
 	require.NoError(t, err)
 	nowA := time.Now()
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cA, mA, nowA, 700))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cA, mA, seed.SevenDaysEndingAt(nowA), 700))
 
 	// B: 200 first, then top up to 700 — the second run's first chunk is
 	// half-existing, which is where the compaction bug lives.
@@ -298,8 +348,8 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	mB, err := seed.Seed(ctx, cB, time.Now())
 	require.NoError(t, err)
 	nowB := nowA
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, nowB, 200))
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, nowB, 700))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 200))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 700))
 
 	require.Len(t, loadPhotos(t, cB, "FSG_LW"), 700, "growing the count must top the set up, not duplicate it")
 
@@ -309,8 +359,14 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	// EVERY photo is compared, including the 200 run B created in its first
 	// pass. The skip that used to sit here (`idx < 200`) excused exactly the
 	// overlapping photos the test exists to compare.
-	byNameA := tagNameSetsByName(t, cA, mA, "FSG_LW")
-	byNameB := tagNameSetsByName(t, cB, mB, "FSG_LW")
+	// The RANDOM tags only. The calendar tags are excluded because the burst
+	// layout is an apportionment of the count: cB seeded its first 200 photos
+	// during the 200-run, on a 200-photo layout, and a 700-run never moves an
+	// existing photo. So cA and cB legitimately disagree on when those photos were
+	// taken, and a full-set comparison here would be asserting a property the
+	// loaders never had.
+	byNameA := randomTagSetsByName(t, cA, mA, "FSG_LW")
+	byNameB := randomTagSetsByName(t, cB, mB, "FSG_LW")
 	require.Len(t, byNameA, 700)
 	require.Len(t, byNameB, 700)
 
@@ -330,7 +386,7 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	}
 
 	// Re-run at the larger count: nothing new, nothing duplicated.
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, nowB, 700))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 700))
 	assert.Len(t, loadPhotos(t, cB, "FSG_LW"), 700, "last-week re-run stays idempotent")
 }
 
@@ -504,6 +560,42 @@ func assignmentTags(t *testing.T, c *ent.Client, imageID string) []string {
 	return out
 }
 
+// randomTagSetsByName is tagNameSetsByName with the calendar tags removed, so two
+// runs whose windows sit on different dates can still be compared on the part that
+// must be identical: the drawn pool.
+func randomTagSetsByName(t *testing.T, c *ent.Client, m *seed.Manifest, prefix string) map[string][]string {
+	t.Helper()
+	out := map[string][]string{}
+	for name, tags := range tagNameSetsByName(t, c, m, prefix) {
+		random := make([]string, 0, len(tags))
+		for _, tag := range tags {
+			if !seed.CalendarTagPrefix(tag) {
+				random = append(random, tag)
+			}
+		}
+		out[name] = uniqueSorted(random)
+	}
+	return out
+}
+
+// tagNames resolves an image's assignment rows to tag NAMES, so an assertion can
+// read "Thursday" rather than an opaque id.
+func tagNames(t *testing.T, c *ent.Client, imageID string) []string {
+	t.Helper()
+	ctx := context.Background()
+	ids := assignmentTags(t, c, imageID)
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := c.ImageTag.Query().Where(imagetag.IDIn(ids...)).All(ctx)
+	require.NoError(t, err)
+	out := make([]string, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.Name)
+	}
+	return out
+}
+
 // Fewer photos than bursts (35) is the degenerate case the largest-remainder
 // pass used to mishandle: every burst floors to one photo, the fix-up pass
 // could not decrement, and the imgIdx cap then took every photo from the
@@ -515,7 +607,7 @@ func TestLoadSeedersBelowBurstCountStillFill(t *testing.T) {
 	require.NoError(t, err)
 	now := time.Now()
 
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, now, 12))
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 12))
 	lw := loadPhotos(t, c, "FSG_LW")
 	require.Len(t, lw, 12, "a count below the burst count still seeds exactly that many")
 

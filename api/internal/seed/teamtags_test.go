@@ -3,6 +3,8 @@ package seed_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -214,4 +216,94 @@ func TestEnsureTeamTagsIsScopedToOneProject(t *testing.T) {
 			t.Fatalf("tag %q resolved to the same id in two projects (%s)", name, idA)
 		}
 	}
+}
+
+// --tags-file replaces the generated set. The failure that matters is a bad file
+// being ignored: falling back to the generated set would write 80 tags nobody
+// asked for and report success.
+func TestTagSetRefusesABadFile(t *testing.T) {
+	dir := t.TempDir()
+
+	if _, err := seed.TagSet(filepath.Join(dir, "missing.tsv")); err == nil {
+		t.Error("TagSet accepted a missing file — it must not fall back to the generated set")
+	}
+
+	empty := filepath.Join(dir, "empty.tsv")
+	if err := os.WriteFile(empty, []byte("# only a comment\n\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.TagSet(empty); err == nil {
+		t.Error("TagSet accepted a file with no rows")
+	}
+
+	blankName := filepath.Join(dir, "blank.tsv")
+	if err := os.WriteFile(blankName, []byte("\tcar_001\twhatever\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.TagSet(blankName); err == nil {
+		t.Error("TagSet accepted a row with an empty name")
+	}
+}
+
+func TestParseTagFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tags.tsv")
+	body := "# a comment\n" +
+		"\n" +
+		"car_001|1|AT Daxstein HS\tCar One\tTeam One - Technische Hochschule Daxstein\n" +
+		"car_002|2|BE Groenveld U\tCar Two\t\n" + // description optional
+		"onlyname\n" + // displayName falls back to the name
+		"car_004\tCar Four\tFour\tExtra\tignored\r\n" // CRLF, extra columns dropped
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := seed.ParseTagFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	require.Len(t, got, 4)
+
+	assert.Equal(t, "car_001|1|AT Daxstein HS", got[0].Name)
+	assert.Equal(t, "Car One", got[0].DisplayName)
+	assert.Equal(t, "Team One - Technische Hochschule Daxstein", got[0].Description)
+
+	assert.Equal(t, "Car Two", got[1].DisplayName)
+	assert.Empty(t, got[1].Description, "an omitted description stays empty, it does not become the name")
+
+	assert.Equal(t, "onlyname", got[2].DisplayName, "displayName must fall back to the name, or the tag chip renders blank")
+	assert.Equal(t, "onlyname", got[2].Name)
+
+	assert.Equal(t, "Car Four", got[3].DisplayName, "the trailing CR must not end up in the field")
+	assert.Equal(t, "Four", got[3].Description)
+}
+
+func TestEnsureTagSetSeedsFromAFile(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "tags.tsv")
+	if err := os.WriteFile(path, []byte("fsa_alpha\tAlpha\tAlpha Racing\na_long_tag_name_that_is_not_a_car_id\tBeta\tBeta Racing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ids, err := seed.EnsureTagSet(ctx, c, m.Project, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	require.Len(t, ids, 2, "only the file's rows, not the 80 generated ones")
+
+	tag, err := c.ImageTag.Get(ctx, ids["fsa_alpha"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, "Alpha", tag.DisplayName)
+	assert.Equal(t, "Alpha Racing", tag.Description)
+
+	count, err := c.ImageTag.Query().Count(ctx)
+	require.NoError(t, err)
+	assert.EqualValues(t, 6, count, "4 from the base fixture plus the file's 2")
 }

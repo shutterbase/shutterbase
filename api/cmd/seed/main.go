@@ -11,6 +11,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/mxcd/go-config/config"
@@ -20,6 +22,105 @@ import (
 	"github.com/shutterbase/shutterbase/internal/seed"
 	"github.com/shutterbase/shutterbase/internal/util"
 )
+
+// resolveWindow parses --from and --to. Both accept RFC3339 or a relative offset
+// from now: "-7d", "-36h", "now". Relative on both sides is the ergonomic case —
+// `--from -7d --to now` is what you actually want for "last week" — and mixing
+// the two forms is allowed, so a fixed --to with a relative --from works too.
+//
+// A relative --from is resolved against the RESOLVED --to, not against now.
+// That is what makes the mixed form coherent: `--from -2d --to 2026-03-05` means
+// "the two days ending 5 March", and resolving against now would instead mean
+// "2 days before today .. 5 March", which for any --to in the past is inverted
+// and gets refused.
+//
+// Half-open flags fall back rather than erroring: `--from -7d` alone keeps the
+// default end, so the flag does something useful without being paired.
+func resolveWindow(fromRaw, toRaw string, now time.Time) (seed.Window, error) {
+	to, err := parseTimeArg(toRaw, now)
+	if err != nil {
+		return seed.Window{}, fmt.Errorf("--to: %w", err)
+	}
+	if to.IsZero() {
+		to = now
+	}
+	from, err := parseTimeArg(fromRaw, to)
+	if err != nil {
+		return seed.Window{}, fmt.Errorf("--from: %w", err)
+	}
+	if from.IsZero() {
+		from = to.AddDate(0, 0, -7)
+	}
+	w := seed.Window{From: from, To: to}
+	if err := w.Validate(); err != nil {
+		return seed.Window{}, err
+	}
+	return w, nil
+}
+
+// parseTimeArg reads one bound. Empty means unset, which is not an error: the
+// caller substitutes a default. Relative offsets accept d/h/m suffixes, with
+// minutes spelled out because "m" reads as months in this domain.
+func parseTimeArg(raw string, reference time.Time) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t, nil
+	}
+	if raw == "now" {
+		return reference, nil
+	}
+	if len(raw) < 3 || raw[0] != '-' {
+		return time.Time{}, fmt.Errorf("%q is neither RFC3339, \"now\", nor a relative offset like -7d", raw)
+	}
+	unit := raw[len(raw)-1]
+	d, err := strconv.ParseFloat(raw[1:len(raw)-1], 64)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%q has no numeric offset before the unit", raw)
+	}
+	switch unit {
+	case 'd':
+		return reference.AddDate(0, 0, -int(d)), nil
+	case 'h':
+		return reference.Add(-time.Duration(d) * time.Hour), nil
+	case 'm':
+		return reference.Add(-time.Duration(d) * time.Minute), nil
+	default:
+		return time.Time{}, fmt.Errorf("%q: unknown unit %q — use d (days), h (hours) or m (minutes)", raw, string(unit))
+	}
+}
+
+// checkWindowNotFuture refuses a window that ends in the future unless --force.
+//
+// The loaders spread backwards from the window end precisely so nothing is dated
+// ahead of now, because recency ordering, slideshows and EXIF export all read
+// those timestamps. A --to in the future silently breaks that: the newest photos
+// land ahead of real time and the gallery's "newest first" ordering looks wrong
+// with no error anywhere.
+//
+// --force buys this one, unlike the hard photo ceiling. A future-dated fixture is
+// a legitimate thing to want — testing how the UI handles a shoot dated next
+// month — and the failure mode is a visibly odd fixture rather than a destroyed
+// database.
+func checkWindowNotFuture(w seed.Window, now time.Time, force bool) error {
+	if force || !w.To.After(now) {
+		return nil
+	}
+	return fmt.Errorf("window ends %s in the future (%s > %s) — pass --force to seed it anyway",
+		w.To.Sub(now).Round(time.Second), w.To.Format(time.RFC3339), now.Format(time.RFC3339))
+}
+
+// checkTagCount bounds --tag-count. Outside 0-3 the flag is refused rather than
+// clamped: the tag pool holds ten tags, and silently turning --tag-count 40 into
+// 3 would seed a run nobody asked for while reporting success.
+func checkTagCount(n int) error {
+	if n < 0 || n > 3 {
+		return fmt.Errorf("--tag-count %d is out of range: 0 keeps the 30/50/20 split, 1-3 pins every photo to that many", n)
+	}
+	return nil
+}
 
 // Seeded on this machine at 15 023 photos in 2m50s, so the soft ceiling sits an
 // order of magnitude above a comfortable run and the hard ceiling well beyond
@@ -97,9 +198,11 @@ func main() {
 	// Loader flags. main's cmd/seed took no flags at all; these drive the bulk
 	// loaders, which were developed and fixed on the time-range branch.
 	photos := flag.Int("photos", 0, "seed N photos with the base fixture (0 = fixture only)")
+	fromFlag := flag.String("from", "", "window start: RFC3339, or relative like -7d; default 7 days before --to")
+	toFlag := flag.String("to", "", "window end: RFC3339 or relative like now; default now")
 	shapeFlag := flag.String("shape", "", "photo distribution over the window: burst (7 days x 5 events) or uniform; default burst")
 	seedValue := flag.Int("seed", -1, "RNG seed; omit for a fresh draw each run, set it to make a run reproducible")
-	tagsFile := flag.String("tags-file", "", "optional TSV of team-name tags to seed instead of the generated set")
+	tagsFile := flag.String("tags-file", "", "optional TSV of tag rows (name<TAB>displayName<TAB>description) to seed instead of the generated set")
 	tagCount := flag.Int("tag-count", 0, "extra tags per photo, 1-3; 0 keeps the 30/50/20 split")
 	dryRun := flag.Bool("dry-run", false, "print the plan (counts, window, tag volume) and exit without writing")
 	force := flag.Bool("force", false, "required past the soft photo ceiling, or to write outside the planned window")
@@ -164,7 +267,18 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("invalid flag")
 	}
-	loadRequested := *photos > 0 || *shapeFlag != "" || *seedValue >= 0 || *tagsFile != "" || *tagCount > 0
+	if err := checkTagCount(*tagCount); err != nil {
+		log.Fatal().Err(err).Msg("invalid flag")
+	}
+	window, err := resolveWindow(*fromFlag, *toFlag, time.Now())
+	if err != nil {
+		log.Fatal().Err(err).Msg("invalid flag")
+	}
+	if err := checkWindowNotFuture(window, time.Now(), *force); err != nil {
+		log.Fatal().Err(err).Msg("refusing to seed")
+	}
+	loadRequested := *photos > 0 || *fromFlag != "" || *toFlag != "" || *tagsFile != "" ||
+		*shapeFlag != "" || *seedValue >= 0 || *tagCount > 0
 	var manifest *seed.Manifest
 	alreadySeeded, err := conn.Client.User.Query().Exist(ctx)
 	if err != nil {
@@ -222,6 +336,9 @@ func main() {
 
 	if *dryRun {
 		log.Info().Bool("dryRun", true).
+			Str("from", window.From.Format(time.RFC3339)).
+			Str("to", window.To.Format(time.RFC3339)).
+			Int("days", window.Days()).
 			Int("existingImages", len(manifest.Images)).
 			Int("photosToAdd", *photos).
 			Msg("dry run — nothing was written")
@@ -233,8 +350,10 @@ func main() {
 		if err := seed.LoadPhotos(ctx, conn.Client, manifest, seed.LoadOptions{
 			Count:    *photos,
 			Shape:    shape,
+			Window:   window,
 			Seed:     int64(*seedValue),
 			TagCount: *tagCount,
+			TagsFile: *tagsFile,
 		}); err != nil {
 			log.Fatal().Err(err).Msg("seeding photos failed")
 		}
