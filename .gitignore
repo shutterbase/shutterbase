@@ -232,3 +232,8 @@ yarn-error.log
 
 # Claude Code worktrees (parked feature branches live here)
 .claude/worktrees/
+
+# Agent tooling state (magic-context session data). The directory ships its own
+# .gitignore for magic-context/, but not for itself, so it showed up as untracked
+# and one `git add -A` away from committing session state.
+.cortexkit/
