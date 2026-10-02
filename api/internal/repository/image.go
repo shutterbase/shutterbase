@@ -260,19 +260,16 @@ func (r *Repository) GetImageTimeTicks(ctx context.Context, parameters *GetImage
 
 	// ONE ordered scan, ONE round trip, downsampled here in Go.
 	//
-	// Measured on a 15k-photo project with maxTicks=200:
+	// Measured on a 15k-photo project with maxTicks=200, end to end:
 	//   1+maxTicks sequential `OFFSET n LIMIT 1` seeks   2.29s
-	//   this scan                                        20ms
-	//   a ROW_NUMBER()+VALUES window version              26ms
+	//   this scan                                        26-67ms
 	// The seeks were 201 round trips, and maxTicks is a fixed 200, so the count
 	// never shrank with gallery size: it was pure overhead on a popover-open
-	// fetch. The window version is the thing to reach for if O(rows) ever hurts
-	// — a 1M-photo project transfers 1M timestamps — but it is slower today,
-	// needs raw SQL with per-dialect care, and buys nothing at this size.
+	// fetch.
 	//
 	// `id` is in the ORDER BY because captured_at_corrected alone is not a total
-	// order: burst photos share a second, and the window version's independent
-	// offset probes over a tie group could land on the same row twice.
+	// order: burst photos share a second, and independent offset probes over a
+	// tie group could land on the same row twice.
 	var rows []timeTickRow
 	if err := r.Client.Image.Query().Where(where).
 		Order(ent.Asc(image.FieldCapturedAtCorrected), ent.Asc(image.FieldID)).
@@ -284,13 +281,21 @@ func (r *Repository) GetImageTimeTicks(ctx context.Context, parameters *GetImage
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	// The scan has no LIMIT, so its cost is O(matching photos): one row crosses
-	// the wire per photo that passes the filter, on every Time-panel open. That
-	// is the deliberate trade for the single round trip, and it is cheap at the
-	// 15k-photo scale this was measured at (20ms). A 1M-photo project would
-	// transfer 1M timestamps, so the row count is logged to keep the cost visible
-	// rather than discoverable only by feeling a slow popover. Binding it needs
-	// the SQL-side ROW_NUMBER window, which measured slower than this scan.
+	// The scan has no LIMIT, so it costs O(matching photos). Reviewed, and left
+	// that way deliberately.
+	//
+	// The tempting fix is to sample with ROW_NUMBER() so only maxTicks rows come
+	// back. Measured and rejected: at 1M photos the two shapes hand Postgres's
+	// client 9.2MB vs 1.8KB, but loopback runs at 4.6GB/s, so the transfer it
+	// saves is single-digit milliseconds — while the ROW_NUMBER version pays the
+	// same O(n) scan and adds window computation on top. The cost lives in
+	// Postgres reading the rows, not in Go receiving them, so no query rewrite
+	// can remove it; only a rollup table maintained on write could, and that
+	// would have to reimplement the isolation pass in SQL because the median
+	// inter-photo gap is not derivable from counts.
+	//
+	// So the row count is logged, to keep the cost observable rather than
+	// discoverable only by feeling a slow popover.
 	log.Debug().Int("rows", len(rows)).Int("maxTicks", maxTicks).Msg("time ticks: scanned matching photos")
 	if len(rows) <= maxTicks {
 		timestamps := make([]time.Time, len(rows))
