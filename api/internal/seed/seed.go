@@ -341,14 +341,32 @@ func LoadPhotos(ctx context.Context, client *ent.Client, m *Manifest, opts LoadO
 		return nil
 	}
 	referenceNow := time.Now()
+	// The generated team tags are created alongside the photos so the tag facets
+	// have 80 names to group by, not just the four the base fixture makes. Without
+	// them a facet query returns one interesting group and eight flat ones.
+	ids, err := EnsureTeamTags(ctx, client, m.Project)
+	if err != nil {
+		return fmt.Errorf("seed team tags: %w", err)
+	}
+	for name, id := range ids {
+		m.Tags[name] = id
+	}
 	switch opts.Shape {
 	case ShapeUniform:
-		return SeedWeekOfPhotos(ctx, client, m, referenceNow, opts.Count)
+		return SeedWeekOfPhotos(ctx, client, m, referenceNow, opts.Count, opts.Seed)
 	case ShapeBurst, "":
-		return SeedLastWeekPhotos(ctx, client, m, referenceNow, opts.Count)
+		return SeedLastWeekPhotos(ctx, client, m, referenceNow, opts.Count, opts.Seed)
 	default:
 		return fmt.Errorf("unknown shape %q", opts.Shape)
 	}
+}
+
+// saltOf reads the optional --seed. Absent, or explicitly 0, means "no salt".
+func saltOf(salt []int64) int64 {
+	if len(salt) == 0 {
+		return 0
+	}
+	return salt[0]
 }
 
 // TimeRangeClusterPrefix is the computedFileName prefix of the midnight cluster
@@ -448,6 +466,33 @@ func indexSeed(prefix string, index int) int64 {
 	return hashSeed(prefix, uint64(index))
 }
 
+// saltedIndexSeed is indexSeed with the run's --seed folded in. Without the salt
+// the draw is already reproducible — that is what makes the loaders idempotent —
+// so the salt exists for the other case: two DIFFERENT fixture sets from the same
+// command. Zero means "no salt", which keeps the unsalted behaviour as the
+// default rather than making every existing run change shape.
+func saltedIndexSeed(prefix string, index int, salt int64) int64 {
+	if salt == 0 {
+		return indexSeed(prefix, index)
+	}
+	return hashSeed(fmt.Sprintf("%s#%d", prefix, salt), uint64(index))
+}
+
+// saltedIDSeed is idSeed with the run's --seed folded in; see saltedIndexSeed.
+func saltedIDSeed(id string, salt int64) int64 {
+	if salt == 0 {
+		return idSeed(id)
+	}
+	return hashSeed(fmt.Sprintf("%s#%d", id, salt), 0)
+}
+
+func saltedBurstSeed(burstIdx, slot int, salt int64) int64 {
+	if salt == 0 {
+		return burstSeed(burstIdx, slot)
+	}
+	return hashSeed(fmt.Sprintf("LWB#%d", salt), uint64(uint32(burstIdx))<<32|uint64(uint32(slot)))
+}
+
 // idSeed derives a per-image seed from an image's id STRING.
 //
 // The LENGTH is useless here: StringIDMixin is field.String("id").MaxLen(15), so
@@ -540,7 +585,10 @@ func rebuildImageTagsJSON(ctx context.Context, tx *ent.Tx, imageID string) error
 // that already exist (matched by computedFileName) are skipped, as are tag
 // assignments that are already in place.
 
-func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, count int) error {
+// salt is the optional run seed (--seed). Variadic so the existing call sites and
+// their tests are untouched: a loader called without one behaves exactly as
+// before. See saltedIndexSeed for why the default draw is already reproducible.
+func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, count int, salt ...int64) error {
 	if count <= 0 {
 		count = 10000
 	}
@@ -604,7 +652,7 @@ func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, refe
 	// appending tags until every photo carried all ten.
 	extras := make([][]string, count)
 	for i := range count {
-		extras[i] = photoExtras(rngFor(indexSeed("W", i)), extraTags)
+		extras[i] = photoExtras(rngFor(saltedIndexSeed("W", i, saltOf(salt))), extraTags)
 	}
 
 	batch := make([]int, 0, seedBulkChunk)
@@ -787,7 +835,8 @@ func assignMissingTagAssignments(ctx context.Context, tx *ent.Tx, imageID string
 // are already recorded are skipped, so a re-run costs one query per photo
 // instead of 3 guaranteed-conflict inserts.
 
-func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time) error {
+// salt is the optional run seed (--seed); see SeedWeekOfPhotos.
+func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, salt ...int64) error {
 	project := m.Project
 
 	// Ensure 10 extra tags exist
@@ -855,7 +904,7 @@ func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ref
 		if _, excluded := skip[img.ID]; excluded {
 			continue
 		}
-		targets = append(targets, target{id: img.ID, extra: photoExtras(rngFor(idSeed(img.ID)), extraTags)})
+		targets = append(targets, target{id: img.ID, extra: photoExtras(rngFor(saltedIDSeed(img.ID, saltOf(salt))), extraTags)})
 	}
 
 	// One tx per chunk instead of one per photo. This used to be a BEGIN /
@@ -890,7 +939,8 @@ func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ref
 // the default tag plus 1-3 random extra tags from Tag00–Tag09.
 // Idempotent: skips images that already exist (by computedFileName).
 
-func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, count int) error {
+// salt is the optional run seed (--seed); see SeedWeekOfPhotos.
+func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, count int, salt ...int64) error {
 	if count <= 0 {
 		count = 5000
 	}
