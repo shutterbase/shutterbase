@@ -1,5 +1,13 @@
-import { test, expect, Page, Locator } from "@playwright/test";
+import { test, expect, Page, Locator, Response } from "@playwright/test";
 import { loginAs, collectJsErrors } from "./helpers";
+import { seedManifest } from "./global-setup";
+
+// Tile counts come from the reseed manifest that globalSetup already fetched and
+// verified, rather than being hardcoded. A seeder change that moves the fixture
+// then fails in global-setup, naming the field, instead of surfacing here as
+// "expected 8, got 7" in whichever spec happened to run first.
+const CLUSTER = () => seedManifest().timeRangeImages.length;
+const ALL = () => seedManifest().images.length;
 
 // Time-range gallery filter (?from=/?to=) and the detail-view "show ±15 min"
 // action (#117). The seed's midnight cluster (FSG_90xx, 23:55→00:10 event-local
@@ -39,6 +47,26 @@ async function isoToInputValue(page: Page, minuteStep: number): Promise<string> 
   }, minuteStep * 60_000);
 }
 
+/**
+ * Records every /api/v1/images response the page receives that the backend
+ * rejected (status >= 400).
+ *
+ * A grid tile count cannot stand in for this: the clamp test drives the grid to
+ * zero tiles legitimately (the clamped window holds no photos), so a 400 and a
+ * correct empty result look identical afterwards — the previous empty list stays
+ * on screen. Asserting on the response is what makes the claim falsifiable.
+ */
+function trackImageRejections(page: Page): string[] {
+  const bad: string[] = [];
+  page.on("response", (r: Response) => {
+    const u = new URL(r.url());
+    if (u.pathname.endsWith("/api/v1/images") && r.status() >= 400) {
+      bad.push(`${r.status()} ${u.pathname}${u.search}`);
+    }
+  });
+  return bad;
+}
+
 /** Pixel geometry of the slider TRACK (the thumbs are inset inside it). */
 async function trackBox(page: Page, thumb: Locator): Promise<{ left: number; width: number }> {
   return thumb.evaluate((el) => {
@@ -62,8 +90,7 @@ const midnightCluster = (images: any[]) => images.filter((i) => i.computedFileNa
 
 /** ?from/?to for the whole cluster, as a query string. */
 const clusterQuery = (cluster: any[], extra = "") =>
-  `from=${encodeURIComponent(cluster[0].capturedAtCorrected)}` +
-  `&to=${encodeURIComponent(cluster[cluster.length - 1].capturedAtCorrected)}${extra}`;
+  `from=${encodeURIComponent(cluster[0].capturedAtCorrected)}` + `&to=${encodeURIComponent(cluster[cluster.length - 1].capturedAtCorrected)}${extra}`;
 
 test.describe("time range filter", () => {
   let errors: string[];
@@ -78,17 +105,17 @@ test.describe("time range filter", () => {
     const project = await loginAs(page, "admin");
     const all = await fetchImages(page, project!.id);
     const cluster = midnightCluster(all);
-    expect(cluster.length).toBe(8);
+    expect(cluster.length).toBe(CLUSTER());
 
     await page.goto(`/images?${clusterQuery(cluster)}`);
 
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(CLUSTER());
     const chip = page.getByTestId("time-range-chip");
     await expect(chip).toBeVisible();
 
     // clearing restores the unfiltered grid
     await chip.getByRole("button", { name: "×" }).click();
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(11);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(ALL());
     await expect(new URL(page.url()).searchParams.get("from")).toBeNull();
   });
 
@@ -123,9 +150,7 @@ test.describe("time range filter", () => {
     // rewriting the persisted preference, so assert both the URL and the tiles
     // that actually came back in that order.
     expect(url.searchParams.get("sort")).toBe("oldestFirst");
-    const rendered = await page.locator('[id^="grid-tile-"]').evaluateAll((els) =>
-      els.map((e) => e.id.replace("grid-tile-", "")),
-    );
+    const rendered = await page.locator('[id^="grid-tile-"]').evaluateAll((els) => els.map((e) => e.id.replace("grid-tile-", "")));
     const inWindow = all
       .filter((i) => {
         if (!i.capturedAtCorrected) return false;
@@ -149,16 +174,12 @@ test.describe("time range filter", () => {
     await page.getByTestId("time-from-input").fill("2026-01-01T00:00");
     // exact instant, not just "some value": a popover that discarded the
     // keystroke would also make a truthiness assertion pass
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("from"), { timeout: 7000 })
-      .toBe(await localWallClockToIso(page, "2026-01-01T00:00"));
+    await expect.poll(() => new URL(page.url()).searchParams.get("from"), { timeout: 7000 }).toBe(await localWallClockToIso(page, "2026-01-01T00:00"));
 
     await page.getByTestId("time-to-input").fill("2026-01-02T23:59");
     // inclusive upper bound: the last millisecond of the entered minute, which
     // is what the backend's inclusive LTE needs or the final minute is dropped
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 })
-      .toBe(await localWallClockToInclusiveIso(page, "2026-01-02T23:59"));
+    await expect.poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 }).toBe(await localWallClockToInclusiveIso(page, "2026-01-02T23:59"));
 
     // panel is still open — clear inside it
     await page.getByTestId("clear-time-range").click();
@@ -171,6 +192,7 @@ test.describe("time range filter", () => {
   // The popover clamps instead, and mirrors the clamped value back into the
   // input so the user sees what was actually applied.
   test("an inverted range is clamped, not sent as a 400", async ({ page }) => {
+    const rejected = trackImageRejections(page);
     await loginAs(page, "admin");
     await page.goto("/images");
     await page.getByTestId("time-range-button").click();
@@ -178,16 +200,19 @@ test.describe("time range filter", () => {
     await page.getByTestId("time-to-input").fill("2026-01-02T23:59");
     await expect.poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 }).not.toBeNull();
     await page.getByTestId("time-from-input").fill("2026-01-05T10:00");
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("from"), { timeout: 7000 })
-      .toBe(await localWallClockToIso(page, "2026-01-05T10:00"));
+    await expect.poll(() => new URL(page.url()).searchParams.get("from"), { timeout: 7000 }).toBe(await localWallClockToIso(page, "2026-01-05T10:00"));
 
     // the To was pulled up to the end of the From minute, and the input shows it
     const clamped = await localWallClockToInclusiveIso(page, "2026-01-05T10:00");
     await expect.poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 }).toBe(clamped);
     await expect(page.getByTestId("time-to-input")).toHaveValue("2026-01-05T10:00");
-    // no error page
+    // The clamped window genuinely holds no photos, so the grid is legitimately
+    // empty — which is exactly why the old assertion here proved nothing. A 400
+    // from the backend leaves the PREVIOUS (also empty) list on screen, so
+    // "0 tiles" is true either way. Assert on the response instead: no image
+    // request may have been rejected.
     await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(0);
+    expect(rejected, `the clamped range must never reach the backend:\n${rejected.join("\n")}`).toEqual([]);
     expect(errors, errors.join("\n")).toHaveLength(0);
   });
 });
@@ -210,22 +235,22 @@ test.describe("time range on/off", () => {
     // The chip row only renders in the timespan context (?rangeScope=all), so a
     // bare ?from=&to= URL has no chip and no toggle to click.
     await page.goto(`/images?${clusterQuery(cluster, "&rangeScope=all")}`);
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(CLUSTER());
 
     // suspend: everything visible, bounds still in the URL
     await page.getByTestId("time-range-toggle").click();
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(11);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(ALL());
     expect(new URL(page.url()).searchParams.get("from")).toBeTruthy();
     expect(new URL(page.url()).searchParams.get("to")).toBeTruthy();
 
     // resume: back to the cluster
     await page.getByTestId("time-range-toggle").click();
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(CLUSTER());
 
     // clearing the range resets to active — a NEW window set from the UI (no
     // page.goto, which would remount into the active state anyway) must filter
     await page.getByTestId("time-range-chip").getByRole("button", { name: "×" }).click();
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(11);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(ALL());
     await page.getByTestId("time-range-button").click();
     // open-ended "everything after" bound set to a date past every seeded
     // photo, so an applied range is unmistakably 0 tiles
@@ -319,12 +344,12 @@ test.describe("time-range slider", () => {
     const project = await loginAs(page, "admin");
     const all = await fetchImages(page, project!.id);
     const cluster = midnightCluster(all);
-    expect(cluster.length).toBe(8);
+    expect(cluster.length).toBe(CLUSTER());
 
     // narrow the gallery to the cluster so the domain is exactly its span
     await page.goto("/images");
     await page.getByPlaceholder("Search images").fill("FSG_90");
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(CLUSTER());
 
     await page.getByTestId("time-range-button").click();
     const startThumb = page.getByTestId("range-start-thumb");
@@ -356,15 +381,11 @@ test.describe("time-range slider", () => {
 
     await expect(endThumb).toHaveAttribute("aria-valuenow", String(hiStep - 5));
     // committed on release, as the inclusive end of that minute
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 })
-      .toBe(new Date((hiStep - 5) * 60_000 + 59_999).toISOString());
+    await expect.poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 }).toBe(new Date((hiStep - 5) * 60_000 + 59_999).toISOString());
 
     // manual override wins: type an exact From instant
     await page.getByTestId("time-from-input").fill("2026-08-01T00:00");
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("from"), { timeout: 7000 })
-      .toBe(await localWallClockToIso(page, "2026-08-01T00:00"));
+    await expect.poll(() => new URL(page.url()).searchParams.get("from"), { timeout: 7000 }).toBe(await localWallClockToIso(page, "2026-08-01T00:00"));
   });
 
   // Moving ONE thumb must not delete the other bound. commit() used to emit null
@@ -376,7 +397,7 @@ test.describe("time-range slider", () => {
     const cluster = midnightCluster(all);
 
     await page.goto(`/images?${clusterQuery(cluster)}`);
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(CLUSTER());
     await page.getByTestId("time-range-button").click();
 
     const startThumb = page.getByTestId("range-start-thumb");
@@ -398,9 +419,7 @@ test.describe("time-range slider", () => {
     await page.mouse.up();
 
     // the untouched upper bound must come back out EXACTLY as it went in
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 })
-      .toBe(new Date(hiStep * 60_000 + 59_999).toISOString());
+    await expect.poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 }).toBe(new Date(hiStep * 60_000 + 59_999).toISOString());
     // and the touched one did move
     expect(Number(await startThumb.getAttribute("aria-valuenow"))).toBeGreaterThanOrEqual(loStep);
   });
@@ -412,7 +431,7 @@ test.describe("time-range slider", () => {
 
     await page.goto("/images");
     await page.getByPlaceholder("Search images").fill("FSG_90");
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(CLUSTER());
     await page.getByTestId("time-range-button").click();
 
     const endThumb = page.getByTestId("range-end-thumb");
@@ -424,9 +443,7 @@ test.describe("time-range slider", () => {
     await expect(endThumb).toHaveAttribute("aria-valuenow", String(before - 1));
     // committed to the route straight away — the keyboard path is not a
     // preview. The exact instant, not toBeTruthy(): a garbage bound passes that.
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 })
-      .toBe(new Date((before - 1) * 60_000 + 59_999).toISOString());
+    await expect.poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 }).toBe(new Date((before - 1) * 60_000 + 59_999).toISOString());
   });
 });
 
@@ -444,7 +461,7 @@ test.describe("time-range slider preview", () => {
     const project = await loginAs(page, "admin");
     await page.goto("/images");
     await page.getByPlaceholder("Search images").fill("FSG_90");
-    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(8);
+    await expect(page.locator('[id^="grid-tile-"]')).toHaveCount(CLUSTER());
     await page.getByTestId("time-range-button").click();
 
     // the To input starts empty, so a non-empty value mid-drag can only come
@@ -478,9 +495,7 @@ test.describe("time-range slider preview", () => {
     expect(new URL(page.url()).searchParams.get("to")).toBeNull();
     await page.mouse.up();
     // released: range committed to the URL, inputs keep the values
-    await expect
-      .poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 })
-      .toBe(new Date(targetStep * 60_000 + 59_999).toISOString());
+    await expect.poll(() => new URL(page.url()).searchParams.get("to"), { timeout: 7000 }).toBe(new Date(targetStep * 60_000 + 59_999).toISOString());
     await expect(toInput).toHaveValue(targetInput);
   });
 });
