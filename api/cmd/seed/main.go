@@ -10,6 +10,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -61,6 +62,15 @@ func resolveWindow(fromRaw, toRaw string, now time.Time) (seed.Window, error) {
 // parseTimeArg reads one bound. Empty means unset, which is not an error: the
 // caller substitutes a default. Relative offsets accept d/h/m suffixes, with
 // minutes spelled out because "m" reads as months in this domain.
+//
+// h and m take a fraction, and take it EXACTLY: time.Duration is int64
+// nanoseconds, so the fraction has somewhere to go and there is nothing to
+// truncate. (It used to be lost anyway — `-time.Duration(d) * time.Hour`
+// converts the float to a Duration FIRST, so `-1.5h` meant one hour and `-0.5m`
+// meant nothing at all. The scale multiplies before the conversion now.)
+//
+// d cannot do that: the offset is applied with AddDate, which takes an int, so a
+// fractional d is refused rather than truncated. See the 'd' case.
 func parseTimeArg(raw string, reference time.Time) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -82,11 +92,27 @@ func parseTimeArg(raw string, reference time.Time) (time.Time, error) {
 	}
 	switch unit {
 	case 'd':
+		// Days are the one unit that reaches AddDate, which takes an int, so
+		// -int(d) truncated a fraction away instead of reporting it: `-1.5d`
+		// seeded a one-day window and `-0.5d` truncated to zero days, which then
+		// surfaced as "window is empty" — a complaint about the window the user
+		// did not write, for a request that was perfectly well formed.
+		//
+		// Refused, not rounded. Rounding has to pick a direction (1.5 days is
+		// one day and a half; -2d is as defensible as -1d), the direction is not
+		// in the flag, and the fixture lands on different dates than the user
+		// asked for with nothing to say so — checkTagCount refuses out-of-range
+		// for the same reason rather than clamping. And it costs nothing: the
+		// refusal names the exact equivalent spelling, because hours are a
+		// time.Duration and therefore exact to the digit.
+		if d != math.Trunc(d) {
+			return time.Time{}, fmt.Errorf("%q is not a whole number of days: the d offset is applied as a whole number of days, so -1.5d would quietly mean -1d and -0.5d an empty window — spell the fraction in hours as -%gh instead", raw, math.Abs(d)*24)
+		}
 		return reference.AddDate(0, 0, -int(d)), nil
 	case 'h':
-		return reference.Add(-time.Duration(d) * time.Hour), nil
+		return reference.Add(-time.Duration(d * float64(time.Hour))), nil
 	case 'm':
-		return reference.Add(-time.Duration(d) * time.Minute), nil
+		return reference.Add(-time.Duration(d * float64(time.Minute))), nil
 	default:
 		return time.Time{}, fmt.Errorf("%q: unknown unit %q — use d (days), h (hours) or m (minutes)", raw, string(unit))
 	}
@@ -220,6 +246,31 @@ func checkTagCount(n int) error {
 	return nil
 }
 
+// checkPhotosCount refuses a NEGATIVE --photos. Zero is not this guard's
+// business: --photos 0 is the documented way to seed the base fixture alone, and
+// every "needs --photos" guard below treats it as the absence of a request
+// rather than as a bad one.
+//
+// A negative count had no guard at all, and every guard that could have caught it
+// tests `photos <= 0` or `photos > 0` — the sign is precisely what they do not
+// look at. So `seed --photos -1` passed validateFlags end to end, loadRequested
+// came out false because the count was never positive, the load was skipped, and
+// the run seeded the base fixture, wrote a manifest and exited 0. A count of
+// negative photos is not a request for the fixture; it is a typo, and this CLI's
+// whole reason for existing is that a typo must not report success.
+//
+// Before the pairing guards, on purpose: `--photos -1 --tags-file t.tsv` trips
+// checkTagsFileNeedsPhotos ("--tags-file needs --photos") and `--photos -1
+// --from -3d` trips checkWindowNeedsPhotos, both of which describe a missing
+// flag and send the user off to add one that is already there. The count is the
+// thing that is wrong, so it is the thing named.
+func checkPhotosCount(n int) error {
+	if n >= 0 {
+		return nil
+	}
+	return fmt.Errorf("--photos %d is not a count: 0 is legitimate and means \"seed the base fixture only\", but a negative count would skip the load and report success anyway — pass --photos N with N above zero, or drop the flag to seed the base fixture alone", n)
+}
+
 // Seeded on this machine at 15 023 photos in 2m50s, so the soft ceiling sits an
 // order of magnitude above a comfortable run and the hard ceiling well beyond
 // anything a dev database needs. Raise with measurement, never with optimism.
@@ -246,6 +297,89 @@ func checkCeiling(count int, force bool) error {
 	default:
 		return nil
 	}
+}
+
+// windowDayCeiling bounds the window LENGTH, which the photo count does not: a
+// window is walked once per calendar date it spans whatever --photos says, so
+// `--photos 100 --from 2016-01-01 --to now` asks for a hundred photos and ~3 900
+// date tags.
+//
+// Measured rather than guessed, same discipline as the photo ceilings above.
+// Base fixture plus 100 photos held constant, on this machine against Postgres
+// 18 over localhost:
+//
+//	   7 days:   2.05s wall, 8 date tags
+//	 365 days:   2.95s wall, 366 date tags — +0.9s inside the calendar transaction
+//	3900 days:  17.63s wall, 3 901 date tags — +15.6s inside ONE transaction,
+//	                                           image_tags row locks held from the
+//	                                           first INSERT to the COMMIT
+//
+// Sampling pg_stat_activity.xact_start during that last run watched the seeding
+// transaction age 3.2s -> 6.7s -> 10.3s before it committed. That is the part
+// that matters more than the wall clock: the walk holds row locks on image_tags
+// for its whole duration, so it blocks the app's own tag writes for as long as it
+// runs and reports nothing until it is done — roughly 2 round trips and 4ms per
+// date on a local socket, worse on anything remote.
+//
+// 365 days is the limit because it is an order of magnitude above the case it
+// bounds: a real event fixtures a handful of days, and the longest window anyone
+// documents is -30d. A year measured +0.9s. Raise with measurement, never with
+// optimism.
+//
+// The comparison is on the SPAN, not on calendarDateCount, so the boundary is
+// reachable by the flag value a user would type: -365d passes, -366d does not.
+// A 365-day span still writes 366 date tags, both endpoints included, and the
+// refusal reports that count so the number the run pays in is never the number
+// the user is asked to check against their own flag.
+const windowDayCeiling = 365
+
+// calendarDateCount is how many calendar DATES the window spans — the unit
+// EnsureCalendarTags pays in, one SELECT+INSERT per date.
+//
+// It asks the walk itself (seed.CalendarTagNames) rather than dividing the span
+// by 24h, because CalendarTagNames steps by calendar DATE in the window's own
+// location: a 365-day span across a DST change is 366 dates. A ceiling counted
+// in something the walk never visits would be wrong by exactly the boundary case
+// it exists to bound. Seven weekday names come back alongside the dates and are
+// not counted — they are a constant, not a function of the window length.
+func calendarDateCount(w seed.Window) int {
+	n := 0
+	for _, name := range seed.CalendarTagNames(w) {
+		if isDayTagName(name) {
+			n++
+		}
+	}
+	return n
+}
+
+// isDayTagName reports whether a name is a date tag: DayTagName renders
+// 20060102, and the only other names CalendarTagNames produces are the weekdays.
+func isDayTagName(name string) bool {
+	if len(name) != 8 {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		if name[i] < '0' || name[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// checkWindowLength refuses a window whose length no run should pay for.
+//
+// --force buys it, and there is deliberately no hard tier above it, the same
+// shape as checkWindowNotFuture and the same reason: what a long window costs is
+// a slow transaction holding locks, not a destroyed database. Someone seeding a
+// decade of density data has a legitimate reason to type it and a way out.
+func checkWindowLength(w seed.Window, force bool) error {
+	span := int(w.To.Sub(w.From).Hours() / 24)
+	if force || span <= windowDayCeiling {
+		return nil
+	}
+	return fmt.Errorf("window spans %d days (%s .. %s) — %d calendar tags to write, all in ONE transaction that holds image_tags locks until it commits — past the ceiling of %d days; pass --force to seed it anyway, or narrow --from/--to",
+		span, w.From.Format(time.RFC3339), w.To.Format(time.RFC3339),
+		calendarDateCount(w), windowDayCeiling)
 }
 
 // checkDrawFlagsNeedPhotos refuses --shape, --seed and --tag-count without
@@ -359,6 +493,12 @@ func validateFlags(r runRequest, now time.Time) (seed.Shape, seed.Window, error)
 	if err := checkSeedValue(r.Seed); err != nil {
 		return "", seed.Window{}, err
 	}
+	// Before every "needs --photos" check below, all of which read a negative
+	// count as "no count at all" and would answer a typo about a flag the user
+	// did pass. See checkPhotosCount.
+	if err := checkPhotosCount(r.Photos); err != nil {
+		return "", seed.Window{}, err
+	}
 	if err := checkTagsFileNeedsPhotos(r.TagsFile, r.Photos); err != nil {
 		return "", seed.Window{}, err
 	}
@@ -383,6 +523,13 @@ func validateFlags(r runRequest, now time.Time) (seed.Shape, seed.Window, error)
 		return "", seed.Window{}, err
 	}
 	if err := checkWindowNotFuture(window, now, r.Force); err != nil {
+		return "", seed.Window{}, err
+	}
+	// After the window is resolved and after the future check, and before the
+	// photo ceiling: a window this long is a fact about the RUN's shape rather
+	// than a typo, so it belongs with the size ceilings — but it describes the
+	// window, which only exists once resolveWindow has run.
+	if err := checkWindowLength(window, r.Force); err != nil {
 		return "", seed.Window{}, err
 	}
 	if err := checkCeiling(r.Photos, r.Force); err != nil {
@@ -444,15 +591,15 @@ func main() {
 
 	// Loader flags. main's cmd/seed took no flags at all; these drive the bulk
 	// loaders, which were developed and fixed on the time-range branch.
-	photos := flag.Int("photos", 0, "seed N photos with the base fixture (0 = fixture only)")
-	fromFlag := flag.String("from", "", "window start for --photos: RFC3339, or relative like -7d; default 7 days before --to")
+	photos := flag.Int("photos", 0, "seed N photos with the base fixture (0 = fixture only; negative is refused)")
+	fromFlag := flag.String("from", "", "window start for --photos: RFC3339, or relative like -7d (whole days only — use -36h for a fraction); default 7 days before --to")
 	toFlag := flag.String("to", "", "window end for --photos: RFC3339 or relative like now; default now")
 	shapeFlag := flag.String("shape", "", "photo distribution over the window: burst (5 golden-hour events per day of the window) or uniform (evenly spaced); default burst")
 	seedValue := flag.Int("seed", -1, "RNG salt; omit it and a re-run reproduces the previous run's draw (deliberate — loads stay idempotent), set it for a second, different fixture from the same command")
 	tagsFile := flag.String("tags-file", "", "optional TSV of tag rows (name<TAB>displayName<TAB>description) to seed instead of the generated set")
 	tagCount := flag.Int("tag-count", 0, "extra tags per photo, 1-3; 0 keeps the 30/50/20 split")
 	dryRun := flag.Bool("dry-run", false, "print the plan (window start/end, days, photos to add, existing images) and exit without writing")
-	force := flag.Bool("force", false, "required past the soft photo ceiling, or to seed a window whose end is in the future")
+	force := flag.Bool("force", false, "required past the soft photo ceiling, past the 365-day window ceiling, or to seed a window whose end is in the future")
 
 	// main's original code took os.Args[1] as the manifest path and never called
 	// flag.Parse(), so `seed ./mf.json --photos 500` discarded every loader flag

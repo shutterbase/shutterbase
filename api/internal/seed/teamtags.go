@@ -183,6 +183,49 @@ func TagSet(path string) ([]TeamTag, error) {
 	return rows, nil
 }
 
+// reservedTagReason reports why the seeder owns a name and a tag file may not
+// declare it, or "" when the name is free for the file to use.
+//
+// A tag file is not the only writer. Seed creates "Default", "internal" and the
+// "$"-templates, and EnsureCalendarTags creates and PROMOTES every calendar name.
+// ensureTags is find-or-create, so a row naming one of those finds the existing id
+// instead of creating a second one — that id then joins the draw pool while the
+// seeder's own path writes it too: Default through createTagAssignments and the
+// pool, a calendar name through the pool and withCalendarTags. Both write the same
+// (image_id, image_tag_id) pair, imagetagassignment has a unique index on it, and
+// the second write 500s. The run dies on its first chunk of photos, long after the
+// operator's file looked correct — reproduced on Postgres as `duplicate key value
+// violates unique constraint "imagetagassignment_..."`.
+//
+// Refused rather than skipped, like every other rule here: a row quietly dropped is
+// a tag set that is not the file the operator wrote, which is the failure this
+// parser exists to prevent. The line number is in the message for the same reason
+// the column-count message carries one — a 200-row file needs to say WHICH row.
+func reservedTagReason(name string) string {
+	switch name {
+	case "Default":
+		return "the seeder creates it and assigns it to every photo as a type=default assignment"
+	case "internal":
+		return "it marks photos kept out of slides and EXIF exports, and internal/exif strips it from every export"
+	}
+	// CalendarTagPrefix is the single definition of "the seeder writes this name":
+	// a YYYYMMDD date or an English weekday, matching DayTagName and
+	// WeekdayTagName, including a date OUTSIDE the window — one that a later,
+	// wider run would derive.
+	if CalendarTagPrefix(name) {
+		return "it is a calendar tag the seeder derives from each photo's capture time"
+	}
+	// Any "$" name, not only the two templates this package ships. addDefaultTags
+	// renders every type=template row and skips a name it cannot render, while
+	// ensureTags hardcodes type=manual on create — so a file row would be a tag
+	// the app never renders, and on a name that already exists as a template it
+	// would silently overwrite that template's description instead.
+	if strings.HasPrefix(name, "$") {
+		return "a \"$\" name is a template the app renders on upload, not a tag a file can seed"
+	}
+	return ""
+}
+
 // ParseTagFile reads a tag TSV: name<TAB>displayName<TAB>description per line.
 // Blank lines and lines starting with "#" are skipped.
 //
@@ -198,6 +241,10 @@ func TagSet(path string) ([]TeamTag, error) {
 //
 // displayName may be present but EMPTY — the schema makes it optional — and then
 // falls back to the name. Only the missing COLUMN is an error.
+//
+// A name the SEEDER owns is refused too (reservedTagReason). Checked before the
+// duplicate-name rule, because a file repeating "Default" deserves the reserved
+// message, not "already defined on line 1".
 func ParseTagFile(path string) ([]TeamTag, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -222,6 +269,12 @@ func ParseTagFile(path string) ([]TeamTag, error) {
 		name := strings.TrimSpace(fields[0])
 		if name == "" {
 			return nil, fmt.Errorf("%s line %d: empty tag name", path, i+1)
+		}
+		// Before the duplicate check: a file that repeats a reserved name has the
+		// reserved problem, and "already defined on line 1" would send the operator
+		// off to delete a row the seeder owns anyway.
+		if reason := reservedTagReason(name); reason != "" {
+			return nil, fmt.Errorf("%s line %d: %q is reserved — %s; drop the row", path, i+1, name, reason)
 		}
 		// A duplicate name is refused rather than deduped. ensureTags is
 		// find-or-create, so the second row would silently overwrite the first and

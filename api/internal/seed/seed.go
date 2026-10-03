@@ -94,33 +94,86 @@ const photosPerSecond = 88
 // reports zero and takes zero time, which is the correct answer and the reason the
 // log is not just count.
 func logLoadVolume(loader string, names []string, existing map[string]string, extrasPerPhoto, poolSize int) {
+	vol := estimateLoadVolume(names, existing, extrasPerPhoto)
+	if vol.PhotosToCreate == 0 {
+		log.Info().Str("loader", loader).Int("requested", len(names)).
+			Msg("every requested photo already exists — nothing to write")
+		return
+	}
+	log.Info().
+		Str("loader", loader).
+		Int("requested", len(names)).
+		Int("photosToCreate", vol.PhotosToCreate).
+		Int("alreadyPresent", vol.AlreadyPresent).
+		Int("tagAssignments", vol.TagAssignments).
+		Int("jsonbRebuilds", vol.JSONBRebuilds).
+		Int("tagPoolSize", poolSize).
+		Dur("estimated", time.Duration(float64(vol.PhotosToCreate)/photosPerSecond)*time.Second).
+		Msg("seeding photos")
+}
+
+// loadVolume is what one loader call is about to write.
+type loadVolume struct {
+	PhotosToCreate int
+	AlreadyPresent int
+	// TagAssignments counts the image_tag_assignments rows, so it must include the
+	// calendar pair: every photo carries Default, its date and its weekday, and the
+	// two calendar tags are the reason a photo's tag count never equals its
+	// --tag-count.
+	TagAssignments int
+	// JSONBRebuilds counts images.imageTags rewrites, which is ONE PER PHOTO:
+	// createTagAssignments and assignMissingTagAssignments each call
+	// rebuildImageTagsJSON once for the image they just wrote, and that call
+	// re-reads every assignment row and writes the list back.
+	JSONBRebuilds int
+}
+
+// estimateLoadVolume is the arithmetic, kept apart from the logging so it can be
+// asserted on and so there is exactly one of it: the counts the loaders actually
+// write are the ones in extrasPerPhoto and calendarTagsPerPhoto, and a second copy
+// of that knowledge in a log line is a number nobody checks.
+func estimateLoadVolume(names []string, existing map[string]string, extrasPerPhoto int) loadVolume {
 	toCreate := 0
 	for _, name := range names {
 		if _, exists := existing[name]; !exists {
 			toCreate++
 		}
 	}
-	if toCreate == 0 {
-		log.Info().Str("loader", loader).Int("requested", len(names)).
-			Msg("every requested photo already exists — nothing to write")
-		return
+	return loadVolume{
+		PhotosToCreate: toCreate,
+		AlreadyPresent: len(names) - toCreate,
+		TagAssignments: toCreate * assignmentsPerPhoto(extrasPerPhoto),
+		JSONBRebuilds:  toCreate,
 	}
-	// +1 for the Default assignment, which every photo carries.
-	assignments := toCreate * (extrasPerPhoto + 1)
-	if extrasPerPhoto <= 0 {
-		// The documented 30/50/20 split over 1, 2 and 3 averages 1.8.
-		assignments = toCreate * 3
+}
+
+// extraTagsAverage is the documented 30/50/20 split over 1, 2 and 3 extras:
+// 0.3x1 + 0.5x2 + 0.2x3 = 1.9. (It was quoted as 1.8, which is arithmetic, not
+// rounding — and an estimate that is wrong in the operator's favour is the kind
+// that stops being read.)
+const extraTagsAverage = 1.9
+
+// calendarTagsPerPhoto is how many calendar tags every photo carries, counted by
+// asking the function that decides them rather than by writing 2 next to a comment
+// about two: a third calendar tag would then show up in the estimate on its own.
+func calendarTagsPerPhoto() int {
+	now := time.Now()
+	resolved := map[string]string{
+		DayTagName(now):     "date",
+		WeekdayTagName(now): "weekday",
 	}
-	log.Info().
-		Str("loader", loader).
-		Int("requested", len(names)).
-		Int("photosToCreate", toCreate).
-		Int("alreadyPresent", len(names)-toCreate).
-		Int("tagAssignments", assignments).
-		Int("jsonbRebuilds", assignments).
-		Int("tagPoolSize", poolSize).
-		Dur("estimated", time.Duration(float64(toCreate)/photosPerSecond)*time.Second).
-		Msg("seeding photos")
+	return len(calendarTagsFor(resolved, now))
+}
+
+// assignmentsPerPhoto is one photo's total: the Default row every photo carries,
+// the drawn extras, and the calendar pair. Rounded because the split's average is
+// not a whole number and the log reports a count.
+func assignmentsPerPhoto(extrasPerPhoto int) int {
+	extras := extrasPerPhoto
+	if extras <= 0 {
+		extras = int(math.Round(extraTagsAverage))
+	}
+	return 1 + extras + calendarTagsPerPhoto()
 }
 
 func recordImage(m *Manifest, id string) {
@@ -290,7 +343,7 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 		{"$WEEKDAY", "weekday template tag", imagetag.TypeTemplate},
 		{"Podium", "manual tag", imagetag.TypeManual},
 		{"Default", "auto-applied tag", imagetag.TypeDefault},
-		{"internal", "reserved management tag", imagetag.TypeManual},
+		{internalTagName, "reserved management tag", imagetag.TypeManual},
 	} {
 		t, err := client.ImageTag.Create().
 			SetName(spec.name).
@@ -359,7 +412,7 @@ func Seed(ctx context.Context, client *ent.Client, referenceNow time.Time) (*Man
 			if _, err := client.ImageTagAssignment.Create().
 				SetType(imagetagassignment.TypeManual).
 				SetImageID(img.ID).
-				SetImageTagID(m.Tags["internal"]).
+				SetImageTagID(m.Tags[internalTagName]).
 				Save(ctx); err != nil {
 				return nil, fmt.Errorf("assign internal tag to image %d: %w", i, err)
 			}
@@ -543,6 +596,26 @@ func recordTag(m *Manifest, name, id string) {
 //
 // Every id is recorded on the manifest, so a photo carrying one of these tags has
 // a name the tests and the caller can resolve.
+//
+// The pool is kept DISJOINT from the tags the seeder writes by its own paths,
+// because a draw is not the only thing that assigns a tag and the two writing the
+// same (image_id, image_tag_id) pair is fatal, not cosmetic: imagetagassignment
+// carries a unique index on it, so the run dies on its first 500-row chunk with
+// `duplicate key value violates unique constraint "imagetagassignment_..."`. Two
+// id sources reach here, and both can carry a name the seeder owns:
+//
+//   - A tags-file row is find-or-CREATEd onto the row Seed already made, so a row
+//     named "Default" resolves to the default tag's id and every photo then gets
+//     one TypeDefault and one TypeManual assignment for it. A row named "internal"
+//     collides the same way WITHOUT an error — assignMissingTagAssignments skips
+//     the pair — and internal/exif strips that name from every export, so thousands
+//     of bulk photos would silently be marked as never-exportable.
+//   - A row named after a date in the window, or a weekday, is PROMOTED IN PLACE by
+//     EnsureCalendarTags (which matches on name alone) and comes back in the same
+//     cal map, so withCalendarTags writes it again on top of the pool.
+//
+// So the names themselves are excluded, not merely de-duplicated: the excluded id
+// is written by the path that owns it, which is the only place it belongs.
 func resolveTagPool(ctx context.Context, client *ent.Client, m *Manifest, ids map[string]string) ([]string, error) {
 	if len(ids) == 0 {
 		got, err := EnsureTagSet(ctx, client, m.Project, "")
@@ -568,16 +641,56 @@ func resolveTagPool(ctx context.Context, client *ent.Client, m *Manifest, ids ma
 	}
 	sort.Strings(names)
 	pool := make([]string, 0, len(names)+len(autoTags))
-	for _, name := range names {
-		if id := ids[name]; id != "" {
-			pool = append(pool, id)
+	seen := make(map[string]struct{}, len(names)+len(autoTags))
+	// One id enters the pool once. Two sources reach for the same row without
+	// either being wrong on its own: a tags-file row named "Tag03" is
+	// find-or-created onto the id ensureAutoTags resolves, so the draw saw ~90
+	// entries with two of them the same tag and gave it twice the weight of every
+	// other name — a skew with no error to show for it.
+	add := func(id string) {
+		if id == "" {
+			return
 		}
+		if _, dup := seen[id]; dup {
+			return
+		}
+		seen[id] = struct{}{}
+		pool = append(pool, id)
+	}
+	for _, name := range names {
+		if reservedPoolTag(name) {
+			continue
+		}
+		add(ids[name])
 	}
 	// Tag00-Tag09 last: they stay in the pool (the loader tests pin their
 	// per-bucket reachability, and a project seeded before the team tags existed
 	// has only these) but no longer monopolise it.
-	return append(pool, autoTags...), nil
+	for _, id := range autoTags {
+		add(id)
+	}
+	return pool, nil
 }
+
+// reservedPoolTag reports a name the seeder assigns to every photo by its own
+// path, so it must stay out of the random draw. Default goes on through
+// createTagAssignments, "internal" through the base fixture, and every calendar
+// name through withCalendarTags — see resolveTagPool for what a shared id costs.
+//
+// Names, not ids: the same id is reachable under two names (a tags-file row and
+// the seeder's own row for it), and only the name says which writer owns it.
+// ParseTagFile refuses these names in a file outright, which is the earlier and
+// better place to catch them; this is the invariant behind that refusal, holding
+// for every other caller of resolveTagPool.
+func reservedPoolTag(name string) bool {
+	return name == "Default" || name == internalTagName || CalendarTagPrefix(name)
+}
+
+// internalTagName is the reserved management tag: it keeps a photo out of
+// slideshows and EXIF exports, and internal/exif/inject.go strips the name from
+// every export it renders. Named here because the pool has to recognise it by name
+// and a second literal is a second thing to forget.
+const internalTagName = "internal"
 
 // ensureAutoTags resolves Tag00-Tag09, creating whatever the project lacks, and
 // records them on the manifest.
@@ -639,15 +752,32 @@ func SevenDaysEndingAt(t time.Time) Window {
 	return Window{From: t.AddDate(0, 0, -7), To: t}
 }
 
-// Days is the window length in whole days, floored at 1. The burst layout places
-// one set of golden-hour events per DAY, so a window shorter than a day still
-// needs a single day of events rather than zero.
+// Days is how many calendar dates the window lays bursts on, floored at 1. The
+// burst layout places one set of golden-hour events per DAY, so a window shorter
+// than a day still needs a single day of events rather than zero.
+//
+// Counted by walking DATES, not by dividing hours by 24. The layout steps with
+// AddDate, so a window that loses an hour to a spring-forward has a seventh date
+// the hour arithmetic never reaches: 167 hours is 6 days and 23, int() makes it 6,
+// and the last date of the window gets no burst at all — a shoot that ends the day
+// the window does, silently empty. calendartags.go already documents that walking by
+// hours is wrong for the very same reason, and this was the same mistake in the
+// loader.
+//
+// A date at From counts, and the date AT To does not: To is the window's end, not
+// the start of another day's shooting. That is what keeps the default seven-day
+// window at seven, since From.AddDate(0, 0, days) IS To for it.
 func (w Window) Days() int {
-	d := int(w.To.Sub(w.From).Hours() / 24)
-	if d < 1 {
+	loc := w.From.Location()
+	to := w.To.In(loc)
+	days := 0
+	for d := w.From.In(loc); d.Before(to); d = d.AddDate(0, 0, 1) {
+		days++
+	}
+	if days < 1 {
 		return 1
 	}
-	return d
+	return days
 }
 
 // Validate rejects a window that cannot be laid out. Called at the edge so the
@@ -1147,8 +1277,12 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	// photos that predate this load (the base fixture's three) would otherwise sit
 	// in the gallery carrying only Default, and any facet query groups them as one
 	// flat bucket next to thousands with a full tag set. FSG_W is this loader's own
-	// prefix, so those are skipped — they were just tagged from the same pool.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, "FSG_W", salt...)
+	// prefix, so those are skipped — they were just tagged from the same pool. cal
+	// rides along as the calendar cache, and the photos that DO get the backfill
+	// take their date and weekday from their own instants — so a photo outside this
+	// window (the base fixture's three, a real upload) comes out of the run with
+	// them rather than as the only photos in the gallery without a date.
+	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, "FSG_W", salt...)
 }
 
 func rngFor(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
@@ -1252,19 +1386,32 @@ func assignMissingTagAssignments(ctx context.Context, tx *ent.Tx, imageID string
 // TagExistingPhotos assigns random extra tags to all existing images in the
 // project that don't already have them. Used to backfill the original seed
 // images. Each photo gets 1-3 extra tags drawn from the project's generated team
-// tags and Tag00–Tag09. Assignments that are already recorded are skipped, so a
-// re-run costs one query per photo instead of 3 guaranteed-conflict inserts.
+// tags and Tag00–Tag09, plus its own date and weekday — the same unconditional
+// pair every load seeder writes, so a backfilled photo is indistinguishable from a
+// loaded one. Assignments that are already recorded are skipped, so a re-run costs
+// one query per photo instead of 3 guaranteed-conflict inserts.
 
 // salt is the optional run seed (--seed); see SeedWeekOfPhotos.
+//
+// The calendar map handed down is nil, and that is deliberate rather than a gap:
+// this entry point has no window, so any map it could enumerate would cover the
+// window and not the photos — the base fixture's three sit at referenceNow while a
+// real upload can be any age, and a date outside the enumerated set is the one
+// photo in the set that would come out with no date. So the calendar tags are
+// resolved per photo from its own instant instead (see photoCalendarTags), which
+// needs no window at all. referenceNow stays in the signature for the callers that
+// already pass it; the per-photo path reads nothing from it.
 func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, salt ...int64) error {
-	return tagExistingPhotos(ctx, client, m, 0, nil, "", salt...)
+	return tagExistingPhotos(ctx, client, m, 0, nil, nil, "", salt...)
 }
 
 // tagExistingPhotos with extrasPerPhoto 0 keeping the 30/50/20 split; see
 // photoExtrasFixed. ownPrefix skips the photos the calling loader just made —
 // they are already tagged — so the backfill only pays for what it changes. pool is
-// the loader's resolved draw pool, nil when the caller has none.
-func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, extrasPerPhoto int, pool []string, ownPrefix string, salt ...int64) error {
+// the loader's resolved draw pool, nil when the caller has none. cal is the
+// loader's calendar tags, reused as the resolver's cache; nil resolves them per
+// photo, which is what the exported entry point above needs.
+func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, extrasPerPhoto int, pool []string, cal map[string]string, ownPrefix string, salt ...int64) error {
 	project := m.Project
 	if pool == nil {
 		var err error
@@ -1272,8 +1419,13 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 			return err
 		}
 	}
+	if cal == nil {
+		cal = map[string]string{}
+	}
 
-	// The pool-tag count this run considers a photo to have reached.
+	// The pool-tag count this run considers a photo to have reached, and the tag
+	// pool each photo may still be given: what it already holds is removed, so a
+	// top-up draws DIFFERENT tags and the total lands ON want instead of above it.
 	//
 	// A PINNED --tag-count is a target, not a floor, so the test is against the
 	// count and a photo holding fewer pool tags than asked for is topped up.
@@ -1282,6 +1434,16 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 	// split — was skipped forever, whatever --tag-count the next run carried. Being
 	// append-only, this cannot LOWER an over-pinned photo; it can only reach a
 	// photo the old test never looked at again.
+	//
+	// Drawing want-poolTags off the same stream used to pass want itself: a photo
+	// holding 2 pool tags under --tag-count 3 passed the >= test and then had
+	// extrasPerPhoto MORE appended off the id-keyed stream, landing on five. That
+	// is reachable from the CLI — seed burst (the default split) then re-run with
+	// --shape uniform --tag-count 3 — because the first run's FSG_LW photos are not
+	// ownPrefix for the second run. Dropping the held ids from the candidates is
+	// what makes the count a target: it also stops the top-up re-drawing a tag the
+	// photo already carries, which assignMissingTagAssignments would then silently
+	// skip, leaving the photo short of the pin it was topped up for.
 	//
 	// The default 1-3 draw keeps presence, as 1: there is no target count to reach
 	// without one, and testing against the drawn count would give every
@@ -1296,11 +1458,18 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 		hasPoolTag[id] = struct{}{}
 	}
 
-	// The photos, one page at a time. Three columns: the id the draw is keyed on,
-	// the name the prefix exclusions match, and the jsonb read model the pool test
-	// counts. Everything else is dead weight — exifData alone is kilobytes per
-	// photo, so the whole-project select this replaced was a multi-gigabyte fetch at
-	// the 250k ceiling to build one map entry per photo.
+	// The photos, one page at a time. Four columns: the id the draw is keyed on,
+	// the name the prefix exclusions match, the jsonb read model the pool test
+	// counts, and the capture instant the photo's own date and weekday come from.
+	// Everything else is dead weight — exifData alone is kilobytes per photo, so
+	// the whole-project select this replaced was a multi-gigabyte fetch at the 250k
+	// ceiling to build one map entry per photo.
+	//
+	// capturedAtCorrected is the column that carries the contract in
+	// calendartags.go: every photo also has the day it was shot and the weekday.
+	// Without it the backfill could only give pool tags, and the base fixture's
+	// three photos — plus any real upload in the project — came out of a load
+	// sitting next to thousands that had a date, in a gallery navigated by date.
 	//
 	// Paged by id cursor rather than by offset: ids are unique and ordered, so the
 	// cursor names exactly one row and cannot be perturbed by the updates each page
@@ -1313,7 +1482,7 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 			Where(image.ProjectID(project), image.IDGT(after)).
 			Order(ent.Asc(image.FieldID)).
 			Limit(seedBulkChunk).
-			Select(image.FieldID, image.FieldComputedFileName, image.FieldImageTags).
+			Select(image.FieldID, image.FieldComputedFileName, image.FieldImageTags, image.FieldCapturedAtCorrected).
 			All(ctx)
 		if err != nil {
 			return fmt.Errorf("query images: %w", err)
@@ -1355,21 +1524,46 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 			extra []string
 		}
 		targets := make([]target, 0, len(images))
+		held := make([]string, 0, want)
+		candidates := make([]string, 0, len(pool))
+		pinned := extrasPerPhoto > 0
 		for _, img := range images {
 			if strings.HasPrefix(img.ComputedFileName, TimeRangeClusterPrefix) ||
 				(ownPrefix != "" && strings.HasPrefix(img.ComputedFileName, ownPrefix)) {
 				continue
 			}
-			poolTags := 0
+			held = held[:0]
 			for _, id := range img.ImageTags {
 				if _, isPool := hasPoolTag[id]; isPool {
-					poolTags++
+					held = append(held, id)
 				}
 			}
-			if poolTags >= want {
+			// Unpinned, the whole pool and the split count: there is no target to
+			// reach, so the count is whatever the documented 30/50/20 draw says and a
+			// photo holding any pool tag is left alone.
+			draw, from := extrasPerPhoto, pool
+			var extra []string
+			if len(held) < want {
+				if pinned {
+					draw = want - len(held)
+					from = appendRemaining(candidates[:0], pool, held)
+				}
+				extra = photoExtrasFixed(rngFor(saltedIDSeed(img.ID, saltOf(salt))), from, draw)
+			}
+			// The date and weekday are NOT part of the pin, so they are resolved for
+			// every photo including one whose pool count is already satisfied — a
+			// photo that predates the calendar tags must not be skipped by the very
+			// check that governs the random ones. They follow the PHOTO's own instant,
+			// not the window this run recomputed: same rule the loaders apply to the
+			// photos they find already present, so a top-up with a shifted
+			// --from/--to never gives an existing photo a second, wrong date tag.
+			if at := img.CapturedAtCorrected; at != nil {
+				extra = append(extra, photoCalendarTags(ctx, client, m, cal, *at)...)
+			}
+			if len(extra) == 0 {
 				continue
 			}
-			targets = append(targets, target{id: img.ID, extra: photoExtrasFixed(rngFor(saltedIDSeed(img.ID, saltOf(salt))), pool, extrasPerPhoto)})
+			targets = append(targets, target{id: img.ID, extra: extra})
 		}
 
 		// One tx per chunk instead of one per photo. This used to be a BEGIN /
@@ -1396,6 +1590,116 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 			return nil
 		}
 	}
+}
+
+// appendRemaining appends the pool entries that are not in exclude to dst. dst is
+// reused across photos, so the caller passes a zero-length slice with its capacity.
+func appendRemaining(dst []string, pool, exclude []string) []string {
+	for _, id := range pool {
+		if !slices.Contains(exclude, id) {
+			dst = append(dst, id)
+		}
+	}
+	return dst
+}
+
+// burstDayScale is how much of a real day the window actually affords per day of
+// bursts: the span it covers over the days it lays out, divided by 24h.
+//
+// The layout was written in DAYS and HOURS — five golden-hour events per day,
+// each 30-90 minutes wide — and added to the window's start, so it silently
+// assumed a window made of whole days. Days() floors at 1 to keep a short window
+// placing events at all, and that floor is what broke it: for `--from -1h --to now`
+// all five centres land past window.To, every photo clamps onto To, and
+// `--photos 500` writes 500 rows with one identical capturedAtCorrected. One spike
+// where the density strip wants a shoot, one calendar tag pair for all of them.
+//
+// Scaling by the window's own day length puts the same five events INSIDE it, in
+// the same order and roughly the same relative spacing — 07:00/08:00/12:00/17:00/
+// 18:00 become 17m/20m/30m/42m/45m into a one-hour window — while a window with a
+// full day per day of bursts scales by exactly 1 and reproduces the historical
+// layout, instants included. That case is the common one and the loader tests pin
+// it, so nothing here may move it.
+//
+// Capped at 1 because the scale is a squeeze, never a stretch: Days() floors, so a
+// window longer than its day count (1.5 days still lays out one day of events)
+// keeps the real clock hours, which already fit inside it.
+func burstDayScale(window Window, days int) float64 {
+	perDay := float64(window.To.Sub(window.From)) / float64(days)
+	return min(perDay/float64(24*time.Hour), 1)
+}
+
+// scaledDuration is the layout's clock arithmetic run at the window's day scale. A
+// fixed multiplier rather than a per-value fraction so a window that affords a full
+// day reproduces the original duration exactly, and the jitter and the burst width
+// stay in their documented ratio to each other.
+func scaledDuration(d time.Duration, scale float64) time.Duration {
+	return time.Duration(float64(d) * scale)
+}
+
+// photoCalendarTags returns the two tag ids a photo captured at t carries, the same
+// unconditional pair withCalendarTags appends for a photo the loaders create. cal
+// is the loader's calendar map, reused here as the cache: it is pre-populated for
+// the loaders' own window, so nothing is resolved, while the exported backfill
+// resolves each name once and remembers it for every later photo — a project
+// spanning a year costs one lookup per distinct name, not one per photo. Every id
+// it resolves is recorded on the manifest, because that map is what the tests and
+// the caller resolve a name through — a tag on a photo that nothing can name is a
+// tag the app shows with no id behind it.
+//
+// Names missing from cal are find-or-created rather than skipped. calendarTagsFor
+// drops them, and for a photo inside the loaders' window that cannot happen; for a
+// photo outside it — the base fixture's three photos under a --from -60d window, or
+// any real upload — the one photo in the set that would come out with no date is
+// exactly the one the backfill exists to fix. The row is written as the app writes
+// it (type=default, so addDefaultTags can find it) and created with the same
+// description EnsureCalendarTags would give it for that single day, so the two
+// paths cannot leave the same name described two ways.
+func photoCalendarTags(ctx context.Context, client *ent.Client, m *Manifest, cal map[string]string, t time.Time) []string {
+	var out []string
+	for _, name := range []string{DayTagName(t), WeekdayTagName(t)} {
+		id, err := resolveCalendarTag(ctx, client, m.Project, cal, name, t)
+		if err != nil || id == "" {
+			// A thinner fixture beats a failed run: the photo keeps its pool tags and
+			// the pool is untouched, and the next run resolves the name again.
+			continue
+		}
+		recordTag(m, name, id)
+		out = append(out, id)
+	}
+	return out
+}
+
+// resolveCalendarTag resolves one calendar tag name in the project, memoizing it in
+// cal. An existing row is used as it is — this path does not promote or re-describe
+// it, because EnsureCalendarTags owns that and the two fighting over a row would
+// rewrite it on every run.
+func resolveCalendarTag(ctx context.Context, client *ent.Client, projectID string, cal map[string]string, name string, t time.Time) (string, error) {
+	if id := cal[name]; id != "" {
+		return id, nil
+	}
+	existing, err := client.ImageTag.Query().
+		Where(imagetag.ProjectID(projectID), imagetag.Name(name)).
+		Only(ctx)
+	switch {
+	case err == nil:
+		cal[name] = existing.ID
+		return existing.ID, nil
+	case !ent.IsNotFound(err):
+		return "", fmt.Errorf("look up calendar tag %s: %w", name, err)
+	}
+	created, err := client.ImageTag.Create().
+		SetName(name).
+		SetDisplayName(name).
+		SetDescription(calendarTagDescription(name, Window{From: t, To: t})).
+		SetType(imagetag.TypeDefault).
+		SetProjectID(projectID).
+		Save(ctx)
+	if err != nil {
+		return "", fmt.Errorf("create calendar tag %s: %w", name, err)
+	}
+	cal[name] = created.ID
+	return created.ID, nil
 }
 
 // SeedLastWeekPhotos creates `count` photos (5000 when count is 0 or less) with
@@ -1466,13 +1770,21 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 	}
 	// Events favor golden hours: 6-9am, 5-8pm, plus some midday
 	goldenHours := [5]int{7, 8, 17, 18, 12}
+	// The clock time of a burst centre, and the width of a burst, are fractions of
+	// the window's own day rather than fixed hours and minutes — see burstDayScale
+	// for why, and for what it leaves alone.
+	dayScale := burstDayScale(window, days)
 	var bursts []burst
 	for d := 0; d < days; d++ {
 		dayStart := weekStart.AddDate(0, 0, d)
 		for e := range goldenHours {
+			// Still keyed by (day, event) and still the SAME draw: the scale is
+			// applied to the values this stream produces, so the layout for a given
+			// window is as reproducible as it was.
 			rng := rngFor(saltedIndexSeed("LWL", d*len(goldenHours)+e, saltOf(salt)))
-			center := dayStart.Add(time.Duration(goldenHours[e])*time.Hour + time.Duration(rng.Intn(60))*time.Minute)
-			duration := time.Duration(30+rng.Intn(60)) * time.Minute
+			jitter := time.Duration(rng.Intn(60)) * time.Minute
+			center := dayStart.Add(scaledDuration(time.Duration(goldenHours[e])*time.Hour+jitter, dayScale))
+			duration := scaledDuration(time.Duration(30+rng.Intn(60))*time.Minute, dayScale)
 			burstCount := 10 + rng.Intn(40) // 10-50 photos per burst
 			bursts = append(bursts, burst{center: center, duration: duration, count: burstCount})
 		}
@@ -1641,7 +1953,7 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 	}
 	// See seedWeekOfPhotos for why the backfold is inline rather than behind a
 	// flag. FSG_LW is this loader's own prefix.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, "FSG_LW", salt...)
+	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, "FSG_LW", salt...)
 }
 
 // ReadManifest loads a manifest previously written by Write. A missing file is

@@ -230,8 +230,17 @@ func TestParseTimeArgUnits(t *testing.T) {
 		want time.Duration
 	}{
 		{"-7d", 7 * 24 * time.Hour},
+		// A whole number of days written with a decimal point is still a whole
+		// number of days: the refusal below is about the FRACTION, not about the
+		// spelling, so refusing -7.0d would push a user onto a worse flag.
+		{"-7.0d", 7 * 24 * time.Hour},
 		{"-36h", 36 * time.Hour},
 		{"-90m", 90 * time.Minute},
+		// h and m keep their fractions: time.Duration holds them exactly, so
+		// there is nothing to truncate and no reason to refuse. These two fail
+		// the moment the guard is widened to every unit.
+		{"-1.5h", 90 * time.Minute},
+		{"-0.5m", 30 * time.Second},
 	} {
 		got, err := parseTimeArg(tc.raw, now)
 		if err != nil {
@@ -253,6 +262,238 @@ func TestParseTimeArgUnits(t *testing.T) {
 	if got, err := parseTimeArg("", now); err != nil || !got.IsZero() {
 		t.Errorf("parseTimeArg(\"\") = %v, %v; want the zero time and no error", got, err)
 	}
+}
+
+// Days are the one unit that goes through AddDate, which takes an int, so a
+// fraction used to be truncated by -int(d) instead of reported: -1.5d silently
+// seeded a one-day window, and -0.5d truncated to zero and came back as "window
+// is empty" — an error about a window the user never wrote, for a request that
+// was well formed.
+//
+// Refused rather than rounded. Both halves of that choice are asserted here: the
+// refusal, and the refusal naming the exact spelling that works (hours are a
+// Duration, so they are exact to the digit).
+func TestParseTimeArgFractionalDaysAreRefused(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	cases := []struct {
+		raw        string
+		wantSubstr string
+		wantHours  string
+		why        string
+	}{
+		{
+			raw:        "-1.5d",
+			wantSubstr: "not a whole number of days",
+			wantHours:  "-36h",
+			why:        "-int(1.5) is 1, so this seeded a one-day window and said nothing",
+		},
+		{
+			// The one that produced a genuinely confusing error: 0 days of offset
+			// makes from == to, which Window.Validate calls an empty window.
+			raw:        "-0.5d",
+			wantSubstr: "not a whole number of days",
+			wantHours:  "-12h",
+			why:        "truncated to 0 days, so the run failed on \"window is empty\" instead of on the request",
+		},
+		{
+			raw:        "-7.25d",
+			wantSubstr: "not a whole number of days",
+			wantHours:  "-174h",
+			why:        "the truncation is not a rounding, it drops the fraction",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.raw, func(t *testing.T) {
+			_, err := parseTimeArg(tc.raw, now)
+			require.Error(t, err, "parseTimeArg(%q) = nil error; %s", tc.raw, tc.why)
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+			// The refusal has to carry the fix: the flag that expresses this
+			// window exactly already exists, so an unlabelled error is a refusal
+			// with nothing to act on.
+			assert.Contains(t, err.Error(), tc.wantHours,
+				"the message must name the equivalent offset in hours, since hours are exact: %v", err)
+		})
+	}
+
+	// The half-day in hours must actually work, so the refusal points at a real
+	// alternative rather than a hypothetical one.
+	got, err := parseTimeArg("-36h", now)
+	require.NoError(t, err)
+	assert.Equal(t, 36*time.Hour, now.Sub(got))
+}
+
+// A negative --photos is a typo, not a request. Every other guard in the
+// pre-flight reads a negative count as "no count at all" because they test
+// `photos <= 0` or `photos > 0` — the sign is exactly what none of them look at —
+// so `seed --photos -1` passed all of them, computed loadRequested false, skipped
+// the load, seeded the base fixture, wrote a manifest and exited 0.
+func TestCheckPhotosCount(t *testing.T) {
+	cases := []struct {
+		name       string
+		n          int
+		wantErr    bool
+		wantSubstr string
+	}{
+		{
+			// 0 is the documented way to seed the base fixture alone. If this ever
+			// fails, the guard was widened into refusing a legitimate flag.
+			name: "zero is legitimate and means fixture only",
+			n:    0,
+		},
+		{name: "one is a count", n: 1},
+		{name: "a normal load is a count", n: 5000},
+		{
+			name:       "one past zero is refused",
+			n:          -1,
+			wantErr:    true,
+			wantSubstr: "--photos -1 is not a count",
+		},
+		{
+			name:       "far past zero is refused the same way",
+			n:          -100,
+			wantErr:    true,
+			wantSubstr: "--photos -100 is not a count",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkPhotosCount(tc.n)
+			if !tc.wantErr {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+		})
+	}
+}
+
+// The refusal must not read as though 0 were also wrong. Somebody reading
+// "--photos -1 is not a count" and then trying "--photos 0" to see what a valid
+// count looks like has to be told 0 is fine, or the next thing to happen is a
+// guard that refuses the base-fixture run and makes bare `just seed` fail.
+func TestCheckPhotosCountZeroStaysLegitimate(t *testing.T) {
+	require.NoError(t, checkPhotosCount(0),
+		"--photos 0 is the documented base-fixture-only run and must never be refused")
+
+	err := checkPhotosCount(-1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "0 is legitimate",
+		"the refusal has to bless 0 explicitly, or the obvious next attempt reads as a second refusal: %v", err)
+}
+
+// The window is walked once per calendar date whatever --photos says, in ONE
+// transaction (EnsureCalendarTags), holding image_tags row locks from the first
+// INSERT to the COMMIT. The photo ceilings cannot catch that: --photos 100 over a
+// decade still asks for ~3 900 date tags, measured at +15.6s in a single
+// transaction on this machine.
+func TestCheckWindowLength(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	atCeiling := seed.Window{From: now.AddDate(0, 0, -windowDayCeiling), To: now}
+	overCeiling := seed.Window{From: now.AddDate(0, 0, -windowDayCeiling-1), To: now}
+
+	cases := []struct {
+		name       string
+		w          seed.Window
+		force      bool
+		wantErr    bool
+		wantSubstr string
+	}{
+		{
+			name: "the default 7-day window needs nothing",
+			w:    seed.Window{From: now.AddDate(0, 0, -7), To: now},
+		},
+		{
+			name: "a real event weekend needs nothing",
+			w:    seed.Window{From: now.AddDate(0, 0, -4), To: now},
+		},
+		{
+			name: "the longest documented window (-30d) needs nothing",
+			w:    seed.Window{From: now.AddDate(0, 0, -30), To: now},
+		},
+		{
+			// The boundary is the flag value, so -365d passes and -366d does not.
+			name: "exactly at the ceiling is fine",
+			w:    atCeiling,
+		},
+		{
+			name:       "one day past the ceiling is refused",
+			w:          overCeiling,
+			wantErr:    true,
+			wantSubstr: "past the ceiling of 365 days",
+		},
+		{
+			// The finding's own case: --from 2016-01-01 --to now.
+			name:       "a decade is refused",
+			w:          seed.Window{From: time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC), To: now},
+			wantErr:    true,
+			wantSubstr: "past the ceiling of 365 days",
+		},
+		{
+			// --force buys it: the cost of a long window is a slow transaction
+			// holding locks, not a destroyed database — the same reasoning that
+			// lets --force buy a future-dated window. No hard tier above it.
+			name:  "--force gets past the window ceiling",
+			w:     overCeiling,
+			force: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkWindowLength(tc.w, tc.force)
+			if !tc.wantErr {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			// Both halves of the number: the length the user is responsible for
+			// and the limit it has to come down to, in the same unit.
+			assert.Contains(t, err.Error(), "past the ceiling of 365 days")
+			assert.Regexp(t, `window spans \d+ days`, err.Error(),
+				"the refusal must report the measured length as well as the limit: %v", err)
+			// And the number the transaction actually iterates over, which is one
+			// more than the span: both endpoints are calendar tags.
+			assert.Regexp(t, `\d+ calendar tags to write`, err.Error(),
+				"the refusal must name the work the window implies: %v", err)
+			if tc.wantSubstr != "" {
+				assert.Contains(t, err.Error(), tc.wantSubstr)
+			}
+		})
+	}
+}
+
+// The ceiling counts calendar DATES, the unit EnsureCalendarTags iterates over,
+// and not span/24h: CalendarTagNames steps by date in the window's own location,
+// so a span of 365 days crossing a DST change is 366 dates. A guard that counted
+// durations would be wrong by one exactly at the boundary it exists to hold.
+func TestCalendarDateCountCountsDatesNotDurations(t *testing.T) {
+	utc := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	// 7 days back to now, inclusive of both endpoints: 8 dates.
+	assert.Equal(t, 8, calendarDateCount(seed.Window{From: utc.AddDate(0, 0, -7), To: utc}),
+		"a 7-day span is 8 calendar dates, inclusive of both ends")
+
+	// The DST case: Europe/Berlin loses an hour on 2026-03-29, so a 90-day span
+	// from 2026-01-29 to 2026-04-29 is 2 159 hours and 91 calendar dates. The
+	// naive duration count is two short — one for the inclusive endpoint, one for
+	// the hour DST removed — which is why the guard asks the walk instead of
+	// dividing.
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Skipf("tzdata unavailable: %v", err)
+	}
+	overDst := seed.Window{
+		From: time.Date(2026, 1, 29, 12, 0, 0, 0, berlin),
+		To:   time.Date(2026, 4, 29, 12, 0, 0, 0, berlin),
+	}
+	assert.Equal(t, 91, calendarDateCount(overDst),
+		"a 90-day span either side of the 2026-03-29 DST change is 91 dates, both endpoints included")
+	assert.Equal(t, 89, int(overDst.To.Sub(overDst.From).Hours()/24),
+		"the duration count is two short of the dates walked — the guard must not use it")
 }
 
 func TestCheckTagCount(t *testing.T) {
@@ -701,6 +942,64 @@ func TestValidateFlagsRefusesBeforeAnyWrite(t *testing.T) {
 			req:        runRequest{Photos: 10, Seed: seedUnset, To: "2099-01-01T00:00:00Z"},
 			wantErr:    true,
 			wantSubstr: "in the future",
+		},
+		{
+			// --photos -1 passed every guard: the ones that could have caught it
+			// all test `photos <= 0` or `photos > 0`, so loadRequested came out
+			// false, the load was skipped and the run exited 0 having seeded the
+			// base fixture.
+			name:       "a negative --photos is refused",
+			req:        runRequest{Photos: -1, Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "--photos -1 is not a count",
+		},
+		{
+			// The count guard sits BEFORE the pairing guards on purpose: without
+			// that, this lands on checkWindowNeedsPhotos and answers a typo about
+			// --from, which the user did pass and which is not the problem.
+			name:       "a negative --photos is refused instead of the --from it would trip",
+			req:        runRequest{Photos: -1, From: "-3d", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "--photos -1 is not a count",
+		},
+		{
+			name:       "a negative --photos is refused instead of the --tags-file it would trip",
+			req:        runRequest{Photos: -1, Seed: seedUnset, TagsFile: writeTagTSV(t, goodTagTSV)},
+			wantErr:    true,
+			wantSubstr: "--photos -1 is not a count",
+		},
+		{
+			// The window's length is walked once per calendar date in ONE
+			// transaction, so the photo ceilings never see it.
+			name:       "a decade-long window is refused even with --photos 100",
+			req:        runRequest{Photos: 100, From: "2016-01-01T00:00:00Z", To: "now", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "past the ceiling of 365 days",
+		},
+		{
+			// --force buys the window ceiling, like it buys a future-dated window.
+			name: "a decade-long window passes with --force",
+			req:  runRequest{Photos: 100, From: "2016-01-01T00:00:00Z", To: "now", Seed: seedUnset, Force: true},
+		},
+		{
+			// The boundary has to be reachable by the flag: -365d is the last
+			// window that passes, -366d the first that does not.
+			name: "a 365-day window is still accepted",
+			req:  runRequest{Photos: 100, From: "-365d", To: "now", Seed: seedUnset},
+		},
+		{
+			// 0 must keep working: bare `just seed` is this run, and a guard
+			// widened far enough to refuse it would break the documented one.
+			name: "a bare base-fixture run is still accepted with Photos 0 spelled out",
+			req:  runRequest{Photos: 0, Seed: seedUnset},
+		},
+		{
+			// A fractional d reached AddDate's int and was truncated: -1.5d seeded
+			// one day, -0.5d seeded none and failed as an "empty window".
+			name:       "a fractional day offset is refused with the bound named",
+			req:        runRequest{Photos: 100, From: "-1.5d", To: "now", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: `--from: "-1.5d" is not a whole number of days`,
 		},
 		{
 			name: "a bare base-fixture run is accepted",
