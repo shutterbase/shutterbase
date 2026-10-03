@@ -25,8 +25,11 @@ Postgres, reachable through the `DATABASE_*` config values. `just up` from the
 repo root starts the matching stack and runs the seeder with no arguments.
 
 `cmd/seed` always connects as Postgres — `DATABASE_TYPE` is not consulted here.
-The connection is opened before any flag is validated, so even a `--dry-run`, and
-even a flag the tool is about to refuse, needs a live database.
+
+Every flag guard runs in one pre-flight pass **before the connection is opened**, so
+a refused command needs no database at all and leaves no rows and no manifest
+behind. Anything that gets past it does need a live database, `--dry-run`
+included: the plan reports whether the database is already seeded.
 
 ## Quick start
 
@@ -49,6 +52,12 @@ go run ./cmd/seed --photos 2000 --seed 7
 go run ./cmd/seed ./tmp/fixtures.json --photos 1000 --tags-file ./tags.tsv
 ```
 
+Two things about the last example. `mkdir -p tmp` first: the manifest is written
+next to its path, and a missing directory is reported only after the base fixture
+is already committed. And a database that already has users takes the load path,
+which needs a manifest at that exact path — `./tmp/fixtures.json` against an
+already-seeded database is fatal, not a fresh seed.
+
 The manifest path is the one optional positional argument. Flags and the path may
 be written **in either order**:
 
@@ -66,44 +75,72 @@ than one positional is refused.
 
 | Flag | Default | What it does | Constraint |
 |---|---|---|---|
-| `--photos N` | `0` | Seed N photos after the base fixture. `0` seeds the fixture only. | `N > seedSoftCeiling` needs `--force`; `N > seedHardCeiling` is refused outright. Checked only when `N > 0`. |
-| `--from` | 7 days before the resolved `--to` | Window start. RFC3339, `now`, or a relative offset such as `-7d`, `-36h`, `-90m`. | Requires `--photos`; window must not end in the future unless `--force`. |
+| `--photos N` | `0` | Seed N photos after the base fixture. `0` seeds the fixture only. | `N` must not be negative; a negative count is refused, not treated as `0`. `N > seedSoftCeiling` needs `--force`; `N > seedHardCeiling` is refused outright. The ceilings are checked for every `N`, not only above zero. |
+| `--from` | 7 days before the resolved `--to` | Window start. RFC3339, `now`, or a relative offset such as `-7d`, `-36h`, `-90m`. | Requires `--photos`. `d` takes whole days only; write a fraction in hours (`-36h`) or minutes. A window longer than 365 days and a window that ends in the future both need `--force`. |
 | `--to` | `now` | Window end. Same formats as `--from`. | Same as `--from`. |
-| `--shape` | `burst` | How photos are distributed over the window: `burst` (golden-hour events, quiet gaps) or `uniform` (even spread landing on both bounds). | Anything else is refused at the edge, never defaulted. |
-| `--seed N` | `-1` (no seed) | Extra salt for the draw. Omit it and a re-run reproduces the previous run's draw; set it for a second, different fixture. | `N >= -1`. |
-| `--tags-file` | — | TSV of tag rows to seed **instead of** the generated set. | Requires `--photos`. An unreadable file or an empty set is an error, never a fallback to the generated set. |
-| `--tag-count N` | `0` | Extra pool tags per photo. `0` keeps the documented 30/50/20 split over 1, 2 and 3; `1`-`3` pins every photo. | `0`-`3`; outside that the flag is refused, not clamped. |
-| `--dry-run` | `false` | Print the plan (window, day count, photos to add, whether the database is already seeded) and exit without writing anything. | Every flag guard still applies, including the window and `--photos` pairing. |
-| `--force` | `false` | Required past the soft photo ceiling, and required to seed a window that ends in the future. | Does **not** buy the hard ceiling. |
+| `--shape` | `burst` | How photos are distributed over the window: `burst` (5 golden-hour events per day of the window) or `uniform` (even spread landing on both bounds). | Requires `--photos`. Anything else is refused at the edge, never defaulted. |
+| `--seed N` | `-1` (no seed) | Extra salt for the draw. Omit it and a re-run reproduces the previous run's draw; set it for a second, different fixture. | Requires `--photos`. `N >= -1`. |
+| `--tags-file` | — | TSV of tag rows to seed **instead of** the generated set. | Requires `--photos`. An unreadable file, an empty set or a row naming a tag the seeder owns is an error, never a fallback to the generated set. |
+| `--tag-count N` | `0` | Extra pool tags per photo. `0` keeps the documented 30/50/20 split over 1, 2 and 3; `1`-`3` pins every photo. | Requires `--photos` when it is above `0`. `0`-`3`; outside that the flag is refused, not clamped. |
+| `--dry-run` | `false` | Print the plan (window start/end, day count, photos to add, whether the database is already seeded) and exit without writing anything. | Every flag guard still applies, so a dry run refuses exactly what a real run would — including the flags that need `--photos`. |
+| `--force` | `false` | Required past the soft photo ceiling, past the 365-day window ceiling, and to seed a window that ends in the future. | Does **not** buy the hard photo ceiling. |
 
 ## Guards and refusals
 
 Each of these refuses loudly — the tool never half-seeds and exits 0.
 
-| Guard | Refused when | Message |
-|---|---|---|
-| Soft ceiling | `--photos` above 50 000 without `--force` | `60000 photos exceeds the soft ceiling of 50000; pass --force to proceed anyway` |
-| Hard ceiling | `--photos` above 250 000, with or without `--force` | `300000 photos exceeds the hard ceiling of 250000 — refusing regardless of --force` |
-| Future window | `--to` lands after now, without `--force` | `window ends 24h0m0s in the future (2026-10-03T12:00:00Z > 2026-10-02T12:00:00Z) — pass --force to seed it anyway` |
-| `--tag-count` range | outside 0-3 | `--tag-count 40 is out of range: 0 keeps the 30/50/20 split, 1-3 pins every photo to that many` |
-| `--seed` range | below `-1` | `--seed -5 is not a valid seed: use -1 or higher (-1 means "no seed")` |
-| `--tags-file` pairing | given without `--photos` | `--tags-file needs --photos: it names the tag set a load draws from, and a load of zero photos draws none` |
-| Window pairing | `--from` and/or `--to` given without `--photos` | `--from needs --photos: a window only says WHERE a load spreads the photos it was asked for, and zero photos means there is nothing to spread them over — pass --photos N, or drop the window to seed the base fixture alone` (the prefix names the flag actually passed: `--from`, `--to` or `--from/--to`) |
-| `--shape` value | anything other than `burst` or `uniform` | `unknown --shape "gauss": want "burst" or "uniform"` |
-| Time bound format | a bound that is not RFC3339, `now`, or an offset | `--from: "yesterday" is neither RFC3339, "now", nor a relative offset like -7d` |
-| Time bound unit | a suffix other than `d`, `h` or `m` | `"-5y": unknown unit "y" — use d (days), h (hours) or m (minutes)` |
-| Window shape | `--to` at or before `--from` | `window ends -96h0m0s before it starts: 2026-03-05 00:00:00 +0000 UTC .. 2026-03-01 00:00:00 +0000 UTC` |
-| Positional args | more than one manifest path | `too many arguments — usage: seed [manifestPath] [loader flags]` |
-| Manifest on a load | a loader run finds no manifest at the path | `no manifest found — the loaders need the fixture identities it records. Delete it to re-seed from scratch.` |
-| Manifest on a load | the manifest exists but cannot be parsed | `cannot read the existing manifest — refusing to overwrite it. Delete it to re-seed from scratch.` |
+Every flag guard below runs in one pre-flight call **above the database
+connection**, so a refusal costs nothing and leaves no rows and no manifest behind.
+They are ordered — a flag's own value first, then the flags that need `--photos`,
+then `--tags-file`, then the window, then the size ceilings — and the first refusal
+wins, so a command with two mistakes hears about the cheaper one.
 
-The three window/`--tags-file` pairing guards run before the dry-run branch, so
-`--dry-run` cannot validate a window that nothing could load photos into.
+| Guard | Refused when | Message | Runs at |
+|---|---|---|---|
+| `--shape` value | anything other than `burst` or `uniform` | `unknown --shape "gauss": want "burst" or "uniform"` | value check |
+| `--tag-count` range | outside 0-3 | `--tag-count 40 is out of range: 0 keeps the 30/50/20 split, 1-3 pins every photo to that many` | value check |
+| `--seed` range | below `-1` | `--seed -5 is not a valid seed: use -1 or higher (-1 means "no seed")` | value check |
+| `--photos` sign | `--photos` below `0` | `--photos -1 is not a count: 0 is legitimate and means "seed the base fixture only", but a negative count would skip the load and report success anyway — pass --photos N with N above zero, or drop the flag to seed the base fixture alone` | value check |
+| `--tags-file` pairing | given without `--photos` | `--tags-file needs --photos: it names the tag set a load draws from, and a load of zero photos draws none` | pairing check |
+| Draw-flag pairing | `--shape`, `--seed` or `--tag-count` given without `--photos` | `--shape/--seed/--tag-count needs --photos: they shape the draw a load makes, and a load of zero photos makes none — pass --photos N, or drop --shape and --seed and --tag-count to seed the base fixture alone` | pairing check |
+| Window pairing | `--from` and/or `--to` given without `--photos` | `--from needs --photos: a window only says WHERE a load spreads the photos it was asked for, and zero photos means there is nothing to spread them over — pass --photos N, or drop the window to seed the base fixture alone` (the prefix names the flags actually passed: `--from`, `--to` or `--from/--to`) | pairing check |
+| `--tags-file` parse | a missing file, a short row, an empty name, an empty description, a duplicate name, a reserved name, or a file holding no rows | `--tags-file: tags.tsv line 9: got 2 tab-separated column(s), want 3 — each row is name<TAB>displayName<TAB>description` (all seven forms are listed under [Tags](#tags)) | `--tags-file` parse |
+| Time bound format | a bound that is not RFC3339, `now`, or an offset | `--from: "yesterday" is neither RFC3339, "now", nor a relative offset like -7d` | window |
+| Time bound unit | a suffix other than `d`, `h` or `m` | `--from: "-5y": unknown unit "y" — use d (days), h (hours) or m (minutes)` | window |
+| Fractional `d` offset | a `d` offset that is not a whole number of days | `--from: "-1.5d" is not a whole number of days: the d offset is applied as a whole number of days, so -1.5d would quietly mean -1d and -0.5d an empty window — spell the fraction in hours as -36h instead` | window |
+| Window shape | `--to` before `--from`, or equal to it | `window ends -96h0m0s before it starts: 2026-03-05 00:00:00 +0000 UTC .. 2026-03-01 00:00:00 +0000 UTC`, and for the equal case `window is empty: 2026-03-05 00:00:00 +0000 UTC .. 2026-03-05 00:00:00 +0000 UTC` | window |
+| Future window | `--to` lands after now, without `--force` | `window ends 24h0m0s in the future (2026-10-04T12:00:00Z > 2026-10-03T12:00:00Z) — pass --force to seed it anyway` | size ceiling |
+| Window length | the window spans more than 365 days, without `--force` | `window spans 366 days (2015-01-01T00:00:00Z .. 2016-01-02T00:00:00Z) — 367 calendar tags to write, all in ONE transaction that holds image_tags locks until it commits — past the ceiling of 365 days; pass --force to seed it anyway, or narrow --from/--to` | size ceiling |
+| Soft ceiling | `--photos` above 50 000 without `--force` | `60000 photos exceeds the soft ceiling of 50000; pass --force to proceed anyway` | size ceiling |
+| Hard ceiling | `--photos` above 250 000, with or without `--force` | `300000 photos exceeds the hard ceiling of 250000 — refusing regardless of --force` | size ceiling |
+| Positional args | more than one manifest path | `too many arguments — usage: seed [manifestPath] [loader flags]` | argument parse |
+| Manifest on a load | a loader run against an already-seeded database finds no manifest at the path | `no manifest found — the loaders need the fixture identities it records. Delete it to re-seed from scratch.` | after the connection |
+| Manifest on a load | the manifest exists but cannot be parsed | `cannot read the existing manifest — refusing to overwrite it. Delete it to re-seed from scratch.` | after the connection |
 
-`--shape`, `--seed` and `--tag-count` are **not** guarded without `--photos` this way. Passed on their
-own with `--photos 0` they are accepted, they count as a load request, and they
-seed nothing — the loaders are skipped because the count is zero. Pair every flag
-with `--photos`.
+The manifest rows only exist on the load path: a database that already has users
+with loader flags passed needs that file, and the same run against an empty
+database does not.
+
+`--shape`, `--seed` and `--tag-count` are refused without `--photos`, and so is
+`--dry-run` when it is passed alongside them. The guards sit above the dry-run
+branch rather than beside the `*photos > 0` they protect: a dry run reports the
+refusals a real run would give, and a plan for a load that cannot happen describes
+no run at all. The case that is worth a dry run — the base fixture on its own —
+needs no loader flag, so bare `seed --dry-run` and `seed --dry-run --photos N` both
+still work:
+
+```
+$ seed --dry-run --photos 10          # against an empty database
+dry run — would seed the base fixture, then the photos
+
+$ seed --shape uniform --dry-run
+FATAL[invalid flag] --shape needs --photos: they shape the draw a load makes, and a
+load of zero photos makes none — pass --photos N, or drop --shape to seed the base
+fixture alone
+```
+
+The first line reads `dry run — loaders would extend the existing fixture` against a
+database that already has users.
 
 ## Re-running
 
@@ -119,7 +156,7 @@ truncate path: a run only ever adds.
 - **The same arguments again add nothing.** The photo names, the layout and the
   per-photo tag draws are all derived from the window and the photo's index, never
   from the wall clock, so the second run is a no-op against the database. It still
-  rewrites the manifest.
+  rewrites the manifest file, with the same content.
 - **Omitting `--seed` reproduces the previous draw on purpose.** Do not
   "randomise" it: the default `-1` is forwarded as a real salt, so the derivation
   is byte-identical every time and the re-run is genuinely a no-op. A random default
@@ -153,11 +190,25 @@ the run mode follows from it:
 |---|---|---|
 | RFC3339 | `2026-03-05T00:00:00Z` | an absolute instant |
 | `now` | `now` | the current time |
-| relative offset | `-7d`, `-36h`, `-90m` | that far **before** the reference instant. `d` days, `h` hours, `m` minutes |
+| relative offset | `-7d`, `-36h`, `-90m` | that far **before** the reference instant. `d` days (whole numbers only), `h` hours, `m` minutes |
 
 Offsets are subtractive only — the value must start with `-` — and the unit
 suffix is mandatory. `m` means minutes, not months, because in this domain `m`
 reads as months.
+
+`h` and `m` take a fraction and take it exactly, because a duration is exact to
+the digit: `-1.5h` is ninety minutes, `-0.5m` is thirty seconds. `d` cannot. A
+day offset is applied as a whole number of days, so `-1.5d` used to mean `-1d`
+and `-0.5d` an empty window — a complaint about a window nobody wrote, for a
+request that was perfectly well formed. It is refused rather than rounded, and
+the refusal names the spelling that works:
+
+```
+$ seed --photos 10 --from -1.5d
+FATAL[invalid flag] --from: "-1.5d" is not a whole number of days: the d offset
+is applied as a whole number of days, so -1.5d would quietly mean -1d and -0.5d an
+empty window — spell the fraction in hours as -36h instead
+```
 
 Half-open flags fall back rather than erroring: `--from -7d` on its own keeps the
 default end (`now`), and `--to now` on its own keeps the default start (seven days
@@ -177,6 +228,32 @@ The window must be non-empty and non-inverted, and must not end in the future
 without `--force` — the loaders spread backwards from the window end precisely so
 nothing is dated ahead of now, which recency ordering, slideshows and EXIF export
 all read.
+
+**A window may not span more than 365 days without `--force`.** The photo count
+does not bound this: a window is walked once per calendar date it spans, whatever
+`--photos` says, so `--photos 100 --from -366d` asks for a hundred photos and 367
+date tags. Base fixture plus 100 photos held constant, measured on the dev machine
+against Postgres 18 over localhost:
+
+| Window | Wall clock | Calendar tags | Where the time went |
+|---|---|---|---|
+| 7 days | 2.05s | 8 | — |
+| 365 days | 2.95s | 366 | +0.9s inside the calendar transaction |
+| 3 900 days | 17.63s | 3 901 | +15.6s inside **one** transaction holding `image_tags` row locks from the first INSERT to the COMMIT |
+
+The wall clock matters less than the lock: the walk holds `image_tags` locks for
+its whole duration, so it blocks the app's own tag writes and reports nothing
+until it commits. The ceiling is an order of magnitude above the case it bounds —
+a real event fixtures a handful of days and the longest window anyone documents is
+`-30d` — and **there is no hard tier above it**, for the same reason the
+future-window guard has none: what a long window costs is a slow transaction
+holding locks, not a destroyed database, so a decade of density data is a
+legitimate thing to want and `--force` is the way to ask for it.
+
+The comparison is on the **span**, so the boundary sits where the flag value is:
+`-365d` passes, `-366d` does not. A 365-day span still writes 366 date tags, both
+endpoints included, and the refusal reports that count, so the number the run pays
+in is never a number the operator has to guess at.
 
 **`burst` (default)** places 5 golden-hour events per day across however many whole
 days the window spans (floored at 1), centred on 07:00, 08:00, 12:00, 17:00 and
@@ -221,22 +298,42 @@ exported with a trailing delimiter still loads.
 falls back to the name. Only the missing column is an error. `description` may NOT be
 empty: `image_tags.description` is `NotEmpty` in the schema. `name` may not be empty.
 
+**A name the seeder owns is refused too.** The seeder is not the only writer, and a
+tag file is not the only tag set, so five shapes of name are reserved:
+
+| Reserved name | Why |
+|---|---|
+| `Default` | the seeder creates it and assigns it to every photo as a `type=default` assignment |
+| `internal` | it marks photos kept out of slides, and `internal/exif` strips it from every export |
+| any `YYYYMMDD` | a calendar tag, derived from each photo's own capture time |
+| any English weekday | the same, derived from each photo's own capture time |
+| any `$`-prefixed name | a template `addDefaultTags` renders on upload, so a file row would be a tag nothing ever renders |
+
+A file row and the seeder's own path would both write the same `(image, tag)` pair
+for a reserved name, `imagetagassignment` carries a unique index on it, and the
+second write dies on the first 500-row chunk — long after the file looked correct.
+Refused rather than dropped, like every other rule here: a row quietly skipped is a
+tag set that is not the file the operator wrote.
+
 A duplicate name is refused rather than
 deduped, because the writer is find-or-create and the second row would silently
-overwrite the first. An unreadable file, a file holding no rows, a short row, an
-empty name, an empty description and a
-duplicate name all fail:
+overwrite the first. A missing file, a file holding no rows, a short row, an empty
+name, a reserved name, an empty description and a duplicate name all fail:
 
 ```
+--tags-file: read tag file: open ./tags.tsv: no such file or directory
 --tags-file: tags.tsv line 12: empty tag name
 --tags-file: tags.tsv line 9: got 2 tab-separated column(s), want 3 — each row is name<TAB>displayName<TAB>description
 --tags-file: tags.tsv line 8: "fsa_beta" has an empty description — image_tags.description is NotEmpty
 --tags-file: tags.tsv line 7: "Podium" already defined on line 4 — a tag set cannot hold it twice
+--tags-file: tags.tsv line 6: "Default" is reserved — the seeder creates it and assigns it to every photo as a type=default assignment; drop the row
 --tags-file: tags.tsv holds no tag rows — refusing to seed an empty set
 ```
 
 The `--tags-file: ` prefix is cmd/seed's; the message after it comes from the parser. All
-five are raised before anything is written, so a bad file costs nothing.
+seven are raised before anything is written, so a bad file costs nothing. The
+reserved check runs before the duplicate check, so a file that repeats `Default`
+gets the reserved message rather than "already defined on line 1".
 
 A file that cannot be read is an **error**, never a silent fallback to the
 generated 80 tags.
@@ -323,20 +420,27 @@ project was recreated resolves an upload row, and the photos would land in one
 project while being filed under another's upload, so a gallery filtering by upload
 would show a different set than one filtering by project.
 
-Note that an identical re-run leaves the database unchanged but re-appends the
-existing photo ids to the manifest, so the `images` array grows with duplicates
-while the row count does not. The row count in the database is the one to trust.
+Note that an identical re-run leaves the database unchanged and does not grow the
+manifest either: an image id already in `images` is not recorded a second time, so
+the array holds one entry per photo and matches the row count. Measured over
+`--photos 20`, the same command again, then `--photos 40`: 43 entries in the
+manifest, 43 distinct, 43 rows in `images`.
 
 ## Guardrails and limits
 
-The ceilings are measured, not guessed: 15 023 photos seeded in 2m50s on the dev
-machine. The soft ceiling sits an order of magnitude above a comfortable run
+The photo ceilings are measured, not guessed: 15 023 photos seeded in 2m50s on the
+dev machine. The soft ceiling sits an order of magnitude above a comfortable run
 (50 000) and the hard ceiling well beyond anything a dev database needs (250 000).
-**Raise them with measurement, never with optimism.**
+**Raise them with measurement, never with optimism.** The 365-day window ceiling is
+measured the same way — see [The window](#the-window).
 
-The ceilings are checked after the manifest has been written, so a refused
-oversized run still leaves the base fixture and its manifest on disk. That is the
-intended order: the refusal must not leave seeded rows with no manifest.
+Every ceiling is checked in the pre-flight, **above the connection and above
+anything that writes**, so a refused oversized run leaves nothing behind: no rows,
+no manifest, no half-seeded base fixture. That order is the point of the guard. The
+ceilings used to sit below `seed.Seed` and below the first manifest write, so
+`--photos 60000` on an empty database seeded the whole base fixture, published a
+manifest for it, and only then refused — a run reporting failure over a database it
+had just changed.
 
 Work is committed in chunks of 500 photos, one transaction per chunk. A chunk that
 fails leaves photos created without assignment rows, which the assignment
@@ -344,8 +448,10 @@ backfill makes safe to resume — re-run the same command.
 
 What a run writes per photo: one `images` row (with its denormalized `imageTags`
 read model), one `type=default` assignment for `Default`, and one
-`type=manual` assignment per extra tag. Two fixtures stay untouched by
+`type=manual` assignment per extra tag. Two names stay untouched by
 deliberation: the `internal` tag, which `seed.Seed` puts on the third base image so
 it stays in the gallery but reaches neither a slideshow nor an EXIF export, and the
 `FSG_90xx` name prefix, which the tag backfill skips so the time-range filter keeps
-an untagged control group.
+an untagged control group. Nothing in `internal/seed` creates an `FSG_90xx` photo —
+the prefix is the only handle the skip has, and it keeps working on a project seeded
+from somewhere else entirely.
