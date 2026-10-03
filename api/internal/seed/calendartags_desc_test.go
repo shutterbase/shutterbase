@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,52 +85,6 @@ func weekdaysReachedBy(w seed.Window) map[string]struct{} {
 	return reached
 }
 
-// The bug, in the shape a user meets it: the weekday tag says nothing.
-func TestWeekdayCalendarTagDescriptionNamesADayInsteadOfTheBareName(t *testing.T) {
-	ctx := context.Background()
-	c := sqliteClient(t)
-	now := time.Now()
-	m, err := seed.Seed(ctx, c, now)
-	require.NoError(t, err)
-
-	w := descTestWindow()
-	cal, err := seed.EnsureCalendarTags(ctx, c, m.Project, w)
-	require.NoError(t, err)
-
-	descs := descsOf(t, c, cal)
-	weekdays := weekdayNamesIn(w)
-	require.Len(t, weekdays, 7, "this window covers all seven weekdays, so the check below is total")
-
-	for _, name := range weekdays {
-		desc := descs[name]
-		assert.NotEqual(t, name, desc,
-			"weekday tag %q describes itself with its own name; the filter then shows the user nothing "+
-				"they could not read off the name", name)
-		assert.Regexp(t, shortDescPattern, desc,
-			"weekday tag %q must read as a short date, e.g. \"Thu 02 Oct 2026\"", name)
-	}
-
-	// Pinned to the exact day, because "any day" would be a description that means
-	// something different on every run — and EnsureCalendarTags rewrites a row whose
-	// description drifted, so a moving answer means a rewrite on every run.
-	assert.Equal(t, "Thu 01 Oct 2026", descs["Thursday"],
-		"Thursday must name the first Thursday in the window, not a Thursday of convenience")
-	assert.Equal(t, "Fri 02 Oct 2026", descs["Friday"])
-
-	// The day named is a day of THIS window, in the window's own location: the date
-	// tags in the same call are local dates, so a UTC reading would put the
-	// weekday description a day off the photos it describes.
-	zone := time.FixedZone("UTC+05:30", 5*3600+30*60)
-	local := seed.Window{
-		From: time.Date(2026, 10, 2, 0, 0, 0, 0, zone),
-		To:   time.Date(2026, 10, 4, 0, 0, 0, 0, zone),
-	}
-	localCal, err := seed.EnsureCalendarTags(ctx, c, m.Project, local)
-	require.NoError(t, err)
-	assert.Equal(t, "Fri 02 Oct 2026", descsOf(t, c, localCal)["Friday"],
-		"the weekday description must be the LOCAL date, matching the window's date tags")
-}
-
 // A date tag names one day, so it can spell it out; the short weekday form exists
 // because a weekday repeats, and repeating the full spelling seven times over would
 // cost more width than it explains. The distinction is asserted from both sides so
@@ -205,112 +160,6 @@ func TestCalendarTagDescriptionsAreIdenticalOnASecondRun(t *testing.T) {
 	assert.Equal(t, firstDescs, descsOf(t, c, third))
 }
 
-// A window shorter than a week reaches only some of the seven weekday names
-// CalendarTagNames always lists. The unreachable ones have no day to name, and must
-// say the weekday rather than borrow a date from outside the window — a description
-// naming a date this run never tagged would be describing photos that do not exist.
-func TestCalendarWeekdayWithNoDayInTheWindowFallsBackToTheBareName(t *testing.T) {
-	ctx := context.Background()
-	c := sqliteClient(t)
-	now := time.Now()
-	m, err := seed.Seed(ctx, c, now)
-	require.NoError(t, err)
-
-	// A single afternoon: Thursday and nothing else.
-	w := seed.Window{
-		From: time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC),
-		To:   time.Date(2026, 10, 1, 23, 0, 0, 0, time.UTC),
-	}
-	names := seed.CalendarTagNames(w)
-	require.Contains(t, names, "Thursday")
-	require.Len(t, names, 8, "one date plus all seven weekday names, so the check below is total")
-
-	cal, err := seed.EnsureCalendarTags(ctx, c, m.Project, w)
-	require.NoError(t, err)
-	descs := descsOf(t, c, cal)
-
-	assert.Equal(t, "Thu 01 Oct 2026", descs["Thursday"],
-		"the one weekday the window reaches still gets the readable form")
-	for _, name := range weekdayNamesIn(w) {
-		if name == "Thursday" {
-			continue
-		}
-		assert.Equal(t, name, descs[name],
-			"weekday tag %q has no day in this window, so its bare name is all it may claim", name)
-		assert.NotRegexp(t, shortDescPattern, descs[name],
-			"weekday tag %q named a date outside the window: %q", name, descs[name])
-	}
-
-	// The app renders its own weekday tags as the bare name (the "Monday" layout in
-	// image_service), so this fallback is the one reading that makes a seeded tag
-	// and an uploaded one look the same in the filter.
-	assert.NotEqual(t, "Thursday", descs["Thursday"])
-}
-
-// The date the weekday description names must BE that weekday, inside the window.
-// Otherwise the filter promises "the photos from Thu 01 Oct" and hands back the
-// wrong day's.
-func TestWeekdayCalendarDescriptionNamesADayThatFallsOnThatWeekday(t *testing.T) {
-	ctx := context.Background()
-	c := sqliteClient(t)
-	now := time.Now()
-	m, err := seed.Seed(ctx, c, now)
-	require.NoError(t, err)
-
-	for _, w := range []seed.Window{
-		descTestWindow(),
-		{
-			// Longer than a week, so "first Thursday" is a real choice rather than
-			// the only Thursday.
-			From: time.Date(2026, 10, 1, 6, 0, 0, 0, time.UTC),
-			To:   time.Date(2026, 11, 20, 22, 0, 0, 0, time.UTC),
-		},
-		{
-			From: time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC),
-			To:   time.Date(2026, 10, 1, 23, 0, 0, 0, time.UTC),
-		},
-	} {
-		cal, err := seed.EnsureCalendarTags(ctx, c, m.Project, w)
-		require.NoError(t, err)
-		descs := descsOf(t, c, cal)
-
-		// Every weekday the window reaches must come back naming a day. Counted
-		// because the per-weekday loop below treats an unparseable description as
-		// the legitimate fallback — which, applied to every weekday, is exactly the
-		// dead-code behaviour this file exists to catch.
-		reached := weekdaysReachedBy(w)
-		require.NotEmpty(t, reached, "the window must contain at least one day")
-
-		named := map[string]string{}
-		for _, name := range weekdayNamesIn(w) {
-			parsed, err := time.ParseInLocation("Mon 02 Jan 2006", descs[name], w.From.Location())
-			if err != nil {
-				// A weekday the window never reaches carries no date by design; it is
-				// covered by the fallback test.
-				assert.Equal(t, name, descs[name],
-					"weekday tag %q has no day in %s .. %s and must fall back to its name",
-					name, w.From, w.To)
-				continue
-			}
-			named[name] = descs[name]
-			assert.Equal(t, name, parsed.Weekday().String(),
-				"%q describes itself as %q, which is a %s", name, descs[name], parsed.Weekday())
-			// Compared as DATES, not instants: the description names a day, and the
-			// window's edges are instants — a window opening at 09:00 does not make
-			// its own first day "after" the start.
-			day := parsed.Format("20060102")
-			assert.GreaterOrEqual(t, day, seed.DayTagName(w.From),
-				"%q names %s, before the window's first day %s", name, day, seed.DayTagName(w.From))
-			assert.LessOrEqual(t, day, seed.DayTagName(w.To),
-				"%q names %s, after the window's last day %s", name, day, seed.DayTagName(w.To))
-		}
-
-		require.Len(t, named, len(reached),
-			"every weekday the window reaches (%d of them) must name a day; %d did. Names that fell "+
-				"back: %v", len(reached), len(named), missingDays(reached, named))
-	}
-}
-
 // missingDays lists the weekdays a window reaches but whose description named no
 // day, so the failure above says WHICH ones regressed rather than only how many.
 func missingDays(reached map[string]struct{}, named map[string]string) []string {
@@ -322,4 +171,160 @@ func missingDays(reached map[string]struct{}, named map[string]string) []string 
 	}
 	slices.Sort(out)
 	return out
+}
+
+// A weekday tag has no date of its own — "Thursday" is not a date — so its label
+// is rendered from a FIXED reference week rather than from the window. Two
+// consequences this file pins: every weekday gets the readable form regardless of
+// which window created it, and the label is the same string in every window and
+// every zone, so a loader and a backfill cannot describe one row two ways.
+func TestWeekdayCalendarTagDescriptionIsWindowAndZoneIndependent(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	now := time.Now()
+	m, err := seed.Seed(ctx, c, now)
+	require.NoError(t, err)
+
+	// 2024-01-01 was a Monday, so each weekday's label is that week's occurrence.
+	want := map[string]string{
+		"Monday": "Mon 01 Jan 2024", "Tuesday": "Tue 02 Jan 2024", "Wednesday": "Wed 03 Jan 2024",
+		"Thursday": "Thu 04 Jan 2024", "Friday": "Fri 05 Jan 2024",
+		"Saturday": "Sat 06 Jan 2024", "Sunday": "Sun 07 Jan 2024",
+	}
+
+	zone := time.FixedZone("UTC+05:30", 5*3600+30*60)
+	for _, w := range []seed.Window{
+		descTestWindow(),
+		{From: time.Date(2026, 10, 1, 6, 0, 0, 0, time.UTC), To: time.Date(2026, 11, 20, 22, 0, 0, 0, time.UTC)},
+		// A single afternoon: ONE weekday is reachable. The other six still get the
+		// readable form, which is the point — the old code fell back to the bare name
+		// here, so the filter chip showed the user nothing they could not read off
+		// the name.
+		{From: time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC), To: time.Date(2026, 10, 1, 23, 0, 0, 0, time.UTC)},
+		// The same window in a zone 5h30 east: the labels must not move.
+		{From: time.Date(2026, 10, 1, 9, 0, 0, 0, zone), To: time.Date(2026, 10, 1, 23, 0, 0, 0, zone)},
+	} {
+		cal, err := seed.EnsureCalendarTags(ctx, c, m.Project, w)
+		require.NoError(t, err)
+		descs := descsOf(t, c, cal)
+		for name, label := range want {
+			assert.Equal(t, label, descs[name],
+				"weekday tag %q in window %s..%s: the label comes from a fixed week, so it is the same everywhere",
+				name, w.From.Format(time.RFC3339), w.To.Format(time.RFC3339))
+			assert.Regexp(t, shortDescPattern, descs[name], "weekday tag %q must read as a short date", name)
+			assert.NotEqual(t, name, descs[name],
+				"weekday tag %q describes itself with its own name, which tells the user nothing", name)
+		}
+	}
+}
+
+// CalendarTagNames must visit EVERY calendar date the window touches, including the
+// last one. Stepping a day at a time from w.From carries its TIME OF DAY along, so a
+// window shorter than 24h that crosses midnight went 22:45 -> 22:45 tomorrow and
+// stopped without reaching the final date. Verified end to end: a photo captured at
+// 00:11 the next morning came back with a weekday and NO date tag, while its
+// neighbours in the same run had one.
+//
+// This is the shape that regressed, so it is pinned directly rather than through a
+// photo round trip.
+func TestCalendarTagNamesVisitsTheLastDateOfASubDayWindow(t *testing.T) {
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	require.NoError(t, err)
+
+	// All digits, not len == 8: "Thursday" and "Saturday" are eight characters too.
+	isDate := func(n string) bool {
+		if len(n) != 8 {
+			return false
+		}
+		for _, r := range n {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+		return true
+	}
+	dateTags := func(w seed.Window) []string {
+		var out []string
+		for _, n := range seed.CalendarTagNames(w) {
+			if isDate(n) {
+				out = append(out, n)
+			}
+		}
+		return out
+	}
+
+	for _, tc := range []struct {
+		name string
+		w    seed.Window
+		want []string
+	}{
+		{
+			name: "two hours across midnight",
+			w: seed.Window{
+				From: time.Date(2026, 10, 3, 22, 45, 0, 0, berlin),
+				To:   time.Date(2026, 10, 4, 0, 45, 0, 0, berlin),
+			},
+			want: []string{"20261003", "20261004"},
+		},
+		{
+			name: "one hour across midnight",
+			w: seed.Window{
+				From: time.Date(2026, 10, 3, 23, 30, 0, 0, berlin),
+				To:   time.Date(2026, 10, 4, 0, 30, 0, 0, berlin),
+			},
+			want: []string{"20261003", "20261004"},
+		},
+		{
+			name: "one hour entirely within a day",
+			w: seed.Window{
+				From: time.Date(2026, 10, 3, 9, 0, 0, 0, berlin),
+				To:   time.Date(2026, 10, 3, 10, 0, 0, 0, berlin),
+			},
+			want: []string{"20261003"},
+		},
+		{
+			name: "a zero-length window still names its own date",
+			w: seed.Window{
+				From: time.Date(2026, 10, 3, 12, 0, 0, 0, berlin),
+				To:   time.Date(2026, 10, 3, 12, 0, 0, 0, berlin),
+			},
+			want: []string{"20261003"},
+		},
+	} {
+		assert.Equal(t, tc.want, dateTags(tc.w), "%s", tc.name)
+	}
+}
+
+// And through a real load, because the name being listed is not the same as a photo
+// receiving it: the loader resolves ids from the map the walk filled.
+func TestAWindowCrossingMidnightGivesItsLastDayPhotosADateTag(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	require.NoError(t, err)
+
+	// 22:45 -> 00:45, so the burst layout puts events on both sides of midnight.
+	at := time.Date(2026, 10, 3, 23, 45, 0, 0, berlin)
+	w := seed.Window{From: at.Add(-time.Hour), To: at.Add(time.Hour)}
+	m, err := seed.Seed(ctx, c, at)
+	require.NoError(t, err)
+	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, w, 3))
+
+	imgs, err := c.Image.Query().All(ctx)
+	require.NoError(t, err)
+	n := 0
+	for _, img := range imgs {
+		if img.CapturedAtCorrected == nil || !strings.HasPrefix(img.ComputedFileName, "FSG_LW") {
+			continue
+		}
+		n++
+		names := tagNames(t, c, img.ID)
+		assert.Contains(t, names, seed.DayTagName(img.CapturedAtCorrected.In(berlin)),
+			"%s captured %s has no date tag", img.ComputedFileName,
+			img.CapturedAtCorrected.Format(time.RFC3339))
+		assert.Contains(t, names, seed.WeekdayTagName(img.CapturedAtCorrected.In(berlin)),
+			"%s captured %s has no weekday tag", img.ComputedFileName,
+			img.CapturedAtCorrected.Format(time.RFC3339))
+	}
+	require.Equal(t, 3, n, "fixture is wrong: the load produced no burst photos")
 }

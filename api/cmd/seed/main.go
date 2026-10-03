@@ -71,6 +71,9 @@ func resolveWindow(fromRaw, toRaw string, now time.Time) (seed.Window, error) {
 //
 // d cannot do that: the offset is applied with AddDate, which takes an int, so a
 // fractional d is refused rather than truncated. See the 'd' case.
+//
+// A zero offset is refused too, and for the same reason as the fraction: it would
+// resolve to the reference itself, which for --from is --to. See the guard.
 func parseTimeArg(raw string, reference time.Time) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -89,6 +92,26 @@ func parseTimeArg(raw string, reference time.Time) (time.Time, error) {
 	d, err := strconv.ParseFloat(raw[1:len(raw)-1], 64)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("%q has no numeric offset before the unit", raw)
+	}
+	// A zero offset is the same misattribution the fraction refusal below
+	// prevents, reached without writing a fraction: -0d, -0.0d, -0h and -0m all
+	// resolve to the reference instant, so the two bounds land on the same
+	// timestamp and Window.Validate refuses the run as "window is empty:
+	// <from> .. <to>" — a complaint about a window the user never wrote, naming
+	// no flag at all, for a request that was as well formed as -0.5d's.
+	//
+	// Refused here rather than at the Validate call, which cannot answer: it only
+	// sees two timestamps that happen to be equal and has no idea which flag
+	// produced either one. --from and --to share this function, so the flag name
+	// belongs to the caller too — the resolveWindow wrappers add it, and this
+	// message must not name a flag the caller already named. It carries the two
+	// things a refusal owes: the zero, and the way out.
+	//
+	// Before the 'd' case, where 0 is also a whole number of days: a zero is not
+	// a shorter spelling of "no offset asked for", it is the same empty window the
+	// fraction refusal was added to stop.
+	if d == 0 {
+		return time.Time{}, fmt.Errorf("%q is a zero offset: this bound would land on the other one and leave an empty window — drop the flag for the default 7-day window, or pass an offset that is not zero, like -7d", raw)
 	}
 	switch unit {
 	case 'd':
@@ -493,9 +516,10 @@ type runRequest struct {
 // remembered to be dropped in.
 //
 // Order within: value checks first (a typo is the cheapest mistake to report),
-// then the "this flag needs a count" checks, then the ones that need the count
-// resolved, then the size ceilings, which describe a run already known
-// well-formed.
+// then the "this flag needs a count" checks, then the size ceilings — the photo
+// ceilings before the window ones, because a refusal --force cannot buy outranks
+// one it can, and it is the one the operator would otherwise be sent to retry
+// with --force for nothing.
 func validateFlags(r runRequest, now time.Time) (seed.Shape, seed.Window, error) {
 	shape, err := resolveShape(r.Shape)
 	if err != nil {
@@ -532,6 +556,17 @@ func validateFlags(r runRequest, now time.Time) (seed.Shape, seed.Window, error)
 	if err := checkTagsFileReadable(r.TagsFile); err != nil {
 		return "", seed.Window{}, err
 	}
+	// Before the window guards, and before resolveWindow: the photo ceilings read
+	// nothing but the count, so nothing about them has to wait for a window to
+	// exist. Ordered last they were actively misleading — `seed --photos 300000
+	// --from 2016-01-01T00:00:00Z --to now` tripped the window-length guard first
+	// and was told "pass --force to seed it anyway", advice that cannot work,
+	// because 300000 is past the hard ceiling and --force never buys that. The
+	// operator then paid a second run to learn the first refusal was the only one
+	// that mattered. The un-overridable refusal comes first.
+	if err := checkCeiling(r.Photos, r.Force); err != nil {
+		return "", seed.Window{}, err
+	}
 	window, err := resolveWindow(r.From, r.To, now)
 	if err != nil {
 		return "", seed.Window{}, err
@@ -539,17 +574,44 @@ func validateFlags(r runRequest, now time.Time) (seed.Shape, seed.Window, error)
 	if err := checkWindowNotFuture(window, now, r.Force); err != nil {
 		return "", seed.Window{}, err
 	}
-	// After the window is resolved and after the future check, and before the
-	// photo ceiling: a window this long is a fact about the RUN's shape rather
-	// than a typo, so it belongs with the size ceilings — but it describes the
-	// window, which only exists once resolveWindow has run.
+	// Last: the only remaining guard that needs the resolved window, because it is
+	// a fact about the WINDOW rather than about a flag value — a window this long
+	// is a shape of run, not a typo. --force buys it.
 	if err := checkWindowLength(window, r.Force); err != nil {
 		return "", seed.Window{}, err
 	}
-	if err := checkCeiling(r.Photos, r.Force); err != nil {
-		return "", seed.Window{}, err
-	}
 	return shape, window, nil
+}
+
+// loadRequested is "does this run ask for photos", and the expression is
+// deliberately one term long: `Photos > 0`.
+//
+// The invariant it leans on is a property of validateFlags, not of this file's
+// good intentions — every flag that only SHAPES a load is refused there without a
+// count: --from/--to by checkWindowNeedsPhotos, --tags-file by
+// checkTagsFileNeedsPhotos, --shape/--seed/--tag-count by
+// checkDrawFlagsNeedPhotos, and a negative --photos by checkPhotosCount. By the
+// time main calls this, a request-shaped flag without a count cannot exist, so the
+// disjuncts for those flags were dead: a second copy of the guard list, in a
+// function with no guard in it, that could only ever agree with the guards by
+// accident. It did — until a fifth pairing guard appeared, at which point the two
+// lists were free to disagree and nothing would say so.
+//
+// So the coupling is stated once and pinned by test instead of restated here:
+// TestLoadRequestedAgreesWithValidateFlags enumerates every request-shaped flag,
+// asserts validateFlags REFUSES each one that arrives without a count (which is
+// what keeps the dead disjuncts dead — delete a pairing guard and that table goes
+// red rather than leaving this expression quietly wrong), and asserts every
+// request it accepts reports loadRequested true.
+//
+// The honest cost, since it is the one direction a table cannot predict: a NEW
+// flag that can request a load on its own, with no --photos to pair with, reaches
+// nothing here — it is silently not a load request — and neither validateFlags nor
+// this function will complain. It needs a case in that table and a decision
+// recorded here, deliberately. A new PAIRING guard needs nothing: it can only
+// shrink what reaches chooseRun, which is what a pairing guard is for.
+func loadRequested(r runRequest) bool {
+	return r.Photos > 0
 }
 
 // resolveShape validates --shape once, at the edge, so the loaders never have to
@@ -682,11 +744,6 @@ func main() {
 	defer conn.Close()
 
 	ctx := context.Background()
-	// --from/--to are deliberately absent: validateFlags has already refused a
-	// window no --photos count could act on, so a surviving window is always
-	// paired with one and req.Photos > 0 already counts the run.
-	loadRequested := req.Photos > 0 || req.TagsFile != "" ||
-		req.Shape != "" || req.Seed >= 0 || req.TagCount > 0
 	var manifest *seed.Manifest
 	alreadySeeded, err := conn.Client.User.Query().Exist(ctx)
 	if err != nil {
@@ -713,7 +770,12 @@ func main() {
 	// like success. So the loaders run against the manifest already on disk
 	// instead. This is the path that makes a second run meaningful rather than a
 	// no-op, and it is what the double-run test covers.
-	switch chooseRun(alreadySeeded, loadRequested) {
+	//
+	// loadRequested is just `req.Photos > 0`, and that is the invariant rather
+	// than an oversight: validateFlags has already refused every request-shaped
+	// flag that arrived without a count, so nothing else can still be one. See
+	// loadRequested for what a new flag has to do about it.
+	switch chooseRun(alreadySeeded, loadRequested(req)) {
 	case runSkip:
 		log.Info().Msg("database already has users and no loader flags — skipping seed")
 		return

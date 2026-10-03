@@ -247,7 +247,7 @@ func TestBackfillNeverPaintsTheReservedManagementTag(t *testing.T) {
 
 	cal, err := ensureCalendarTags(ctx, c, m, SevenDaysEndingAt(refNow), nil)
 	require.NoError(t, err)
-	require.NoError(t, tagExistingPhotos(ctx, c, m, 1, pool, cal, ""))
+	require.NoError(t, tagExistingPhotos(ctx, c, m, 1, pool, cal, nil, ""))
 
 	// Seed puts internal on exactly one image, on purpose. The other two — and any
 	// photo a real run adds — must not have picked it up.

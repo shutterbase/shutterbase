@@ -45,7 +45,17 @@ func CalendarTagNames(w Window) []string {
 	loc := w.From.Location()
 	seen := make(map[string]struct{})
 	var out []string
-	for d := w.From.In(loc); !d.After(w.To.In(loc)); d = d.AddDate(0, 0, 1) {
+	// Walk CALENDAR DATES from From's date to To's date inclusive, not instants one
+	// day apart. Stepping AddDate from w.From carries its TIME OF DAY along, so the
+	// walk goes 22:45 -> 22:45 tomorrow and stops as soon as that passes a window
+	// ending at 00:45 — never visiting the window's last date. A 2-hour window across
+	// midnight then yielded only the first date, and a photo captured in the final
+	// hour came back with a weekday and NO date tag. Truncating to midnight first
+	// makes the endpoints inclusive and the count equal to the dates the window
+	// touches. Window.Days() counts whole days the same way; the two must agree.
+	first := time.Date(w.From.Year(), w.From.Month(), w.From.Day(), 0, 0, 0, 0, loc)
+	last := time.Date(w.To.Year(), w.To.Month(), w.To.Day(), 0, 0, 0, 0, loc)
+	for d := first; !d.After(last); d = d.AddDate(0, 0, 1) {
 		day := DayTagName(d)
 		if _, dup := seen[day]; !dup {
 			seen[day] = struct{}{}
@@ -93,7 +103,7 @@ func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID strin
 				created, err := tx.ImageTag.Create().
 					SetName(name).
 					SetDisplayName(name).
-					SetDescription(calendarTagDescription(name, w)).
+					SetDescription(calendarTagDescription(name)).
 					SetType(imagetag.TypeDefault).
 					SetProjectID(projectID).
 					Save(ctx)
@@ -104,7 +114,7 @@ func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID strin
 			case err != nil:
 				return fmt.Errorf("look up calendar tag %s: %w", name, err)
 			default:
-				changed := existing.Description != calendarTagDescription(name, w)
+				changed := existing.Description != calendarTagDescription(name)
 				if existing.Type != imagetag.TypeDefault {
 					// Promote rather than skip: the app can only see a default row.
 					if _, err := tx.ImageTag.UpdateOneID(existing.ID).
@@ -115,7 +125,7 @@ func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID strin
 				}
 				if changed {
 					updated, err := tx.ImageTag.UpdateOneID(existing.ID).
-						SetDescription(calendarTagDescription(name, w)).
+						SetDescription(calendarTagDescription(name)).
 						Save(ctx)
 					if err != nil {
 						return fmt.Errorf("update calendar tag %s: %w", name, err)
@@ -146,23 +156,40 @@ func EnsureCalendarTags(ctx context.Context, client *ent.Client, projectID strin
 // is what the app's own $WEEKDAY template renders (the "Monday" layout in
 // image_service), so the two agree without the seeder inventing a date for a shoot
 // it never created.
-func calendarTagDescription(name string, w Window) string {
-	loc := w.From.Location()
-	if t, err := time.ParseInLocation("20060102", name, loc); err == nil {
+// calendarTagDescription renders the human-facing label for a calendar tag.
+//
+// A date name carries its own date. A WEEKDAY name does not — "Thursday" is not a
+// date — so it is rendered from a fixed reference week rather than from whatever
+// window the caller happened to have. Two reasons: the label must not depend on the
+// window (the same tag would be re-described differently by the loader and by the
+// backfill, which has none), and it must not depend on the zone. Before this it took
+// a Window and fell back to the bare name whenever the window contained no matching
+// day, which is most of the time — so the promised "Mon 02 Jan 2006" label almost
+// never appeared.
+func calendarTagDescription(name string) string {
+	if t, err := time.ParseInLocation("20060102", name, time.UTC); err == nil {
 		return t.Format("Monday, 2 January 2006")
 	}
 	weekday, ok := weekdayByName(name)
 	if !ok {
 		return name // neither a date nor a weekday: nothing to render
 	}
-	from, to := w.From.In(loc), w.To.In(loc)
-	for d := from; !d.After(to); d = d.AddDate(0, 0, 1) {
-		if d.Weekday() == weekday {
-			return d.Format("Mon 02 Jan 2006")
-		}
+	// time.Weekday counts Sunday as 0 and Monday as 1, so subtracting Monday
+	// directly sends Sunday to -1 — the day BEFORE the reference week, which is how
+	// "Sun 31 Dec 2023" appeared. +6 mod 7 puts Sunday at the END of the week, where
+	// a reader expects it.
+	ref, err := time.ParseInLocation("20060102", calendarWeekdayReference, time.UTC)
+	if err != nil {
+		return name
 	}
-	return name
+	offset := (int(weekday) + 6) % 7
+	return ref.AddDate(0, 0, offset).Format("Mon 02 Jan 2006")
 }
+
+// calendarWeekdayReference is any Monday. It is a constant rather than a value read
+// from the clock so the rendered label for "Thursday" is the same string on every
+// machine and in every run.
+const calendarWeekdayReference = "20240101"
 
 // weekdayByName resolves a full weekday name, the shape WeekdayTagName writes and
 // the shape $WEEKDAY renders. The single definition of "is a weekday name", shared
@@ -181,9 +208,24 @@ func weekdayByName(name string) (time.Weekday, bool) {
 // missing from cal are skipped rather than errored: a photo can fall outside an
 // enumerated window when a caller passes a Window the layout then overflows, and a
 // missing calendar tag is a thinner fixture, not a broken one.
-func calendarTagsFor(cal map[string]string, t time.Time) []string {
+// calendarTagsFor resolves a photo's date and weekday tag ids.
+//
+// loc is the WINDOW's location, and the instant is converted into it before the
+// name is formatted. That is not cosmetic: pgx hands a timestamptz back in
+// time.Local (ScanLocation is unset), while the loader holds the instant it just
+// computed in the window's own zone. For a photo within an hour or two of midnight
+// those two formats are different CALENDAR DATES, so the loader would write the
+// date tag for one day and the backfill would find-or-create the other — leaving
+// the photo carrying two date tags, permanently, since nothing ever removes an
+// assignment. Normalising at the single point where a name is derived from an
+// instant is what stops the two paths from drifting apart.
+func calendarTagsFor(cal map[string]string, t time.Time, loc *time.Location) []string {
+	if loc == nil {
+		loc = t.Location()
+	}
+	local := t.In(loc)
 	var out []string
-	for _, name := range []string{DayTagName(t), WeekdayTagName(t)} {
+	for _, name := range []string{DayTagName(local), WeekdayTagName(local)} {
 		if id := cal[name]; id != "" {
 			out = append(out, id)
 		}
@@ -191,10 +233,20 @@ func calendarTagsFor(cal map[string]string, t time.Time) []string {
 	return out
 }
 
+// calendarTagNamesFor is the name half of calendarTagsFor, shared with the backfill
+// so both paths derive a name the same way instead of each formatting its own.
+func calendarTagNamesFor(t time.Time, loc *time.Location) []string {
+	if loc == nil {
+		loc = t.Location()
+	}
+	local := t.In(loc)
+	return []string{DayTagName(local), WeekdayTagName(local)}
+}
+
 // withCalendarTags appends the calendar tags to a photo's extras, without
 // touching the random pool's size.
-func withCalendarTags(extras []string, cal map[string]string, t time.Time) []string {
-	return append(extras, calendarTagsFor(cal, t)...)
+func withCalendarTags(extras []string, cal map[string]string, t time.Time, loc *time.Location) []string {
+	return append(extras, calendarTagsFor(cal, t, loc)...)
 }
 
 // ensureCalendarTags fills in the calendar tags when the caller did not supply

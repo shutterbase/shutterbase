@@ -324,6 +324,150 @@ func TestParseTimeArgFractionalDaysAreRefused(t *testing.T) {
 	assert.Equal(t, 36*time.Hour, now.Sub(got))
 }
 
+// -0d is the same misattribution as -0.5d, reached without writing a fraction: a
+// zero offset resolves to the reference instant, so `--from -0d` lands on --to and
+// Window.Validate refuses the run as "window is empty: <from> .. <to>" — a
+// complaint about a window the user never wrote, naming no flag at all. The
+// fraction refusal only covered offsets that were non-zero but not whole.
+func TestParseTimeArgZeroOffsetIsRefused(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	for _, raw := range []string{
+		"-0d",
+		// 0 with a decimal point is still zero, and the fraction guard must not be
+		// the thing that catches it: 0 IS a whole number of days.
+		"-0.0d",
+		"-0h",
+		"-0m",
+		"-0.00m",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			_, err := parseTimeArg(raw, now)
+			require.Error(t, err, "parseTimeArg(%q) = nil; it resolves to the reference, so --from lands on --to (\"window is empty\", naming no flag) and --to becomes a silently ignored flag — the same misattribution -0.5d had, reached without a fraction", raw)
+			assert.Contains(t, err.Error(), "zero offset")
+			// The misattribution it replaced must not come back through a different
+			// wording: "window is empty" is the complaint this guard exists to kill.
+			assert.NotContains(t, err.Error(), "window is empty")
+			// And it must not blame the flag either — --from and --to share this
+			// function, so the caller adds the name and a name here would be a guess.
+			assert.NotContains(t, err.Error(), "--from")
+			assert.NotContains(t, err.Error(), "--to")
+			// A refusal with nothing to act on is half a refusal: name both ways out.
+			assert.Contains(t, err.Error(), "drop the flag",
+				"the zero alone is not actionable; say how to ask for what was meant: %v", err)
+			assert.Contains(t, err.Error(), "-7d",
+				"the message must name an offset that works, so the user is not left guessing a replacement: %v", err)
+		})
+	}
+}
+
+// The refusal has to be the zero guard's and nobody else's, or the flag name is
+// missing for a second reason — resolveWindow's wrappers are what supply it, and
+// they only wrap whatever this function returns.
+func TestResolveWindowZeroOffsetNamesTheFlag(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	t.Run("--from", func(t *testing.T) {
+		_, err := resolveWindow("-0d", "now", now)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--from")
+		assert.Contains(t, err.Error(), "zero offset")
+	})
+
+	t.Run("--to", func(t *testing.T) {
+		_, err := resolveWindow("", "-0h", now)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--to")
+		assert.Contains(t, err.Error(), "zero offset")
+	})
+}
+
+// The guard refuses a zero and nothing else. `now` is the documented common case
+// for --to and resolves to the reference by design, so a guard wide enough to
+// catch it would refuse `seed --photos N --to now` — the shape the README and
+// every documented run use.
+//
+// -s is NOT a unit this flag has (d, h and m only, checked by the default case of
+// the unit switch), so there is no seconds spelling to test; the smallest offset
+// this flag accepts is a fraction of a minute, and it must still produce a window
+// with length in it.
+func TestParseTimeArgZeroGuardSpansNothingElse(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	t.Run("now is still the reference", func(t *testing.T) {
+		got, err := parseTimeArg("now", now)
+		require.NoError(t, err, "--to now is the documented common case and must never be refused")
+		assert.True(t, got.Equal(now))
+	})
+
+	t.Run("--to now through validateFlags", func(t *testing.T) {
+		_, w, err := validateFlags(runRequest{Photos: 500, To: "now", Seed: seedUnset}, now)
+		require.NoError(t, err)
+		assert.True(t, w.To.Equal(now))
+	})
+
+	t.Run("the smallest supported offset is not a zero", func(t *testing.T) {
+		// 0.001m is a millisecond-wide window: absurd to seed, but a window, and
+		// the guards above it are about cost rather than about sensibility.
+		got, err := parseTimeArg("-0.001m", now)
+		require.NoError(t, err, "a non-zero fraction of the smallest unit is a real offset, not an empty window")
+		assert.Equal(t, 60*time.Millisecond, now.Sub(got))
+		// And the one from the unit table, which the fraction guard already accepts.
+		got, err = parseTimeArg("-0.5m", now)
+		require.NoError(t, err)
+		assert.Equal(t, 30*time.Second, now.Sub(got))
+	})
+
+	t.Run("a zero is refused whatever unit claims it", func(t *testing.T) {
+		// Not a unit, so this must be refused for the UNIT — but it still must be
+		// refused, and it must not come back as a silent zero.
+		_, err := parseTimeArg("-0s", now)
+		require.Error(t, err)
+	})
+}
+
+// A zero offset arriving through validateFlags is refused as a zero offset: the
+// same defect one layer up, where the window no longer exists and nothing names
+// the flag.
+func TestValidateFlagsZeroOffsetIsRefusedByName(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	for _, tc := range []struct {
+		name       string
+		req        runRequest
+		wantSubstr string
+	}{
+		{
+			name:       "--from -0d",
+			req:        runRequest{Photos: 100, From: "-0d", To: "now", Seed: seedUnset},
+			wantSubstr: `--from: "-0d" is a zero offset`,
+		},
+		{
+			name:       "--from -0.0d",
+			req:        runRequest{Photos: 100, From: "-0.0d", To: "now", Seed: seedUnset},
+			wantSubstr: `--from: "-0.0d" is a zero offset`,
+		},
+		{
+			name:       "--from -0m",
+			req:        runRequest{Photos: 100, From: "-0m", To: "now", Seed: seedUnset},
+			wantSubstr: `--from: "-0m" is a zero offset`,
+		},
+		{
+			name:       "--to -0h",
+			req:        runRequest{Photos: 100, From: "-7d", To: "-0h", Seed: seedUnset},
+			wantSubstr: `--to: "-0h" is a zero offset`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := validateFlags(tc.req, now)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+			assert.NotContains(t, err.Error(), "window is empty",
+				"the refusal must be about the zero the user wrote, not about the window it produced")
+		})
+	}
+}
+
 // A negative --photos is a typo, not a request. Every other guard in the
 // pre-flight reads a negative count as "no count at all" because they test
 // `photos <= 0` or `photos > 0` — the sign is exactly what none of them look at —
@@ -1055,6 +1199,362 @@ func TestValidateFlagsRefusesBeforeAnyWrite(t *testing.T) {
 			// this test exists for stayed put.
 			assert.Contains(t, err.Error(), tc.wantSubstr)
 		})
+	}
+}
+
+// Two refusals can both be true of one command line, and then the ORDER decides
+// which one the operator is told about. `--photos 300000 --from
+// 2016-01-01T00:00:00Z --to now` is past the hard photo ceiling AND past the
+// 365-day window ceiling; only the first one is un-overridable.
+// checkWindowLength used to run first, so the answer was "pass --force to seed it
+// anyway" — advice that cannot work, since --force never buys the hard ceiling —
+// and the run had to be attempted before the only refusal that mattered was
+// disclosed.
+//
+// Each case below pins the guard by a substring that guard alone produces:
+// "exceeds the hard ceiling" / "exceeds the soft ceiling" come from checkCeiling
+// and appear in no other message in the pre-flight; "past the ceiling of 365 days"
+// comes from checkWindowLength and appears nowhere else. Asserting only "an error
+// happened" would pass for whichever guard happened to be there, which is the
+// defect itself.
+func TestValidateFlagsRefusesTheUnoverridableCeilingFirst(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	const decade = "2016-01-01T00:00:00Z"
+
+	cases := []struct {
+		name string
+		req  runRequest
+		// wantErr false means the request is fine all the way through.
+		wantErr    bool
+		wantSubstr string
+		// wantAbsent is the advice the wrong guard would have given. Empty when the
+		// case cannot produce it.
+		wantAbsent string
+	}{
+		{
+			// The finding's own command: past BOTH ceilings, told about neither.
+			name:       "300000 photos over a decade names the hard ceiling",
+			req:        runRequest{Photos: 300_000, From: decade, To: "now", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "exceeds the hard ceiling",
+			// The window guard's advice, and it is worse than useless: --force buys
+			// the window ceiling and not this one.
+			wantAbsent: "pass --force to seed it anyway",
+		},
+		{
+			// --force changes nothing about the answer, which is the point: the
+			// refusal is the same one with --force, so retrying with it is not the
+			// remedy the operator would be given.
+			name:       "300000 photos over a decade with --force names the same hard ceiling",
+			req:        runRequest{Photos: 300_000, From: decade, To: "now", Seed: seedUnset, Force: true},
+			wantErr:    true,
+			wantSubstr: "refusing regardless of --force",
+			wantAbsent: "pass --force to seed it anyway",
+		},
+		{
+			// Past the SOFT ceiling only, and --force DOES buy that one — so the
+			// message has to keep saying so, or the reorder would have cost the
+			// operator a remedy that works.
+			name:       "60000 photos over a decade names the soft ceiling and --force",
+			req:        runRequest{Photos: 60_000, From: decade, To: "now", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "exceeds the soft ceiling",
+		},
+		{
+			// Same command with --force. Both ceilings go — there is no tier above
+			// --force but the photo count's own hard one — so this is now the
+			// documented large run rather than a refusal, and the message the
+			// operator used to be chasing is the only one they are owed.
+			name: "60000 photos over a decade with --force is the documented large run",
+			req:  runRequest{Photos: 60_000, From: decade, To: "now", Seed: seedUnset, Force: true},
+		},
+		{
+			// Ceiling alone, no long window: nothing about this is about the window,
+			// so the answer must be about the count.
+			name:       "60000 photos over a week names the soft ceiling",
+			req:        runRequest{Photos: 60_000, From: "-7d", To: "now", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "exceeds the soft ceiling",
+			wantAbsent: "past the ceiling of 365 days",
+		},
+		{
+			// 300000 over a week: the hard ceiling with no window to confuse it, so
+			// the message here is decided by the count alone.
+			name:       "300000 photos over a week names the hard ceiling",
+			req:        runRequest{Photos: 300_000, From: "-7d", To: "now", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "exceeds the hard ceiling",
+			wantAbsent: "past the ceiling of 365 days",
+		},
+		{
+			// The window ceiling still fires when the count is well inside every
+			// photo ceiling — it never read the count to begin with.
+			name:       "100 photos over a decade still names the window ceiling",
+			req:        runRequest{Photos: 100, From: decade, To: "now", Seed: seedUnset},
+			wantErr:    true,
+			wantSubstr: "past the ceiling of 365 days",
+			wantAbsent: "ceiling of 50000",
+		},
+		{
+			// Both ceilings satisfied: the request is well-formed and must not be
+			// refused by either of them.
+			name: "60000 photos with --force over a week is accepted",
+			req:  runRequest{Photos: 60_000, From: "-7d", To: "now", Seed: seedUnset, Force: true},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := validateFlags(tc.req, now)
+			if !tc.wantErr {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+			if tc.wantAbsent != "" {
+				assert.NotContains(t, err.Error(), tc.wantAbsent,
+					"the guard that owns this answer must not offer the other one's remedy: %v", err)
+			}
+		})
+	}
+}
+
+// The two ceiling substrings are what makes the table above non-vacuous, so they
+// are pinned as unique: if either phrase starts appearing in another guard's
+// message, these cases silently start passing for the wrong guard. The check is
+// over every guard message in the pre-flight, taken straight from the guards
+// themselves so a new one is covered by being listed here.
+func TestCeilingSubstringsAreUniqueToTheirGuards(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	// One message per guard, taken directly from the guard so this cannot drift
+	// out of the file it is checking.
+	guardMessages := []struct {
+		guard string
+		err   error
+	}{
+		{"checkCeiling hard", checkCeiling(seedHardCeiling+1, true)},
+		{"checkCeiling soft", checkCeiling(seedSoftCeiling+1, false)},
+		{"checkWindowLength", checkWindowLength(seed.Window{From: now.AddDate(0, 0, -windowDayCeiling-1), To: now}, false)},
+		{"checkWindowNotFuture", checkWindowNotFuture(seed.Window{From: now, To: now.AddDate(0, 0, 1)}, now, false)},
+		{"checkTagsFileNeedsPhotos", checkTagsFileNeedsPhotos("t.tsv", 0)},
+		{"checkTagsFileReadable", checkTagsFileReadable(filepath.Join(t.TempDir(), "nope.tsv"))},
+		{"checkDrawFlagsNeedPhotos", checkDrawFlagsNeedPhotos("uniform", seedUnset, 0, 0)},
+		{"checkWindowNeedsPhotos", checkWindowNeedsPhotos("-3d", "now", 0)},
+		{"checkPhotosCount", checkPhotosCount(-1)},
+		{"checkTagCount", checkTagCount(40)},
+		{"checkSeedValue", checkSeedValue(-5)},
+		{"resolveShape", firstErr(resolveShape("gauss"))},
+		{"parseTimeArg zero", firstErr(parseTimeArg("-0d", now))},
+		{"parseTimeArg fraction", firstErr(parseTimeArg("-1.5d", now))},
+		{"resolveWindow bound", firstErr(resolveWindow("yesterday", "", now))},
+		{"Window.Validate", firstErr(resolveWindow("2026-03-10T12:00:00Z", "2026-03-10T12:00:00Z", now))},
+	}
+
+	unique := map[string]string{
+		"exceeds the hard ceiling":     "checkCeiling hard",
+		"exceeds the soft ceiling":     "checkCeiling soft",
+		"past the ceiling of 365 days": "checkWindowLength",
+	}
+	for needle, owner := range unique {
+		if err := findByName(guardMessages, owner); err == nil {
+			t.Fatalf("%s did not refuse, so %q has no owner to pin", owner, needle)
+		}
+		for _, g := range guardMessages {
+			if g.err == nil || g.guard == owner {
+				continue
+			}
+			if strings.Contains(g.err.Error(), needle) {
+				t.Errorf("%q also appears in %s, so a test asserting it could pass for the wrong guard: %v",
+					needle, g.guard, g.err)
+			}
+		}
+	}
+}
+
+func findByName(msgs []struct {
+	guard string
+	err   error
+}, name string) error {
+	for _, m := range msgs {
+		if m.guard == name {
+			return m.err
+		}
+	}
+	return nil
+}
+
+// firstErr keeps the guards' multi-value returns on one line in the tables above.
+func firstErr[T any](_ T, err error) error { return err }
+
+// loadRequested must agree with validateFlags, and the test for that has to be
+// more than a restatement of its own expression.
+//
+// The invariant: validateFlags refuses every flag that only SHAPES a load when it
+// arrives without a count, so the ONLY request that survives is one carrying a
+// count. loadRequested is therefore `Photos > 0`, and the disjuncts it used to
+// carry for --tags-file, --shape, --seed and --tag-count were dead code — a second
+// copy of the guard list, in a function with no guard in it.
+//
+// What this asserts, then, is the REFUSAL half: each request-shaped flag arriving
+// alone must be refused by the guard that names it. That is what keeps the dead
+// disjuncts dead, and it is not a tautology — delete a pairing guard and this
+// table goes red, where an assertion written as "loadRequested(req) ==
+// (req.Photos > 0)" would stay green forever and check nothing at all.
+func TestLoadRequestedAgreesWithValidateFlags(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	good := writeTagTSV(t, goodTagTSV)
+
+	cases := []struct {
+		name string
+		req  runRequest
+		// wantRefusal names the guard that must fire. Empty means the request is
+		// well-formed and must survive the whole pre-flight.
+		wantRefusal string
+		// wantLoad is hand-written, NOT computed from Photos > 0: it says what
+		// chooseRun must be told for a request that gets that far.
+		wantLoad bool
+	}{
+		{
+			name: "a bare base-fixture run is not a load request",
+			req:  runRequest{Seed: seedUnset},
+		},
+		{
+			name:        "--shape alone never reaches chooseRun",
+			req:         runRequest{Shape: "uniform", Seed: seedUnset},
+			wantRefusal: "--shape needs --photos",
+		},
+		{
+			name:        "--seed alone never reaches chooseRun",
+			req:         runRequest{Seed: 7},
+			wantRefusal: "--seed needs --photos",
+		},
+		{
+			// --seed 0 is a real salt, not the unset sentinel, so it is a request
+			// and the guard must say so rather than reading it as silence.
+			name:        "--seed 0 alone never reaches chooseRun",
+			req:         runRequest{Seed: 0},
+			wantRefusal: "--seed needs --photos",
+		},
+		{
+			name:        "--tag-count alone never reaches chooseRun",
+			req:         runRequest{Seed: seedUnset, TagCount: 2},
+			wantRefusal: "--tag-count needs --photos",
+		},
+		{
+			name:        "--tags-file alone never reaches chooseRun",
+			req:         runRequest{Seed: seedUnset, TagsFile: good},
+			wantRefusal: "--tags-file needs --photos",
+		},
+		{
+			name:        "--from alone never reaches chooseRun",
+			req:         runRequest{From: "-3d", Seed: seedUnset},
+			wantRefusal: "--from needs --photos",
+		},
+		{
+			name:        "--to alone never reaches chooseRun",
+			req:         runRequest{To: "now", Seed: seedUnset},
+			wantRefusal: "--to needs --photos",
+		},
+		{
+			name:        "--from/--to alone never reaches chooseRun",
+			req:         runRequest{From: "-3d", To: "now", Seed: seedUnset},
+			wantRefusal: "--from/--to needs --photos",
+		},
+		{
+			// Every request-shaped flag at once, still without a count: one refusal
+			// is enough, and it must be one of the pairing guards rather than
+			// something that lets the request through with every flag on it.
+			name:        "every request-shaped flag without a count is still refused",
+			req:         runRequest{Shape: "uniform", Seed: 7, TagCount: 2, From: "-3d", To: "now", TagsFile: good},
+			wantRefusal: "needs --photos",
+		},
+		{
+			// A negative count is not "no count": it is refused as a typo, and it
+			// is not a load request either.
+			name:        "a negative count is refused as a typo, not a load request",
+			req:         runRequest{Photos: -1, Shape: "uniform", Seed: seedUnset},
+			wantRefusal: "--photos -1 is not a count",
+		},
+		{
+			name:     "a count alone is a load request",
+			req:      runRequest{Photos: 1, Seed: seedUnset},
+			wantLoad: true,
+		},
+		{
+			name:     "every loader flag with a count is a load request",
+			req:      runRequest{Photos: 5000, Shape: "uniform", Seed: 42, TagCount: 2, From: "-3d", To: "now", TagsFile: good},
+			wantLoad: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := validateFlags(tc.req, now)
+			if tc.wantRefusal != "" {
+				require.Error(t, err, "this request reaches chooseRun, where it would be a load request nothing asked for")
+				// Named, not merely refused: a bare error here would also be
+				// satisfied by a refusal that has nothing to do with pairing.
+				assert.Contains(t, err.Error(), tc.wantRefusal)
+				return
+			}
+			require.NoError(t, err)
+
+			got := loadRequested(tc.req)
+			assert.Equal(t, tc.wantLoad, got,
+				"loadRequested disagrees with a request the pre-flight let through")
+			// And the run mode that reaches: on an already-seeded database a
+			// request that is not a load must stay a no-op, or `just up` stops
+			// being idempotent.
+			wantMode := runSkip
+			if tc.wantLoad {
+				wantMode = runLoad
+			}
+			assert.Equal(t, wantMode, chooseRun(true, loadRequested(tc.req)),
+				"chooseRun must be told the same thing")
+		})
+	}
+}
+
+// Every refusal the pre-flight can make has to name the flag it is about, or it
+// is a refusal the operator cannot act on. Checked over the guard set as a whole
+// so the property survives a guard being added.
+func TestEveryPreFlightRefusalIsReachableAndDistinct(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+
+	seen := map[string]int{}
+	cases := []struct {
+		name       string
+		req        runRequest
+		wantSubstr string
+	}{
+		{"unknown --shape", runRequest{Photos: 1, Shape: "nope", Seed: seedUnset}, "unknown --shape"},
+		{"--tag-count out of range", runRequest{Photos: 1, TagCount: 9, Seed: seedUnset}, "out of range"},
+		{"invalid --seed", runRequest{Photos: 1, Seed: -9}, "not a valid seed"},
+		{"negative --photos", runRequest{Photos: -1, Seed: seedUnset}, "--photos -1 is not a count"},
+		{"--tags-file without a count", runRequest{TagsFile: "t.tsv", Seed: seedUnset}, "--tags-file needs --photos"},
+		{"--shape/--seed without a count", runRequest{Shape: "burst", Seed: 3}, "--shape/--seed needs --photos"},
+		{"--from without a count", runRequest{From: "-3d", Seed: seedUnset}, "--from needs --photos"},
+		{"unreadable --tags-file", runRequest{Photos: 5, TagsFile: filepath.Join(t.TempDir(), "nope.tsv"), Seed: seedUnset}, "--tags-file"},
+		{"hard photo ceiling", runRequest{Photos: seedHardCeiling + 1, Seed: seedUnset}, "exceeds the hard ceiling"},
+		{"soft photo ceiling", runRequest{Photos: seedSoftCeiling + 1, Seed: seedUnset}, "exceeds the soft ceiling"},
+		{"window in the future", runRequest{Photos: 5, To: "2099-01-01T00:00:00Z", Seed: seedUnset}, "in the future"},
+		{"window too long", runRequest{Photos: 5, From: "2016-01-01T00:00:00Z", To: "now", Seed: seedUnset}, "past the ceiling of 365 days"},
+		{"zero offset", runRequest{Photos: 5, From: "-0d", To: "now", Seed: seedUnset}, "zero offset"},
+		{"fractional day offset", runRequest{Photos: 5, From: "-1.5d", To: "now", Seed: seedUnset}, "not a whole number of days"},
+		{"unparseable bound", runRequest{Photos: 5, From: "yesterday", Seed: seedUnset}, "--from"},
+	}
+
+	for i, tc := range cases {
+		_, _, err := validateFlags(tc.req, now)
+		require.Error(t, err, "%s no longer refuses", tc.name)
+		require.Contains(t, err.Error(), tc.wantSubstr, "%s", tc.name)
+		if prev, dup := seen[tc.wantSubstr]; dup {
+			t.Errorf("%q is asserted by both %q and %q, so the second could pass for the wrong guard: %v",
+				tc.wantSubstr, cases[prev].name, tc.name, err)
+		}
+		seen[tc.wantSubstr] = i
 	}
 }
 
