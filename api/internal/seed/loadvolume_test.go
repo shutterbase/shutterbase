@@ -78,7 +78,8 @@ func TestEstimateLoadVolumeCountsOneRebuildPerPhoto(t *testing.T) {
 // the line used to report, which read as "three random tags per photo").
 func TestEstimateLoadVolumeAveragesTheSplitItself(t *testing.T) {
 	vol := estimateLoadVolume(volumeNames(1000), nil, 0)
-	require.Equal(t, 1000*assignmentsPerPhoto(0), vol.TagAssignments)
+	// A literal, not 1000*assignmentsPerPhoto(0) — that would move with any change
+	// to the function under test and prove nothing.
 	assert.Equal(t, 1000*(1+2+calendarTagsPerPhoto()), vol.TagAssignments,
 		"the 30/50/20 split averages 1.9 extras per photo: 0.3x1 + 0.5x2 + 0.2x3")
 	assert.Equal(t, 1000, vol.JSONBRebuilds)

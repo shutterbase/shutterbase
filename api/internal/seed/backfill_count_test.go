@@ -98,22 +98,28 @@ func TestBackfillPinsThePoolTagCountExactly(t *testing.T) {
 			"%s carries more random tags than --tag-count 3 pins: %v",
 			img.ComputedFileName, tagNames(t, c, img.ID))
 	}
-	// …and the pin was reached, or a backfill that topped nothing up would pass the
-	// same assertion. Every photo the backfill reached must be AT 3.
-	atPin := 0
+	// …and the pin was actually reached, or a backfill that topped NOTHING up would
+	// pass the same assertion. Count only the photos this backfill reached — the
+	// burst photos from run 1, which run 2 is not ownPrefix for. Counting the whole
+	// project is useless here: the loader's own pin already leaves ~240 photos at
+	// 3, so a floor of 100 is satisfied with no backfill contribution at all, and
+	// the suite stays green with tagExistingPhotos stubbed to return nil.
+	var reached, atPin int
 	for _, img := range rows {
-		if strings.HasPrefix(img.ComputedFileName, seed.TimeRangeClusterPrefix) {
-			continue
+		if !strings.HasPrefix(img.ComputedFileName, "FSG_LW") {
+			continue // only run 1's burst photos are this backfill's business
 		}
-		if strings.HasPrefix(img.ComputedFileName, "FSG_000") {
-			continue // the base fixture, which the burst run's backfill already drew for
-		}
+		reached++
 		if poolTagCount(t, m, img) == 3 {
 			atPin++
 		}
 	}
-	assert.Greater(t, atPin, 100,
-		"only %d of the backfilled photos reached the pin of 3 — the backfill is not topping up at all", atPin)
+	require.NotZero(t, reached, "fixture is wrong: run 1 left no burst photos to backfill")
+	// Every photo the backfill touched, not a majority. The pinned path tops each
+	// photo below want up to exactly want, so anything less than all of them is a
+	// shortfall. A majority floor would pass with half the backfill silently skipped.
+	assert.Equal(t, reached, atPin,
+		"only %d of the %d burst photos reached the pin of 3 — the backfill is not topping every one up", atPin, reached)
 }
 
 // Without a pin the documented split still stands, and an already-tagged photo is

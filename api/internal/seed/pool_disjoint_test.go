@@ -61,10 +61,15 @@ func ownTagIDs(t *testing.T, ctx context.Context, c *ent.Client, m *Manifest) ma
 	require.NoError(t, err)
 
 	inWindow := DayTagName(m.ReferenceNow.AddDate(0, 0, -3))
+	// Keyed by the REAL weekday name, not a literal. A literal here is a trap: this
+	// fixture's reference is a Saturday, so "Thursday" would have carried
+	// Wednesday's id, the pool would have held Wednesday, and the assertion that
+	// "Thursday" is absent would have been true no matter what reservedPoolTag did.
+	weekday := WeekdayTagName(m.ReferenceNow.AddDate(0, 0, -3))
 	ids := map[string]string{
 		"Default":        m.Tags["Default"],
 		internalTagName:  m.Tags[internalTagName],
-		"Thursday":       cal[WeekdayTagName(m.ReferenceNow.AddDate(0, 0, -3))],
+		weekday:          cal[weekday],
 		inWindow:         cal[inWindow],
 		"Tag03":          m.Tags["Tag03"],
 		"Gletscherblitz": "",
@@ -142,10 +147,15 @@ func TestResolveTagPoolExcludesTheTagsTheSeederWritesItself(t *testing.T) {
 	}
 
 	names := poolNames(t, ctx, c, pool)
+	// The REAL weekday name of a date inside the window, not a literal. This
+	// fixture's reference is a Saturday, so a hardcoded "Thursday" would name a
+	// date that is not in the window at all — the pool would hold Wednesday, and
+	// asserting "Thursday" is absent would pass no matter what reservedPoolTag did.
+	weekday := WeekdayTagName(refNow.AddDate(0, 0, -3))
 	for _, reserved := range []string{
 		"Default",
 		internalTagName,
-		"Thursday",
+		weekday,
 		DayTagName(refNow.AddDate(0, 0, -3)),
 		DayTagName(refNow.AddDate(0, 0, -40)),
 	} {
@@ -183,7 +193,7 @@ func TestLoaderSurvivesATagSetNamingTheSeededTags(t *testing.T) {
 	require.NoError(t, seedLastWeekPhotos(ctx, c, m, window, 300, 2, pool, cal),
 		"a tag set naming the seeder's own tags must not abort the run")
 
-	photos := imagesWithPrefix(t, ctx, c, "FSG_LW")
+	photos := imagesWithPrefix(t, ctx, c, m, "FSG_LW")
 	require.Len(t, photos, 300)
 
 	pairs := assignmentPairs(t, ctx, c)
@@ -241,7 +251,7 @@ func TestBackfillNeverPaintsTheReservedManagementTag(t *testing.T) {
 
 	// Seed puts internal on exactly one image, on purpose. The other two — and any
 	// photo a real run adds — must not have picked it up.
-	painted := imagesWithPrefix(t, ctx, c, "FSG_")
+	painted := imagesWithPrefix(t, ctx, c, m, "FSG_")
 	var carried []string
 	for _, img := range painted {
 		if slices.Contains(img.ImageTags, m.Tags[internalTagName]) {
@@ -254,15 +264,20 @@ func TestBackfillNeverPaintsTheReservedManagementTag(t *testing.T) {
 
 // imagesWithPrefix returns the project's photos whose computedFileName starts with
 // prefix.
-func imagesWithPrefix(t *testing.T, ctx context.Context, c *ent.Client, prefix string) []*ent.Image {
+func imagesWithPrefix(t *testing.T, ctx context.Context, c *ent.Client, m *Manifest, prefix string) []*ent.Image {
 	t.Helper()
-	rows, err := c.Image.Query().Where(image.ComputedFileNameHasPrefix(prefix)).All(ctx)
+	rows, err := c.Image.Query().
+		Where(image.ComputedFileNameHasPrefix(prefix), image.ProjectIDEQ(m.Project)).
+		All(ctx)
 	require.NoError(t, err)
 	return rows
 }
 
 // assignmentPairs counts how often each (image, tag) pair is assigned across the
 // project, keyed "imageID|tagID" — the form the unique index is violated on.
+// Counts duplicate (image_id, image_tag_id) pairs across the whole file. Scoped to
+// nothing on purpose: the query is about the CONSTRAINT, which is global, and these
+// fixtures hold one project.
 func assignmentPairs(t *testing.T, ctx context.Context, c *ent.Client) map[string]int {
 	t.Helper()
 	rows, err := c.ImageTagAssignment.Query().All(ctx)

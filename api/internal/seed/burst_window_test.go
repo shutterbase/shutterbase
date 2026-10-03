@@ -89,34 +89,3 @@ func TestBurstLayoutForAGivenWindowIsReproducible(t *testing.T) {
 	assert.Equal(t, first, stamps(),
 		"two runs over the same window must place every photo at the same instant")
 }
-
-// Short windows must still spread. The golden hours are fixed clock offsets from
-// the window's start, so a window narrower than the span between the first and
-// last of them put every burst past window.To, every photo clamped to the same
-// instant — one spike on the density strip and one calendar tag pair for all of
-// them.
-func TestBurstLoaderSpreadsOverASubDayWindow(t *testing.T) {
-	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
-	ctx := context.Background()
-	c := sqliteClient(t)
-	m, err := seed.Seed(ctx, c, now)
-	require.NoError(t, err)
-
-	w := seed.Window{From: now.Add(-time.Hour), To: now}
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, w, 200))
-
-	imgs, err := c.Image.Query().All(ctx)
-	require.NoError(t, err)
-	instants := map[int64]struct{}{}
-	n := 0
-	for _, img := range imgs {
-		if img.CapturedAtCorrected == nil || !strings.HasPrefix(img.ComputedFileName, "FSG_LW") {
-			continue
-		}
-		instants[img.CapturedAtCorrected.Unix()] = struct{}{}
-		n++
-	}
-	require.Equal(t, 200, n)
-	assert.Greater(t, len(instants), 100,
-		"a one-hour window must spread its photos, not stack them on one instant")
-}

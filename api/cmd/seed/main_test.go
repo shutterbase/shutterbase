@@ -403,6 +403,29 @@ func TestCheckWindowLength(t *testing.T) {
 		wantSubstr string
 	}{
 		{
+			// int(span) truncated, so 365 days plus 12 hours reported "spans 365
+			// days" and PASSED while walking 366 calendar dates. It is still
+			// accepted — deliberately: the ceiling counts whole days in the window,
+			// and 365 whole days is exactly what `-365d` asks for. The extra date tag
+			// is inherent to a window that starts mid-day.
+			name: "a half day past the ceiling is still 365 whole days",
+			w:    seed.Window{From: now.AddDate(0, 0, -windowDayCeiling).Add(-12 * time.Hour), To: now},
+		},
+		{
+			// The case an elapsed-hours comparison got wrong: AddDate returns
+			// CALENDAR days, so `-365d` is 8761 ELAPSED hours in Berlin whenever it
+			// crosses the autumn DST change. 8761 > 8760 refused the documented
+			// boundary in this project's own timezone, and every test here used a
+			// UTC `now`, so nothing saw it.
+			name: "the ceiling is reachable in a DST timezone (-365d)",
+			w: func() seed.Window {
+				berlin, err := time.LoadLocation("Europe/Berlin")
+				require.NoError(t, err)
+				end := time.Date(2026, 10, 25, 12, 0, 0, 0, berlin)
+				return seed.Window{From: end.AddDate(0, 0, -windowDayCeiling), To: end}
+			}(),
+		},
+		{
 			name: "the default 7-day window needs nothing",
 			w:    seed.Window{From: now.AddDate(0, 0, -7), To: now},
 		},
@@ -492,8 +515,12 @@ func TestCalendarDateCountCountsDatesNotDurations(t *testing.T) {
 	}
 	assert.Equal(t, 91, calendarDateCount(overDst),
 		"a 90-day span either side of the 2026-03-29 DST change is 91 dates, both endpoints included")
-	assert.Equal(t, 89, int(overDst.To.Sub(overDst.From).Hours()/24),
-		"the duration count is two short of the dates walked — the guard must not use it")
+	// The guard is measured on the UNROUNDED span, because int() truncation let a
+	// 365.999-day window through. Pin that arithmetic here rather than the duration
+	// count the guard does not use.
+	assert.Equal(t, 89, int(overDst.To.Sub(overDst.From).Hours()/24))
+	assert.Less(t, overDst.To.Sub(overDst.From), 90*24*time.Hour,
+		"a 90-day span is under 90 whole days only because of the DST hour")
 }
 
 func TestCheckTagCount(t *testing.T) {

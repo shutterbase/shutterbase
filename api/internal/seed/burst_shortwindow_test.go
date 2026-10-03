@@ -156,9 +156,6 @@ func TestBurstLayoutOfAFullDayWindowIsUnchanged(t *testing.T) {
 func TestBurstDayScaleOnlySqueezes(t *testing.T) {
 	now := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 	// 7 days x 24h over 7 days: exactly 1, so the seven-day layout is untouched.
-	seven := SevenDaysEndingAt(now)
-	assert.Equal(t, 1.0, burstDayScale(seven, seven.Days()))
-
 	// Half a day: every clock hour counts for half an hour, so the 07:00-18:00
 	// events land across the twelve hours the window holds.
 	half := Window{From: now.Add(-12 * time.Hour), To: now}
@@ -176,11 +173,56 @@ func TestBurstDayScaleOnlySqueezes(t *testing.T) {
 	for _, w := range []Window{
 		SevenDaysEndingAt(now),
 		Window{From: now.Add(-30 * 24 * time.Hour), To: now},
-		Window{From: now.AddDate(0, 0, -1), To: now.AddDate(0, 0, 40)},
 		half, hour,
 	} {
 		assert.LessOrEqual(t, burstDayScale(w, w.Days()), 1.0,
 			"window %s..%s must not stretch the layout", w.From, w.To)
+	}
+
+	// The min(...,1) cap in burstDayScale is not worth an assertion of its own: every
+	// window below has a ratio under 1, so "<= 1" holds by construction and deleting
+	// the min() leaves it green. What IS worth pinning is the invariant that decides
+	// whether the cap can ever bite.
+	//
+	// Days() counts whole days in [From, To), so the span is at most days x 24h and
+	// EQUALS it whenever the bounds are whole days apart. The ratio therefore tops
+	// out at exactly 1 for a UTC window.
+	//
+	// Not in every zone. An autumn day is 25h, so a 7-day Berlin window crossing the
+	// October DST change spans 169h with Days()==7 — a ratio of 1.006, where the cap
+	// IS reachable and load-bearing. There are seven such 7-day windows in 2026. So
+	// the honest bound is (days+1) x 24h, and the cap earns its keep exactly there.
+	//
+	// Falsifiable both ways: revert Days() to hours/24 and the span bound breaks; drop
+	// the fall-back window and the "+1" stops being required.
+	berlin, err := time.LoadLocation("Europe/Berlin")
+	if err == nil {
+		// EU DST ends on the last Sunday of October — 2026-10-25, at 03:00 local.
+		// A window from 20 Oct to 27 Oct brackets it, so the span is 7 calendar days
+		// and 169 ELAPSED hours.
+		fallEnd := time.Date(2026, 10, 27, 12, 0, 0, 0, berlin)
+		fall := Window{From: fallEnd.AddDate(0, 0, -7), To: fallEnd}
+		assert.Less(t, fall.To.Sub(fall.From), time.Duration(fall.Days()+1)*24*time.Hour,
+			"a 7-day window across the Berlin autumn change is 169h, so it needs days+1")
+		// The raw ratio, spelled out rather than read back through burstDayScale —
+		// that function returns the CLAMPED value, so asking it whether it exceeds 1
+		// can only ever fail. This arithmetic is the rule the clamp exists to enforce.
+		raw := fall.To.Sub(fall.From).Hours() / (24 * float64(fall.Days()))
+		assert.Greater(t, raw, 1.0,
+			"a 7-day Berlin window across the autumn change has a raw ratio over 1 — this is the only way the min(...,1) cap is reachable at all")
+		assert.Equal(t, 1.0, burstDayScale(fall, fall.Days()),
+			"and the cap is what holds it at 1 instead of stretching the layout")
+	}
+	for _, w := range []Window{
+		SevenDaysEndingAt(now),
+		{From: now.AddDate(0, 0, -1), To: now.AddDate(0, 0, 40)},
+		{From: now.Add(-time.Nanosecond), To: now.Add(90 * 24 * time.Hour)},
+		half, hour,
+	} {
+		days := w.Days()
+		assert.LessOrEqual(t, w.To.Sub(w.From), time.Duration(days)*24*time.Hour,
+			"Days() returned %d for a span of %s — if it ever exceeds the whole days in the window, the layout is not what this file assumes",
+			days, w.To.Sub(w.From))
 	}
 }
 

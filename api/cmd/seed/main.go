@@ -338,10 +338,15 @@ const windowDayCeiling = 365
 //
 // It asks the walk itself (seed.CalendarTagNames) rather than dividing the span
 // by 24h, because CalendarTagNames steps by calendar DATE in the window's own
-// location: a 365-day span across a DST change is 366 dates. A ceiling counted
-// in something the walk never visits would be wrong by exactly the boundary case
-// it exists to bound. Seven weekday names come back alongside the dates and are
-// not counted — they are a constant, not a function of the window length.
+// location: a 365-day span across a DST change is 366 dates. Seven weekday names
+// come back alongside the dates and are not counted — they are a constant, not a
+// function of the window length.
+//
+// It is also the unit checkWindowLength measures in, for the same reason plus one:
+// elapsed hours are not days here. AddDate returns calendar days, so `-365d` is
+// 8761 ELAPSED hours in Europe/Berlin whenever it crosses the autumn DST change,
+// and a span comparison refused the documented ceiling in this project's own
+// timezone. Every test of that guard used a UTC clock and saw nothing.
 func calendarDateCount(w seed.Window) int {
 	n := 0
 	for _, name := range seed.CalendarTagNames(w) {
@@ -373,12 +378,21 @@ func isDayTagName(name string) bool {
 // a slow transaction holding locks, not a destroyed database. Someone seeding a
 // decade of density data has a legitimate reason to type it and a way out.
 func checkWindowLength(w seed.Window, force bool) error {
-	span := int(w.To.Sub(w.From).Hours() / 24)
-	if force || span <= windowDayCeiling {
+	// Count DATES, not elapsed hours. int(span.Hours()/24) truncated, so a window up
+	// to 365.999 days was accepted while walking 366 date tags. Comparing the raw
+	// span instead is no better: AddDate hands back calendar days, so `-365d` is
+	// 8761 ELAPSED hours in Europe/Berlin whenever it crosses the autumn DST change
+	// — 8761 > 8760, and the documented boundary became unreachable in this project's
+	// own timezone. An hour of DST is not a day of window.
+	//
+	// calendarDateCount walks both endpoints, so the whole days in the window is one
+	// less than the count.
+	days := calendarDateCount(w) - 1
+	if force || days <= windowDayCeiling {
 		return nil
 	}
 	return fmt.Errorf("window spans %d days (%s .. %s) — %d calendar tags to write, all in ONE transaction that holds image_tags locks until it commits — past the ceiling of %d days; pass --force to seed it anyway, or narrow --from/--to",
-		span, w.From.Format(time.RFC3339), w.To.Format(time.RFC3339),
+		days, w.From.Format(time.RFC3339), w.To.Format(time.RFC3339),
 		calendarDateCount(w), windowDayCeiling)
 }
 
