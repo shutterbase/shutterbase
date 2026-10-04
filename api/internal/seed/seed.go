@@ -1450,7 +1450,7 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 	// `held` counts pool ids and the calendar pair is written from the same rows, so
 	// a reserved assignment left over from an older build is invisible to both until
 	// it is gone.
-	if err := cleanupReservedTagAssignments(ctx, client, m); err != nil {
+	if err := cleanupReservedTagAssignments(ctx, client, m, loc); err != nil {
 		return err
 	}
 	if pool == nil {
@@ -1663,7 +1663,10 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 // images.imageTags is what the gallery filter and ToImageResponse read; leaving it
 // naming a deleted tag would make the row invisible to the app while the exports it
 // governs kept excluding the photo anyway.
-func cleanupReservedTagAssignments(ctx context.Context, client *ent.Client, m *Manifest) error {
+// loc is the window's location, matching what the loaders wrote the calendar pair
+// in. nil means "use the zone the instant arrives in", which is the best an
+// independent cleanup can do.
+func cleanupReservedTagAssignments(ctx context.Context, client *ent.Client, m *Manifest, loc *time.Location) error {
 	reserved, err := reservedTagIDsByName(ctx, client, m.Project)
 	if err != nil {
 		return err
@@ -1694,7 +1697,7 @@ func cleanupReservedTagAssignments(ctx context.Context, client *ent.Client, m *M
 		after = images[len(images)-1].ID
 		if err := inTx(ctx, client, func(tx *ent.Tx) error {
 			for _, img := range images {
-				stale := staleReservedTagIDs(img, reserved)
+				stale := staleReservedTagIDs(img, reserved, loc)
 				if len(stale) == 0 {
 					continue
 				}
@@ -1748,8 +1751,8 @@ func reservedTagIDsByName(ctx context.Context, client *ent.Client, projectID str
 // rows: the jsonb is the denormalized mirror of those rows, the tagging pass already
 // reads it for exactly this purpose, and a stale id cannot hide in one and not the
 // other unless something has already corrupted the pair.
-func staleReservedTagIDs(img *ent.Image, reserved map[string]string) []string {
-	keep := keptReservedTagNames(img)
+func staleReservedTagIDs(img *ent.Image, reserved map[string]string, loc *time.Location) []string {
+	keep := keptReservedTagNames(img, loc)
 	var stale []string
 	for _, id := range img.ImageTags {
 		name, isReserved := reserved[id]
@@ -1772,7 +1775,7 @@ func staleReservedTagIDs(img *ent.Image, reserved map[string]string) []string {
 // no rule below is treated as stale wherever it is found. That is the right way round
 // to be wrong: the current build rewrites what it owns on the same pass that cleared
 // it, so a missing rule costs a tag rather than a photo.
-func keptReservedTagNames(img *ent.Image) map[string]struct{} {
+func keptReservedTagNames(img *ent.Image, loc *time.Location) map[string]struct{} {
 	keep := map[string]struct{}{
 		// Every photo, by every create path: Seed writes it, createTagAssignments
 		// writes it, and the backfill passes defaultTag "" precisely because it is
@@ -1786,9 +1789,18 @@ func keptReservedTagNames(img *ent.Image) map[string]struct{} {
 	//
 	// A photo with no capturedAtCorrected keeps none, because the pair is gated on
 	// that instant being there at all — see TestBackfillSkipsPhotosWithoutACaptureInstant.
+	//
+	// calendarTagNamesFor, NOT a local DayTagName/WeekdayTagName — this is the
+	// exact bug the loader/backfill split had: the instant read back out of Postgres
+	// arrives in time.Local (ScanLocation is unset), while the loader wrote the pair
+	// in the WINDOW's zone. Format the two differently and this function judges the
+	// loader's OWN tags stale, then deletes them: a photo captured 2026-10-03T22:30Z
+	// in a Berlin window is the 4th in Berlin and the 3rd in UTC, so one of the two
+	// names always loses.
 	if at := img.CapturedAtCorrected; at != nil {
-		keep[DayTagName(*at)] = struct{}{}
-		keep[WeekdayTagName(*at)] = struct{}{}
+		for _, name := range calendarTagNamesFor(*at, loc) {
+			keep[name] = struct{}{}
+		}
 	}
 	// `internal` on exactly one photo: Seed's, on purpose — the fixture that shows a
 	// photo held out of a slideshow and out of an export. Everywhere else the name is
