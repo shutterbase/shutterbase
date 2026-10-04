@@ -514,6 +514,16 @@ model it, so applying it would make the seeder disagree with the plain reading o
 its own timestamps. A photo captured before 03:00 local therefore gets the
 previous day from a real upload and its own date from the seeder.
 
+Because the two readings disagree that often, the stale-tag cleanup keeps **both**.
+`cmd/seed` passes `DATE_TAG_HOUR_OFFSET` in as `LoadOptions.HourOffset`, and the keep
+rule accepts the seeder's raw pair *and* the app's shifted pair. Without that, every
+photo captured before 03:00 local would have its app-written date tag judged stale
+and deleted on the next run — the exact photos the offset exists to serve. When the
+offset is not supplied at all (`HourOffset` nil, which is every exported
+`seed.SeedWeekOfPhotos` / `seed.TagExistingPhotos` caller) the cleanup keeps *every*
+calendar name instead, because an imprecise keep costs a stale tag surviving one run
+while an imprecise delete loses the tag for good.
+
 ### Stale reserved tags are cleared on every run
 
 Before it measures anything, the tag backfill deletes every assignment to a
@@ -527,7 +537,8 @@ it decides by name:
 | `Default` | always — every create path writes it, and nothing would put it back |
 | the photo's **own** date `YYYYMMDD` | kept |
 | the photo's **own** weekday | kept |
-| any other `YYYYMMDD` or weekday | deleted — a calendar name on a photo that is not its own came from the draw |
+| the **app's** reading of its own day/weekday (raw + `DATE_TAG_HOUR_OFFSET`) | kept — an upload writes this one, and it is a different date for any photo captured before 03:00 local |
+| any other `YYYYMMDD` or weekday | deleted — a calendar name on a photo that is not its own, under either reading, came from the draw |
 | `internal` on `FSG_0000.jpg`..`FSG_0002.jpg` | kept — `seed.Seed` puts it there on purpose, and an e2e spec counts on it |
 | `internal` anywhere else | deleted |
 | anything not in the reserved set | untouched |

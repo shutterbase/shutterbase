@@ -509,6 +509,18 @@ type LoadOptions struct {
 	// TagCount overrides how many extra tags each photo carries. Zero keeps the
 	// documented 30/50/20 split over 1, 2 and 3.
 	TagCount int
+
+	// HourOffset is the app's DATE_TAG_HOUR_OFFSET, the shift it applies before
+	// deriving $DATE/$WEEKDAY and this package deliberately does not. The reserved-tag
+	// cleanup needs it: it must recognise BOTH the seeder's reading and the app's as
+	// the photo's own, or it deletes the app's tag from any photo captured before
+	// 03:00 local. See keptReservedTagNames.
+	//
+	// nil means "unknown", which makes the cleanup keep EVERY calendar name — an
+	// imprecise keep costs a stale tag surviving one run, an imprecise delete loses
+	// data for good. cmd/seed sets it from config; the exported Seed* helpers, which
+	// read no config, leave it nil.
+	HourOffset *int
 	// TagsFile is an optional TSV of tag rows to seed INSTEAD of the generated
 	// set: name<TAB>displayName<TAB>description per line, "#" for comments.
 	// Empty means generate. A file that cannot be read is an error — falling back
@@ -558,9 +570,9 @@ func LoadPhotos(ctx context.Context, client *ent.Client, m *Manifest, opts LoadO
 	}
 	switch opts.Shape {
 	case ShapeUniform:
-		return seedWeekOfPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.Seed)
+		return seedWeekOfPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.HourOffset, opts.Seed)
 	case ShapeBurst, "":
-		return seedLastWeekPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.Seed)
+		return seedLastWeekPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.HourOffset, opts.Seed)
 	default:
 		return fmt.Errorf("unknown shape %q", opts.Shape)
 	}
@@ -1145,12 +1157,12 @@ func rebuildImageTagsJSON(ctx context.Context, tx *ent.Tx, imageID string) error
 // extrasPerPhoto is the optional pinned extra-tag count (--tag-count); 0 keeps
 // the 30/50/20 split.
 func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count int, salt ...int64) error {
-	return seedWeekOfPhotos(ctx, client, m, window, count, 0, nil, nil, salt...)
+	return seedWeekOfPhotos(ctx, client, m, window, count, 0, nil, nil, nil, salt...)
 }
 
 // pool is the resolved draw pool, nil when the caller has none: this loader then
 // resolves the tag set itself, the same way it resolves its own calendar tags.
-func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, salt ...int64) error {
+func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, hourOffset *int, salt ...int64) error {
 	// The identities are checked before anything is created: unlike a missing
 	// tag there is no partial recovery from them, and a failure after the tags
 	// were ensured leaves rows behind for a run that was never going to finish.
@@ -1311,7 +1323,7 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	// take their date and weekday from their own instants — so a photo outside this
 	// window (the base fixture's three, a real upload) comes out of the run with
 	// them rather than as the only photos in the gallery without a date.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, window.From.Location(), "FSG_W", salt...)
+	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, window.From.Location(), hourOffset, "FSG_W", salt...)
 }
 
 func rngFor(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
@@ -1431,7 +1443,7 @@ func assignMissingTagAssignments(ctx context.Context, tx *ent.Tx, imageID string
 // needs no window at all. referenceNow stays in the signature for the callers that
 // already pass it; the per-photo path reads nothing from it.
 func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, salt ...int64) error {
-	return tagExistingPhotos(ctx, client, m, 0, nil, nil, nil, "", salt...)
+	return tagExistingPhotos(ctx, client, m, 0, nil, nil, nil, nil, "", salt...)
 }
 
 // tagExistingPhotos with extrasPerPhoto 0 keeping the 30/50/20 split; see
@@ -1444,13 +1456,13 @@ func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ref
 // match the ones the loaders wrote for the same photo. nil means "use whatever zone
 // the instant arrives in", which is the best the exported TagExistingPhotos can do
 // because it has no window.
-func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, extrasPerPhoto int, pool []string, cal map[string]string, loc *time.Location, ownPrefix string, salt ...int64) error {
+func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, extrasPerPhoto int, pool []string, cal map[string]string, loc *time.Location, hourOffset *int, ownPrefix string, salt ...int64) error {
 	project := m.Project
 	// Before anything reads a photo's tag set, because everything below measures it.
 	// `held` counts pool ids and the calendar pair is written from the same rows, so
 	// a reserved assignment left over from an older build is invisible to both until
 	// it is gone.
-	if err := cleanupReservedTagAssignments(ctx, client, m, loc); err != nil {
+	if err := cleanupReservedTagAssignments(ctx, client, m, loc, hourOffset); err != nil {
 		return err
 	}
 	if pool == nil {
@@ -1666,7 +1678,7 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 // loc is the window's location, matching what the loaders wrote the calendar pair
 // in. nil means "use the zone the instant arrives in", which is the best an
 // independent cleanup can do.
-func cleanupReservedTagAssignments(ctx context.Context, client *ent.Client, m *Manifest, loc *time.Location) error {
+func cleanupReservedTagAssignments(ctx context.Context, client *ent.Client, m *Manifest, loc *time.Location, hourOffset *int) error {
 	reserved, err := reservedTagIDsByName(ctx, client, m.Project)
 	if err != nil {
 		return err
@@ -1697,7 +1709,7 @@ func cleanupReservedTagAssignments(ctx context.Context, client *ent.Client, m *M
 		after = images[len(images)-1].ID
 		if err := inTx(ctx, client, func(tx *ent.Tx) error {
 			for _, img := range images {
-				stale := staleReservedTagIDs(img, reserved, loc)
+				stale := staleReservedTagIDs(img, reserved, loc, hourOffset)
 				if len(stale) == 0 {
 					continue
 				}
@@ -1751,8 +1763,8 @@ func reservedTagIDsByName(ctx context.Context, client *ent.Client, projectID str
 // rows: the jsonb is the denormalized mirror of those rows, the tagging pass already
 // reads it for exactly this purpose, and a stale id cannot hide in one and not the
 // other unless something has already corrupted the pair.
-func staleReservedTagIDs(img *ent.Image, reserved map[string]string, loc *time.Location) []string {
-	keep := keptReservedTagNames(img, loc)
+func staleReservedTagIDs(img *ent.Image, reserved map[string]string, loc *time.Location, hourOffset *int) []string {
+	keep := keptReservedTagNames(img, loc, hourOffset)
 	var stale []string
 	for _, id := range img.ImageTags {
 		name, isReserved := reserved[id]
@@ -1775,7 +1787,7 @@ func staleReservedTagIDs(img *ent.Image, reserved map[string]string, loc *time.L
 // no rule below is treated as stale wherever it is found. That is the right way round
 // to be wrong: the current build rewrites what it owns on the same pass that cleared
 // it, so a missing rule costs a tag rather than a photo.
-func keptReservedTagNames(img *ent.Image, loc *time.Location) map[string]struct{} {
+func keptReservedTagNames(img *ent.Image, loc *time.Location, hourOffset *int) map[string]struct{} {
 	keep := map[string]struct{}{
 		// Every photo, by every create path: Seed writes it, createTagAssignments
 		// writes it, and the backfill passes defaultTag "" precisely because it is
@@ -1797,9 +1809,33 @@ func keptReservedTagNames(img *ent.Image, loc *time.Location) map[string]struct{
 	// loader's OWN tags stale, then deletes them: a photo captured 2026-10-03T22:30Z
 	// in a Berlin window is the 4th in Berlin and the 3rd in UTC, so one of the two
 	// names always loses.
+	//
+	// BOTH readings, and that is the whole point. The seeder writes the pair from the
+	// RAW instant; the APP writes it from `corrected.In(TIMEZONE).Add(-3h)`, because
+	// an event's late-night photos belong to the previous day
+	// (DATE_TAG_HOUR_OFFSET, default -3). For any photo captured between 00:00 and
+	// 03:00 local those are DIFFERENT calendar dates — so a keep set holding only the
+	// seeder's own reading judged the app's tag stale and DELETED it, on every run,
+	// with no flag to stop it. Those are exactly the late-event photos the offset
+	// exists to serve.
+	//
+	// A nil hourOffset means "the offset is unknown", which is the exported
+	// TagExistingPhotos path where no config was read. Then every calendar name is
+	// kept: an imprecise keep costs a stale tag surviving one more run, whereas an
+	// imprecise DELETE loses data with no way to get it back.
 	if at := img.CapturedAtCorrected; at != nil {
-		for _, name := range calendarTagNamesFor(*at, loc) {
-			keep[name] = struct{}{}
+		if hourOffset == nil {
+			for _, name := range calendarTagNamesFor(*at, loc) {
+				keep[name] = struct{}{}
+			}
+		} else {
+			for _, name := range calendarTagNamesFor(*at, loc) {
+				keep[name] = struct{}{}
+			}
+			shifted := calendarTagNamesFor(at.In(loc).Add(time.Duration(*hourOffset)*time.Hour), loc)
+			for _, name := range shifted {
+				keep[name] = struct{}{}
+			}
 		}
 	}
 	// `internal` on exactly one photo: Seed's, on purpose — the fixture that shows a
@@ -1960,12 +1996,12 @@ func resolveCalendarTag(ctx context.Context, client *ent.Client, projectID strin
 
 // salt is the optional run seed (--seed); see SeedWeekOfPhotos.
 func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count int, salt ...int64) error {
-	return seedLastWeekPhotos(ctx, client, m, window, count, 0, nil, nil, salt...)
+	return seedLastWeekPhotos(ctx, client, m, window, count, 0, nil, nil, nil, salt...)
 }
 
 // pool is the resolved draw pool, nil when the caller has none; see
 // seedWeekOfPhotos.
-func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, salt ...int64) error {
+func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, hourOffset *int, salt ...int64) error {
 	// The identities are checked before anything is created: unlike a missing
 	// tag there is no partial recovery from them, and a failure after the tags
 	// were ensured leaves rows behind for a run that was never going to finish.
@@ -2199,7 +2235,7 @@ func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, wi
 	}
 	// See seedWeekOfPhotos for why the backfold is inline rather than behind a
 	// flag. FSG_LW is this loader's own prefix.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, window.From.Location(), "FSG_LW", salt...)
+	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, window.From.Location(), hourOffset, "FSG_LW", salt...)
 }
 
 // ReadManifest loads a manifest previously written by Write. A missing file is

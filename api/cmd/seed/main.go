@@ -828,6 +828,13 @@ func main() {
 			Seed:     int64(*seedValue),
 			TagCount: *tagCount,
 			TagsFile: *tagsFile,
+			// The seeder writes $DATE/$WEEKDAY from the raw instant; the APP shifts
+			// by this much first. The reserved-tag cleanup runs here and must treat
+			// BOTH readings as the photo's own, or it deletes the app's tag from every
+			// photo captured before 03:00 local — the late-event photos the shift
+			// exists for. Read here rather than inside internal/seed so that package
+			// stays free of config, and so "unset" stays distinguishable from 0.
+			HourOffset: func() *int { h := config.Get().Int("DATE_TAG_HOUR_OFFSET"); return &h }(),
 		}); err != nil {
 			log.Fatal().Err(err).Msg("seeding photos failed")
 		}

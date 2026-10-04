@@ -190,7 +190,7 @@ func TestLoaderSurvivesATagSetNamingTheSeededTags(t *testing.T) {
 	cal, err := ensureCalendarTags(ctx, c, m, window, nil)
 	require.NoError(t, err)
 
-	require.NoError(t, seedLastWeekPhotos(ctx, c, m, window, 300, 2, pool, cal),
+	require.NoError(t, seedLastWeekPhotos(ctx, c, m, window, 300, 2, pool, cal, nil),
 		"a tag set naming the seeder's own tags must not abort the run")
 
 	photos := imagesWithPrefix(t, ctx, c, m, "FSG_LW")
@@ -247,7 +247,7 @@ func TestBackfillNeverPaintsTheReservedManagementTag(t *testing.T) {
 
 	cal, err := ensureCalendarTags(ctx, c, m, SevenDaysEndingAt(refNow), nil)
 	require.NoError(t, err)
-	require.NoError(t, tagExistingPhotos(ctx, c, m, 1, pool, cal, nil, ""))
+	require.NoError(t, tagExistingPhotos(ctx, c, m, 1, pool, cal, nil, nil, ""))
 
 	// Seed puts internal on exactly one image, on purpose. The other two — and any
 	// photo a real run adds — must not have picked it up.
