@@ -10,6 +10,14 @@ FROM ghcr.io/shutterbase/wasm-builder:latest as image-wasm-build
 WORKDIR /usr/src/image-wasm
 
 COPY image-wasm/Cargo.toml /usr/src/image-wasm/Cargo.toml
+# The lockfile is what makes this build reproducible. Without it cargo re-resolves
+# every dependency from crates.io on each build, so the wasm crate compiles against
+# whatever is newest that day — and on 2026-10-04 that meant uuid 1.27.0, which
+# requires rustc 1.89 while the builder image carries 1.88. Every build on every
+# branch failed, with nothing committed to blame. Note this deviates from the usual
+# "libraries gitignore Cargo.lock" rule: correct advice for `cargo add`, wrong for an
+# image that has to rebuild the same artefact for months.
+COPY image-wasm/Cargo.lock /usr/src/image-wasm/Cargo.lock
 COPY image-wasm/src /usr/src/image-wasm/src
 
 RUN wasm-pack build --target web --release
