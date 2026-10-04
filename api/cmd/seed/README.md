@@ -168,6 +168,22 @@ existing assignment is skipped rather than conflicting. Nothing is truncated and
 no photo is deleted; the one delete a run performs is the stale reserved-name
 cleanup, and it converges — see [Stale reserved tags](#stale-reserved-tags-are-cleared-on-every-run).
 
+**The two shapes are separate populations, and that is intended.** `--shape` chooses
+both how photos are distributed *and* which name space they get written into, so the
+two never overlap:
+
+```
+seed --photos 2000 --shape uniform     # FSG_W00000.jpg .. FSG_W01999.jpg
+seed --photos 2000 --shape burst       # FSG_LW00000.jpg .. FSG_LW01999.jpg
+```
+
+Run both and you have **4000** photos, not 2000. Re-running either one adds nothing.
+It reads like a bug and is not: the prefixes are kept separate so a project can hold a
+uniformly-spread population *and* a clustered one at once — the clustered set is what
+makes the time-range density strip worth looking at, and it is not the distribution you
+want for a predictable count per time span. If you want one population re-dated under
+the other shape, that is a different command and does not exist.
+
 - **The same arguments again add nothing.** The photo names, the layout and the
   per-photo tag draws are all derived from the window and the photo's index, never
   from the wall clock, so the second run is a no-op against the database. It still
