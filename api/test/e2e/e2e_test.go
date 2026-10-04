@@ -71,7 +71,7 @@ func TestSchemaAppliedAndSeedCounts(t *testing.T) {
 	assert.Equal(t, 3, c.Role.Query().CountX(ctx))
 	assert.Equal(t, 1, c.Project.Query().CountX(ctx))
 	assert.Equal(t, 2, c.Camera.Query().CountX(ctx))
-	assert.Equal(t, 4, c.ImageTag.Query().CountX(ctx)) // template + manual + default + internal
+	assert.Equal(t, 5, c.ImageTag.Query().CountX(ctx)) // $DATE + $WEEKDAY templates, manual, default, internal
 	assert.Equal(t, 2, c.TimeOffset.Query().CountX(ctx))
 	assert.Equal(t, 3, c.Image.Query().CountX(ctx))
 	assert.Equal(t, 3, c.ProjectAssignment.Query().CountX(ctx))
