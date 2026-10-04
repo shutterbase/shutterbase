@@ -133,7 +133,7 @@ Two messages in that table carry values no run reproduces: the **future window**
 the **window length** refusals print the run's own clock and the window's zone, so
 their numbers are illustrative and only their shape is exact. The same holds for the
 `--from`/`--to` shown in the window-shape row, which are ordinary sample bounds.
-Everything else is byte-for-byte what the run prints.
+Everything else is byte-for-byte what the run prints (the message text — the binary wraps it in zerolog JSON).
 
 `--shape`, `--seed` and `--tag-count` are refused without `--photos`, and so is
 `--dry-run` when it is passed alongside them. The guards sit above the dry-run
@@ -281,7 +281,7 @@ against Postgres 18 over localhost:
 
 The wall clock matters less than the lock: the walk holds `image_tags` locks for
 its whole duration, so it blocks the app's own tag writes and reports nothing
-until it commits. The ceiling is an order of magnitude above the case it bounds —
+until it commits. The ceiling is far above the case it bounds —
 a real event fixtures a handful of days and the longest window anyone documents is
 `-30d` — and **there is no hard tier above it**, for the same reason the
 future-window guard has none: what a long window costs is a slow transaction
@@ -322,11 +322,16 @@ past 23:00 local and the hour crosses midnight.
 **`burst` (default)** places 5 golden-hour events per day across however many whole
 days the window spans (floored at 1), centred on 07:00, 08:00, 12:00, 17:00 and
 18:00 local plus up to a minute of jitter, each spanning 30-90 minutes. Raw burst
-sizes (10-50 photos) are normalised to exactly `--photos N` by largest-remainder
+sizes (10-49 photos) are normalised to exactly `--photos N` by largest-remainder
 apportionment, so a count lands where you asked for it and the most recent day is
 not starved. When `N` is smaller than the number of bursts, the largest bursts are
 kept — the busiest shooting days — rather than truncating to the oldest ones. Every
-photo is clamped into `[--from, --to]`.
+photo is clamped into `[--from, --to]`, and on a window that affords less than a whole
+day per burst day the five centres **and** the 30–90 min widths are scaled into it, so
+the golden-hour times become **positions within the window, not clock times**. Verified:
+`--photos 10 --from -1h --to now` put all ten inside roughly the first half hour of the
+hour-long window rather than at any of 07:00/08:00/12:00/17:00/18:00. On a window of
+whole days the scale is exactly 1 and the historical layout is untouched.
 
 **`uniform`** spreads photos evenly and lands on **both** bounds: the interval is
 `span / (N - 1)`, not `span / N`, so nothing is left a gap short at the far end.
@@ -474,37 +479,19 @@ earlier run left short; it can never lower an over-pinned photo.
 
 ### Where the calendar names come from
 
-Both names are derived **in the window's own location**, and through one helper
-shared by the loader and the tag backfill, so the two paths that *write* a date
-cannot disagree about a photo. The zone is load-bearing: the loader holds the
-instant it just computed in the window's zone, while a photo read back out of
-Postgres arrives in the session zone (`DATABASE_TIMEZONE`, `UTC` by default). For
-a photo within an hour or two of midnight those two readings format as different
-calendar dates, which is why the zone is part of the name and not an
-afterthought.
+Both names are derived **in the window's own location**, through one helper shared by
+the loader, the tag backfill and the stale-tag cleanup. That is load-bearing, and it
+is not an aesthetic choice: the loader holds the instant it just computed in the
+window's zone, while a photo read back out of Postgres arrives in `time.Local`
+(pgx's `ScanLocation` is unset; the DSN's `TimeZone=` does not change that). For a
+photo within an hour or two of midnight those two readings format as different
+calendar dates.
 
-A relative offset resolves against `time.Now()`, so the window's location is the
-machine's local zone and the two readings agree — that is the ordinary case, and it
-is where the divergence is easiest to miss. The divergence appears as soon as a
-bound carries an explicit offset:
-
-```
-$ seed --photos 2 --shape uniform --from 2026-10-03T22:30:00Z --to 2026-10-03T22:50:00Z
-# machine TZ Europe/Berlin, DATABASE_TIMEZONE UTC
-computed_file_name | captured_at_corrected | in Berlin | calendar tags
-FSG_W00001.jpg     | 2026-10-03 22:30:00+00 | 2026-10-04 00:30 | none
-FSG_W00000.jpg     | 2026-10-03 22:50:00+00 | 2026-10-04 00:50 | none
-```
-
-Both photos came out with **no date and no weekday**, because the window's zone
-says 2026-10-04 and the rule the cleanup below applies reads 2026-10-03, so the
-tags the loader had just written looked stale and were deleted.
-
-Under relative bounds the same boundary hour keeps both tags: `--photos 400
---shape uniform --from -2d --to -1d` on this machine put `FSG_W00002.jpg` at
-`2026-10-02 23:59:25+00`, which is Berlin `2026-10-03 01:59:25`, and it came out
-carrying `20261003` and `Saturday`. **So write the window's bounds with no offset
-when you want every photo dated.**
+So all three normalise into the window's location before formatting, and the zone is
+part of the name rather than an afterthought. A relative offset resolves against
+`time.Now()`, so the window's location is the machine's local zone — the ordinary
+case. An explicit offset in a bound sets the window's location to that offset, and
+that works just as well: every path uses the same one.
 
 One difference from a real upload is deliberate: the seeder reads the **raw**
 corrected instant and does **not** apply the app's `DATE_TAG_HOUR_OFFSET`
@@ -520,9 +507,10 @@ rule accepts the seeder's raw pair *and* the app's shifted pair. Without that, e
 photo captured before 03:00 local would have its app-written date tag judged stale
 and deleted on the next run — the exact photos the offset exists to serve. When the
 offset is not supplied at all (`HourOffset` nil, which is every exported
-`seed.SeedWeekOfPhotos` / `seed.TagExistingPhotos` caller) the cleanup keeps *every*
+`seed.SeedWeekOfPhotos` / `seed.SeedLastWeekPhotos` caller) the cleanup keeps *every*
 calendar name instead, because an imprecise keep costs a stale tag surviving one run
-while an imprecise delete loses the tag for good.
+while an imprecise delete loses the tag for good. `seed.TagExistingPhotos` takes the
+offset directly.
 
 ### Stale reserved tags are cleared on every run
 
@@ -543,13 +531,17 @@ it decides by name:
 | `internal` anywhere else | deleted |
 | anything not in the reserved set | untouched |
 
-The photo's own date and weekday are read from the instant as it comes back out
-of Postgres, **not** normalised into the window's location — so a window carrying
-an explicit offset does not agree with them, and the loader's own calendar tags
-are deleted rather than kept. See
-[Where the calendar names come from](#where-the-calendar-names-come-from) for a
-reproduction. That is the one place where the cleanup is stricter than intended;
-everything else about it behaves as the table says.
+Both date rows are read in the window's own location, the same place the loader and
+the backfill write them, so an explicit offset in a bound cannot make the cleanup
+disagree with the writer. A photo read back out of Postgres arrives in `time.Local`
+and that arrival zone is never used.
+
+**`TagExistingPhotos` needs the offset.** It takes `hourOffset *int`; pass
+`DATE_TAG_HOUR_OFFSET` (the app's default is `-3`) to get the table above. Pass `nil`
+and every calendar name in the project's reserved set is kept, which is safe but
+cleans nothing — the wrong reading is never guessed at, because an imprecise keep
+costs a stale tag surviving one more run while an imprecise delete loses the tag for
+good.
 
 **Why it deletes rather than documenting the divergence:** `internal/exif/inject.go`
 strips `internal` from every export, so a photo left holding it is excluded from
@@ -619,7 +611,7 @@ manifest, 43 distinct, 43 rows in `images`.
 ## Guardrails and limits
 
 The photo ceilings are measured, not guessed: 15 023 photos seeded in 2m50s on the
-dev machine. The soft ceiling sits an order of magnitude above a comfortable run
+dev machine. The soft ceiling sits about three times above a comfortable run
 (50 000) and the hard ceiling well beyond anything a dev database needs (250 000).
 **Raise them with measurement, never with optimism.** The 365-day window ceiling is
 measured the same way — see [The window](#the-window).

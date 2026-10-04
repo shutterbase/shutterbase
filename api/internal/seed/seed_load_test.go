@@ -457,7 +457,7 @@ func TestTagExistingPhotosRebuildsTheJSONBReadModel(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, before)
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, time.Now()))
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, time.Now(), cleanupOffset()))
 
 	after, err := c.Image.Query().Where(image.ProjectID(m.Project)).All(ctx)
 	require.NoError(t, err)
@@ -504,7 +504,7 @@ func TestTagExistingPhotosVariesTagsPerImage(t *testing.T) {
 	const bare = 400
 	bareIDs := insertBareImages(t, c, m, bare)
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, time.Now()))
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, time.Now(), cleanupOffset()))
 
 	distinct := map[string]int{}
 	used := map[string]int{}

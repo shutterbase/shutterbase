@@ -140,7 +140,7 @@ func TestBackfillWithoutAPinLeavesTaggedPhotosAlone(t *testing.T) {
 
 	// First pass does the work; the snapshot is taken after it so the second pass is
 	// measured on its own, not on the tags it was always going to add.
-	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, now))
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, now, cleanupOffset()))
 	rows, err := c.Image.Query().Where(image.ProjectID(m.Project)).All(ctx)
 	require.NoError(t, err)
 	before := make(map[string]int, len(rows))
@@ -148,7 +148,7 @@ func TestBackfillWithoutAPinLeavesTaggedPhotosAlone(t *testing.T) {
 		before[img.ID] = len(img.ImageTags)
 	}
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, now))
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, now, cleanupOffset()))
 	after, err := c.Image.Query().Where(image.ProjectID(m.Project)).All(ctx)
 	require.NoError(t, err)
 	require.Len(t, after, len(rows))
@@ -254,7 +254,7 @@ func TestExportedBackfillDatesEveryPhotoItFinds(t *testing.T) {
 	require.NoError(t, err)
 	bare := insertBareImages(t, c, m, 40)
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, refNow))
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, refNow, cleanupOffset()))
 
 	for _, id := range bare {
 		img, err := c.Image.Get(ctx, id)
@@ -274,7 +274,7 @@ func TestExportedBackfillDatesEveryPhotoItFinds(t *testing.T) {
 		return n
 	}
 	before := countTags()
-	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, refNow))
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, refNow, cleanupOffset()))
 	after := countTags()
 	assert.Equal(t, before, after, "a re-run must not create another copy of a calendar tag")
 }
@@ -300,7 +300,7 @@ func TestBackfillSkipsPhotosWithoutACaptureInstant(t *testing.T) {
 		Save(ctx)
 	require.NoError(t, err)
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, refNow))
+	require.NoError(t, seed.TagExistingPhotos(ctx, c, m, refNow, cleanupOffset()))
 
 	img, err := c.Image.Get(ctx, undated.ID)
 	require.NoError(t, err)

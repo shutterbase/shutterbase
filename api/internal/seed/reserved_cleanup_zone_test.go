@@ -36,7 +36,11 @@ func TestKeptReservedTagNamesFormatsInTheLocationItIsGiven(t *testing.T) {
 		CapturedAtCorrected: &asUTC,
 	}
 
-	keep := keptReservedTagNames(img, zone, nil)
+	// An explicit zero offset, not nil: this test is about the ZONE, and nil now means
+	// "keep every calendar name", which by design keeps the UTC reading too. The nil
+	// branch has its own test.
+	zero := 0
+	keep := keptReservedTagNames(img, reservedCal(), zone, &zero)
 	assert.Contains(t, keep, DayTagName(local),
 		"the photo's own day in the WINDOW's zone must be kept, or the cleanup deletes the tag the loader just wrote")
 	assert.Contains(t, keep, WeekdayTagName(local),
@@ -53,7 +57,7 @@ func TestKeptReservedTagNamesFormatsInTheLocationItIsGiven(t *testing.T) {
 	assert.NotContains(t, keep, internalTagName, "a bulk photo must not keep internal")
 
 	base := &ent.Image{ComputedFileName: "FSG_0002.jpg", CapturedAtCorrected: &asUTC}
-	assert.Contains(t, keptReservedTagNames(base, zone, nil), internalTagName,
+	assert.Contains(t, keptReservedTagNames(base, reservedCal(), zone, &zero), internalTagName,
 		"Seed puts internal on the base fixture deliberately; an e2e spec counts on it")
 }
 
@@ -72,7 +76,7 @@ func TestKeptReservedTagNamesAlsoKeepsTheAppsShiftedReading(t *testing.T) {
 
 	img := &ent.Image{ComputedFileName: "FSG_LW00000.jpg", CapturedAtCorrected: &local}
 
-	keep := keptReservedTagNames(img, zone, &appOffset)
+	keep := keptReservedTagNames(img, reservedCal(), zone, &appOffset)
 	assert.Contains(t, keep, DayTagName(local), "the seeder's own reading must be kept")
 	assert.Contains(t, keep, DayTagName(local.Add(time.Duration(appOffset)*time.Hour)),
 		"the APP's reading must also be kept — without it the cleanup deletes the tag an upload wrote")
@@ -88,4 +92,41 @@ func TestKeptReservedTagNamesAlsoKeepsTheAppsShiftedReading(t *testing.T) {
 
 	// A date tag that is neither reading is still stale, or the rule keeps everything.
 	assert.NotContains(t, keep, "19990101", "an unrelated date name must still be treated as stale")
+}
+
+// reservedCal is a stand-in for the project's reserved id->name map, which
+// keptReservedTagNames needs so that "keep every calendar name" can mean every
+// calendar name IN THAT SET rather than an unbounded wildcard.
+func reservedCal() map[string]string {
+	m := map[string]string{"d": defaultTagName, "i": internalTagName}
+	for _, d := range []string{"20261003", "20261004"} {
+		m[d] = d
+	}
+	for _, w := range []string{"Saturday", "Sunday", "Thursday"} {
+		m[w] = w
+	}
+	return m
+}
+
+// The comment on keptReservedTagNames claims a nil hourOffset keeps EVERY calendar
+// name, so that an unknown offset cannot delete a tag. The code kept only the
+// seeder's own raw reading — the precise-looking choice, and the one that loses
+// data. This pins the claim: with no offset, every calendar name in the project's
+// reserved set survives, including the app's shifted reading and a name that is
+// neither reading at all.
+func TestNilHourOffsetKeepsEveryCalendarName(t *testing.T) {
+	zone := time.FixedZone("UTC+02:00", 2*3600)
+	local := time.Date(2026, 10, 4, 1, 30, 0, 0, zone)
+	img := &ent.Image{ComputedFileName: "FSG_LW00000.jpg", CapturedAtCorrected: &local}
+
+	keep := keptReservedTagNames(img, reservedCal(), zone, nil)
+	for _, name := range []string{"20261003", "20261004", "Saturday", "Sunday", "Thursday"} {
+		assert.Contains(t, keep, name,
+			"with no offset every calendar name in the reserved set must be kept — a guess here deletes a tag for good")
+	}
+	assert.Contains(t, keep, defaultTagName)
+
+	// internal is NOT a calendar name, so "keep every calendar name" must not become
+	// "keep everything" — the internal draw is the assignment that costs the most.
+	assert.NotContains(t, keep, internalTagName)
 }

@@ -160,7 +160,7 @@ func TestBackfillClearsReservedTagAssignmentsLeftByAnOlderBuild(t *testing.T) {
 	ctx := context.Background()
 	f := newLegacyFixture(t)
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow))
+	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow, cleanupOffset()))
 
 	for _, tc := range []struct {
 		img   *ent.Image
@@ -224,12 +224,12 @@ func TestReservedTagCleanupIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 	f := newLegacyFixture(t)
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow))
+	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow, cleanupOffset()))
 	require.NotContains(t, tagNames(t, f.client, f.painted.ID), "internal",
 		"fixture is wrong: the first run left the stale assignment in place")
 	afterFirst := snapshotProject(t, f.client, f.manifest.Project)
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow))
+	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow, cleanupOffset()))
 	assert.Equal(t, afterFirst, snapshotProject(t, f.client, f.manifest.Project),
 		"a second backfill changed the project — the cleanup is not convergent")
 }
@@ -265,7 +265,7 @@ func TestReservedTagCleanupIsScopedToItsOwnProject(t *testing.T) {
 			legacyTag(t, f.client, other.ID, staleDayTagName, imagetag.TypeDefault),
 		})
 
-	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow))
+	require.NoError(t, seed.TagExistingPhotos(ctx, f.client, f.manifest, f.refNow, cleanupOffset()))
 
 	assert.ElementsMatch(t, []string{"internal", staleDayTagName},
 		uniqueSorted(tagNames(t, f.client, otherImg.ID)),
@@ -303,3 +303,8 @@ func snapshotProject(t *testing.T, c *ent.Client, projectID string) []string {
 	}
 	return out
 }
+
+// cleanupOffset is the app's DATE_TAG_HOUR_OFFSET default, which the cleanup needs
+// to tell a stale calendar name from the photo's own. nil would keep every calendar
+// name and clean nothing.
+func cleanupOffset() *int { h := -3; return &h }

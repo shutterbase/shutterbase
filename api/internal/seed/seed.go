@@ -1442,8 +1442,12 @@ func assignMissingTagAssignments(ctx context.Context, tx *ent.Tx, imageID string
 // resolved per photo from its own instant instead (see photoCalendarTags), which
 // needs no window at all. referenceNow stays in the signature for the callers that
 // already pass it; the per-photo path reads nothing from it.
-func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, salt ...int64) error {
-	return tagExistingPhotos(ctx, client, m, 0, nil, nil, nil, nil, "", salt...)
+// hourOffset is the app's DATE_TAG_HOUR_OFFSET, as in LoadOptions.HourOffset: the
+// cleanup cannot tell a stale calendar name from the app's own without it, and
+// without it every calendar name is kept — safe, but no cleanup. Exposed rather
+// than defaulted so a caller that wants the cleanup to actually clean can say so.
+func TagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, referenceNow time.Time, hourOffset *int, salt ...int64) error {
+	return tagExistingPhotos(ctx, client, m, 0, nil, nil, time.Local, hourOffset, "", salt...)
 }
 
 // tagExistingPhotos with extrasPerPhoto 0 keeping the 30/50/20 split; see
@@ -1764,7 +1768,7 @@ func reservedTagIDsByName(ctx context.Context, client *ent.Client, projectID str
 // reads it for exactly this purpose, and a stale id cannot hide in one and not the
 // other unless something has already corrupted the pair.
 func staleReservedTagIDs(img *ent.Image, reserved map[string]string, loc *time.Location, hourOffset *int) []string {
-	keep := keptReservedTagNames(img, loc, hourOffset)
+	keep := keptReservedTagNames(img, reserved, loc, hourOffset)
 	var stale []string
 	for _, id := range img.ImageTags {
 		name, isReserved := reserved[id]
@@ -1787,7 +1791,7 @@ func staleReservedTagIDs(img *ent.Image, reserved map[string]string, loc *time.L
 // no rule below is treated as stale wherever it is found. That is the right way round
 // to be wrong: the current build rewrites what it owns on the same pass that cleared
 // it, so a missing rule costs a tag rather than a photo.
-func keptReservedTagNames(img *ent.Image, loc *time.Location, hourOffset *int) map[string]struct{} {
+func keptReservedTagNames(img *ent.Image, reserved map[string]string, loc *time.Location, hourOffset *int) map[string]struct{} {
 	keep := map[string]struct{}{
 		// Every photo, by every create path: Seed writes it, createTagAssignments
 		// writes it, and the backfill passes defaultTag "" precisely because it is
@@ -1819,14 +1823,18 @@ func keptReservedTagNames(img *ent.Image, loc *time.Location, hourOffset *int) m
 	// with no flag to stop it. Those are exactly the late-event photos the offset
 	// exists to serve.
 	//
-	// A nil hourOffset means "the offset is unknown", which is the exported
-	// TagExistingPhotos path where no config was read. Then every calendar name is
-	// kept: an imprecise keep costs a stale tag surviving one more run, whereas an
-	// imprecise DELETE loses data with no way to get it back.
+	// A nil hourOffset means "the offset is unknown" — the exported
+	// TagExistingPhotos / Seed* paths, which read no config. Then EVERY calendar name
+	// is kept, not just the seeder's own reading: an imprecise keep costs a stale tag
+	// surviving one more run, whereas an imprecise DELETE loses data with no way to
+	// get it back. Naming one reading when the other might be the right one is the
+	// precise-looking choice that loses data.
 	if at := img.CapturedAtCorrected; at != nil {
 		if hourOffset == nil {
-			for _, name := range calendarTagNamesFor(*at, loc) {
-				keep[name] = struct{}{}
+			for _, name := range reserved {
+				if CalendarTagPrefix(name) {
+					keep[name] = struct{}{}
+				}
 			}
 		} else {
 			for _, name := range calendarTagNamesFor(*at, loc) {
