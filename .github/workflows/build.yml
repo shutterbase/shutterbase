@@ -225,5 +225,17 @@ jobs:
         run: |
           docker pull $WASM_BUILDER_IMAGE:latest
           docker build --platform=linux/amd64 -t $DOCKER_IMAGE_URL:${GITHUB_SHA::8} .
-          docker push $DOCKER_IMAGE_URL:${GITHUB_SHA::8}
+
+      # Publishing is privileged work, and a fork PR's GITHUB_TOKEN is read-only for
+      # the org's packages — `docker push` would fail with "denied: installation not
+      # allowed to Write organization package" AFTER the build succeeded, leaving a
+      # permanently red job whose actual work passed. Scoping DOCKER_IMAGE_URL to this
+      # repo does not help: GHCR package permissions are inherited org-wide.
+      #
+      # The build above is NOT skipped. That it compiles and assembles is the signal
+      # worth having on a fork PR, and it is exactly the signal that would have caught
+      # the wasm MSRV drift.
+      - name: Push
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: docker push $DOCKER_IMAGE_URL:${GITHUB_SHA::8}
 
