@@ -6,10 +6,10 @@ facets and the slideshow have structure to render instead of three rows.
 
 It is not the test fixture builder. `seed.Seed` (internal/seed) creates the
 smallest deterministic set a test needs to be deterministic — one project, one
-upload, three images — and that is what the Go tests and `cmd/testserver` (the
-Playwright harness) call directly. `cmd/seed` calls `seed.Seed` first and then
-hands the returned manifest to the bulk loaders (`seed.LoadPhotos`) when you ask
-for photos.
+upload, three images — and that is what the Go tests and `cmd/testserver` call
+directly, the latter through the `test/harness` wrapper. `cmd/seed` calls
+`seed.Seed` first and then hands the returned manifest to the bulk loaders
+(`seed.LoadPhotos`) when you ask for photos.
 
 The loaders write through the raw ent client and **never go through the upload
 pipeline**: no WASM, no S3 upload, no thumbnail generation, no AI queue, and no
@@ -117,7 +117,7 @@ the hard ceiling whatever `--force` says.
 | Fractional `d` offset | a `d` offset that is not a whole number of days | `--from: "-1.5d" is not a whole number of days: the d offset is applied as a whole number of days, so -1.5d would quietly mean -1d and -0.5d an empty window — spell the fraction in hours as -36h instead` | window |
 | Zero offset | `-0d`, `-0.0d`, `-0h` or `-0m` | `--from: "-0d" is a zero offset: this bound would land on the other one and leave an empty window — drop the flag for the default 7-day window, or pass an offset that is not zero, like -7d` (the prefix names the bound actually passed, so a zero on `--to` reads `--to:`) | window |
 | Window shape | `--to` before `--from`, or equal to it | `window ends -96h0m0s before it starts: 2026-03-05 00:00:00 +0000 UTC .. 2026-03-01 00:00:00 +0000 UTC`, and for the equal case `window is empty: 2026-03-05 00:00:00 +0000 UTC .. 2026-03-05 00:00:00 +0000 UTC` | window |
-| Future window | `--to` lands after now, without `--force` | `window ends 24h0m0s in the future (2026-10-04T12:00:00Z > 2026-10-03T12:00:00Z) — pass --force to seed it anyway` | future window |
+| Future window | `--to` lands after now, without `--force` | `window ends 24h0m0s in the future (2026-10-04T12:00:00+02:00 > 2026-10-03T12:00:00+02:00) — pass --force to seed it anyway` | future window |
 | Window length | the window spans more than 365 days, without `--force` | `window spans 366 days (2015-01-01T00:00:00Z .. 2016-01-02T00:00:00Z) — 367 calendar tags to write, all in ONE transaction that holds image_tags locks until it commits — past the ceiling of 365 days; pass --force to seed it anyway, or narrow --from/--to` | window length |
 | Soft ceiling | `--photos` above 50 000 without `--force` | `60000 photos exceeds the soft ceiling of 50000; pass --force to proceed anyway` | photo ceiling |
 | Hard ceiling | `--photos` above 250 000, with or without `--force` | `300000 photos exceeds the hard ceiling of 250000 — refusing regardless of --force` | photo ceiling |
@@ -273,11 +273,18 @@ does not bound this: a window is walked once per calendar date it spans, whateve
 date tags. Base fixture plus 100 photos held constant, measured on the dev machine
 against Postgres 18 over localhost:
 
-| Window | Wall clock | Calendar tags | Where the time went |
+| Window | Wall clock | Window date tags | Where the time went |
 |---|---|---|---|
 | 7 days | 2.05s | 8 | — |
 | 365 days | 2.95s | 366 | +0.9s inside the calendar transaction |
 | 3 900 days | 17.63s | 3 901 | +15.6s inside **one** transaction holding `image_tags` row locks from the first INSERT to the COMMIT |
+
+Those count the **window's** dates only. On a database that already holds the base
+fixture, the tag backfill also resolves a date for every pre-existing photo it can
+date, including the three `FSG_0000.jpg`..`FSG_0002.jpg` images — which are dated
+now, so their date tag lands outside a window that ended earlier. Verified: a
+`--from -10d --to -8d` run on a seeded database left 12 date tags behind for a
+3-date window.
 
 The wall clock matters less than the lock: the walk holds `image_tags` locks for
 its whole duration, so it blocks the app's own tag writes and reports nothing
@@ -629,8 +636,10 @@ fails leaves photos created without assignment rows, which the assignment
 backfill makes safe to resume — re-run the same command.
 
 What a run writes per photo: one `images` row (with its denormalized `imageTags`
-read model), one `type=default` assignment for `Default`, and one
-`type=manual` assignment per extra tag. Two names stay untouched by
+read model), one `type=default` assignment for `Default`, and one `type=manual`
+assignment per extra tag — which includes the date and weekday, not just the pool
+tags. Measured: a photo carries 4-5 assignments, 1 `default` and 3-4 `manual`. Two
+names stay untouched by
 deliberation. The `internal` tag, which `seed.Seed` puts on the third base image
 so it stays in the gallery but reaches neither a slideshow nor an EXIF export, is
 kept **on `FSG_0000.jpg`..`FSG_0002.jpg` only** and deleted everywhere else — see
