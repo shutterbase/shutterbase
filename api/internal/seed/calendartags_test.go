@@ -23,7 +23,7 @@ func TestLoadedPhotosCarryTheirDayAndWeekday(t *testing.T) {
 	now := time.Now()
 	m, err := seed.Seed(ctx, c, now)
 	require.NoError(t, err)
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 120))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 120, seed.ShapeBurst))
 
 	imgs, err := c.Image.Query().
 		Where(image.ComputedFileNameHasPrefix("FSG_LW")).
@@ -71,7 +71,7 @@ func TestReRunWithShiftedWindowDoesNotRetagTheDate(t *testing.T) {
 	require.NoError(t, err)
 
 	w := seed.SevenDaysEndingAt(now)
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, w, 40))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, w, 40, seed.ShapeUniform))
 
 	before := map[string][]string{}
 	for _, img := range loadPhotos(t, c, "FSG_W") {
@@ -79,7 +79,7 @@ func TestReRunWithShiftedWindowDoesNotRetagTheDate(t *testing.T) {
 	}
 
 	// Same photos, window shifted three days forward.
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), 40))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), 40, seed.ShapeUniform))
 
 	for _, img := range loadPhotos(t, c, "FSG_W") {
 		assert.ElementsMatch(t, before[img.ComputedFileName], img.ImageTags,

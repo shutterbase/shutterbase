@@ -308,7 +308,7 @@ func TestAWindowCrossingMidnightGivesItsLastDayPhotosADateTag(t *testing.T) {
 	w := seed.Window{From: at.Add(-time.Hour), To: at.Add(time.Hour)}
 	m, err := seed.Seed(ctx, c, at)
 	require.NoError(t, err)
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, w, 3))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, w, 3, seed.ShapeBurst))
 
 	imgs, err := c.Image.Query().All(ctx)
 	require.NoError(t, err)

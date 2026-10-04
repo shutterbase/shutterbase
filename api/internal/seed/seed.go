@@ -484,9 +484,9 @@ func (m *Manifest) Write(path string) error {
 type Shape string
 
 const (
-	// ShapeBurst is the 7-days x 5-events-per-day model the loaders were built
-	// around: organic-looking clusters with quiet gaps between them, which is
-	// what makes the time-range density strip worth looking at.
+	// ShapeBurst is the five-events-per-day model the seeder was built around:
+	// organic-looking clusters with quiet gaps between them, which is what makes
+	// the time-range density strip worth looking at.
 	ShapeBurst Shape = "burst"
 	// ShapeUniform spreads photos evenly across the window. Useful when the
 	// point is a predictable count per time span rather than a realistic shoot.
@@ -568,14 +568,15 @@ func LoadPhotos(ctx context.Context, client *ent.Client, m *Manifest, opts LoadO
 	for name, id := range cal {
 		recordTag(m, name, id)
 	}
-	switch opts.Shape {
-	case ShapeUniform:
-		return seedWeekOfPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.HourOffset, opts.Seed)
-	case ShapeBurst, "":
-		return seedLastWeekPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.HourOffset, opts.Seed)
+	shape := opts.Shape
+	switch shape {
+	case ShapeUniform, ShapeBurst:
+	case "":
+		shape = ShapeBurst // the historical default: clusters, not even spacing
 	default:
 		return fmt.Errorf("unknown shape %q", opts.Shape)
 	}
+	return seedPhotos(ctx, client, m, window, opts.Count, opts.TagCount, pool, cal, opts.HourOffset, shape, opts.Seed)
 }
 
 // defaultReferenceNow is the instant a default window ends at: the manifest's own
@@ -1142,36 +1143,202 @@ func rebuildImageTagsJSON(ctx context.Context, tx *ent.Tx, imageID string) error
 	return nil
 }
 
-// SeedWeekOfPhotos creates `count` photos with capturedAtCorrected spread
-// evenly across the given window — the newest on window.To, the oldest on
-// window.From — so nothing is dated beyond the end of the range. Used for
-// load-testing the time-range slider density ticks. Each photo gets the Default
-// tag plus 1-3 random extra tags drawn from the project's generated team tags
-// and Tag00-Tag09. Idempotent: photos that already exist (matched by
-// computedFileName, WITHIN this project) are skipped — their id stays on the
-// manifest, recorded once — as are tag assignments that are already in place.
+// photoLayout returns the capture instant for each of `count` photos, spread across
+// the window according to `shape`.
+//
+// This is the ONLY part of a load that differs between shapes. Everything downstream
+// — the name space, the chunked insert, the tag assignment, the top-up of photos
+// from an earlier run, the backfill — is shared, which is the point: the two loaders
+// used to be separate functions and drifted, one of them giving 298 of 300 photos
+// another photo's tag set because its insert indexed a compacted result by position.
+//
+// Nothing here reads the wall clock. Every draw is keyed by an index, so the layout
+// for 0..N-1 depends only on the window, the shape, the count and the salt.
+func photoLayout(window Window, count int, shape Shape, salt []int64) []time.Time {
+	correcteds := make([]time.Time, 0, count)
+	if shape == ShapeUniform {
+		// Dividing by (count-1), not count, so the photos land ON both bounds: with
+		// span/count the oldest photo stops one interval short of From, leaving a gap
+		// at the far end of the window that widens as the count drops. A single photo
+		// sits at the newest end, since a zero interval is not a division.
+		//
+		// Backwards from the window end: i=0 is the newest photo, the oldest lands on
+		// window.From. Spreading forwards from the start would date every photo in the
+		// future whenever the window ends now, which EXIF export, slideshows and
+		// recency ordering all read.
+		interval := time.Duration(0)
+		if count > 1 {
+			interval = window.To.Sub(window.From) / time.Duration(count-1)
+		}
+		for i := range count {
+			correcteds = append(correcteds, window.To.Add(-time.Duration(i)*interval))
+		}
+		return correcteds
+	}
 
-// salt is the optional run seed (--seed). Variadic so the existing call sites and
-// their tests are untouched: a loader called without one behaves exactly as
-// before. See saltedIndexSeed for why the default draw is already reproducible.
-// extrasPerPhoto is the optional pinned extra-tag count (--tag-count); 0 keeps
-// the 30/50/20 split.
-func SeedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count int, salt ...int64) error {
-	return seedWeekOfPhotos(ctx, client, m, window, count, 0, nil, nil, nil, salt...)
+	// Burst: five golden-hour events per day, each a cluster of photos over 30-90
+	// minutes, with quiet gaps between them. That is what makes the time-range
+	// density strip worth looking at.
+	//
+	// Events favour golden hours: 6-9am, 5-8pm, plus some midday.
+	goldenHours := [5]int{7, 8, 17, 18, 12}
+	weekStart, days := window.From, window.Days()
+	// The clock time of a burst centre, and the width of a burst, are fractions of
+	// the window's own day rather than fixed hours and minutes — see burstDayScale
+	// for why, and for what it leaves alone.
+	dayScale := burstDayScale(window, days)
+
+	type burst struct {
+		center   time.Time
+		duration time.Duration
+		count    int
+	}
+	var bursts []burst
+	for d := 0; d < days; d++ {
+		dayStart := weekStart.AddDate(0, 0, d)
+		for e := range goldenHours {
+			// Keyed by (day, event), and still the SAME draw as before the merge: the
+			// scale is applied to the values this stream produces, so the layout for a
+			// given window is as reproducible as it ever was.
+			rng := rngFor(saltedIndexSeed("LWL", d*len(goldenHours)+e, saltOf(salt)))
+			jitter := time.Duration(rng.Intn(60)) * time.Minute
+			center := dayStart.Add(scaledDuration(time.Duration(goldenHours[e])*time.Hour+jitter, dayScale))
+			duration := scaledDuration(time.Duration(30+rng.Intn(60))*time.Minute, dayScale)
+			burstCount := 10 + rng.Intn(40) // 10-49 photos per burst
+			bursts = append(bursts, burst{center: center, duration: duration, count: burstCount})
+		}
+	}
+
+	// Normalise burst counts to EXACTLY `count`. Plain per-burst truncation threw the
+	// remainder away, so a run seeded fewer photos than asked and the shortfall came
+	// out of the tail — starving the most recent day, which is the range the
+	// time-range slider opens on by default.
+	//
+	// Fewer photos than bursts is a different case entirely: the "at least one per
+	// burst" floor then makes every count 1, the fix-up below cannot decrement, and
+	// the imgIdx cap would take every photo from the OLDEST bursts — reintroducing the
+	// exact starvation this fixes. Drop bursts instead, keeping the largest.
+	if count < len(bursts) {
+		sort.SliceStable(bursts, func(a, b int) bool { return bursts[a].count > bursts[b].count })
+		bursts = bursts[:count]
+	}
+	total := 0
+	for _, b := range bursts {
+		total += b.count
+	}
+	order := make([]int, len(bursts))
+	scaled := make([]float64, len(bursts))
+	assigned := 0
+	for i, b := range bursts {
+		order[i] = i
+		scaled[i] = float64(b.count) * float64(count) / float64(total)
+		bursts[i].count = int(scaled[i])
+		assigned += bursts[i].count
+	}
+	// Largest-remainder apportionment: the floors above lose up to one photo per
+	// burst, so hand the leftovers to the bursts with the biggest fractional claim
+	// first. sum(scaled) == count, so the floors can only ever UNDER-count and a
+	// decrement is unreachable — the old `else if` branch was dead code that made
+	// the loop look self-correcting when it cannot overshoot.
+	sort.SliceStable(order, func(a, b int) bool {
+		return math.Mod(scaled[order[a]], 1) > math.Mod(scaled[order[b]], 1)
+	})
+	for _, i := range order {
+		if assigned == count {
+			break
+		}
+		bursts[i].count++
+		assigned++
+	}
+
+	for bIdx, b := range bursts {
+		for slot := 0; slot < b.count && len(correcteds) < count; slot++ {
+			// Photos distributed around the burst centre with a slight skew toward the
+			// start, drawn from the (burst, slot) stream — not a running one, for the
+			// reproducibility reason above.
+			offset := time.Duration(rngFor(saltedBurstSeed(bIdx, slot, saltOf(salt))).Float64()*float64(b.duration)) - b.duration/2
+			corrected := b.center.Add(offset)
+			if corrected.Before(weekStart) {
+				corrected = weekStart
+			}
+			if corrected.After(window.To) {
+				corrected = window.To
+			}
+			correcteds = append(correcteds, corrected)
+		}
+	}
+	return correcteds
 }
 
-// pool is the resolved draw pool, nil when the caller has none: this loader then
-// resolves the tag set itself, the same way it resolves its own calendar tags.
-func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, hourOffset *int, salt ...int64) error {
-	// The identities are checked before anything is created: unlike a missing
-	// tag there is no partial recovery from them, and a failure after the tags
-	// were ensured leaves rows behind for a run that was never going to finish.
+// nameSpace is the per-shape naming of a photo population: the computedFileName the
+// loader dedupes on, the fileName, the storageId prefix, and the string that seeds
+// its per-photo tag draw.
+//
+// The letters are historical — "W" was SeedWeekOfPhotos, "LW" SeedLastWeekPhotos,
+// and neither seeds a week any more. They are kept because the name IS the
+// idempotency key: changing one would make every already-seeded database re-seed
+// itself on the next run.
+//
+// A consequence worth knowing, because it reads like a bug and is not:
+// `--shape uniform` then `--shape burst` seeds TWO populations (FSG_W00000.. and
+// FSG_LW00000..), so 2000 then 2000 is 4000 photos. Shape chooses both the
+// distribution and the name space.
+type nameSpace struct {
+	computed  string // fmt verb suffix, e.g. "FSG_W%05d.jpg"
+	file      string
+	storage   string // fmt verb suffix, e.g. "seedwk%08d"
+	tagSeed   string
+	ownPrefix string
+}
+
+func nameSpaceFor(shape Shape) nameSpace {
+	if shape == ShapeUniform {
+		return nameSpace{"FSG_W%05d.jpg", "WEEK_%05d.jpg", "seedwk%08d", "W", "FSG_W"}
+	}
+	return nameSpace{"FSG_LW%05d.jpg", "LW_%05d.jpg", "seedlw%08d", "LW", "FSG_LW"}
+}
+
+// seedPhotos fills the project with `count` photos spread across `window` by `shape`,
+// each carrying Default plus extrasPerPhoto pool tags (0 keeps the 30/50/20 split)
+// and its own date and weekday. pool is the resolved draw pool, nil when the caller
+// has none: this loader then resolves the tag set itself, the same way it resolves
+// its own calendar tags. cal is the caller's calendar tags, reused as the resolver's
+// cache. hourOffset is the app's DATE_TAG_HOUR_OFFSET, needed by the cleanup the
+// backfill runs; nil keeps every calendar name instead of guessing at one.
+//
+// Idempotent: photos that already exist (matched by computedFileName, WITHIN this
+// project) are skipped — their id stays on the manifest, recorded once — as are tag
+// assignments that are already in place.
+//
+// salt is the optional run seed (--seed), variadic so a caller that omits it behaves
+// exactly as before.
+// SeedPhotos is one bulk load of `count` photos at `shape`: the exported entry for
+// driving a single shape directly, without the tag-set creation, the default window
+// and the count<=0 short-circuit that LoadPhotos layers on top. cmd/seed goes
+// through LoadPhotos; this is what a caller that already has a project and a window
+// wants.
+//
+// count must be positive. The 10000/5000 defaults the two separate loaders carried
+// are gone: LoadPhotos returns early for a non-positive count, so they were only
+// reachable through wrappers no production code called, and a silent ten thousand is
+// a worse surprise than a refusal.
+func SeedPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count int, shape Shape, salt ...int64) error {
+	if count <= 0 {
+		return fmt.Errorf("seed photos: count must be positive, got %d", count)
+	}
+	return seedPhotos(ctx, client, m, window, count, 0, nil, nil, nil, shape, salt...)
+}
+
+func seedPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, hourOffset *int, shape Shape, salt ...int64) error {
+	// The identities are checked before anything is created: unlike a missing tag
+	// there is no partial recovery from them, and a failure after the tags were
+	// ensured leaves rows behind for a run that was never going to finish.
 	if err := requireFixtureIdentities(ctx, client, m); err != nil {
-		return fmt.Errorf("seed week of photos: %w", err)
+		return fmt.Errorf("seed photos: %w", err)
 	}
 	defaultTag, err := requireDefaultTag(m.Tags)
 	if err != nil {
-		return fmt.Errorf("seed week of photos: %w", err)
+		return fmt.Errorf("seed photos: %w", err)
 	}
 	if pool == nil {
 		if pool, err = resolveTagPool(ctx, client, m, nil); err != nil {
@@ -1181,149 +1348,132 @@ func seedWeekOfPhotos(ctx context.Context, client *ent.Client, m *Manifest, wind
 	if cal, err = ensureCalendarTags(ctx, client, m, window, cal); err != nil {
 		return err
 	}
-	if count <= 0 {
-		count = 10000
-	}
 	freshCam := m.Cameras["fresh"]
 	editor := m.Users["projectEditor"]
 	upload := m.Upload
 	project := m.Project
 
 	if err := window.Validate(); err != nil {
-		return fmt.Errorf("seed week of photos: %w", err)
+		return fmt.Errorf("seed photos: %w", err)
 	}
-	// Dividing by (count-1), not count, so the photos land ON both bounds: with
-	// span/count the oldest photo stops one interval short of From, leaving a gap
-	// at the far end of the window that widens as the count drops. A single photo
-	// sits at the newest end, since a zero interval is not a division.
-	interval := time.Duration(0)
-	if count > 1 {
-		interval = window.To.Sub(window.From) / time.Duration(count-1)
-	}
+	ns := nameSpaceFor(shape)
+	correcteds := photoLayout(window, count, shape, salt)
 
 	names := make([]string, count)
 	for i := range count {
-		names[i] = fmt.Sprintf("FSG_W%05d.jpg", i)
+		names[i] = fmt.Sprintf(ns.computed, i)
 	}
 	existing, existingTimes, err := existingFileNames(ctx, client, project, names)
 	if err != nil {
 		return err
 	}
-	logLoadVolume("week", names, existing, extrasPerPhoto, len(pool))
+	logLoadVolume(string(shape), names, existing, extrasPerPhoto, len(pool))
 
-	// Backwards from the window end: i=0 is the newest photo, the oldest lands on
-	// window.From. Spreading forwards from the start would date every photo in the
-	// future whenever the window ends now, which EXIF export, slideshows and
-	// recency ordering all read.
-	correcteds := make([]time.Time, count)
-	for i := range count {
-		correcteds[i] = window.To.Add(-time.Duration(i) * interval)
-	}
-	// Per-photo tag sets are derived from the photo's own index, never from a
-	// running rng or the wall clock: cmd/seed passes a fresh time.Now() on every
-	// run, so a stateful draw re-drew a DIFFERENT set each re-run and kept
-	// appending tags until every photo carried all ten.
+	// Per-photo tag sets are derived from the photo's own index, never from a running
+	// rng or the wall clock: cmd/seed passes a fresh time.Now() on every run, so a
+	// stateful draw re-drew a DIFFERENT set each re-run and kept appending tags until
+	// every photo carried all ten.
 	extras := make([][]string, count)
 	for i := range count {
 		extras[i] = withCalendarTags(
-			photoExtrasFixed(rngFor(saltedIndexSeed("W", i, saltOf(salt))), pool, extrasPerPhoto),
+			photoExtrasFixed(rngFor(saltedIndexSeed(ns.tagSeed, i, saltOf(salt))), pool, extrasPerPhoto),
 			cal, correcteds[i], window.From.Location())
 	}
 
-	batch := make([]int, 0, seedBulkChunk)
-
-	flush := func() error {
-		if len(batch) == 0 {
-			return nil
-		}
-		builders := make([]*ent.ImageCreate, 0, len(batch))
-		for _, idx := range batch {
-			allTags := append([]string{defaultTag}, extras[idx]...)
+	// Precompute the whole batch so the photos land in ONE set of bulk inserts
+	// instead of ~5 statements per photo.
+	for start := 0; start < len(names); start += seedBulkChunk {
+		end := min(start+seedBulkChunk, len(names))
+		builders := make([]*ent.ImageCreate, 0, end-start)
+		// The index of names/extras/correcteds each builder was built from.
+		// `created` is COMPACTED (existing names are skipped above) while those
+		// slices are not, so created[k] is names[from[k]] — indexing them by position
+		// gave 298 of 300 photos another photo's tag set.
+		from := make([]int, 0, end-start)
+		for i := start; i < end; i++ {
+			if _, ok := existing[names[i]]; ok {
+				continue
+			}
+			allTags := append([]string{defaultTag}, extras[i]...)
 			builders = append(builders, client.Image.Create().
-				SetFileName(fmt.Sprintf("WEEK_%05d.jpg", idx)).
-				SetComputedFileName(names[idx]).
-				SetStorageId(fmt.Sprintf("seedwk%08d", idx)).
-				SetSize(1024*(idx%10+1)).
+				SetFileName(fmt.Sprintf(ns.file, i)).
+				SetComputedFileName(names[i]).
+				SetStorageId(fmt.Sprintf(ns.storage, i)).
+				SetSize(1024*(i%10+1)).
 				SetWidth(6000).
 				SetHeight(4000).
-				SetCapturedAt(correcteds[idx].Add(-Drift)).
-				SetCapturedAtCorrected(correcteds[idx]).
+				SetCapturedAt(correcteds[i].Add(-Drift)).
+				SetCapturedAtCorrected(correcteds[i]).
 				SetImageTags(allTags).
 				SetUserID(editor).
 				SetUploadID(upload).
 				SetProjectID(project).
 				SetCameraID(freshCam))
+			from = append(from, i)
 		}
-		// One tx per chunk: a failure half-way through a chunk would otherwise
-		// leave photos created with no assignment rows — and, with cmd/seed's
-		// single end-of-run manifest write, no manifest entry either.
+		if len(builders) == 0 {
+			continue
+		}
+		// One tx per chunk: a failure half-way through a chunk would otherwise leave
+		// photos created with no assignment rows — and, with cmd/seed's single
+		// end-of-run manifest write, no manifest entry either.
 		tx, err := client.Tx(ctx)
 		if err != nil {
-			return fmt.Errorf("begin week chunk tx: %w", err)
+			return fmt.Errorf("begin %s chunk tx: %w", shape, err)
 		}
 		created, err := tx.Image.CreateBulk(builders...).Save(ctx)
 		if err != nil {
 			_ = tx.Rollback()
-			return fmt.Errorf("bulk create week images: %w", err)
+			return fmt.Errorf("bulk create %s images: %w", shape, err)
 		}
-		// created is positionally aligned with builders (nothing was skipped
-		// here — every entry in `batch` is known-new), so index `i` of both is
-		// the same photo.
-		for i, img := range created {
-			if err := createTagAssignments(ctx, tx, img.ID, defaultTag, extras[batch[i]]); err != nil {
+		for k, img := range created {
+			// Every assignment for a freshly created image is new by definition.
+			if err := createTagAssignments(ctx, tx, img.ID, defaultTag, extras[from[k]]); err != nil {
 				_ = tx.Rollback()
 				return err
 			}
 		}
 		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit week chunk: %w", err)
+			return fmt.Errorf("commit %s chunk: %w", shape, err)
 		}
 		for _, img := range created {
 			recordImage(m, img.ID)
 		}
-		batch = batch[:0]
-		return nil
 	}
 
-	for i := range count {
-		if id, ok := existing[names[i]]; ok {
-			// Already seeded: keep the manifest complete and the re-run cheap.
-			recordImage(m, id)
-			// Calendar tags follow the PHOTO's stored instant, not the window this
-			// run recomputed. A top-up with a shifted --from/--to must not give an
-			// existing photo a second, wrong date tag.
-			tags := extras[i]
-			if at := existingTimes[names[i]]; at != nil {
-				tags = withCalendarTags(photoExtrasFixed(
-					rngFor(saltedIndexSeed("W", i, saltOf(salt))), pool, extrasPerPhoto), cal, *at, window.From.Location())
-			}
-			if err := inTx(ctx, client, func(tx *ent.Tx) error {
-				return assignMissingTagAssignments(ctx, tx, id, defaultTag, tags)
-			}); err != nil {
-				return fmt.Errorf("assign tags to week image %d: %w", i, err)
-			}
+	// Photos from an earlier run keep their id in the manifest and get only the
+	// assignments that are still missing.
+	for i, name := range names {
+		id, ok := existing[name]
+		if !ok {
 			continue
 		}
-		batch = append(batch, i)
-		if len(batch) == seedBulkChunk {
-			if err := flush(); err != nil {
-				return err
-			}
+		recordImage(m, id)
+		// The calendar tags follow the PHOTO's stored instant, not the window this run
+		// recomputed. A top-up with a shifted --from/--to must not give an existing
+		// photo a second, wrong date tag.
+		tags := extras[i]
+		if at := existingTimes[name]; at != nil {
+			tags = withCalendarTags(photoExtrasFixed(
+				rngFor(saltedIndexSeed(ns.tagSeed, i, saltOf(salt))), pool, extrasPerPhoto), cal, *at, window.From.Location())
+		}
+		if err := inTx(ctx, client, func(tx *ent.Tx) error {
+			return assignMissingTagAssignments(ctx, tx, id, defaultTag, tags)
+		}); err != nil {
+			return fmt.Errorf("assign tags to %s image %d: %w", shape, i, err)
 		}
 	}
-	if err := flush(); err != nil {
-		return err
-	}
-	// Fold the backfill in rather than leaving it behind a --tag-existing flag:
-	// photos that predate this load (the base fixture's three) would otherwise sit
-	// in the gallery carrying only Default, and any facet query groups them as one
-	// flat bucket next to thousands with a full tag set. FSG_W is this loader's own
-	// prefix, so those are skipped — they were just tagged from the same pool. cal
-	// rides along as the calendar cache, and the photos that DO get the backfill
-	// take their date and weekday from their own instants — so a photo outside this
-	// window (the base fixture's three, a real upload) comes out of the run with
-	// them rather than as the only photos in the gallery without a date.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, window.From.Location(), hourOffset, "FSG_W", salt...)
+
+	// The backfill is inline rather than behind a --tag-existing flag: photos that
+	// predate this load (the base fixture's three) would otherwise sit in the gallery
+	// carrying only Default, and any facet query groups them as one flat bucket next
+	// to thousands with a full tag set. ownPrefix is this shape's own name space, so
+	// those are skipped — they were just tagged from the same pool. cal rides along as
+	// the calendar cache, and the photos that DO get the backfill take their date and
+	// weekday from their own instants — so a photo outside this window (the base
+	// fixture's three, a real upload) comes out of the run with them rather than as
+	// the only photos in the gallery without a date.
+	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, window.From.Location(), hourOffset, ns.ownPrefix, salt...)
 }
 
 func rngFor(seed int64) *rand.Rand { return rand.New(rand.NewSource(seed)) }
@@ -1432,7 +1582,7 @@ func assignMissingTagAssignments(ctx context.Context, tx *ent.Tx, imageID string
 // loaded one. Assignments that are already recorded are skipped, so a re-run costs
 // one query per photo instead of 3 guaranteed-conflict inserts.
 
-// salt is the optional run seed (--seed); see SeedWeekOfPhotos.
+// salt is the optional run seed (--seed); see SeedPhotos.
 //
 // The calendar map handed down is nil, and that is deliberate rather than a gap:
 // this entry point has no window, so any map it could enumerate would cover the
@@ -1564,10 +1714,10 @@ func tagExistingPhotos(ctx context.Context, client *ent.Client, m *Manifest, ext
 		// ownPrefix skips the photos THIS loader just created, and the pool count
 		// skips a photo already drawn for.
 		//
-		// The pool test is the load-bearing one. The two loaders draw DIFFERENT tag
-		// sets for the same photo — SeedWeekOfPhotos keys on the photo's index,
+		// The pool test is the load-bearing one. A loader and the backfill draw
+		// DIFFERENT tag sets for the same photo — SeedPhotos keys on the photo's index,
 		// TagExistingPhotos keys on the image id — so a prefix check alone let the
-		// second loader's backfill add its own draw on top of the first loader's, and
+		// backfill add its own draw on top of the loader's, and
 		// a photo came out with up to six random tags instead of three.
 		//
 		// Per-image tag set, derived from the image id's VALUE rather than from a
@@ -1990,260 +2140,6 @@ func resolveCalendarTag(ctx context.Context, client *ent.Client, projectID strin
 	}
 	cal[name] = created.ID
 	return created.ID, nil
-}
-
-// SeedLastWeekPhotos creates `count` photos (5000 when count is 0 or less) with
-// capturedAtCorrected spread organically across the given window, in bursts
-// centred on five golden-hour events per day.
-// Timestamps use a Poisson-like distribution to simulate realistic shooting
-// bursts (events, golden hour) instead of uniform spacing. Each photo gets
-// the default tag plus 1-3 random extra tags drawn from the project's generated
-// team tags and Tag00–Tag09. Idempotent: skips images that already exist (by
-// computedFileName, WITHIN this project), keeping their id on the manifest —
-// recorded once — and adding only the assignments still missing.
-
-// salt is the optional run seed (--seed); see SeedWeekOfPhotos.
-func SeedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count int, salt ...int64) error {
-	return seedLastWeekPhotos(ctx, client, m, window, count, 0, nil, nil, nil, salt...)
-}
-
-// pool is the resolved draw pool, nil when the caller has none; see
-// seedWeekOfPhotos.
-func seedLastWeekPhotos(ctx context.Context, client *ent.Client, m *Manifest, window Window, count, extrasPerPhoto int, pool []string, cal map[string]string, hourOffset *int, salt ...int64) error {
-	// The identities are checked before anything is created: unlike a missing
-	// tag there is no partial recovery from them, and a failure after the tags
-	// were ensured leaves rows behind for a run that was never going to finish.
-	if err := requireFixtureIdentities(ctx, client, m); err != nil {
-		return fmt.Errorf("seed last week photos: %w", err)
-	}
-	defaultTag, err := requireDefaultTag(m.Tags)
-	if err != nil {
-		return fmt.Errorf("seed last week photos: %w", err)
-	}
-	if pool == nil {
-		if pool, err = resolveTagPool(ctx, client, m, nil); err != nil {
-			return err
-		}
-	}
-	if cal, err = ensureCalendarTags(ctx, client, m, window, cal); err != nil {
-		return err
-	}
-	if count <= 0 {
-		count = 5000
-	}
-	freshCam := m.Cameras["fresh"]
-	editor := m.Users["projectEditor"]
-	upload := m.Upload
-	project := m.Project
-
-	if err := window.Validate(); err != nil {
-		return fmt.Errorf("seed last week of photos: %w", err)
-	}
-	weekStart, days := window.From, window.Days()
-
-	// Generate organic timestamps: cluster around "events" (5 per day)
-	// Each event produces a burst of photos over 30-90 minutes.
-	//
-	// INVARIANT: nothing in the layout is drawn from the wall clock. Every burst
-	// gets its own stream, keyed by (day, event), so the layout for indices
-	// 0..N-1 depends only on the window — never on when the seeder ran, and
-	// never on the order the draws happen to come out in. The previous single rng
-	// was seeded from referenceNow.UnixNano(), so `--last-week 200` at 10:00 and
-	// `--last-week 700` at 11:00 redrew the whole layout and a top-up was not a
-	// superset of a single 700 run. (Which burst photo i lands in does depend on
-	// the final count, since the per-burst counts are an apportionment of it —
-	// but for a GIVEN count the layout and every instant are now reproducible.)
-	type burst struct {
-		center   time.Time
-		duration time.Duration
-		count    int
-	}
-	// Events favor golden hours: 6-9am, 5-8pm, plus some midday
-	goldenHours := [5]int{7, 8, 17, 18, 12}
-	// The clock time of a burst centre, and the width of a burst, are fractions of
-	// the window's own day rather than fixed hours and minutes — see burstDayScale
-	// for why, and for what it leaves alone.
-	dayScale := burstDayScale(window, days)
-	var bursts []burst
-	for d := 0; d < days; d++ {
-		dayStart := weekStart.AddDate(0, 0, d)
-		for e := range goldenHours {
-			// Still keyed by (day, event) and still the SAME draw: the scale is
-			// applied to the values this stream produces, so the layout for a given
-			// window is as reproducible as it was.
-			rng := rngFor(saltedIndexSeed("LWL", d*len(goldenHours)+e, saltOf(salt)))
-			jitter := time.Duration(rng.Intn(60)) * time.Minute
-			center := dayStart.Add(scaledDuration(time.Duration(goldenHours[e])*time.Hour+jitter, dayScale))
-			duration := scaledDuration(time.Duration(30+rng.Intn(60))*time.Minute, dayScale)
-			burstCount := 10 + rng.Intn(40) // 10-50 photos per burst
-			bursts = append(bursts, burst{center: center, duration: duration, count: burstCount})
-		}
-	}
-
-	// Normalize burst counts to EXACTLY `count`. Plain per-burst truncation
-	// threw the remainder away, so `--last-week 5000` seeded fewer than 5000
-	// photos and the shortfall came out of the tail — starving the most recent
-	// day, which is the range the time-range slider opens on by default.
-	//
-	// Fewer photos than bursts is a different case entirely: the "at least one
-	// per burst" floor then makes every count 1, the fix-up pass below cannot
-	// decrement, and the imgIdx cap below would take every photo from the
-	// OLDEST bursts — reintroducing the exact starvation this fixes. Drop
-	// bursts instead, keeping the largest ones (the busiest shooting days).
-	if count < len(bursts) {
-		sort.SliceStable(bursts, func(a, b int) bool { return bursts[a].count > bursts[b].count })
-		bursts = bursts[:count]
-	}
-	totalBurstCount := 0
-	for _, b := range bursts {
-		totalBurstCount += b.count
-	}
-	order := make([]int, len(bursts))
-	scaled := make([]float64, len(bursts))
-	assigned := 0
-	for i, b := range bursts {
-		order[i] = i
-		scaled[i] = float64(b.count) * float64(count) / float64(totalBurstCount)
-		bursts[i].count = int(scaled[i])
-		assigned += bursts[i].count
-	}
-	// Largest-remainder apportionment: the floors above lose up to one photo per
-	// burst, so hand the leftovers to the bursts with the biggest fractional
-	// claim first. sum(scaled) == count, so the floors can only ever UNDER-count
-	// and a decrement is unreachable — the old `else if` branch was dead code
-	// that made the loop look self-correcting when it cannot overshoot. Walking
-	// the permutation once is enough: the leftovers are the fractional parts,
-	// fewer than len(bursts) of them.
-	sort.SliceStable(order, func(a, b int) bool {
-		return math.Mod(scaled[order[a]], 1) > math.Mod(scaled[order[b]], 1)
-	})
-	for _, i := range order {
-		if assigned == count {
-			break
-		}
-		bursts[i].count++
-		assigned++
-	}
-
-	// Precompute the whole batch so the photos land in ONE set of bulk inserts
-	// instead of ~5 statements per photo.
-	names := make([]string, 0, count)
-	correcteds := make([]time.Time, 0, count)
-	extras := make([][]string, 0, count)
-	imgIdx := 0
-	for bIdx, b := range bursts {
-		for slot := 0; slot < b.count && imgIdx < count; slot++ {
-			// Photos distributed around burst center with slight skew toward
-			// start, drawn from the (burst, slot) stream — not a running one, for
-			// the same reason as the layout above.
-			offset := time.Duration(rngFor(saltedBurstSeed(bIdx, slot, saltOf(salt))).Float64()*float64(b.duration)) - b.duration/2
-			corrected := b.center.Add(offset)
-			if corrected.Before(weekStart) {
-				corrected = weekStart
-			}
-			if corrected.After(window.To) {
-				corrected = window.To
-			}
-			names = append(names, fmt.Sprintf("FSG_LW%05d.jpg", imgIdx))
-			correcteds = append(correcteds, corrected)
-			// Keyed on the PHOTO's index, not the slot: the tag set must not shift
-			// when the same photo is reached through a different count.
-			extras = append(extras, withCalendarTags(
-				photoExtrasFixed(rngFor(saltedIndexSeed("LW", imgIdx, saltOf(salt))), pool, extrasPerPhoto),
-				cal, corrected, window.From.Location()))
-			imgIdx++
-		}
-	}
-
-	existing, existingTimes, err := existingFileNames(ctx, client, project, names)
-	if err != nil {
-		return err
-	}
-	logLoadVolume("last-week", names, existing, extrasPerPhoto, len(pool))
-
-	for start := 0; start < len(names); start += seedBulkChunk {
-		end := min(start+seedBulkChunk, len(names))
-		builders := make([]*ent.ImageCreate, 0, end-start)
-		// The index of names/extras/correcteds each builder was built from.
-		// `created` is COMPACTED (existing names are skipped above) while those
-		// slices are not, so created[k] is names[from[k]] — indexing them by
-		// position gave 298 of 300 photos another photo's tag set.
-		from := make([]int, 0, end-start)
-		for i := start; i < end; i++ {
-			if _, ok := existing[names[i]]; ok {
-				continue
-			}
-			allTags := append([]string{defaultTag}, extras[i]...)
-			builders = append(builders, client.Image.Create().
-				SetFileName(fmt.Sprintf("LW_%05d.jpg", i)).
-				SetComputedFileName(names[i]).
-				SetStorageId(fmt.Sprintf("seedlw%08d", i)).
-				SetSize(1024*(i%10+1)).
-				SetWidth(6000).
-				SetHeight(4000).
-				SetCapturedAt(correcteds[i].Add(-Drift)).
-				SetCapturedAtCorrected(correcteds[i]).
-				SetImageTags(allTags).
-				SetUserID(editor).
-				SetUploadID(upload).
-				SetProjectID(project).
-				SetCameraID(freshCam))
-			from = append(from, i)
-		}
-		if len(builders) == 0 {
-			continue
-		}
-		// One tx per chunk: photos created with no assignment rows (and, with
-		// cmd/seed's single end-of-run manifest write, no manifest entry) are
-		// worse than a failed run.
-		tx, err := client.Tx(ctx)
-		if err != nil {
-			return fmt.Errorf("begin last-week chunk tx: %w", err)
-		}
-		created, err := tx.Image.CreateBulk(builders...).Save(ctx)
-		if err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("bulk create last-week images: %w", err)
-		}
-		for k, img := range created {
-			// Every assignment for a freshly created image is new by definition.
-			if err := createTagAssignments(ctx, tx, img.ID, defaultTag, extras[from[k]]); err != nil {
-				_ = tx.Rollback()
-				return err
-			}
-		}
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit last-week chunk: %w", err)
-		}
-		for _, img := range created {
-			recordImage(m, img.ID)
-		}
-	}
-
-	// Photos from an earlier run keep their id in the manifest and get only the
-	// assignments that are still missing.
-	for i, name := range names {
-		id, ok := existing[name]
-		if !ok {
-			continue
-		}
-		recordImage(m, id)
-		// See seedWeekOfPhotos: the calendar tags follow the photo's own instant,
-		// so a top-up against a shifted window stays a no-op.
-		tags := extras[i]
-		if at := existingTimes[name]; at != nil {
-			tags = withCalendarTags(photoExtrasFixed(
-				rngFor(saltedIndexSeed("LW", i, saltOf(salt))), pool, extrasPerPhoto), cal, *at, window.From.Location())
-		}
-		if err := inTx(ctx, client, func(tx *ent.Tx) error {
-			return assignMissingTagAssignments(ctx, tx, id, defaultTag, tags)
-		}); err != nil {
-			return fmt.Errorf("assign tags to last-week image %d: %w", i, err)
-		}
-	}
-	// See seedWeekOfPhotos for why the backfold is inline rather than behind a
-	// flag. FSG_LW is this loader's own prefix.
-	return tagExistingPhotos(ctx, client, m, extrasPerPhoto, pool, cal, window.From.Location(), hourOffset, "FSG_LW", salt...)
 }
 
 // ReadManifest loads a manifest previously written by Write. A missing file is

@@ -62,7 +62,7 @@ func TestBurstLoaderFillsEveryDateAcrossADSTChange(t *testing.T) {
 	c := fixtureClient(t)
 	m, err := Seed(ctx, c, refNow)
 	require.NoError(t, err)
-	require.NoError(t, SeedLastWeekPhotos(ctx, c, m, SevenDaysEndingAt(refNow), 350))
+	require.NoError(t, SeedPhotos(ctx, c, m, SevenDaysEndingAt(refNow), 350, ShapeBurst))
 
 	dates := map[string]struct{}{}
 	for _, img := range burstPhotos(t, ctx, c) {
@@ -92,7 +92,7 @@ func TestBurstLoaderSpreadsOverAShortWindow(t *testing.T) {
 	c := fixtureClient(t)
 	m, err := Seed(ctx, c, now)
 	require.NoError(t, err)
-	require.NoError(t, SeedLastWeekPhotos(ctx, c, m, short, 500))
+	require.NoError(t, SeedPhotos(ctx, c, m, short, 500, ShapeBurst))
 
 	photos := burstPhotos(t, ctx, c)
 	require.Len(t, photos, 500, "a short window must still write the requested count")
@@ -123,7 +123,7 @@ func TestBurstLayoutOfAFullDayWindowIsUnchanged(t *testing.T) {
 		c := fixtureClient(t)
 		m, err := Seed(ctx, c, refNow)
 		require.NoError(t, err)
-		require.NoError(t, SeedLastWeekPhotos(ctx, c, m, SevenDaysEndingAt(refNow), 120))
+		require.NoError(t, SeedPhotos(ctx, c, m, SevenDaysEndingAt(refNow), 120, ShapeBurst))
 		weekStart := refNow.AddDate(0, 0, -7)
 		out := map[string]time.Duration{}
 		for _, img := range burstPhotos(t, ctx, c) {
@@ -238,7 +238,7 @@ func TestShortWindowLayoutIsReproducible(t *testing.T) {
 		c := fixtureClient(t)
 		m, err := Seed(ctx, c, now)
 		require.NoError(t, err)
-		require.NoError(t, SeedLastWeekPhotos(ctx, c, m, short, 200))
+		require.NoError(t, SeedPhotos(ctx, c, m, short, 200, ShapeBurst))
 		out := map[string]time.Time{}
 		for _, img := range burstPhotos(t, ctx, c) {
 			require.NotNil(t, img.CapturedAtCorrected)

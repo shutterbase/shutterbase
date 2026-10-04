@@ -77,7 +77,7 @@ func otherProjectManifest(t *testing.T, c *ent.Client, seeded *seed.Manifest, na
 	}
 }
 
-func TestProjectScopeWeekLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T) {
+func TestProjectScopeUniformLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T) {
 	ctx := context.Background()
 	c := sqliteClient(t)
 	now := time.Now()
@@ -91,7 +91,7 @@ func TestProjectScopeWeekLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T) {
 
 	// Project A takes the FSG_W prefix first, so every name project B's loader
 	// asks about is already owned by A.
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, mA, w, photos))
+	require.NoError(t, seed.SeedPhotos(ctx, c, mA, w, photos, seed.ShapeUniform))
 	aPhotos := loadPhotos(t, c, "FSG_W")
 	require.Len(t, aPhotos, photos, "project A must own the FSG_W prefix for this test to mean anything")
 	for _, img := range aPhotos {
@@ -105,7 +105,7 @@ func TestProjectScopeWeekLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T) {
 	// own FSG_W rows and the only honest outcome is a loud failure. Both that and
 	// "B made its own photos" satisfy the invariant checked below; silently
 	// tagging A's photos does not.
-	errB := seed.SeedWeekOfPhotos(ctx, c, mB, w, photos)
+	errB := seed.SeedPhotos(ctx, c, mB, w, photos, seed.ShapeUniform)
 	t.Logf("project B loader over A's file names: err=%v", errB)
 
 	// 1. Nothing project B recorded may point at another project's photo.
@@ -157,10 +157,10 @@ func TestProjectScopeWeekLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T) {
 	}
 }
 
-// Same defect through the last-week loader: its names (FSG_LW%05d.jpg) are just
-// as hardcoded, so one project's last-week photos satisfy the other's
+// Same defect through the burst loader: its names (FSG_LW%05d.jpg) are just
+// as hardcoded, so one project's burst photos satisfy the other's
 // already-seeded check.
-func TestProjectScopeLastWeekLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T) {
+func TestProjectScopeBurstLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T) {
 	ctx := context.Background()
 	c := sqliteClient(t)
 	now := time.Now()
@@ -172,12 +172,12 @@ func TestProjectScopeLastWeekLoaderDoesNotTagAnotherProjectsPhotos(t *testing.T)
 	const photos = 5
 	w := seed.SevenDaysEndingAt(now)
 
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, mA, w, photos))
+	require.NoError(t, seed.SeedPhotos(ctx, c, mA, w, photos, seed.ShapeBurst))
 	aPhotos := loadPhotos(t, c, "FSG_LW")
 	require.Len(t, aPhotos, photos, "project A must own the FSG_LW prefix for this test to mean anything")
 
-	errB := seed.SeedLastWeekPhotos(ctx, c, mB, w, photos)
-	t.Logf("project B last-week loader over A's file names: err=%v", errB)
+	errB := seed.SeedPhotos(ctx, c, mB, w, photos, seed.ShapeBurst)
+	t.Logf("project B burst loader over A's file names: err=%v", errB)
 
 	for _, img := range loadPhotos(t, c, "FSG_LW") {
 		require.Equal(t, mA.Project, img.ProjectID)

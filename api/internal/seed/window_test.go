@@ -60,7 +60,7 @@ func TestWindowMovesThePhotos(t *testing.T) {
 		c := sqliteClient(t)
 		m, err := seed.Seed(ctx, c, now)
 		require.NoError(t, err)
-		require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, w, 40))
+		require.NoError(t, seed.SeedPhotos(ctx, c, m, w, 40, seed.ShapeUniform))
 
 		imgs, err := c.Image.Query().
 			Where(image.Not(image.ComputedFileNameHasPrefix("FSG_000"))).

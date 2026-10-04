@@ -39,10 +39,10 @@ func distinct(ids []string) int {
 func TestManifestImagesListsEachPhotoOnce(t *testing.T) {
 	loaders := map[string]func(ctx context.Context, c *ent.Client, m *seed.Manifest, w seed.Window, n int) error{
 		"week": func(ctx context.Context, c *ent.Client, m *seed.Manifest, w seed.Window, n int) error {
-			return seed.SeedWeekOfPhotos(ctx, c, m, w, n)
+			return seed.SeedPhotos(ctx, c, m, w, n, seed.ShapeUniform)
 		},
 		"lastWeek": func(ctx context.Context, c *ent.Client, m *seed.Manifest, w seed.Window, n int) error {
-			return seed.SeedLastWeekPhotos(ctx, c, m, w, n)
+			return seed.SeedPhotos(ctx, c, m, w, n, seed.ShapeBurst)
 		},
 	}
 	for name, load := range loaders {
@@ -93,10 +93,10 @@ func TestManifestDedupGuardIsNotSerialised(t *testing.T) {
 	now := time.Now()
 	m, err := seed.Seed(ctx, c, now)
 	require.NoError(t, err)
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 5))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 5, seed.ShapeUniform))
 
 	// Populate whatever in-memory bookkeeping the loaders use, then write.
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 5))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 5, seed.ShapeUniform))
 	require.Len(t, m.Images, 8, "the re-run added nothing")
 	path := filepath.Join(t.TempDir(), "manifest.json")
 	require.NoError(t, m.Write(path))
@@ -119,7 +119,7 @@ func TestManifestDedupGuardIsNotSerialised(t *testing.T) {
 	// it. This is the second run of the bug report, the one that went through
 	// disk.
 	backNow := len(back.Images)
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, back, seed.SevenDaysEndingAt(now), 5))
+	require.NoError(t, seed.SeedPhotos(ctx, c, back, seed.SevenDaysEndingAt(now), 5, seed.ShapeUniform))
 	require.Len(t, back.Images, backNow, "a manifest read back from disk must not grow on a re-run")
 
 	// A file that already carries duplicates — written by the pre-fix code —
@@ -138,7 +138,7 @@ func TestManifestDedupGuardIsNotSerialised(t *testing.T) {
 	dirty, err := seed.ReadManifest(dup)
 	require.NoError(t, err)
 	dirtyLen := len(dirty.Images)
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, dirty, seed.SevenDaysEndingAt(now), 5))
+	require.NoError(t, seed.SeedPhotos(ctx, c, dirty, seed.SevenDaysEndingAt(now), 5, seed.ShapeUniform))
 	require.Len(t, dirty.Images, dirtyLen+5,
 		"a duplicated manifest may keep its duplicates but gains only the new photos")
 	require.Equal(t, dirtyLen-1+5, distinct(dirty.Images), "the loader adds no further duplicates")

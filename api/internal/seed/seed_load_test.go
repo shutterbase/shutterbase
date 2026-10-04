@@ -68,7 +68,7 @@ func loadPhotos(t *testing.T, c *ent.Client, prefix string) []*ent.Image {
 // The load seeders back the time-range slider's density strip, so these
 // properties are load-bearing and each one was broken at some point:
 //
-//   - exact counts (`--week N` / `--last-week N` must seed N photos — plain
+//   - exact counts (`--shape uniform N` / `--shape burst N` must seed N photos — plain
 //     per-burst truncation lost the remainder and starved the newest day),
 //   - no photo dated in the future (photos spread forward from referenceNow
 //     read as future captures to EXIF export, slideshows and recency order),
@@ -90,8 +90,8 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	require.NoError(t, err)
 	now := time.Now()
 
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder))
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder, seed.ShapeUniform))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder, seed.ShapeBurst))
 
 	week := loadPhotos(t, c, "FSG_W")
 	lastWeek := loadPhotos(t, c, "FSG_LW")
@@ -99,8 +99,8 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	// split, the per-bucket tag coverage) is only meaningful on the exact
 	// requested population, and a short set cascades into a wall of unrelated
 	// failures instead of stopping at the count regression.
-	require.Len(t, week, perSeeder, "--week N must seed exactly N photos")
-	require.Len(t, lastWeek, perSeeder, "--last-week N must seed exactly N photos")
+	require.Len(t, week, perSeeder, "uniform N must seed exactly N photos")
+	require.Len(t, lastWeek, perSeeder, "burst N must seed exactly N photos")
 
 	all := make([]*ent.Image, 0, len(week)+len(lastWeek))
 	all = append(all, week...)
@@ -173,8 +173,8 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 		imgs  []*ent.Image
 		share string
 	}{
-		{"FSG_W", week, "week"},
-		{"FSG_LW", lastWeek, "last-week"},
+		{"FSG_W", week, "uniform"},
+		{"FSG_LW", lastWeek, "burst"},
 	} {
 		bucketsUsed := map[int]map[string]int{}
 		counts := map[int]int{}
@@ -240,7 +240,7 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	for _, img := range week {
 		countsBefore[img.ID] = assignmentCount(t, c, img.ID)
 	}
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), perSeeder, seed.ShapeUniform))
 	week2 := loadPhotos(t, c, "FSG_W")
 	require.Len(t, week2, perSeeder, "re-run stays idempotent")
 	for _, img := range week2 {
@@ -253,7 +253,7 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 	// to be seeded from referenceNow, and cmd/seed passes a fresh time.Now() on
 	// every run, so each re-run picked a different set and kept appending tags
 	// until every photo carried all ten.
-	require.NoError(t, seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), perSeeder))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), perSeeder, seed.ShapeUniform))
 	after := loadPhotos(t, c, "FSG_W")
 	require.Len(t, after, perSeeder, "a later re-run adds no photos")
 	for _, img := range after {
@@ -264,22 +264,22 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 			"re-running at a different wall clock must not append tags to %s", img.ComputedFileName)
 	}
 
-	// The same guard for the last-week seeder, which had the identical bug: its
+	// The same guard for the burst seeder, which had the identical bug: its
 	// extras came off the single wall-clock-seeded rng, so every re-run at a new
 	// time appended up to 3 more tags per photo until all ten were present. It
 	// was invisible because only the week seeder was ever re-run here.
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), perSeeder))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now.Add(72*time.Hour)), perSeeder, seed.ShapeBurst))
 	afterLW := loadPhotos(t, c, "FSG_LW")
-	require.Len(t, afterLW, perSeeder, "a later last-week re-run adds no photos")
+	require.Len(t, afterLW, perSeeder, "a later burst re-run adds no photos")
 	for _, img := range afterLW {
 		assert.LessOrEqual(t, len(img.ImageTags), 6,
 			"re-running the last-week seeder at a different wall clock must not append tags to %s", img.ComputedFileName)
 	}
 }
 
-// The last-week seeder draws its whole burst layout AND its tag sets. Both used
+// The burst seeder draws its whole layout AND its tag sets. Both used
 // to come off one rng seeded from referenceNow.UnixNano(), so the same
-// `--last-week N` at two different moments produced two different timelines: a
+// `--shape burst` with N at two different moments produced two different timelines: a
 // top-up was not a superset of a single larger run, and each re-run appended
 // tags. The invariant is that a photo's instant and its tag set depend only on
 // its index and the window.
@@ -287,7 +287,7 @@ func TestLoadSeedersHonourCountsAndDates(t *testing.T) {
 // UTC reference instants keep the comparison honest: weekStart is derived with
 // AddDate, so a reference pair straddling a DST transition in the host's zone
 // would shift whole days by an hour and the instants would legitimately differ.
-func TestLastWeekLayoutIgnoresWallClock(t *testing.T) {
+func TestBurstLayoutIgnoresWallClock(t *testing.T) {
 	ctx := context.Background()
 	refA := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 	refB := refA.Add(72 * time.Hour)
@@ -295,12 +295,12 @@ func TestLastWeekLayoutIgnoresWallClock(t *testing.T) {
 	cA := sqliteClient(t)
 	mA, err := seed.Seed(ctx, cA, refA)
 	require.NoError(t, err)
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cA, mA, seed.SevenDaysEndingAt(refA), 300))
+	require.NoError(t, seed.SeedPhotos(ctx, cA, mA, seed.SevenDaysEndingAt(refA), 300, seed.ShapeBurst))
 
 	cB := sqliteClient(t)
 	mB, err := seed.Seed(ctx, cB, refB)
 	require.NoError(t, err)
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(refB), 300))
+	require.NoError(t, seed.SeedPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(refB), 300, seed.ShapeBurst))
 
 	byNameA := randomTagSetsByName(t, cA, mA, "FSG_LW")
 	byNameB := randomTagSetsByName(t, cB, mB, "FSG_LW")
@@ -358,11 +358,11 @@ func TestLoadSeedersRejectAnEmptyDefaultTag(t *testing.T) {
 	now := time.Now()
 	delete(m.Tags, "Default")
 
-	errWeek := seed.SeedWeekOfPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 20)
+	errWeek := seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 20, seed.ShapeUniform)
 	require.Error(t, errWeek, "a manifest with no Default tag must fail loudly, not write an empty-string FK")
 	assert.Contains(t, errWeek.Error(), "Default", "the error must name the missing tag")
 
-	errLastWeek := seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 20)
+	errLastWeek := seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 20, seed.ShapeBurst)
 	require.Error(t, errLastWeek, "a manifest with no Default tag must fail loudly, not write an empty-string FK")
 	assert.Contains(t, errLastWeek.Error(), "Default", "the error must name the missing tag")
 
@@ -373,7 +373,7 @@ func TestLoadSeedersRejectAnEmptyDefaultTag(t *testing.T) {
 }
 
 // Growing the counts exercises the paths a single-chunk run never reaches: the
-// partial-chunk boundary in SeedLastWeekPhotos, where `created` is compacted
+// partial-chunk boundary in the burst loader, where `created` is compacted
 // (existing names are skipped) while the extras slice is not. Indexing them by
 // position gave 298 of 300 new photos another photo's tag set.
 //
@@ -391,7 +391,7 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	mA, err := seed.Seed(ctx, cA, time.Now())
 	require.NoError(t, err)
 	nowA := time.Now()
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cA, mA, seed.SevenDaysEndingAt(nowA), 700))
+	require.NoError(t, seed.SeedPhotos(ctx, cA, mA, seed.SevenDaysEndingAt(nowA), 700, seed.ShapeBurst))
 
 	// B: 200 first, then top up to 700 — the second run's first chunk is
 	// half-existing, which is where the compaction bug lives.
@@ -399,8 +399,8 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	mB, err := seed.Seed(ctx, cB, time.Now())
 	require.NoError(t, err)
 	nowB := nowA
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 200))
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 700))
+	require.NoError(t, seed.SeedPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 200, seed.ShapeBurst))
+	require.NoError(t, seed.SeedPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 700, seed.ShapeBurst))
 
 	require.Len(t, loadPhotos(t, cB, "FSG_LW"), 700, "growing the count must top the set up, not duplicate it")
 
@@ -437,8 +437,8 @@ func TestLoadSeedersGrowAcrossChunkBoundaries(t *testing.T) {
 	}
 
 	// Re-run at the larger count: nothing new, nothing duplicated.
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 700))
-	assert.Len(t, loadPhotos(t, cB, "FSG_LW"), 700, "last-week re-run stays idempotent")
+	require.NoError(t, seed.SeedPhotos(ctx, cB, mB, seed.SevenDaysEndingAt(nowB), 700, seed.ShapeBurst))
+	assert.Len(t, loadPhotos(t, cB, "FSG_LW"), 700, "burst re-run stays idempotent")
 }
 
 // TagExistingPhotos adds assignment rows to images that ALREADY have tags, so
@@ -658,7 +658,7 @@ func TestLoadSeedersBelowBurstCountStillFill(t *testing.T) {
 	require.NoError(t, err)
 	now := time.Now()
 
-	require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 12))
+	require.NoError(t, seed.SeedPhotos(ctx, c, m, seed.SevenDaysEndingAt(now), 12, seed.ShapeBurst))
 	lw := loadPhotos(t, c, "FSG_LW")
 	require.Len(t, lw, 12, "a count below the burst count still seeds exactly that many")
 

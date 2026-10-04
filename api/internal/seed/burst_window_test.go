@@ -30,7 +30,7 @@ func TestBurstLayoutScalesWithTheWindow(t *testing.T) {
 		c := sqliteClient(t)
 		m, err := seed.Seed(ctx, c, now)
 		require.NoError(t, err)
-		require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, w, 200))
+		require.NoError(t, seed.SeedPhotos(ctx, c, m, w, 200, seed.ShapeBurst))
 
 		imgs, err := c.Image.Query().All(ctx)
 		require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestBurstLayoutForAGivenWindowIsReproducible(t *testing.T) {
 		c := sqliteClient(t)
 		m, err := seed.Seed(ctx, c, now)
 		require.NoError(t, err)
-		require.NoError(t, seed.SeedLastWeekPhotos(ctx, c, m, w, 200))
+		require.NoError(t, seed.SeedPhotos(ctx, c, m, w, 200, seed.ShapeBurst))
 		imgs, err := c.Image.Query().All(ctx)
 		require.NoError(t, err)
 		out := make([]string, 0, len(imgs))

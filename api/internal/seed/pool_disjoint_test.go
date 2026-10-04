@@ -190,7 +190,7 @@ func TestLoaderSurvivesATagSetNamingTheSeededTags(t *testing.T) {
 	cal, err := ensureCalendarTags(ctx, c, m, window, nil)
 	require.NoError(t, err)
 
-	require.NoError(t, seedLastWeekPhotos(ctx, c, m, window, 300, 2, pool, cal, nil),
+	require.NoError(t, seedPhotos(ctx, c, m, window, 300, 2, pool, cal, nil, ShapeBurst),
 		"a tag set naming the seeder's own tags must not abort the run")
 
 	photos := imagesWithPrefix(t, ctx, c, m, "FSG_LW")

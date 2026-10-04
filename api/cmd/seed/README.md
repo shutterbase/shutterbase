@@ -514,7 +514,7 @@ rule accepts the seeder's raw pair *and* the app's shifted pair. Without that, e
 photo captured before 03:00 local would have its app-written date tag judged stale
 and deleted on the next run — the exact photos the offset exists to serve. When the
 offset is not supplied at all (`HourOffset` nil, which is every exported
-`seed.SeedWeekOfPhotos` / `seed.SeedLastWeekPhotos` caller) the cleanup keeps *every*
+`seed.SeedPhotos` caller that omits `HourOffset`) the cleanup keeps *every*
 calendar name instead, because an imprecise keep costs a stale tag surviving one run
 while an imprecise delete loses the tag for good. `seed.TagExistingPhotos` takes the
 offset directly.
