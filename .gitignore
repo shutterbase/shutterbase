@@ -232,3 +232,8 @@ yarn-error.log
 
 # Claude Code worktrees (parked feature branches live here)
 .claude/worktrees/
+
+# magic-context (@cortexkit/opencode-magic-context) writes its data here, plus a
+# nested .gitignore that it never commits — so the directory reports itself untracked
+# on every status and `git add -A` can sweep session transcripts into a commit.
+/.cortexkit/

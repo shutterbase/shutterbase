@@ -96,8 +96,10 @@ func TestDefaultTagTemplatesRender(t *testing.T) {
 	_, err := repo.Client.User.UpdateOneID(m.Users["projectEditor"]).SetCopyrightTag("PS").Save(ctx)
 	require.NoError(t, err)
 
-	// Seed already has a "$DATE" template; add the rest.
-	for _, tmpl := range []string{"$PROJECT", "$WEEKDAY", "$COPYRIGHT", "$Static"} {
+	// Seed already has the "$DATE" AND "$WEEKDAY" templates; add the rest. $WEEKDAY
+	// joined them because the app can only render a weekday from a template, and a
+	// test that created it itself now dies on the unique (name, project_id) index.
+	for _, tmpl := range []string{"$PROJECT", "$COPYRIGHT", "$Static"} {
 		addTemplate(t, repo, m.Project, tmpl)
 	}
 
@@ -140,7 +142,8 @@ func TestDefaultTagTemplatesRender(t *testing.T) {
 // previous day (the shoot-past-midnight case).
 func TestDateTagHourOffsetRollover(t *testing.T) {
 	svc, _, m, repo := newImageSvc(t)
-	addTemplate(t, repo, m.Project, "$WEEKDAY")
+	// $WEEKDAY comes from Seed now; only addTemplate the ones it does not ship.
+	addTemplate(t, repo, m.Project, "$PROJECT")
 
 	// 01:00:00 UTC Fri 2025-06-13; +37s drift, then -3h => 22:00 Thu 2025-06-12.
 	captured := time.Date(2025, 6, 13, 1, 0, 0, 0, time.UTC)

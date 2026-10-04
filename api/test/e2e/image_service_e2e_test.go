@@ -34,8 +34,10 @@ func TestImageServiceCreateDefaultTags(t *testing.T) {
 	m := stack.Manifest
 	c := stack.DB.Client
 
-	// Add the remaining template tags to the seed project ($DATE already seeded).
-	addedTemplates := []string{"$PROJECT", "$WEEKDAY"}
+	// Add the remaining template tags to the seed project ($DATE and $WEEKDAY
+	// already seeded — creating $WEEKDAY again would die on the unique
+	// (name, project_id) index).
+	addedTemplates := []string{"$PROJECT"}
 	for _, tmpl := range addedTemplates {
 		_, err := c.ImageTag.Create().
 			SetName(tmpl).SetDescription("tmpl").SetType(imagetag.TypeTemplate).SetProjectID(m.Project).

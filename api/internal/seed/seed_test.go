@@ -3,6 +3,7 @@ package seed_test
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/shutterbase/shutterbase/ent"
+	"github.com/shutterbase/shutterbase/ent/image"
 	"github.com/shutterbase/shutterbase/ent/imagetag"
 	"github.com/shutterbase/shutterbase/ent/imagetagassignment"
 	"github.com/shutterbase/shutterbase/ent/user"
@@ -75,6 +77,29 @@ func TestEnumValues(t *testing.T) {
 }
 
 // Seed unit: the fixture set loads and the time-relative offset relationships hold.
+// calendartags.go says the $WEEKDAY template "must ship" or the app creates weekday
+// tags as type=manual and collides the unique index on (name, project_id). Nothing
+// asserted that, so a row dropped from Seed's tag list would have gone unnoticed until
+// an upload 500'd. Assert it where the list is built.
+func TestSeedShipsTheCalendarTagTemplates(t *testing.T) {
+	ctx := context.Background()
+	c := sqliteClient(t)
+	m, err := seed.Seed(ctx, c, time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC))
+	require.NoError(t, err)
+
+	for _, name := range []string{"$DATE", "$WEEKDAY"} {
+		id, ok := m.Tags[name]
+		require.True(t, ok, "Seed must create the %s template: the app renders $DATE and $WEEKDAY from it, and "+
+			"without it the app creates those tags as type=manual, which collides the unique index on (name, project_id) "+
+			"against the rows the seeder writes as type=default", name)
+		row, err := c.ImageTag.Get(ctx, id)
+		require.NoError(t, err)
+		assert.Equal(t, imagetag.TypeTemplate, row.Type,
+			"%s must be a type=template row: addDefaultTags only ever renders templates, so a manual row would never be applied", name)
+		assert.NotEmpty(t, row.Description, "image_tags.description is NotEmpty in the schema")
+	}
+}
+
 func TestSeedManifestAndOffsets(t *testing.T) {
 	ctx := context.Background()
 	c := sqliteClient(t)
@@ -87,7 +112,11 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 	assert.Len(t, m.Users, 5)   // admin, user, projectAdmin/Editor/Viewer
 	assert.Len(t, m.Roles, 3)   // projectAdmin/Editor/Viewer
 	assert.Len(t, m.Cameras, 2) // fresh + stale
-	assert.Len(t, m.Tags, 4)    // template + manual + default + internal
+	// Two templates now ($DATE + $WEEKDAY), one manual, one default, one internal.
+	// $WEEKDAY is what lets the app RENDER a weekday tag; without it a real upload
+	// would insert one as manual and collide the unique (name, project_id) index the
+	// seeded calendar tags rely on.
+	assert.Len(t, m.Tags, 5)    // templates + manual + default + internal
 	assert.Len(t, m.Offsets, 2) // fresh + stale
 	assert.Len(t, m.Images, 3)
 	assert.Equal(t, 37, m.DriftSeconds)
@@ -113,4 +142,53 @@ func TestSeedManifestAndOffsets(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, u.CopyrightTag, "seeded user %s needs a copyrightTag", key)
 	}
+}
+
+// The base fixture's own jsonb read model must match its assignment rows.
+//
+// Found by seeding a real database and diffing images.image_tags against the
+// assignment table: FSG_0002.jpg carried `internal` in both, but the jsonb held
+// only `Default`. That is not cosmetic — the gallery filter
+// (buildImagePredicates -> sqljson.ValueContains) and ToImageResponse read the
+// jsonb and never the assignment rows, so a photo marked internal in the
+// assignment table but not in the jsonb still reaches an EXIF export and a
+// slideshow. seed.Seed wrote allTags into the jsonb BEFORE inserting the
+// internal row and never rebuilt it.
+func TestSeedRebuildsTheJSONBReadModelForEveryImage(t *testing.T) {
+	c := sqliteClient(t)
+	ctx := context.Background()
+	_, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+
+	images, err := c.Image.Query().All(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, images)
+
+	for _, img := range images {
+		rows, err := c.ImageTagAssignment.Query().
+			Where(imagetagassignment.ImageID(img.ID)).
+			Select(imagetagassignment.FieldImageTagID).
+			Strings(ctx)
+		require.NoError(t, err)
+		slices.Sort(rows)
+		assert.ElementsMatch(t, slices.Compact(rows), img.ImageTags,
+			"imageTags jsonb must match the assignment rows for %s", img.ComputedFileName)
+	}
+}
+
+// The internal marker specifically: it is the one assignment Seed adds after the
+// image row exists, so it is the one that used to be missed.
+func TestSeedKeepsTheInternalImageVisibleToTheReadModel(t *testing.T) {
+	c := sqliteClient(t)
+	ctx := context.Background()
+	m, err := seed.Seed(ctx, c, time.Now())
+	require.NoError(t, err)
+
+	internalTag := m.Tags["internal"]
+	require.NotEmpty(t, internalTag)
+
+	img, err := c.Image.Query().Where(image.ComputedFileName("FSG_0002.jpg")).Only(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, img.ImageTags, internalTag,
+		"the internal-tagged image must carry it in the jsonb, or it leaks into exports and slideshows")
 }
